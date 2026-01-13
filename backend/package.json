@@ -1,0 +1,17 @@
+{
+  "name": "venus-attendance-backend",
+  "version": "1.0.0",
+  "description": "Node.js backend for Venus Attendance Recap",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "date-fns": "^3.0.0",
+    "dotenv": "^16.3.0",
+    "express": "^4.18.0"
+  }
+}
