@@ -1,23 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import {
     Box,
-    Paper,
     Typography,
     IconButton,
-    Tabs,
-    Tab,
     Select,
     MenuItem,
     FormControl,
-    useTheme,
-    useMediaQuery
+    InputBase
 } from '@mui/material';
-import { ChevronLeft, ChevronRight } from '@mui/icons-material';
+import { styled } from '@mui/material/styles';
+import { ChevronLeft, ChevronRight, CalendarMonth } from '@mui/icons-material';
+
+// Styled select for seamless integration
+const StyledSelect = styled(InputBase)(({ theme }) => ({
+    '& .MuiInputBase-input': {
+        borderRadius: 4,
+        position: 'relative',
+        backgroundColor: 'transparent',
+        border: '1px solid transparent',
+        fontSize: '0.9rem',
+        fontWeight: 600,
+        padding: '4px 26px 4px 12px',
+        transition: theme.transitions.create(['border-color', 'background-color']),
+        fontFamily: theme.typography.fontFamily,
+        '&:focus': {
+            borderColor: theme.palette.primary.main,
+            borderRadius: 4,
+        },
+        '&:hover': {
+            backgroundColor: theme.palette.action.hover,
+        }
+    },
+}));
 
 const MonthNavigator = ({ onFetch, loading }) => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
 
@@ -25,35 +41,27 @@ const MonthNavigator = ({ onFetch, loading }) => {
     const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
     const months = [
-        { value: 1, label: 'JAN', full: 'Januari' },
-        { value: 2, label: 'FEB', full: 'Februari' },
-        { value: 3, label: 'MAR', full: 'Maret' },
-        { value: 4, label: 'APR', full: 'April' },
-        { value: 5, label: 'MEI', full: 'Mei' },
-        { value: 6, label: 'JUN', full: 'Juni' },
-        { value: 7, label: 'JUL', full: 'Juli' },
-        { value: 8, label: 'AGU', full: 'Agustus' },
-        { value: 9, label: 'SEP', full: 'September' },
-        { value: 10, label: 'OKT', full: 'Oktober' },
-        { value: 11, label: 'NOV', full: 'November' },
-        { value: 12, label: 'DES', full: 'Desember' },
+        { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' },
+        { value: 3, label: 'Maret' }, { value: 4, label: 'April' },
+        { value: 5, label: 'Mei' }, { value: 6, label: 'Juni' },
+        { value: 7, label: 'Juli' }, { value: 8, label: 'Agustus' },
+        { value: 9, label: 'September' }, { value: 10, label: 'Oktober' },
+        { value: 11, label: 'November' }, { value: 12, label: 'Desember' },
     ];
 
     const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 
     useEffect(() => {
-        // Auto-fetch when month/year changes
-        // Debounce slightly to prevent double-firing on init if needed, 
-        // but simple effect is usually fine.
-        // We only fetch if not loading to prevent spam, 
-        // but we need to allow retries.
-    }, [selectedMonth, selectedYear]);
+        // Initial fetch on mount is handled by App.jsx defaults or user action?
+        // Let's trigger it once on mount if needed, or rely on user.
+        // Actually, App.jsx relies on this component triggering changes.
+        onFetch(selectedMonth, selectedYear);
+    }, []); // Run once on mount
 
-    const handleMonthChange = (event, newValue) => {
-        if (newValue !== null) {
-            setSelectedMonth(newValue);
-            onFetch(newValue, selectedYear);
-        }
+    const handleMonthChange = (event) => {
+        const newValue = event.target.value;
+        setSelectedMonth(newValue);
+        onFetch(newValue, selectedYear);
     };
 
     const handleYearChange = (event) => {
@@ -62,80 +70,81 @@ const MonthNavigator = ({ onFetch, loading }) => {
         onFetch(selectedMonth, newYear);
     };
 
-    const handlePrevYear = () => {
-        const newYear = selectedYear - 1;
+    const handlePrevMonth = () => {
+        let newMonth = selectedMonth - 1;
+        let newYear = selectedYear;
+        if (newMonth < 1) {
+            newMonth = 12;
+            newYear -= 1;
+        }
+        setSelectedMonth(newMonth);
         setSelectedYear(newYear);
-        onFetch(selectedMonth, newYear);
+        onFetch(newMonth, newYear);
     };
 
-    const handleNextYear = () => {
-        const newYear = selectedYear + 1;
+    const handleNextMonth = () => {
+        let newMonth = selectedMonth + 1;
+        let newYear = selectedYear;
+        if (newMonth > 12) {
+            newMonth = 1;
+            newYear += 1;
+        }
+        setSelectedMonth(newMonth);
         setSelectedYear(newYear);
-        onFetch(selectedMonth, newYear);
+        onFetch(newMonth, newYear);
     };
 
     return (
-        <Paper 
-            elevation={1} 
-            sx={{ 
-                p: 0, 
-                bgcolor: '#fff', 
-                borderRadius: 2,
-                overflow: 'hidden',
-                mb: 2,
-                borderBottom: '1px solid #e0e0e0'
-            }}
-        >
-            <Box sx={{ display: 'flex', alignItems: 'center', p: 1, borderBottom: '1px solid #f0f0f0' }}>
-                {/* Year Selector */}
-                <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-                    <IconButton onClick={handlePrevYear} size="small">
-                        <ChevronLeft />
-                    </IconButton>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold', mx: 1, minWidth: 60, textAlign: 'center' }}>
-                        {selectedYear}
-                    </Typography>
-                    <IconButton onClick={handleNextYear} size="small">
-                        <ChevronRight />
-                    </IconButton>
-                </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton onClick={handlePrevMonth} size="small" disabled={loading}>
+                <ChevronLeft fontSize="small" />
+            </IconButton>
 
-                <Box sx={{ flexGrow: 1 }} />
+            <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                border: '1px solid #e2e8f0', 
+                borderRadius: 1, 
+                px: 1, 
+                py: 0.5,
+                bgcolor: '#fff'
+            }}>
+                <CalendarMonth fontSize="small" sx={{ mr: 1, color: 'text.secondary', fontSize: '1rem' }} />
+                
+                <Select
+                    value={selectedMonth}
+                    onChange={handleMonthChange}
+                    variant="standard"
+                    disableUnderline
+                    input={<StyledSelect />}
+                    disabled={loading}
+                    MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
+                >
+                    {months.map((m) => (
+                        <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                    ))}
+                </Select>
 
-                {/* Status/Info Text */}
-                <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', md: 'block' }, mr: 2 }}>
-                    Menampilkan data: <b>{months.find(m => m.value === selectedMonth)?.full} {selectedYear}</b>
-                </Typography>
+                <Typography variant="body2" sx={{ mx: 0.5, color: 'text.secondary' }}>/</Typography>
+
+                <Select
+                    value={selectedYear}
+                    onChange={handleYearChange}
+                    variant="standard"
+                    disableUnderline
+                    input={<StyledSelect />}
+                    disabled={loading}
+                >
+                    {years.map((y) => (
+                        <MenuItem key={y} value={y}>{y}</MenuItem>
+                    ))}
+                </Select>
             </Box>
 
-            {/* Month Tabs */}
-            <Tabs
-                value={selectedMonth}
-                onChange={handleMonthChange}
-                variant="scrollable"
-                scrollButtons="auto"
-                indicatorColor="primary"
-                textColor="primary"
-                aria-label="month-selector"
-                sx={{
-                    minHeight: 48,
-                    '& .MuiTab-root': {
-                        minWidth: 70,
-                        fontWeight: 600,
-                        fontSize: '0.85rem'
-                    }
-                }}
-            >
-                {months.map((m) => (
-                    <Tab 
-                        key={m.value} 
-                        label={m.label} 
-                        value={m.value} 
-                        disabled={loading}
-                    />
-                ))}
-            </Tabs>
-        </Paper>
+            <IconButton onClick={handleNextMonth} size="small" disabled={loading}>
+                <ChevronRight fontSize="small" />
+            </IconButton>
+        </Box>
     );
 };
 

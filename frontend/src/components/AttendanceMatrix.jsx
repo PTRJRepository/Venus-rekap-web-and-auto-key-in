@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
     Box,
     Table,
@@ -10,65 +10,60 @@ import {
     Paper,
     Tooltip,
     Typography,
-    Switch,
-    FormControlLabel,
     Chip,
+    Avatar
 } from '@mui/material';
+import { 
+    Work as WorkIcon,
+    Person as PersonIcon,
+    Fingerprint as FingerprintIcon,
+    Summarize as SummarizeIcon
+} from '@mui/icons-material';
 
-// CSS Class to Style Mapping (from original templates/index.html)
-const getCellStyle = (className) => {
-    const styles = {
-        // Primary statuses
-        'hours-alfa': { bg: '#ffcdd2', color: '#d32f2f', border: '2px solid #d32f2f', fontWeight: 'bold' },
-        'hours-normal': { bg: '#e8f5e8', color: '#2d5a2d', fontWeight: 'bold' },
-        'hours-normal-overtime': { bg: '#d4edda', color: '#155724', border: '2px solid #28a745', fontWeight: 'bold' },
-        'hours-overtime-only': { bg: '#fff3cd', color: '#664d03', border: '2px solid #ffc107', fontWeight: 'bold' },
-        'hours-full': { bg: '#d1e7dd', color: '#0f5132', fontWeight: 'bold' },
-
-        // Incomplete
-        'hours-partial-check-in-only': { bg: '#bbdefb', color: '#1976d2', border: '2px solid #2196f3', fontWeight: 'bold' },
-        'hours-partial-check-out-only': { bg: '#bbdefb', color: '#1976d2', border: '2px solid #2196f3', fontWeight: 'bold' },
-
-        // Leave types
-        'leave-ct': { bg: '#e3f2fd', color: '#1976d2', fontWeight: 'bold' },
-        'leave-cb': { bg: '#e1f5fe', color: '#0277bd', fontWeight: 'bold' },
-        'leave-s': { bg: '#ffebee', color: '#d32f2f', fontWeight: 'bold' },
-        'leave-i': { bg: '#f9fbe7', color: '#689f38', fontWeight: 'bold' },
-        'leave-h2': { bg: '#fce4ec', color: '#c2185b', fontWeight: 'bold' },
-        'leave-p1': { bg: '#f3e5f5', color: '#7b1fa2', fontWeight: 'bold' },
-        'leave-p2': { bg: '#e8f5e8', color: '#388e3c', fontWeight: 'bold' },
-        'leave-p3': { bg: '#fff3e0', color: '#f57c00', fontWeight: 'bold' },
-
-        // Absence types
-        'absence-unpaid-alfa': { bg: '#ffcdd2', color: '#d32f2f', border: '2px solid #f44336', fontWeight: 'bold' },
-        'absence-sick': { bg: '#ffebee', color: '#c62828', border: '2px solid #f44336', fontWeight: 'bold' },
-        'absence-duty': { bg: '#e8eaf6', color: '#3f51b5', border: '2px solid #3f51b5', fontWeight: 'bold' },
-
-        // OFF and unavailable
-        'hours-off': { bg: '#f5f5f5', color: '#757575', fontStyle: 'italic' },
-        'hours-absent': { bg: '#f8f9fa', color: '#6c757d' },
-        'hours-data-unavailable': { bg: '#e9ecef', color: '#adb5bd', fontStyle: 'italic', cursor: 'not-allowed' },
-
-        // Default
-        'default': { bg: '#ffffff', color: '#000000' }
-    };
-
-    return styles[className] || styles['default'];
+// Enterprise Status Colors
+const getStatusStyle = (status) => {
+    switch(status) {
+        case 'Hadir': return { bg: '#dcfce7', color: '#166534', border: '#bbf7d0' }; // Green
+        case 'Lembur': return { bg: '#fff7ed', color: '#c2410c', border: '#ffedd5' }; // Orange
+        case 'Sakit': 
+        case 'S': return { bg: '#fef2f2', color: '#b91c1c', border: '#fee2e2' }; // Red
+        case 'Izin': 
+        case 'I': return { bg: '#f0f9ff', color: '#0369a1', border: '#e0f2fe' }; // Sky
+        case 'Cuti': 
+        case 'CT': return { bg: '#f5f3ff', color: '#6d28d9', border: '#ede9fe' }; // Violet
+        case 'ALFA': return { bg: '#450a0a', color: '#ffffff', border: '#450a0a' }; // Dark Red
+        case 'OFF': return { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' }; // Slate
+        case 'Incomplete': return { bg: '#fffbeb', color: '#b45309', border: '#fef3c7' }; // Amber
+        default: return { bg: '#ffffff', color: '#334155', border: 'transparent' };
+    }
 };
 
 const AttendanceMatrix = ({ data = [] }) => {
-    const [showOvertime, setShowOvertime] = useState(true); // Toggle for overtime display
     const safeData = Array.isArray(data) ? data : [];
-
-    if (!safeData || safeData.length === 0) {
+    
+    if (safeData.length === 0) {
         return (
-            <Paper sx={{ p: 4, textAlign: 'center', bgcolor: '#f8f9fa', mt: 2 }}>
-                <Typography variant="h6" color="text.secondary">
-                    Tidak ada data untuk ditampilkan
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    Pilih bulan untuk menampilkan rekap absensi
-                </Typography>
+            <Paper 
+                elevation={0} 
+                sx={{ 
+                    height: '100%', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    bgcolor: 'background.default',
+                    border: '1px dashed #cbd5e1',
+                    borderRadius: 2
+                }}
+            >
+                <Box sx={{ textAlign: 'center', p: 4 }}>
+                    <FingerprintIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                        Tidak ada data
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        Pilih periode atau refresh data untuk melihat rekap absensi.
+                    </Typography>
+                </Box>
             </Paper>
         );
     }
@@ -76,181 +71,217 @@ const AttendanceMatrix = ({ data = [] }) => {
     const daysMap = safeData[0]?.attendance || {};
     const dayNumbers = Object.keys(daysMap).sort((a, b) => Number(a) - Number(b));
 
-    // Sticky column widths (matching original)
-    const stickyStyles = {
-        no: { left: 0, minWidth: 50, zIndex: 30, bgcolor: '#f8f9fa' },
-        id: { left: 50, minWidth: 100, zIndex: 30, bgcolor: '#f8f9fa' },
-        ptrjId: { left: 150, minWidth: 100, zIndex: 30, bgcolor: '#f8f9fa', color: '#0284c7', fontWeight: 600 },
-        name: { left: 250, minWidth: 200, zIndex: 30, bgcolor: '#f8f9fa', fontWeight: 600 },
-        chargeJob: { left: 450, minWidth: 250, zIndex: 30, bgcolor: '#fffbeb' }
-    };
-
-    // Helper to format display based on toggle
-    const getDisplayText = (d) => {
-        if (!showOvertime) {
-            // Hide overtime, just show status
-            if (d.display.includes('+')) {
-                return d.display.split('+')[0].trim(); // Remove overtime part
-            }
-        }
-        return d.display;
-    };
-
     return (
-        <Paper elevation={3} sx={{ width: '100%', overflow: 'hidden', borderRadius: 2 }}>
-            {/* Header with Toggle */}
-            <Box sx={{ p: 2, bgcolor: 'primary.main', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                    Matriks Rekap Absensi
-                </Typography>
-                <FormControlLabel
-                    control={
-                        <Switch
-                            checked={showOvertime}
-                            onChange={(e) => setShowOvertime(e.target.checked)}
-                            sx={{
-                                '& .MuiSwitch-switchBase.Mui-checked': {
-                                    color: '#fbbf24',
-                                },
-                                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                    backgroundColor: '#fbbf24',
-                                },
-                            }}
-                        />
-                    }
-                    label={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body2" sx={{ color: 'white' }}>
-                                Tampilkan Jam Lembur
-                            </Typography>
-                            <Chip
-                                label={showOvertime ? 'ON' : 'OFF'}
-                                size="small"
-                                sx={{
-                                    bgcolor: showOvertime ? '#fbbf24' : '#64748b',
-                                    color: 'white',
-                                    fontWeight: 'bold'
-                                }}
-                            />
-                        </Box>
-                    }
-                />
-            </Box>
-
-            <TableContainer sx={{ maxHeight: 'calc(100vh - 350px)', overflow: 'auto' }}>
-                <Table stickyHeader size="small" sx={{
-                    '& .MuiTableCell-root': {
-                        border: '1px solid #dee2e6',
-                        p: 0.5
-                    }
-                }}>
+        <Paper 
+            elevation={0} 
+            sx={{ 
+                width: '100%', 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                overflow: 'hidden',
+                border: '1px solid #e2e8f0',
+                borderRadius: 1, 
+                bgcolor: '#fff'
+            }}
+        >
+            <TableContainer sx={{ flexGrow: 1 }}>
+                <Table stickyHeader size="small" sx={{ tableLayout: 'fixed', minWidth: 'max-content' }}>
                     <TableHead>
                         <TableRow>
-                            {/* Sticky Columns */}
-                            <TableCell sx={{ ...stickyStyles.no, position: 'sticky', top: 0, bgcolor: '#2c5aa0', color: 'white', fontWeight: 'bold', zIndex: 40 }}>No</TableCell>
-                            <TableCell sx={{ ...stickyStyles.id, position: 'sticky', top: 0, bgcolor: '#2c5aa0', color: 'white', fontWeight: 'bold', zIndex: 40 }}>ID</TableCell>
-                            <TableCell sx={{ ...stickyStyles.ptrjId, position: 'sticky', top: 0, bgcolor: '#2c5aa0', color: '#60a5fa', fontWeight: 'bold', zIndex: 40 }}>PTRJ ID</TableCell>
-                            <TableCell sx={{ ...stickyStyles.name, position: 'sticky', top: 0, bgcolor: '#2c5aa0', color: 'white', fontWeight: 'bold', zIndex: 40 }}>Nama Karyawan</TableCell>
-                            <TableCell sx={{ ...stickyStyles.chargeJob, position: 'sticky', top: 0, bgcolor: '#2c5aa0', color: '#fbbf24', fontWeight: 'bold', zIndex: 40 }}>Charge Job</TableCell>
+                            {/* Sticky Columns Group */}
+                            <TableCell sx={{ position: 'sticky', left: 0, zIndex: 10, width: 220, bgcolor: '#f8fafc', borderRight: '1px solid #e2e8f0', boxShadow: '2px 0 5px -2px rgba(0,0,0,0.1)' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <PersonIcon fontSize="small" color="disabled" />
+                                    NAMA KARYAWAN
+                                </Box>
+                            </TableCell>
+                            <TableCell sx={{ position: 'sticky', left: 220, zIndex: 10, width: 120, bgcolor: '#f8fafc', borderRight: '1px solid #e2e8f0' }}>
+                                PTRJ ID
+                            </TableCell>
+                             <TableCell sx={{ position: 'sticky', left: 340, zIndex: 10, width: 180, bgcolor: '#f8fafc', borderRight: '2px solid #e2e8f0', boxShadow: '2px 0 5px -2px rgba(0,0,0,0.05)' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <WorkIcon fontSize="small" color="disabled" />
+                                    CHARGE JOB
+                                </Box>
+                            </TableCell>
 
                             {/* Date Columns */}
-                            {dayNumbers.map(day => {
-                                const d = daysMap[day];
-                                const isHoliday = d?.isHoliday || d?.isSunday;
+                            {dayNumbers.map((day) => {
+                                const dayData = daysMap[day];
+                                const isHoliday = dayData?.isHoliday;
+                                const isSunday = dayData?.isSunday;
+                                
                                 return (
                                     <TableCell
                                         key={day}
                                         align="center"
                                         sx={{
-                                            position: 'sticky',
-                                            top: 0,
-                                            minWidth: 80,
-                                            bgcolor: isHoliday ? '#dc3545' : '#2c5aa0',
-                                            color: 'white',
-                                            fontWeight: 'bold',
-                                            p: 0.5,
-                                            zIndex: 35
+                                            width: 45,
+                                            p: '4px !important',
+                                            bgcolor: isHoliday ? '#fef2f2' : (isSunday ? '#f8fafc' : '#ffffff'),
+                                            color: isHoliday ? '#ef4444' : (isSunday ? '#64748b' : 'inherit'),
+                                            borderRight: '1px solid #f1f5f9'
                                         }}
                                     >
-                                        <Tooltip title={isHoliday ? (d.holidayName || 'Hari Libur') : ''}>
-                                            <div>
-                                                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{day}</div>
-                                                <div style={{ fontSize: '0.65rem', opacity: 0.9 }}>{d?.dayName}</div>
-                                            </div>
-                                        </Tooltip>
+                                        <Box sx={{ lineHeight: 1 }}>
+                                            <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, fontSize: '0.85rem' }}>
+                                                {day}
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ display: 'block', fontSize: '0.65rem', textTransform: 'uppercase', opacity: 0.8 }}>
+                                                {dayData?.dayName?.substring(0, 3)}
+                                            </Typography>
+                                        </Box>
                                     </TableCell>
                                 );
                             })}
+
+                            {/* Summary Headers */}
+                            <TableCell sx={{ width: 60, bgcolor: '#f1f5f9', fontWeight: 'bold', fontSize: '0.75rem', borderLeft: '2px solid #e2e8f0', textAlign: 'center' }}>
+                                HADIR
+                            </TableCell>
+                            <TableCell sx={{ width: 60, bgcolor: '#f1f5f9', fontWeight: 'bold', fontSize: '0.75rem', textAlign: 'center' }}>
+                                OT (Jam)
+                            </TableCell>
+                            <TableCell sx={{ width: 60, bgcolor: '#f1f5f9', fontWeight: 'bold', fontSize: '0.75rem', textAlign: 'center', color: '#b91c1c' }}>
+                                ALFA
+                            </TableCell>
                         </TableRow>
                     </TableHead>
 
                     <TableBody>
-                        {safeData.map((emp, idx) => (
-                            <TableRow key={emp.id} hover>
-                                {/* Sticky Data Columns */}
-                                <TableCell sx={{ ...stickyStyles.no, position: 'sticky' }}>{idx + 1}</TableCell>
-                                <TableCell sx={{ ...stickyStyles.id, position: 'sticky' }}>{emp.id}</TableCell>
-                                <TableCell sx={{ ...stickyStyles.ptrjId, position: 'sticky' }}>{emp.ptrjEmployeeID}</TableCell>
-                                <TableCell sx={{ ...stickyStyles.name, position: 'sticky' }}>{emp.name}</TableCell>
-                                <TableCell sx={{ ...stickyStyles.chargeJob, position: 'sticky', fontSize: '0.75rem', color: '#92400e' }}>
-                                    <Tooltip title={emp.chargeJob} arrow>
-                                        <div style={{
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            maxWidth: 240
-                                        }}>
-                                            {emp.chargeJob || '-'}
-                                        </div>
-                                    </Tooltip>
-                                </TableCell>
+                        {safeData.map((employee, index) => {
+                            // Find charge job (Take first valid one found in the month)
+                            // We scan all days to find a non-empty charge job
+                            let chargeJobDisplay = '-';
+                            for (const d of dayNumbers) {
+                                const job = employee.attendance[d]?.chargeJob;
+                                if (job && job !== '-' && job !== '') {
+                                    chargeJobDisplay = job;
+                                    break;
+                                }
+                            }
 
-                                {/* Attendance Data Cells */}
-                                {dayNumbers.map(day => {
-                                    const d = emp.attendance[day];
-                                    if (!d) return <TableCell key={day} />;
+                            const isEven = index % 2 === 0;
 
-                                    const style = getCellStyle(d.class);
+                            // Calculate Totals
+                            let totalHadir = 0;
+                            let totalOT = 0;
+                            let totalAlfa = 0;
 
-                                    return (
-                                        <Tooltip
-                                            key={day}
-                                            arrow
-                                            title={
-                                                <Box sx={{ p: 0.5 }}>
-                                                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{d.date} ({d.dayName})</Typography>
-                                                    <Typography variant="caption" display="block">Status: {d.status}</Typography>
-                                                    <Typography variant="caption" display="block">In: {d.checkIn || '-'}</Typography>
-                                                    <Typography variant="caption" display="block">Out: {d.checkOut || '-'}</Typography>
-                                                    <Typography variant="caption" display="block">Reg: {d.regularHours}h | OT: {d.overtimeHours}h</Typography>
+                            dayNumbers.forEach(day => {
+                                const d = employee.attendance[day];
+                                if (!d) return;
+                                
+                                if (d.status === 'Hadir' || d.regularHours > 0) totalHadir++;
+                                if (d.status === 'ALFA') totalAlfa++;
+                                if (d.overtimeHours > 0) totalOT += d.overtimeHours;
+                            });
+
+                            return (
+                                <TableRow 
+                                    key={employee.id} 
+                                    hover 
+                                    sx={{ 
+                                        bgcolor: isEven ? '#ffffff' : '#f8fafc',
+                                        '&:hover': { bgcolor: '#f1f5f9 !important' }
+                                    }}
+                                >
+                                    {/* 1. Name Column (Sticky) */}
+                                    <TableCell sx={{ position: 'sticky', left: 0, zIndex: 5, bgcolor: 'inherit', borderRight: '1px solid #e2e8f0', fontWeight: 600, color: '#1e293b', py: 1, boxShadow: '2px 0 5px -2px rgba(0,0,0,0.05)' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem', bgcolor: theme => theme.palette.primary.light }}>
+                                                {employee.name.charAt(0)}
+                                            </Avatar>
+                                            <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+                                                {employee.name}
+                                            </Typography>
+                                        </Box>
+                                    </TableCell>
+
+                                    {/* 2. ID Column (Sticky) */}
+                                    <TableCell sx={{ position: 'sticky', left: 220, zIndex: 5, bgcolor: 'inherit', borderRight: '1px solid #e2e8f0', color: 'text.secondary', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                                        {employee.ptrjEmployeeID}
+                                    </TableCell>
+
+                                     {/* 3. Charge Job (Sticky) */}
+                                     <TableCell sx={{ position: 'sticky', left: 340, zIndex: 5, bgcolor: 'inherit', borderRight: '2px solid #e2e8f0', boxShadow: '2px 0 5px -2px rgba(0,0,0,0.05)' }}>
+                                        {chargeJobDisplay !== '-' && (
+                                            <Tooltip title={chargeJobDisplay}>
+                                                <Chip 
+                                                    label={chargeJobDisplay} 
+                                                    size="small" 
+                                                    variant="outlined"
+                                                    sx={{ height: 22, fontSize: '0.65rem', maxWidth: 160, borderColor: '#cbd5e1', borderRadius: '4px', color: '#475569' }} 
+                                                />
+                                            </Tooltip>
+                                        )}
+                                    </TableCell>
+
+                                    {/* Data Cells */}
+                                    {dayNumbers.map((day) => {
+                                        const dayData = employee.attendance[day];
+                                        if (!dayData) return <TableCell key={day} />;
+
+                                        const style = getStatusStyle(dayData.status);
+                                        const regHours = dayData.regularHours || 0;
+                                        const otHours = dayData.overtimeHours || 0;
+                                        const hasHours = regHours > 0 || otHours > 0;
+
+                                        const tooltipContent = (
+                                            <Box sx={{ p: 1 }}>
+                                                <Typography variant="subtitle2" color="inherit">{dayData.date}</Typography>
+                                                <Typography variant="body2">Status: <b>{dayData.status}</b></Typography>
+                                                <Typography variant="body2">In/Out: {dayData.checkIn || '--:--'} - {dayData.checkOut || '--:--'}</Typography>
+                                                <Typography variant="body2">Reg: {regHours}h | OT: {otHours}h</Typography>
+                                                {dayData.chargeJob && dayData.chargeJob !== '-' && (
+                                                    <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#94a3b8', borderTop: '1px solid #334155', pt: 0.5 }}>
+                                                        {dayData.chargeJob}
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        );
+
+                                        let cellContent;
+                                        const isStatusText = ['ALFA', 'OFF', 'Sakit', 'Izin', 'Cuti', 'S', 'I', 'CT', 'Incomplete'].includes(dayData.status);
+
+                                        if (isStatusText) {
+                                            cellContent = (
+                                                <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em' }}>
+                                                    {dayData.status === 'Incomplete' ? '?' : dayData.status.substring(0, 3).toUpperCase()}
+                                                </Typography>
+                                            );
+                                        } else {
+                                            cellContent = (
+                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                                                    {regHours > 0 && <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#1e293b' }}>{regHours}</Typography>}
+                                                    {otHours > 0 && <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: '#c2410c', mt: -0.3 }}>{otHours}</Typography>}
                                                 </Box>
-                                            }
-                                        >
-                                            <TableCell
-                                                align="center"
-                                                sx={{
-                                                    bgcolor: style.bg,
-                                                    color: style.color,
-                                                    border: style.border,
-                                                    fontWeight: style.fontWeight,
-                                                    fontStyle: style.fontStyle,
-                                                    cursor: d.class === 'hours-data-unavailable' ? 'not-allowed' : 'pointer',
-                                                    fontSize: '0.85rem',
-                                                    p: 0.5,
-                                                    height: 40,
-                                                    whiteSpace: 'nowrap',
-                                                    '&:hover': {
-                                                        filter: d.class !== 'hours-data-unavailable' ? 'brightness(0.95)' : 'none'
-                                                    }
-                                                }}
-                                            >
-                                                {getDisplayText(d)}
-                                            </TableCell>
-                                        </Tooltip>
-                                    );
-                                })}
-                            </TableRow>
-                        ))}
+                                            );
+                                        }
+
+                                        return (
+                                            <Tooltip key={`${employee.id}-${day}`} title={tooltipContent} arrow placement="top">
+                                                <TableCell align="center" padding="none" sx={{ bgcolor: hasHours ? '#ffffff' : style.bg, color: style.color, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', height: 40, transition: 'all 0.1s', position: 'relative', '&:hover': { filter: 'brightness(0.97)', cursor: 'crosshair', zIndex: 1 } }}>
+                                                    {cellContent}
+                                                </TableCell>
+                                            </Tooltip>
+                                        );
+                                    })}
+
+                                    {/* Summary Columns (Totals) */}
+                                    <TableCell align="center" sx={{ borderLeft: '2px solid #e2e8f0', bgcolor: '#f8fafc', fontWeight: 'bold' }}>
+                                        {totalHadir}
+                                    </TableCell>
+                                    <TableCell align="center" sx={{ bgcolor: '#f8fafc', fontWeight: 'bold' }}>
+                                        {totalOT.toFixed(1).replace('.0', '')}
+                                    </TableCell>
+                                    <TableCell align="center" sx={{ bgcolor: '#fef2f2', color: '#b91c1c', fontWeight: 'bold' }}>
+                                        {totalAlfa}
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                 </Table>
             </TableContainer>
