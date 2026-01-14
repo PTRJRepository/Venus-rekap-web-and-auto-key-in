@@ -1,338 +1,467 @@
 const { executeQuery } = require('./gateway');
+const { getPTRJMapping, matchPTRJEmployeeId } = require('./mappingService');
+const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
-const { format, isSunday, isSaturday } = require('date-fns');
+const { parseISO, format, isValid, eachDayOfInterval, startOfMonth, endOfMonth, getDay, addDays, isSunday, isSaturday, differenceInMinutes } = require('date-fns');
+const { id } = require('date-fns/locale');
 
-const CHARGE_JOB_URL = 'https://script.google.com/macros/s/AKfycbxy72FcKPhhuTJ3qT_DhJCLI8Z_xk9NmQlZ4mdmmtdZ-HDTHM8ER2RpYk40W--rmKjQ/exec';
+const HOLIDAYS_PATH = path.join(__dirname, '../../../data/national_holidays_2025.json');
+const CHARGE_JOB_DATA_URL = "https://script.google.com/macros/s/AKfycbxy72FcKPhhuTJ3qT_DhJCLI8Z_xk9NmQlZ4mdmmtdZ-HDTHM8ER2RpYk40W--rmKjQ/exec";
 
-// National holidays for 2026 (can be loaded from JSON file or database later)
-const NATIONAL_HOLIDAYS = {
-    '2026-01-01': 'Tahun Baru 2026',
-    '2026-02-19': 'Isra Mikraj',
-    '2026-03-14': 'Hari Raya Nyepi',
-    '2026-03-30': 'Wafat Isa Almasih',
-    '2026-04-03': 'Hari Raya Idul Fitri',
-    '2026-04-04': 'Hari Raya Idul Fitri',
-    '2026-05-01': 'Hari Buruh Internasional',
-    '2026-05-13': 'Kenaikan Isa Almasih',
-    '2026-05-23': 'Hari Raya Waisak',
-    '2026-06-01': 'Hari Lahir Pancasila',
-    '2026-06-10': 'Hari Raya Idul Adha',
-    '2026-07-01': 'Tahun Baru Islam',
-    '2026-08-17': 'Hari Kemerdekaan RI',
-    '2026-09-10': 'Maulid Nabi Muhammad',
-    '2026-12-25': 'Hari Raya Natal',
+// --- Helper: Load Holidays ---
+let holidaysCache = null;
+const loadHolidays = () => {
+    if (holidaysCache) return holidaysCache;
+    try {
+        if (fs.existsSync(HOLIDAYS_PATH)) {
+            const data = JSON.parse(fs.readFileSync(HOLIDAYS_PATH, 'utf-8'));
+            const dates = new Set(data.holidays.map(h => h.date));
+            const info = {};
+            data.holidays.forEach(h => info[h.date] = h.description);
+            holidaysCache = { dates, info };
+            return holidaysCache;
+        }
+    } catch (e) {
+        console.error("Error loading holidays:", e);
+    }
+    return { dates: new Set(), info: {} };
 };
 
-/**
- * Fetch PTRJ employee mapping from db_ptrj database
- * Maps Venus employee IDs and names to PTRJ Employee IDs
- */
-const fetchPTRJEmployeeMapping = async () => {
+const isNationalHoliday = (dateStr) => {
+    const { dates } = loadHolidays();
+    return dates.has(dateStr);
+};
+
+const getHolidayName = (dateStr) => {
+    const { info } = loadHolidays();
+    return info[dateStr] || null;
+};
+
+// --- Helper: Charge Jobs from Google Sheets ---
+let chargeJobCache = null;
+let chargeJobCacheTime = 0;
+const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
+
+const fetchChargeJobsFromGAS = async () => {
+    if (chargeJobCache && (Date.now() - chargeJobCacheTime < CACHE_DURATION)) {
+        return chargeJobCache;
+    }
+
     try {
-        console.log('Fetching PTRJ employee mapping...');
-        const query = `
-            SELECT [EmpCode], [EmpName], [NewICNo]
-            FROM [db_ptrj].[dbo].[HR_EMPLOYEE]
-            WHERE [Status] = '1'
-        `;
+        console.log("Fetching charge jobs from Google Apps Script...");
+        const response = await axios.get(CHARGE_JOB_DATA_URL, { timeout: 10000 });
+        const data = response.data;
 
-        const results = await executeQuery(query);
-        const mapping = new Map();
+        let employees = [];
+        if (data.data) employees = data.data;
+        else if (data.employees) employees = data.employees;
+        else if (Array.isArray(data)) employees = data;
 
-        results.forEach(emp => {
-            const empCode = emp.EmpCode ? emp.EmpCode.trim() : null;
-            const empName = emp.EmpName ? emp.EmpName.trim() : null;
-            const newICNo = emp.NewICNo ? emp.NewICNo.trim() : null;
+        const map = {};
+        employees.forEach(emp => {
+            const name = (emp.namaKaryawan || emp.employeeName || emp.EmployeeName || emp.name || '').trim();
+            const id = (emp.employeeId || emp.EmployeeID || emp.id || '').trim();
+            const job = (emp.chargeJob || emp.charge_job || emp.ChargeJob || '').trim();
 
-            // Map by ID (highest priority)
-            if (newICNo && empCode) {
-                mapping.set(`id:${newICNo}`, empCode);
-            }
+            // Parse charge job parts: TASK_CODE | STATION | MACHINE | EXPENSE
+            const parts = job.split('|').map(p => p.trim());
+            const chargeJobParsed = {
+                full: job || '-',
+                task_code: parts[0] || '-',
+                station: parts[1] || '-',
+                machine: parts[2] || '-',
+                expense: parts[3] || '-'
+            };
 
-            // Map by name (fallback)
-            if (empName && empCode) {
-                mapping.set(`name:${empName.toLowerCase()}`, empCode);
-            }
+            if (id) map[id] = chargeJobParsed;
+            if (name) map[name.toUpperCase()] = chargeJobParsed; // Fallback by name
         });
 
-        console.log(`Loaded ${results.length} PTRJ employee mappings`);
-        return mapping;
-    } catch (error) {
-        console.error('Error fetching PTRJ employee mapping:', error.message);
-        return new Map();
-    }
-};
-
-/**
- * Match Venus employee to PTRJ Employee ID
- * Priority: 1) IDNo match, 2) Exact name match, 3) Fuzzy name match
- */
-const matchPTRJEmployeeID = (venusEmployee, ptrjMapping) => {
-    if (!venusEmployee || !ptrjMapping || ptrjMapping.size === 0) {
-        return 'N/A';
-    }
-
-    const idNo = venusEmployee.IDNo ? venusEmployee.IDNo.trim() : null;
-    const empName = venusEmployee.EmployeeName ? venusEmployee.EmployeeName.trim() : null;
-
-    // Priority 1: Match by IDNo
-    if (idNo) {
-        const idMatch = ptrjMapping.get(`id:${idNo}`);
-        if (idMatch) {
-            return idMatch;
-        }
-    }
-
-    // Priority 2: Match by exact name
-    if (empName) {
-        const nameMatch = ptrjMapping.get(`name:${empName.toLowerCase()}`);
-        if (nameMatch) {
-            return nameMatch;
-        }
-    }
-
-    // Priority 3: Fuzzy name matching
-    if (empName) {
-        const empNameLower = empName.toLowerCase();
-        for (const [key, value] of ptrjMapping.entries()) {
-            if (key.startsWith('name:')) {
-                const ptrjName = key.substring(5);
-                if (ptrjName.includes(empNameLower) || empNameLower.includes(ptrjName)) {
-                    return value;
-                }
-            }
-        }
-    }
-
-    return 'N/A';
-};
-
-/**
- * Fetch charge job data from Google Apps Script
- */
-const fetchChargeJobs = async () => {
-    try {
-        const response = await axios.get(CHARGE_JOB_URL);
-        let list = [];
-        if (response.data.data) list = response.data.data;
-        else if (response.data.employees) list = response.data.employees;
-        else list = response.data;
-
-        const map = new Map();
-        if (Array.isArray(list)) {
-            list.forEach(item => {
-                const id = item.employeeId || item.EmployeeID || item.id;
-                const name = item.employeeName || item.namaKaryawan || item.name;
-                const job = item.chargeJob || item.charge_job || item.task_code_data;
-
-                if (id) map.set(String(id).trim(), job);
-                if (name) map.set(String(name).trim().toLowerCase(), job);
-            });
-        }
+        chargeJobCache = map;
+        chargeJobCacheTime = Date.now();
+        console.log(`Cached ${Object.keys(map).length / 2} charge job records`); // Divide by 2 (ID + Name)
         return map;
     } catch (e) {
-        console.error("Error fetching charge jobs:", e.message);
-        return new Map();
+        console.error("Error fetching charge jobs from GAS:", e.message);
+        return chargeJobCache || {}; // Return stale cache or empty
     }
 };
 
-/**
- * Check if a date is a national holiday
- */
-const isNationalHoliday = (dateStr) => {
-    return dateStr in NATIONAL_HOLIDAYS;
+// --- Helper: Leave Expansion ---
+const calculateConsecutiveWorkingDays = (startDateStr, duration) => {
+    if (duration <= 0) return [];
+
+    let currentDate = parseISO(startDateStr);
+    const leaveDates = [];
+    let workingDaysCounted = 0;
+    let iterations = 0;
+    const maxIterations = duration * 5;
+
+    while (workingDaysCounted < duration && iterations < maxIterations) {
+        const dateStr = format(currentDate, 'yyyy-MM-dd');
+        const isSun = isSunday(currentDate);
+        const isHoliday = isNationalHoliday(dateStr);
+
+        if (!isSun && !isHoliday) {
+            leaveDates.push(dateStr);
+            workingDaysCounted++;
+        }
+        currentDate = addDays(currentDate, 1);
+        iterations++;
+    }
+    return leaveDates;
 };
 
-/**
- * Get holiday name for a date
- */
-const getHolidayName = (dateStr) => {
-    return NATIONAL_HOLIDAYS[dateStr] || null;
-};
-
-/**
- * Main function to fetch attendance data for a month
- */
-const fetchAttendanceData = async (month, year) => {
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-    const lastDay = new Date(year, month, 0).getDate();
-    const endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
-
-    console.log(`Fetching data for range: ${startDate} to ${endDate}`);
-
-    // 1. Fetch Employees (with IDNo for PTRJ matching)
-    const empQuery = `
-        SELECT DISTINCT emp.EmployeeID, emp.EmployeeName, emp.BusCode, emp.IDNo 
-        FROM HR_M_EmployeePI emp 
-        WHERE emp.EmployeeID IS NOT NULL AND emp.EmployeeName IS NOT NULL
-        ORDER BY emp.EmployeeName
-    `;
-
-    // 2. Fetch Attendance
-    const attQuery = `
-        SELECT t.EmployeeID, t.TADate, t.TACheckIn, t.TACheckOut, t.Shift, 
-        DATEDIFF(MINUTE, t.TACheckIn, t.TACheckOut) / 60.0 as TotalHours
-        FROM HR_T_TAMachine_Summary t 
-        WHERE t.TADate BETWEEN '${startDate}' AND '${endDate}'
-    `;
-
-    // 3. Fetch Overtime
-    const otQuery = `
-        SELECT ot.EmployeeID, ot.OTDate, ot.OTHourDuration 
-        FROM HR_T_Overtime ot 
-        WHERE ot.OTDate BETWEEN '${startDate}' AND '${endDate}' AND ot.OTHourDuration > 0
-    `;
-
-    // 4. Fetch Leave
-    const leaveQuery = `
-        SELECT l.EmployeeID, l.RefDate, l.LeaveTypeCode 
-        FROM HR_H_Leave l 
-        WHERE l.RefDate BETWEEN '${startDate}' AND '${endDate}'
-    `;
-
-    // 5. Fetch Absence
-    const absQuery = `
-        SELECT a.EmployeeID, a.FromDate, a.ToDate, a.AbsType
-        FROM HR_T_Absence a 
-        WHERE (a.FromDate <= '${endDate}' AND a.ToDate >= '${startDate}')
-    `;
-
+// --- Helper: Check Availability ---
+const getLatestAvailableDate = async () => {
     try {
-        const [employees, attendance, overtime, leaves, absences, chargeJobMap, ptrjMapping] = await Promise.all([
-            executeQuery(empQuery),
-            executeQuery(attQuery),
-            executeQuery(otQuery),
-            executeQuery(leaveQuery),
-            executeQuery(absQuery),
-            fetchChargeJobs(),
-            fetchPTRJEmployeeMapping()
-        ]);
+        const sql = `SELECT TOP (1) TADate FROM [VenusHR14].[dbo].[HR_T_TAMachine_Summary] ORDER BY TADate DESC`;
+        const result = await executeQuery(sql);
+        if (result && result.length > 0) {
+            return format(new Date(result[0].TADate), 'yyyy-MM-dd');
+        }
+    } catch (e) {
+        console.error("Error getting latest date:", e);
+    }
+    return null;
+};
 
-        console.log(`Fetched: ${employees.length} employees, ${attendance.length} attendance records`);
+// --- Main Data Fetcher ---
+const fetchAttendanceData = async (month, year) => {
+    const startDate = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
+    const endDate = format(endOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
 
-        // Process Data - Map data for easy lookup
-        const attMap = new Map();
-        attendance.forEach(r => {
-            const dateStr = new Date(r.TADate).toISOString().split('T')[0];
-            attMap.set(`${r.EmployeeID}_${dateStr}`, r);
+    console.log(`Fetching ETL data for ${startDate} to ${endDate}`);
+
+    // 1. Fetch ALL Data in Parallel
+    const [
+        employees,
+        attendanceRaw,
+        overtimeRaw,
+        leavesRaw,
+        absencesRaw,
+        chargeJobMap,
+        ptrjMapping,
+        latestDateStr
+    ] = await Promise.all([
+        fetchEmployees(),
+        fetchAttendanceRaw(startDate, endDate),
+        fetchOvertimeRaw(startDate, endDate),
+        fetchLeavesRaw(startDate, endDate),
+        fetchAbsencesRaw(startDate, endDate),
+        fetchChargeJobsFromGAS(),
+        Promise.resolve(getPTRJMapping()),
+        getLatestAvailableDate()
+    ]);
+
+    console.log(`Data fetched: ${employees.length} employees, ${attendanceRaw.length} attendance, ${overtimeRaw.length} overtime, ${leavesRaw.length} leaves, ${absencesRaw.length} absences`);
+
+    // 2. Build Lookups
+    const attendanceMap = {};
+    attendanceRaw.forEach((row, idx) => {
+        const dateStr = formatDateSQL(row.TADate);
+        const key = `${row.EmployeeID}_${dateStr}`;
+        attendanceMap[key] = row;
+        if (idx === 0) console.log(`[DEBUG] First attendance key: ${key}, TADate: ${row.TADate}, formatted: ${dateStr}`);
+    });
+    console.log(`[DEBUG] Attendance map size: ${Object.keys(attendanceMap).length}`);
+
+    const overtimeMap = {};
+    overtimeRaw.forEach((row, idx) => {
+        const dateStr = formatDateSQL(row.OTDate);
+        const key = `${row.EmployeeID}_${dateStr}`;
+        overtimeMap[key] = (overtimeMap[key] || 0) + parseFloat(row.OTHourDuration || 0);
+        if (idx === 0) console.log(`[DEBUG] First overtime key: ${key}`);
+    });
+
+    const leaveMap = {};
+    leavesRaw.forEach((row, idx) => {
+        const duration = parseInt(row.Outgoing || 1);
+        const refDate = formatDateSQL(row.RefDate);
+        const dates = calculateConsecutiveWorkingDays(refDate, duration);
+        dates.forEach(d => {
+            leaveMap[`${row.EmployeeID}_${d}`] = {
+                type: row.LeaveTypeCode,
+                desc: row.LeaveTypeCode
+            };
         });
+        if (idx === 0) console.log(`[DEBUG] First leave: RefDate=${refDate}, expanded to ${dates.length} dates`);
+    });
 
-        const otMap = new Map();
-        overtime.forEach(r => {
-            const dateStr = new Date(r.OTDate).toISOString().split('T')[0];
-            const key = `${r.EmployeeID}_${dateStr}`;
-            otMap.set(key, (otMap.get(key) || 0) + r.OTHourDuration);
+    const absenceMap = {};
+    absencesRaw.forEach((row, idx) => {
+        const from = parseISO(formatDateSQL(row.FromDate));
+        const to = parseISO(formatDateSQL(row.ToDate));
+        const days = eachDayOfInterval({ start: from, end: to });
+
+        days.forEach(d => {
+            const dStr = format(d, 'yyyy-MM-dd');
+            absenceMap[`${row.EmployeeID}_${dStr}`] = {
+                type: row.AbsType,
+                isUnpaid: (row.AbsType || '').toLowerCase() === 'unpaid leave'
+            };
         });
+        if (idx === 0) console.log(`[DEBUG] First absence: FromDate=${formatDateSQL(row.FromDate)}, ToDate=${formatDateSQL(row.ToDate)}, expanded to ${days.length} dates`);
+    });
 
-        const leaveMap = new Map();
-        leaves.forEach(r => {
-            const dateStr = new Date(r.RefDate).toISOString().split('T')[0];
-            leaveMap.set(`${r.EmployeeID}_${dateStr}`, r);
-        });
+    console.log(`[DEBUG] Map sizes - Att: ${Object.keys(attendanceMap).length}, OT: ${Object.keys(overtimeMap).length}, Leave: ${Object.keys(leaveMap).length}, Abs: ${Object.keys(absenceMap).length}`);
+    // 3. Build Grid
+    const daysInMonth = eachDayOfInterval({
+        start: parseISO(startDate),
+        end: parseISO(endDate)
+    });
 
-        // Expand Absence Ranges
-        const absMap = new Map();
-        absences.forEach(r => {
-            let curr = new Date(r.FromDate < startDate ? startDate : r.FromDate);
-            const end = new Date(r.ToDate > endDate ? endDate : r.ToDate);
-            const type = r.AbsType;
-            const isUnpaid = String(type).toLowerCase().includes('unpaid');
+    const finalData = employees.map(emp => {
+        const empId = emp.EmployeeID;
+        const empName = emp.EmployeeName;
 
-            while (curr <= end) {
-                const dateStr = curr.toISOString().split('T')[0];
-                absMap.set(`${r.EmployeeID}_${dateStr}`, { type, isUnpaid });
-                curr.setDate(curr.getDate() + 1);
-            }
-        });
+        // Match PTRJ ID
+        const ptrjId = matchPTRJEmployeeId(emp, ptrjMapping);
 
-        // Build Matrix with enhanced cell data
-        const matrix = employees.map(emp => {
-            const days = {};
-            const start = new Date(startDate);
-            const end = new Date(endDate);
+        // Match Charge Job (Try ID, then Name)
+        let chargeJobData = chargeJobMap[empId] || chargeJobMap[empName.toUpperCase()] || { full: '-', task_code: '-', station: '-', machine: '-', expense: '-' };
 
-            // Get PTRJ Employee ID
-            const ptrjEmployeeID = matchPTRJEmployeeID(emp, ptrjMapping);
+        const empData = {
+            id: empId,
+            name: empName,
+            ptrjEmployeeID: ptrjId,
+            chargeJob: chargeJobData.full,
+            chargeJobParts: {
+                task_code: chargeJobData.task_code,
+                station: chargeJobData.station,
+                machine: chargeJobData.machine,
+                expense: chargeJobData.expense
+            },
+            attendance: {}
+        };
 
-            // Get Charge Job
-            let chargeJob = chargeJobMap.get(String(emp.EmployeeID).trim()) ||
-                chargeJobMap.get(String(emp.EmployeeName).trim().toLowerCase()) ||
-                '-';
+        daysInMonth.forEach(dateObj => {
+            const dateStr = format(dateObj, 'yyyy-MM-dd');
+            const dayNum = format(dateObj, 'd');
+            const dayName = format(dateObj, 'EEE', { locale: id });
+            const key = `${empId}_${dateStr}`;
 
-            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                const dateStr = d.toISOString().split('T')[0];
-                const dayNum = d.getDate();
-                const isSun = isSunday(d);
-                const isSat = isSaturday(d);
-                const isHoliday = isNationalHoliday(dateStr);
-                const holidayName = getHolidayName(dateStr);
+            const isSun = isSunday(dateObj);
+            const isSat = isSaturday(dateObj);
+            const holidayName = getHolidayName(dateStr);
+            const isHol = !!holidayName;
 
-                // Get 3-letter Indonesian day name
-                const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-                const dayName = dayNames[d.getDay()];
-
-                // Priority Logic
-                const abs = absMap.get(`${emp.EmployeeID}_${dateStr}`);
-                const leave = leaveMap.get(`${emp.EmployeeID}_${dateStr}`);
-                const att = attMap.get(`${emp.EmployeeID}_${dateStr}`);
-                const ot = otMap.get(`${emp.EmployeeID}_${dateStr}`) || 0;
-
-                let status = '';
-                let regularHours = 0;
-                let overtimeHours = ot;
-
-                if (abs) {
-                    status = abs.isUnpaid ? 'ALFA' : abs.type;
-                    regularHours = 0;
-                } else if (leave) {
-                    status = leave.LeaveTypeCode;
-                    regularHours = 0;
-                } else if (att) {
-                    if (att.TACheckIn && att.TACheckOut) {
-                        status = 'Hadir';
-                        regularHours = att.TotalHours || 0;
-                    } else {
-                        status = 'Hadir (Partial)';
-                        regularHours = att.TotalHours || 0;
-                    }
-                } else {
-                    if (isSun || isHoliday) {
-                        status = ot > 0 ? 'Lembur' : 'OFF';
-                        regularHours = 0;
-                    } else {
-                        status = 'ALFA';
-                        regularHours = 0;
-                    }
-                }
-
-                days[dayNum] = {
+            // Check Data Availability
+            if (latestDateStr && dateStr > latestDateStr) {
+                empData.attendance[dayNum] = {
+                    status: 'N/A',
+                    display: 'N/A',
+                    class: 'hours-data-unavailable',
                     date: dateStr,
                     dayName: dayName,
-                    status: status,
-                    checkIn: att?.TACheckIn ? new Date(att.TACheckIn).toISOString().substr(11, 5) : null,
-                    checkOut: att?.TACheckOut ? new Date(att.TACheckOut).toISOString().substr(11, 5) : null,
-                    regularHours: regularHours,
-                    overtimeHours: overtimeHours,
-                    isHoliday: isHoliday,
+                    checkIn: null,
+                    checkOut: null,
+                    regularHours: 0,
+                    overtimeHours: 0,
+                    isHoliday: isHol,
                     holidayName: holidayName,
-                    chargeJob: chargeJob
+                    isSunday: isSun
                 };
+                return;
             }
 
-            return {
-                id: emp.EmployeeID,
-                name: emp.EmployeeName,
-                ptrjEmployeeID: ptrjEmployeeID,
-                chargeJob: chargeJob,
-                attendance: days
+            // Fetch data parts
+            const att = attendanceMap[key];
+            const otHours = overtimeMap[key] || 0;
+            const leave = leaveMap[key];
+            const absence = absenceMap[key];
+
+            // --- ETL LOGIC (Priority Based) ---
+
+            let status = 'absent';
+            let display = '-';
+            let cssClass = 'hours-absent';
+            let regularHours = 0;
+            let checkIn = att ? formatTime(att.TACheckIn) : null;
+            let checkOut = att ? formatTime(att.TACheckOut) : null;
+
+            // Priority 1: Absence (HR_T_Absence)
+            if (absence) {
+                if (absence.isUnpaid) {
+                    status = 'ALFA';
+                    display = 'ALFA';
+                    cssClass = 'hours-alfa';
+                } else {
+                    status = absence.type;
+                    display = absence.type;
+                    cssClass = `absence-${absence.type.toLowerCase().replace(/ /g, '-')}`;
+                }
+            }
+            // Priority 2: Leave (HR_H_Leave)
+            else if (leave) {
+                status = leave.type;
+                display = leave.type;
+                cssClass = `leave-${leave.type.toLowerCase()}`;
+            }
+            // Priority 3: No Record (Absent)
+            else if (!att) {
+                if (isSun || isHol) {
+                    if (otHours > 0) {
+                        status = 'Lembur';
+                        display = otHours.toFixed(1) + 'h'; // Only show overtime hours
+                        cssClass = 'hours-overtime-only';
+                    } else {
+                        status = 'OFF';
+                        display = 'OFF';
+                        cssClass = 'hours-off';
+                    }
+                } else {
+                    // Working day but absent -> ALFA
+                    status = 'ALFA';
+                    display = 'ALFA';
+                    cssClass = 'hours-alfa';
+                }
+            }
+            // Priority 4: Has Attendance Record
+            else {
+                // Calculate Hours
+                if (att.TACheckIn && att.TACheckOut) {
+                    const start = new Date(att.TACheckIn);
+                    const end = new Date(att.TACheckOut);
+                    let diffHrs = (end - start) / (1000 * 60 * 60);
+                    if (diffHrs < 0) diffHrs += 24; // Cross day fix
+
+                    // Business Logic Caps
+                    if (isSun || isHol) {
+                        regularHours = 0; // All OT
+                    } else if (isSat) {
+                        regularHours = Math.min(diffHrs, 5.0);
+                    } else {
+                        regularHours = Math.min(diffHrs, 7.0);
+                    }
+
+                    status = 'Hadir';
+                    cssClass = 'hours-full';
+
+                    // Simplified Display: Only show overtime if present
+                    if (otHours > 0) {
+                        display = `✓ +${otHours.toFixed(1)}h`; // Checkmark + overtime
+                        cssClass = 'hours-normal-overtime';
+                    } else {
+                        display = '✓'; // Just checkmark for normal attendance
+                        cssClass = 'hours-normal';
+                    }
+
+                } else {
+                    // Incomplete
+                    if (isSun || isHol) regularHours = 0;
+                    else if (isSat) regularHours = 5;
+                    else regularHours = 7;
+
+                    if (otHours > 0) {
+                        display = `⚠ +${otHours.toFixed(1)}h`; // Warning + overtime
+                    } else {
+                        display = '⚠'; // Warning for incomplete
+                    }
+
+                    if (att.TACheckIn && !att.TACheckOut) {
+                        status = 'Partial In';
+                        cssClass = 'hours-partial-check-in-only';
+                    } else {
+                        status = 'Partial Out';
+                        cssClass = 'hours-partial-check-out-only';
+                    }
+                }
+            }
+
+            empData.attendance[dayNum] = {
+                date: dateStr,
+                dayName: dayName,
+                status: status,
+                display: display,
+                class: cssClass,
+                checkIn: checkIn,
+                checkOut: checkOut,
+                regularHours: regularHours,
+                overtimeHours: otHours,
+                isHoliday: isHol,
+                holidayName: holidayName,
+                isSunday: isSun
             };
         });
 
-        return matrix;
+        return empData;
+    });
 
-    } catch (error) {
-        throw error;
+    console.log(`Processed ${finalData.length} employees with full ETL data`);
+    return finalData;
+};
+
+// --- Gateway Query Wrappers ---
+
+const fetchEmployees = async () => {
+    const sql = `
+        SELECT EmployeeID, EmployeeName, IDNo
+        FROM [VenusHR14].[dbo].[HR_M_EmployeePI]
+        WHERE EmployeeID IS NOT NULL
+        ORDER BY EmployeeName
+    `;
+    return await executeQuery(sql);
+};
+
+const fetchAttendanceRaw = async (start, end) => {
+    const sql = `
+        SELECT EmployeeID, TADate, TACheckIn, TACheckOut, Shift
+        FROM [VenusHR14].[dbo].[HR_T_TAMachine_Summary]
+        WHERE TADate BETWEEN '${start}' AND '${end}'
+    `;
+    return await executeQuery(sql);
+};
+
+const fetchOvertimeRaw = async (start, end) => {
+    const sql = `
+        SELECT EmployeeID, OTDate, OTHourDuration
+        FROM [VenusHR14].[dbo].[HR_T_Overtime]
+        WHERE OTDate BETWEEN '${start}' AND '${end}' AND OTHourDuration > 0
+    `;
+    return await executeQuery(sql);
+};
+
+const fetchLeavesRaw = async (start, end) => {
+    const sql = `
+        SELECT EmployeeID, RefDate, LeaveTypeCode, Outgoing
+        FROM [VenusHR14].[dbo].[HR_H_Leave]
+        WHERE RefDate BETWEEN '${start}' AND '${end}'
+    `;
+    return await executeQuery(sql);
+};
+
+const fetchAbsencesRaw = async (start, end) => {
+    const sql = `
+        SELECT EmployeeID, FromDate, ToDate, AbsType
+        FROM [VenusHR14].[dbo].[HR_T_Absence]
+        WHERE FromDate <= '${end}' AND ToDate >= '${start}'
+    `;
+    return await executeQuery(sql);
+};
+
+// --- Utils ---
+const formatDateSQL = (dateVal) => {
+    if (!dateVal) return null;
+    // CRITICAL FIX: Always extract date-only part, even from ISO string
+    // SQL Server returns "2025-09-01T00:00:00.000Z" but we need "2025-09-01"
+    const d = typeof dateVal === 'string' ? new Date(dateVal) : new Date(dateVal);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString().split('T')[0]; // Always return YYYY-MM-DD
+};
+
+
+
+const formatTime = (dateVal) => {
+    if (!dateVal) return null;
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return null;
+    try {
+        return d.toISOString().split('T')[1].substring(0, 5);
+    } catch {
+        return null;
     }
-}
+};
 
 module.exports = { fetchAttendanceData };
