@@ -370,6 +370,19 @@ app.get('*', (req, res) => {
 
 // Initialize Staging DB
 stagingService.initStagingDB().then(() => {
+    // --- Start Server on Network (0.0.0.0) ---
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    const HOST = '0.0.0.0'; // Listen on all network interfaces
+
+    app.listen(PORT, HOST, () => {
+        console.log(`\n${'='.repeat(50)}`);
+        console.log(`  Venus Attendance Backend Server`);
+        console.log(`${'='.repeat(50)}`);
+        console.log(`  Status: ✓ RUNNING`);
+        console.log(`  Port: ${PORT}`);
+        console.log(`  Host: ${HOST} (Network accessible)`);
+        console.log(`  Local URL: http://localhost:${PORT}`);
+        console.log(`  Network URL: http://<YOUR-IP>:${PORT}`);
+        console.log(`${'='.repeat(50)}\n`);
+    });
 });
