@@ -1,149 +1,159 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Box,
+    ToggleButtonGroup,
+    ToggleButton,
     Typography,
     IconButton,
-    Select,
-    MenuItem,
-    FormControl,
-    InputBase
+    Chip
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
-import { ChevronLeft, ChevronRight, CalendarMonth } from '@mui/icons-material';
+import {
+    NavigateBefore as PrevIcon,
+    NavigateNext as NextIcon,
+    Today as TodayIcon
+} from '@mui/icons-material';
 
-// Styled select for seamless integration
-const StyledSelect = styled(InputBase)(({ theme }) => ({
-    '& .MuiInputBase-input': {
-        borderRadius: 4,
-        position: 'relative',
-        backgroundColor: 'transparent',
-        border: '1px solid transparent',
-        fontSize: '0.9rem',
-        fontWeight: 600,
-        padding: '4px 26px 4px 12px',
-        transition: theme.transitions.create(['border-color', 'background-color']),
-        fontFamily: theme.typography.fontFamily,
-        '&:focus': {
-            borderColor: theme.palette.primary.main,
-            borderRadius: 4,
-        },
-        '&:hover': {
-            backgroundColor: theme.palette.action.hover,
-        }
-    },
-}));
+const MONTHS = [
+    { id: 1, name: 'Jan', full: 'Januari' },
+    { id: 2, name: 'Feb', full: 'Februari' },
+    { id: 3, name: 'Mar', full: 'Maret' },
+    { id: 4, name: 'Apr', full: 'April' },
+    { id: 5, name: 'Mei', full: 'Mei' },
+    { id: 6, name: 'Jun', full: 'Juni' },
+    { id: 7, name: 'Jul', full: 'Juli' },
+    { id: 8, name: 'Agt', full: 'Agustus' },
+    { id: 9, name: 'Sep', full: 'September' },
+    { id: 10, name: 'Okt', full: 'Oktober' },
+    { id: 11, name: 'Nov', full: 'November' },
+    { id: 12, name: 'Des', full: 'Desember' },
+];
 
 const MonthNavigator = ({ onFetch, loading }) => {
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth() + 1;
+    const currentDate = new Date();
+    const [year, setYear] = useState(currentDate.getFullYear());
+    const [month, setMonth] = useState(currentDate.getMonth() + 1);
 
-    const [selectedYear, setSelectedYear] = useState(currentYear);
-    const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-
-    const months = [
-        { value: 1, label: 'Januari' }, { value: 2, label: 'Februari' },
-        { value: 3, label: 'Maret' }, { value: 4, label: 'April' },
-        { value: 5, label: 'Mei' }, { value: 6, label: 'Juni' },
-        { value: 7, label: 'Juli' }, { value: 8, label: 'Agustus' },
-        { value: 9, label: 'September' }, { value: 10, label: 'Oktober' },
-        { value: 11, label: 'November' }, { value: 12, label: 'Desember' },
-    ];
-
-    const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
-
-    useEffect(() => {
-        // Initial fetch on mount is handled by App.jsx defaults or user action?
-        // Let's trigger it once on mount if needed, or rely on user.
-        // Actually, App.jsx relies on this component triggering changes.
-        onFetch(selectedMonth, selectedYear);
-    }, []); // Run once on mount
-
-    const handleMonthChange = (event) => {
-        const newValue = event.target.value;
-        setSelectedMonth(newValue);
-        onFetch(newValue, selectedYear);
-    };
-
-    const handleYearChange = (event) => {
-        const newYear = event.target.value;
-        setSelectedYear(newYear);
-        onFetch(selectedMonth, newYear);
+    const handleMonthChange = (event, newMonth) => {
+        if (newMonth) {
+            setMonth(newMonth);
+            onFetch(newMonth, year);
+        }
     };
 
     const handlePrevMonth = () => {
-        let newMonth = selectedMonth - 1;
-        let newYear = selectedYear;
+        let newMonth = month - 1;
+        let newYear = year;
         if (newMonth < 1) {
             newMonth = 12;
-            newYear -= 1;
+            newYear = year - 1;
         }
-        setSelectedMonth(newMonth);
-        setSelectedYear(newYear);
+        setMonth(newMonth);
+        setYear(newYear);
         onFetch(newMonth, newYear);
     };
 
     const handleNextMonth = () => {
-        let newMonth = selectedMonth + 1;
-        let newYear = selectedYear;
+        let newMonth = month + 1;
+        let newYear = year;
         if (newMonth > 12) {
             newMonth = 1;
-            newYear += 1;
+            newYear = year + 1;
         }
-        setSelectedMonth(newMonth);
-        setSelectedYear(newYear);
+        setMonth(newMonth);
+        setYear(newYear);
         onFetch(newMonth, newYear);
     };
 
+    const handleToday = () => {
+        const today = new Date();
+        const m = today.getMonth() + 1;
+        const y = today.getFullYear();
+        setMonth(m);
+        setYear(y);
+        onFetch(m, y);
+    };
+
     return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton onClick={handlePrevMonth} size="small" disabled={loading}>
-                <ChevronLeft fontSize="small" />
-            </IconButton>
-
-            <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                border: '1px solid #e2e8f0', 
-                borderRadius: 1, 
-                px: 1, 
-                py: 0.5,
-                bgcolor: '#fff'
-            }}>
-                <CalendarMonth fontSize="small" sx={{ mr: 1, color: 'text.secondary', fontSize: '1rem' }} />
-                
-                <Select
-                    value={selectedMonth}
-                    onChange={handleMonthChange}
-                    variant="standard"
-                    disableUnderline
-                    input={<StyledSelect />}
-                    disabled={loading}
-                    MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
-                >
-                    {months.map((m) => (
-                        <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
-                    ))}
-                </Select>
-
-                <Typography variant="body2" sx={{ mx: 0.5, color: 'text.secondary' }}>/</Typography>
-
-                <Select
-                    value={selectedYear}
-                    onChange={handleYearChange}
-                    variant="standard"
-                    disableUnderline
-                    input={<StyledSelect />}
-                    disabled={loading}
-                >
-                    {years.map((y) => (
-                        <MenuItem key={y} value={y}>{y}</MenuItem>
-                    ))}
-                </Select>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {/* Year Selector */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <IconButton size="small" onClick={() => { setYear(year - 1); onFetch(month, year - 1); }}>
+                    <PrevIcon fontSize="small" />
+                </IconButton>
+                <Chip
+                    label={year}
+                    sx={{
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                        minWidth: 70,
+                        bgcolor: '#f8fafc',
+                        border: '1px solid #e2e8f0'
+                    }}
+                />
+                <IconButton size="small" onClick={() => { setYear(year + 1); onFetch(month, year + 1); }}>
+                    <NextIcon fontSize="small" />
+                </IconButton>
             </Box>
 
-            <IconButton onClick={handleNextMonth} size="small" disabled={loading}>
-                <ChevronRight fontSize="small" />
+            {/* Month Toggle Group */}
+            <ToggleButtonGroup
+                value={month}
+                exclusive
+                onChange={handleMonthChange}
+                size="small"
+                disabled={loading}
+                sx={{
+                    '& .MuiToggleButton-root': {
+                        px: 1.5,
+                        py: 0.5,
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        border: '1px solid #e2e8f0',
+                        color: '#64748b',
+                        '&.Mui-selected': {
+                            bgcolor: '#7c3aed',
+                            color: 'white',
+                            fontWeight: 700,
+                            '&:hover': {
+                                bgcolor: '#6d28d9'
+                            }
+                        },
+                        '&:hover': {
+                            bgcolor: '#f1f5f9'
+                        }
+                    }
+                }}
+            >
+                {MONTHS.map(m => (
+                    <ToggleButton key={m.id} value={m.id}>
+                        {m.name}
+                    </ToggleButton>
+                ))}
+            </ToggleButtonGroup>
+
+            {/* Quick Actions */}
+            <IconButton
+                size="small"
+                onClick={handleToday}
+                sx={{
+                    border: '1px solid #e2e8f0',
+                    bgcolor: '#f8fafc',
+                    '&:hover': { bgcolor: '#f1f5f9' }
+                }}
+            >
+                <TodayIcon fontSize="small" />
             </IconButton>
+
+            {/* Navigation Arrows */}
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <IconButton size="small" onClick={handlePrevMonth} disabled={loading}>
+                    <PrevIcon fontSize="small" />
+                </IconButton>
+                <IconButton size="small" onClick={handleNextMonth} disabled={loading}>
+                    <NextIcon fontSize="small" />
+                </IconButton>
+            </Box>
         </Box>
     );
 };

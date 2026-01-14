@@ -13,137 +13,172 @@ import {
     Chip,
     Avatar
 } from '@mui/material';
-import { 
-    Work as WorkIcon,
-    Person as PersonIcon,
-    Fingerprint as FingerprintIcon,
-    Summarize as SummarizeIcon
+import {
+    CheckCircle as CheckIcon,
+    Cancel as CancelIcon,
+    Warning as WarningIcon,
+    Flight as FlightIcon,
+    LocalHospital as HospitalIcon,
+    Person as PersonIcon
 } from '@mui/icons-material';
 
-// Enterprise Status Colors
-const getStatusStyle = (status) => {
-    switch(status) {
-        case 'Hadir': return { bg: '#dcfce7', color: '#166534', border: '#bbf7d0' }; // Green
-        case 'Lembur': return { bg: '#fff7ed', color: '#c2410c', border: '#ffedd5' }; // Orange
-        case 'Sakit': 
-        case 'S': return { bg: '#fef2f2', color: '#b91c1c', border: '#fee2e2' }; // Red
-        case 'Izin': 
-        case 'I': return { bg: '#f0f9ff', color: '#0369a1', border: '#e0f2fe' }; // Sky
-        case 'Cuti': 
-        case 'CT': return { bg: '#f5f3ff', color: '#6d28d9', border: '#ede9fe' }; // Violet
-        case 'ALFA': return { bg: '#450a0a', color: '#ffffff', border: '#450a0a' }; // Dark Red
-        case 'OFF': return { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' }; // Slate
-        case 'Incomplete': return { bg: '#fffbeb', color: '#b45309', border: '#fef3c7' }; // Amber
-        default: return { bg: '#ffffff', color: '#334155', border: 'transparent' };
-    }
-};
-
-const AttendanceMatrix = ({ data = [] }) => {
+// CRITICAL FIX: Charge job is in employee.chargeJob, NOT in daily attendance
+const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
     const safeData = Array.isArray(data) ? data : [];
-    
+
     if (safeData.length === 0) {
         return (
-            <Paper 
-                elevation={0} 
-                sx={{ 
-                    height: '100%', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    bgcolor: 'background.default',
-                    border: '1px dashed #cbd5e1',
-                    borderRadius: 2
-                }}
-            >
+            <Box sx={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: '#fafbfc'
+            }}>
                 <Box sx={{ textAlign: 'center', p: 4 }}>
-                    <FingerprintIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
                     <Typography variant="h6" color="text.secondary" gutterBottom>
-                        Tidak ada data
+                        Pilih Periode
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                        Pilih periode atau refresh data untuk melihat rekap absensi.
+                        Gunakan navigator di atas untuk menampilkan data absensi
                     </Typography>
                 </Box>
-            </Paper>
+            </Box>
         );
     }
 
     const daysMap = safeData[0]?.attendance || {};
     const dayNumbers = Object.keys(daysMap).sort((a, b) => Number(a) - Number(b));
 
+    // Status color helper
+    const getStatusColor = (status) => {
+        if (status === 'Hadir') return { bg: '#ecfdf5', text: '#059669', icon: <CheckIcon sx={{ fontSize: 14, color: '#059669' }} /> };
+        if (status === 'ALFA') return { bg: '#7f1d1d', text: '#ffffff', icon: <CancelIcon sx={{ fontSize: 14 }} /> };
+        if (status === 'OFF') return { bg: '#f1f5f9', text: '#64748b', icon: null };
+        if (status.includes('Lembur')) return { bg: '#fff7ed', text: '#c2410c', icon: null };
+        if (['CT', 'Cuti', 'Izin', 'I'].includes(status)) return { bg: '#eff6ff', text: '#1e40af', icon: <FlightIcon sx={{ fontSize: 12 }} /> };
+        if (['S', 'Sakit', 'Sick'].includes(status)) return { bg: '#fee2e2', text: '#b91c1c', icon: <HospitalIcon sx={{ fontSize: 12 }} /> };
+        return { bg: '#ffffff', text: '#1e293b', icon: null };
+    };
+
     return (
-        <Paper 
-            elevation={0} 
-            sx={{ 
-                width: '100%', 
-                height: '100%', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                overflow: 'hidden',
-                border: '1px solid #e2e8f0',
-                borderRadius: 1, 
-                bgcolor: '#fff'
+        <Paper
+            elevation={0}
+            sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                bgcolor: '#ffffff',
+                border: '1px solid #e5e7eb',
+                borderRadius: 1,
+                overflow: 'hidden'
             }}
         >
-            <TableContainer sx={{ flexGrow: 1 }}>
-                <Table stickyHeader size="small" sx={{ tableLayout: 'fixed', minWidth: 'max-content' }}>
+            {/* Table Container - Takes all available space */}
+            <TableContainer sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'auto' }}>
+                <Table
+                    stickyHeader
+                    size="small"
+                    sx={{
+                        minWidth: 'max-content',
+                        '& .MuiTableCell-root': {
+                            borderRight: '1px solid #f3f4f6',
+                            borderBottom: '1px solid #f3f4f6',
+                            py: 0.75,
+                            px: 1
+                        }
+                    }}
+                >
                     <TableHead>
                         <TableRow>
-                            {/* Sticky Columns Group */}
-                            <TableCell sx={{ position: 'sticky', left: 0, zIndex: 10, width: 220, bgcolor: '#f8fafc', borderRight: '1px solid #e2e8f0', boxShadow: '2px 0 5px -2px rgba(0,0,0,0.1)' }}>
+                            {/* ONLY Name Column is Sticky */}
+                            <TableCell
+                                sx={{
+                                    position: 'sticky',
+                                    left: 0,
+                                    zIndex: 100,
+                                    bgcolor: '#f9fafb',
+                                    width: 220,
+                                    fontWeight: 700,
+                                    fontSize: '0.7rem',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em',
+                                    color: '#374151',
+                                    boxShadow: '2px 0 5px rgba(0,0,0,0.08)',
+                                    borderRight: '2px solid #cbd5e1 !important'
+                                }}
+                            >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     <PersonIcon fontSize="small" color="disabled" />
                                     NAMA KARYAWAN
                                 </Box>
                             </TableCell>
-                            <TableCell sx={{ position: 'sticky', left: 220, zIndex: 10, width: 120, bgcolor: '#f8fafc', borderRight: '1px solid #e2e8f0' }}>
+
+                            {/* PTRJ ID - Scrollable */}
+                            <TableCell
+                                sx={{
+                                    bgcolor: '#f9fafb',
+                                    width: 110,
+                                    fontWeight: 700,
+                                    fontSize: '0.7rem',
+                                    textTransform: 'uppercase',
+                                    color: '#64748b'
+                                }}
+                            >
                                 PTRJ ID
                             </TableCell>
-                             <TableCell sx={{ position: 'sticky', left: 340, zIndex: 10, width: 180, bgcolor: '#f8fafc', borderRight: '2px solid #e2e8f0', boxShadow: '2px 0 5px -2px rgba(0,0,0,0.05)' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <WorkIcon fontSize="small" color="disabled" />
-                                    CHARGE JOB
-                                </Box>
+
+                            {/* Charge Job - Scrollable */}
+                            <TableCell
+                                sx={{
+                                    bgcolor: '#fef8ed',
+                                    width: 200,
+                                    fontWeight: 700,
+                                    fontSize: '0.7rem',
+                                    textTransform: 'uppercase',
+                                    color: '#92400e',
+                                    borderRight: '2px solid #f59e0b !important'
+                                }}
+                            >
+                                ⚙️ CHARGE JOB
                             </TableCell>
 
                             {/* Date Columns */}
-                            {dayNumbers.map((day) => {
-                                const dayData = daysMap[day];
-                                const isHoliday = dayData?.isHoliday;
-                                const isSunday = dayData?.isSunday;
-                                
+                            {dayNumbers.map(day => {
+                                const d = daysMap[day];
+                                const isHoliday = d?.isHoliday;
+                                const isSun = d?.isSunday;
+
                                 return (
                                     <TableCell
                                         key={day}
                                         align="center"
                                         sx={{
-                                            width: 45,
-                                            p: '4px !important',
-                                            bgcolor: isHoliday ? '#fef2f2' : (isSunday ? '#f8fafc' : '#ffffff'),
-                                            color: isHoliday ? '#ef4444' : (isSunday ? '#64748b' : 'inherit'),
-                                            borderRight: '1px solid #f1f5f9'
+                                            width: 50,
+                                            bgcolor: isHoliday ? '#fef2f2' : (isSun ? '#fafafa' : '#ffffff'),
+                                            color: isHoliday ? '#dc2626' : (isSun ? '#9ca3af' : '#111827'),
+                                            fontWeight: 600,
+                                            fontSize: '0.75rem'
                                         }}
                                     >
-                                        <Box sx={{ lineHeight: 1 }}>
-                                            <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, fontSize: '0.85rem' }}>
-                                                {day}
-                                            </Typography>
-                                            <Typography variant="caption" sx={{ display: 'block', fontSize: '0.65rem', textTransform: 'uppercase', opacity: 0.8 }}>
-                                                {dayData?.dayName?.substring(0, 3)}
-                                            </Typography>
+                                        <Box sx={{ lineHeight: 1.2 }}>
+                                            <div style={{ fontWeight: 700 }}>{day}</div>
+                                            <div style={{ fontSize: '0.65rem', opacity: 0.7 }}>
+                                                {d?.dayName?.substring(0, 3).toUpperCase()}
+                                            </div>
                                         </Box>
                                     </TableCell>
                                 );
                             })}
 
-                            {/* Summary Headers */}
-                            <TableCell sx={{ width: 60, bgcolor: '#f1f5f9', fontWeight: 'bold', fontSize: '0.75rem', borderLeft: '2px solid #e2e8f0', textAlign: 'center' }}>
+                            {/* Summary Columns */}
+                            <TableCell align="center" sx={{ bgcolor: '#f0fdf4', fontWeight: 700, fontSize: '0.7rem', borderLeft: '2px solid #10b981 !important' }}>
                                 HADIR
                             </TableCell>
-                            <TableCell sx={{ width: 60, bgcolor: '#f1f5f9', fontWeight: 'bold', fontSize: '0.75rem', textAlign: 'center' }}>
-                                OT (Jam)
+                            <TableCell align="center" sx={{ bgcolor: '#fff7ed', fontWeight: 700, fontSize: '0.7rem' }}>
+                                LEMBUR (H)
                             </TableCell>
-                            <TableCell sx={{ width: 60, bgcolor: '#f1f5f9', fontWeight: 'bold', fontSize: '0.75rem', textAlign: 'center', color: '#b91c1c' }}>
+                            <TableCell align="center" sx={{ bgcolor: '#fef2f2', fontWeight: 700, fontSize: '0.7rem', color: '#b91c1c' }}>
                                 ALFA
                             </TableCell>
                         </TableRow>
@@ -151,20 +186,9 @@ const AttendanceMatrix = ({ data = [] }) => {
 
                     <TableBody>
                         {safeData.map((employee, index) => {
-                            // Find charge job (Take first valid one found in the month)
-                            // We scan all days to find a non-empty charge job
-                            let chargeJobDisplay = '-';
-                            for (const d of dayNumbers) {
-                                const job = employee.attendance[d]?.chargeJob;
-                                if (job && job !== '-' && job !== '') {
-                                    chargeJobDisplay = job;
-                                    break;
-                                }
-                            }
-
                             const isEven = index % 2 === 0;
 
-                            // Calculate Totals
+                            // Calculate totals
                             let totalHadir = 0;
                             let totalOT = 0;
                             let totalAlfa = 0;
@@ -172,111 +196,168 @@ const AttendanceMatrix = ({ data = [] }) => {
                             dayNumbers.forEach(day => {
                                 const d = employee.attendance[day];
                                 if (!d) return;
-                                
+
                                 if (d.status === 'Hadir' || d.regularHours > 0) totalHadir++;
                                 if (d.status === 'ALFA') totalAlfa++;
                                 if (d.overtimeHours > 0) totalOT += d.overtimeHours;
                             });
 
                             return (
-                                <TableRow 
-                                    key={employee.id} 
-                                    hover 
-                                    sx={{ 
-                                        bgcolor: isEven ? '#ffffff' : '#f8fafc',
-                                        '&:hover': { bgcolor: '#f1f5f9 !important' }
+                                <TableRow
+                                    key={employee.id}
+                                    hover
+                                    sx={{
+                                        bgcolor: isEven ? '#ffffff' : '#fafbfc',
+                                        '&:hover': {
+                                            bgcolor: '#f0f9ff !important'
+                                        }
                                     }}
                                 >
-                                    {/* 1. Name Column (Sticky) */}
-                                    <TableCell sx={{ position: 'sticky', left: 0, zIndex: 5, bgcolor: 'inherit', borderRight: '1px solid #e2e8f0', fontWeight: 600, color: '#1e293b', py: 1, boxShadow: '2px 0 5px -2px rgba(0,0,0,0.05)' }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem', bgcolor: theme => theme.palette.primary.light }}>
+                                    {/* Employee Name (ONLY STICKY) */}
+                                    <TableCell
+                                        sx={{
+                                            position: 'sticky',
+                                            left: 0,
+                                            zIndex: 50,
+                                            bgcolor: 'inherit',
+                                            boxShadow: '3px 0 6px rgba(0,0,0,0.06)',
+                                            fontWeight: 600,
+                                            color: '#111827',
+                                            borderRight: '2px solid #cbd5e1 !important'
+                                        }}
+                                    >
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', bgcolor: '#7c3aed' }}>
                                                 {employee.name.charAt(0)}
                                             </Avatar>
-                                            <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+                                            <Typography variant="body2" noWrap sx={{ fontWeight: 500, fontSize: '0.85rem' }}>
                                                 {employee.name}
                                             </Typography>
                                         </Box>
                                     </TableCell>
 
-                                    {/* 2. ID Column (Sticky) */}
-                                    <TableCell sx={{ position: 'sticky', left: 220, zIndex: 5, bgcolor: 'inherit', borderRight: '1px solid #e2e8f0', color: 'text.secondary', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                                    {/* PTRJ ID - Scrollable */}
+                                    <TableCell
+                                        sx={{
+                                            bgcolor: 'inherit',
+                                            color: '#6b7280',
+                                            fontFamily: 'monospace',
+                                            fontSize: '0.75rem'
+                                        }}
+                                    >
                                         {employee.ptrjEmployeeID}
                                     </TableCell>
 
-                                     {/* 3. Charge Job (Sticky) */}
-                                     <TableCell sx={{ position: 'sticky', left: 340, zIndex: 5, bgcolor: 'inherit', borderRight: '2px solid #e2e8f0', boxShadow: '2px 0 5px -2px rgba(0,0,0,0.05)' }}>
-                                        {chargeJobDisplay !== '-' && (
-                                            <Tooltip title={chargeJobDisplay}>
-                                                <Chip 
-                                                    label={chargeJobDisplay} 
-                                                    size="small" 
-                                                    variant="outlined"
-                                                    sx={{ height: 22, fontSize: '0.65rem', maxWidth: 160, borderColor: '#cbd5e1', borderRadius: '4px', color: '#475569' }} 
+                                    {/* CHARGE JOB - Scrollable */}
+                                    <TableCell
+                                        sx={{
+                                            bgcolor: isEven ? '#fffaf0' : '#fef8ed',
+                                            borderRight: '2px solid #f59e0b !important'
+                                        }}
+                                    >
+                                        {employee.chargeJob && employee.chargeJob !== '-' ? (
+                                            <Tooltip title={employee.chargeJob} arrow placement="top">
+                                                <Chip
+                                                    label={employee.chargeJob}
+                                                    size="small"
+                                                    sx={{
+                                                        height: 22,
+                                                        fontSize: '0.7rem',
+                                                        maxWidth: 200,
+                                                        bgcolor: '#fff7ed', // Softer
+                                                        border: '1px solid #f59e0b',
+                                                        color: '#92400e',
+                                                        fontWeight: 500,
+                                                        '& .MuiChip-label': {
+                                                            whiteSpace: 'nowrap',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis'
+                                                        }
+                                                    }}
                                                 />
                                             </Tooltip>
+                                        ) : (
+                                            <Typography variant="caption" sx={{ color: '#9ca3af', fontStyle: 'italic' }}>
+                                                -
+                                            </Typography>
                                         )}
                                     </TableCell>
 
-                                    {/* Data Cells */}
-                                    {dayNumbers.map((day) => {
-                                        const dayData = employee.attendance[day];
-                                        if (!dayData) return <TableCell key={day} />;
+                                    {/* Daily Attendance Cells */}
+                                    {dayNumbers.map(day => {
+                                        const d = employee.attendance[day];
+                                        if (!d) return <TableCell key={day} sx={{ bgcolor: '#fafafa' }} />;
 
-                                        const style = getStatusStyle(dayData.status);
-                                        const regHours = dayData.regularHours || 0;
-                                        const otHours = dayData.overtimeHours || 0;
-                                        const hasHours = regHours > 0 || otHours > 0;
+                                        const statusStyle = getStatusColor(d.status);
+                                        const regH = d.regularHours || 0;
+                                        const otH = d.overtimeHours || 0;
 
                                         const tooltipContent = (
                                             <Box sx={{ p: 1 }}>
-                                                <Typography variant="subtitle2" color="inherit">{dayData.date}</Typography>
-                                                <Typography variant="body2">Status: <b>{dayData.status}</b></Typography>
-                                                <Typography variant="body2">In/Out: {dayData.checkIn || '--:--'} - {dayData.checkOut || '--:--'}</Typography>
-                                                <Typography variant="body2">Reg: {regHours}h | OT: {otHours}h</Typography>
-                                                {dayData.chargeJob && dayData.chargeJob !== '-' && (
-                                                    <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#94a3b8', borderTop: '1px solid #334155', pt: 0.5 }}>
-                                                        {dayData.chargeJob}
-                                                    </Typography>
-                                                )}
+                                                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{d.date}</Typography>
+                                                <Typography variant="body2">Status: <b>{d.status}</b></Typography>
+                                                <Typography variant="caption">In/Out: {d.checkIn || '--'} - {d.checkOut || '--'}</Typography>
+                                                <Typography variant="caption" display="block">Reg: {regH}h | OT: {otH}h</Typography>
                                             </Box>
                                         );
 
-                                        let cellContent;
-                                        const isStatusText = ['ALFA', 'OFF', 'Sakit', 'Izin', 'Cuti', 'S', 'I', 'CT', 'Incomplete'].includes(dayData.status);
-
-                                        if (isStatusText) {
-                                            cellContent = (
-                                                <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em' }}>
-                                                    {dayData.status === 'Incomplete' ? '?' : dayData.status.substring(0, 3).toUpperCase()}
-                                                </Typography>
-                                            );
-                                        } else {
-                                            cellContent = (
-                                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                                                    {regHours > 0 && <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#1e293b' }}>{regHours}</Typography>}
-                                                    {otHours > 0 && <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: '#c2410c', mt: -0.3 }}>{otHours}</Typography>}
-                                                </Box>
-                                            );
-                                        }
-
                                         return (
-                                            <Tooltip key={`${employee.id}-${day}`} title={tooltipContent} arrow placement="top">
-                                                <TableCell align="center" padding="none" sx={{ bgcolor: hasHours ? '#ffffff' : style.bg, color: style.color, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', height: 40, transition: 'all 0.1s', position: 'relative', '&:hover': { filter: 'brightness(0.97)', cursor: 'crosshair', zIndex: 1 } }}>
-                                                    {cellContent}
+                                            <Tooltip key={day} title={tooltipContent} arrow>
+                                                <TableCell
+                                                    align="center"
+                                                    sx={{
+                                                        bgcolor: statusStyle.bg,
+                                                        color: statusStyle.text,
+                                                        fontWeight: 600,
+                                                        fontSize: '0.75rem',
+                                                        cursor: 'crosshair',
+                                                        transition: 'all 0.1s',
+                                                        '&:hover': {
+                                                            filter: 'brightness(0.95)',
+                                                            zIndex: 10
+                                                        }
+                                                    }}
+                                                >
+                                                    {/* Display logic with VIEW MODE filtering */}
+                                                    {d.status === 'Hadir' ? (
+                                                        <Box>
+                                                            {viewMode === 'attendance' ? (
+                                                                <CheckIcon sx={{ fontSize: 16, color: '#059669' }} />
+                                                            ) : viewMode === 'overtime' ? (
+                                                                <Box>
+                                                                    <CheckIcon sx={{ fontSize: 14, color: '#059669' }} />
+                                                                    {otH > 0 && <div style={{ fontSize: '0.65rem', color: '#c2410c', fontWeight: 700 }}>+{otH}</div>}
+                                                                </Box>
+                                                            ) : (
+                                                                <Box>
+                                                                    {regH > 0 && <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{regH}</div>}
+                                                                    {otH > 0 && <div style={{ fontSize: '0.65rem', color: '#c2410c', fontWeight: 700 }}>+{otH}</div>}
+                                                                </Box>
+                                                            )}
+                                                        </Box>
+                                                    ) : ['ALFA', 'OFF', 'CT', 'S', 'I'].includes(d.status) ? (
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.3 }}>
+                                                            {statusStyle.icon}
+                                                            <span style={{ fontSize: viewMode === 'detail' ? '0.7rem' : '0.65rem', fontWeight: 700 }}>
+                                                                {d.status}
+                                                            </span>
+                                                        </Box>
+                                                    ) : (
+                                                        <span>{viewMode === 'detail' ? d.display : '~'}</span>
+                                                    )}
                                                 </TableCell>
                                             </Tooltip>
                                         );
                                     })}
 
-                                    {/* Summary Columns (Totals) */}
-                                    <TableCell align="center" sx={{ borderLeft: '2px solid #e2e8f0', bgcolor: '#f8fafc', fontWeight: 'bold' }}>
+                                    {/* Summary Cells */}
+                                    <TableCell align="center" sx={{ bgcolor: '#f0fdf4', fontWeight: 700, borderLeft: '2px solid #10b981 !important' }}>
                                         {totalHadir}
                                     </TableCell>
-                                    <TableCell align="center" sx={{ bgcolor: '#f8fafc', fontWeight: 'bold' }}>
+                                    <TableCell align="center" sx={{ bgcolor: '#fff7ed', fontWeight: 700, color: '#c2410c' }}>
                                         {totalOT.toFixed(1).replace('.0', '')}
                                     </TableCell>
-                                    <TableCell align="center" sx={{ bgcolor: '#fef2f2', color: '#b91c1c', fontWeight: 'bold' }}>
+                                    <TableCell align="center" sx={{ bgcolor: '#fef2f2', fontWeight: 700, color: '#b91c1c' }}>
                                         {totalAlfa}
                                     </TableCell>
                                 </TableRow>
