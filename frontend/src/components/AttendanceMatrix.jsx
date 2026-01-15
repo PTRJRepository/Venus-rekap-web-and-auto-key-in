@@ -51,14 +51,35 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
     const dayNumbers = Object.keys(daysMap).sort((a, b) => Number(a) - Number(b));
 
     // Status color helper
-    const getStatusColor = (status) => {
-        if (status === 'Hadir') return { bg: '#ecfdf5', text: '#059669', icon: <CheckIcon sx={{ fontSize: 14, color: '#059669' }} /> };
-        if (status === 'ALFA') return { bg: '#7f1d1d', text: '#ffffff', icon: <CancelIcon sx={{ fontSize: 14 }} /> };
-        if (status === 'OFF') return { bg: '#f1f5f9', text: '#64748b', icon: null };
-        if (status.includes('Lembur')) return { bg: '#fff7ed', text: '#c2410c', icon: null };
-        if (['CT', 'Cuti', 'Izin', 'I'].includes(status)) return { bg: '#eff6ff', text: '#1e40af', icon: <FlightIcon sx={{ fontSize: 12 }} /> };
-        if (['S', 'Sakit', 'Sick'].includes(status)) return { bg: '#fee2e2', text: '#b91c1c', icon: <HospitalIcon sx={{ fontSize: 12 }} /> };
-        return { bg: '#ffffff', text: '#1e293b', icon: null };
+    const getStatusColor = (statusRaw) => {
+        const status = (statusRaw || '').toUpperCase();
+        
+        // 1. Hadir / Present
+        if (status === 'HADIR') return { bg: '#ecfdf5', text: '#059669', icon: <CheckIcon sx={{ fontSize: 14, color: '#059669' }} />, label: 'H' };
+        
+        // 2. ALFA / Absent
+        if (status === 'ALFA') return { bg: '#7f1d1d', text: '#ffffff', icon: <CancelIcon sx={{ fontSize: 14 }} />, label: 'A' };
+        
+        // 3. OFF / Holiday
+        if (status === 'OFF') return { bg: '#f1f5f9', text: '#64748b', icon: null, label: 'OFF' };
+        
+        // 4. Overtime Only (Weekend work)
+        if (status.includes('LEMBUR')) return { bg: '#fff7ed', text: '#c2410c', icon: null, label: 'OT' };
+        
+        // 5. Leave / Cuti / Izin
+        if (['CT', 'CUTI', 'IZIN', 'I'].includes(status) || status.includes('LEAVE')) 
+            return { bg: '#eff6ff', text: '#1e40af', icon: <FlightIcon sx={{ fontSize: 12 }} />, label: status.substring(0, 2) };
+            
+        // 6. Sick / Sakit
+        if (['S', 'SAKIT', 'SICK', 'SD'].includes(status)) 
+            return { bg: '#fee2e2', text: '#b91c1c', icon: <HospitalIcon sx={{ fontSize: 12 }} />, label: 'S' };
+
+        // 7. Menstrual / Haid (Commonly 'M' or 'M-Leave')
+        if (['M', 'MENSTRUAL', 'HAID'].includes(status) || status.includes('HAID'))
+            return { bg: '#fce7f3', text: '#be185d', icon: <HospitalIcon sx={{ fontSize: 12 }} />, label: 'M' }; // Pink for Menstrual
+
+        // Default / Other
+        return { bg: '#ffffff', text: '#1e293b', icon: null, label: statusRaw };
     };
 
     return (
@@ -301,6 +322,38 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
                                             </Box>
                                         );
 
+                                        // Render Content Logic
+                                        let cellContent;
+                                        if (d.status === 'Hadir') {
+                                            if (viewMode === 'attendance') {
+                                                cellContent = <CheckIcon sx={{ fontSize: 16, color: '#059669' }} />;
+                                            } else if (viewMode === 'overtime') {
+                                                cellContent = (
+                                                    <Box>
+                                                        <CheckIcon sx={{ fontSize: 14, color: '#059669' }} />
+                                                        {otH > 0 && <div style={{ fontSize: '0.65rem', color: '#c2410c', fontWeight: 700 }}>+{otH}</div>}
+                                                    </Box>
+                                                );
+                                            } else {
+                                                cellContent = (
+                                                    <Box>
+                                                        {regH > 0 && <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{regH}</div>}
+                                                        {otH > 0 && <div style={{ fontSize: '0.65rem', color: '#c2410c', fontWeight: 700 }}>+{otH}</div>}
+                                                    </Box>
+                                                );
+                                            }
+                                        } else {
+                                            // Handling for ALL other statuses (ALFA, S, I, M, etc.)
+                                            cellContent = (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.3 }}>
+                                                    {statusStyle.icon}
+                                                    <span style={{ fontSize: viewMode === 'detail' ? '0.7rem' : '0.65rem', fontWeight: 700 }}>
+                                                        {statusStyle.label} 
+                                                    </span>
+                                                </Box>
+                                            );
+                                        }
+
                                         return (
                                             <Tooltip key={day} title={tooltipContent} arrow>
                                                 <TableCell
@@ -318,33 +371,7 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
                                                         }
                                                     }}
                                                 >
-                                                    {/* Display logic with VIEW MODE filtering */}
-                                                    {d.status === 'Hadir' ? (
-                                                        <Box>
-                                                            {viewMode === 'attendance' ? (
-                                                                <CheckIcon sx={{ fontSize: 16, color: '#059669' }} />
-                                                            ) : viewMode === 'overtime' ? (
-                                                                <Box>
-                                                                    <CheckIcon sx={{ fontSize: 14, color: '#059669' }} />
-                                                                    {otH > 0 && <div style={{ fontSize: '0.65rem', color: '#c2410c', fontWeight: 700 }}>+{otH}</div>}
-                                                                </Box>
-                                                            ) : (
-                                                                <Box>
-                                                                    {regH > 0 && <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{regH}</div>}
-                                                                    {otH > 0 && <div style={{ fontSize: '0.65rem', color: '#c2410c', fontWeight: 700 }}>+{otH}</div>}
-                                                                </Box>
-                                                            )}
-                                                        </Box>
-                                                    ) : ['ALFA', 'OFF', 'CT', 'S', 'I'].includes(d.status) ? (
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.3 }}>
-                                                            {statusStyle.icon}
-                                                            <span style={{ fontSize: viewMode === 'detail' ? '0.7rem' : '0.65rem', fontWeight: 700 }}>
-                                                                {d.status}
-                                                            </span>
-                                                        </Box>
-                                                    ) : (
-                                                        <span>{viewMode === 'detail' ? d.display : '~'}</span>
-                                                    )}
+                                                    {cellContent}
                                                 </TableCell>
                                             </Tooltip>
                                         );

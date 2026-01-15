@@ -206,13 +206,28 @@ const fetchAttendanceData = async (month, year) => {
     });
 
     console.log(`[DEBUG] Map sizes - Att: ${Object.keys(attendanceMap).length}, OT: ${Object.keys(overtimeMap).length}, Leave: ${Object.keys(leaveMap).length}, Abs: ${Object.keys(absenceMap).length}`);
+
+    // --- Active Employee Filter ---
+    // Create a set of Employee IDs that have ANY data in the raw results
+    const activeEmployeeIds = new Set();
+    attendanceRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
+    overtimeRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
+    leavesRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
+    absencesRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
+    
+    console.log(`[FILTER] Total active employees found in data sources: ${activeEmployeeIds.size}`);
+
+    // Filter the master employee list
+    const activeEmployees = employees.filter(emp => activeEmployeeIds.has(emp.EmployeeID));
+    console.log(`[FILTER] Filtered employee list from ${employees.length} to ${activeEmployees.length}`);
+
     // 3. Build Grid
     const daysInMonth = eachDayOfInterval({
         start: parseISO(startDate),
         end: parseISO(endDate)
     });
 
-    const finalData = employees.map(emp => {
+    const finalData = activeEmployees.map(emp => {
         const empId = emp.EmployeeID;
         const empName = emp.EmployeeName;
 

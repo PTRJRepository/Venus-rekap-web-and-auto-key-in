@@ -1,0 +1,25 @@
+{
+    "name": "browser-automation-engine",
+    "version": "1.0.0",
+    "description": "Modular template-based browser automation engine using Puppeteer",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "node index.js"
+    },
+    "keywords": [
+        "automation",
+        "puppeteer",
+        "browser",
+        "template",
+        "millware"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "puppeteer": "^21.0.0"
+    },
+    "devDependencies": {
+        "dotenv": "^16.0.0"
+    }
+}

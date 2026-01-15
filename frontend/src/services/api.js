@@ -23,4 +23,30 @@ export const fetchAttendanceData = async (month, year) => {
     }
 };
 
+export const fetchActiveEmployees = async (startDate, endDate) => {
+    try {
+        const response = await apiClient.get('/export-options/employees', {
+            params: { start_date: startDate, end_date: endDate }
+        });
+        return response.data.data;
+    } catch (error) {
+        console.error('Error fetching active employees:', error);
+        throw error;
+    }
+};
+
+export const exportAttendanceJSON = async (startDate, endDate, employeeIds) => {
+    try {
+        const response = await apiClient.post('/export', {
+            start_date: startDate,
+            end_date: endDate,
+            employee_ids: employeeIds
+        });
+        return response.data.data;
+    } catch (error) {
+        console.error('Error exporting data:', error);
+        throw error;
+    }
+};
+
 export default apiClient;

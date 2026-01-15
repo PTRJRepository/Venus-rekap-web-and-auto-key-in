@@ -24,8 +24,9 @@ const Legend = () => {
         { icon: <TimeIcon sx={{ fontSize: 16, color: '#c2410c' }} />, label: 'Lembur', color: '#fff7ed' },
         { icon: <CancelIcon sx={{ fontSize: 16, color: '#ffffff' }} />, label: 'ALFA', color: '#7f1d1d' },
         { icon: <SunIcon sx={{ fontSize: 16, color: '#64748b' }} />, label: 'OFF (Libur)', color: '#f1f5f9' },
-        { icon: <FlightIcon sx={{ fontSize: 16, color: '#1e40af' }} />, label: 'Cuti', color: '#eff6ff' },
+        { icon: <FlightIcon sx={{ fontSize: 16, color: '#1e40af' }} />, label: 'Cuti / Izin', color: '#eff6ff' },
         { icon: <HospitalIcon sx={{ fontSize: 16, color: '#b91c1c' }} />, label: 'Sakit', color: '#fee2e2' },
+        { icon: <HospitalIcon sx={{ fontSize: 16, color: '#be185d' }} />, label: 'Haid (M)', color: '#fce7f3' },
         { icon: <WarningIcon sx={{ fontSize: 16, color: '#b45309' }} />, label: 'Incomplete', color: '#fffbeb' },
     ];
 

@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
 import {
     Box,
-    Card,
-    CardContent,
+    Paper,
     Typography,
     Grid,
-    CardActionArea,
-    Chip,
-    Paper,
-    Tabs,
-    Tab,
-    Fade,
+    Button,
+    ToggleButton,
+    ToggleButtonGroup,
+    Divider,
+    CircularProgress,
+    alpha
 } from '@mui/material';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import {
+    CalendarMonth as CalendarIcon,
+    Search as SearchIcon,
+    DateRange as DateRangeIcon,
+    ChevronRight as ChevronRightIcon
+} from '@mui/icons-material';
 
 const getMonths = () => {
     return [
@@ -43,146 +47,202 @@ const MonthYearSelector = ({ onFetch, loading }) => {
     const months = getMonths();
 
     const handleYearChange = (event, newValue) => {
-        setSelectedYear(newValue);
-        setSelectedMonth(null); // Reset selected month when year changes
+        if (newValue !== null) {
+            setSelectedYear(newValue);
+            setSelectedMonth(null); // Reset month to force re-selection
+        }
     };
 
-    const handleMonthSelect = (monthId) => {
-        setSelectedMonth({ month: monthId, year: selectedYear });
-        onFetch(monthId, selectedYear);
+    const handleFetchClick = () => {
+        if (selectedMonth && selectedYear) {
+            onFetch(selectedMonth, selectedYear);
+        }
     };
+
+    const getMonthName = (id) => months.find(m => m.id === id)?.name || '';
 
     return (
-        <Box sx={{ mb: 3, maxWidth: 1600, mx: 'auto' }}>
-            {/* Hero Header */}
+        <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'flex-start', 
+            pt: 6, 
+            height: '100%' 
+        }}>
             <Paper
-                elevation={3}
+                elevation={0}
                 sx={{
-                    p: 3,
-                    mb: 3,
-                    borderRadius: 3,
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white'
+                    width: '100%',
+                    maxWidth: 700,
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    bgcolor: '#ffffff'
                 }}
             >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                {/* Header Section */}
+                <Box sx={{ 
+                    p: 3, 
+                    borderBottom: '1px solid #f1f5f9',
+                    bgcolor: '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2
+                }}>
+                    <Box sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 1.5,
+                        bgcolor: 'white',
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#475569'
+                    }}>
+                        <DateRangeIcon />
+                    </Box>
                     <Box>
-                        <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                            Pilih Periode Rekap Absensi
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
+                            Filter Periode
                         </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                            Klik bulan untuk menampilkan data rekap absensi karyawan
+                        <Typography variant="body2" sx={{ color: '#64748b' }}>
+                            Pilih Tahun dan Bulan untuk menampilkan data absensi
                         </Typography>
                     </Box>
-                    <CalendarTodayIcon sx={{ fontSize: 48, opacity: 0.7 }} />
+                </Box>
+
+                <Box sx={{ p: 4 }}>
+                    {/* Year Selection */}
+                    <Box sx={{ mb: 4 }}>
+                        <Typography variant="subtitle2" sx={{ 
+                            mb: 1.5, 
+                            fontWeight: 600, 
+                            color: '#475569', 
+                            textTransform: 'uppercase', 
+                            fontSize: '0.75rem', 
+                            letterSpacing: '0.05em' 
+                        }}>
+                            Tahun Anggaran
+                        </Typography>
+                        <ToggleButtonGroup
+                            value={selectedYear}
+                            exclusive
+                            onChange={handleYearChange}
+                            fullWidth
+                            sx={{
+                                '& .MuiToggleButton-root': {
+                                    py: 1,
+                                    fontWeight: 600,
+                                    fontSize: '0.95rem',
+                                    color: '#64748b',
+                                    borderColor: '#cbd5e1',
+                                    '&.Mui-selected': {
+                                        bgcolor: '#7c3aed',
+                                        color: 'white',
+                                        '&:hover': {
+                                            bgcolor: '#6d28d9',
+                                        }
+                                    },
+                                    '&:hover': {
+                                        bgcolor: '#f1f5f9'
+                                    }
+                                }
+                            }}
+                        >
+                            {years.map(year => (
+                                <ToggleButton key={year} value={year}>
+                                    {year}
+                                </ToggleButton>
+                            ))}
+                        </ToggleButtonGroup>
+                    </Box>
+
+                    {/* Month Selection Grid */}
+                    <Box sx={{ mb: 4 }}>
+                        <Typography variant="subtitle2" sx={{ 
+                            mb: 1.5, 
+                            fontWeight: 600, 
+                            color: '#475569', 
+                            textTransform: 'uppercase', 
+                            fontSize: '0.75rem', 
+                            letterSpacing: '0.05em' 
+                        }}>
+                            Bulan
+                        </Typography>
+                        <Grid container spacing={1.5}>
+                            {months.map((m) => {
+                                const isSelected = selectedMonth === m.id;
+                                return (
+                                    <Grid item xs={3} key={m.id}>
+                                        <Button
+                                            variant={isSelected ? "contained" : "outlined"}
+                                            onClick={() => setSelectedMonth(m.id)}
+                                            fullWidth
+                                            sx={{
+                                                height: 48,
+                                                borderColor: isSelected ? 'primary.main' : '#e2e8f0',
+                                                bgcolor: isSelected ? '#7c3aed' : 'transparent',
+                                                color: isSelected ? 'white' : '#334155',
+                                                fontWeight: isSelected ? 700 : 500,
+                                                textTransform: 'none',
+                                                fontSize: '0.9rem',
+                                                '&:hover': {
+                                                    bgcolor: isSelected ? '#6d28d9' : '#f8fafc',
+                                                    borderColor: isSelected ? '#6d28d9' : '#cbd5e1',
+                                                },
+                                                boxShadow: isSelected ? '0 4px 6px -1px rgba(124, 58, 237, 0.2)' : 'none'
+                                            }}
+                                        >
+                                            {m.name}
+                                        </Button>
+                                    </Grid>
+                                );
+                            })}
+                        </Grid>
+                    </Box>
+
+                    {/* Action Button */}
+                    <Divider sx={{ my: 3 }} />
+                    
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                            <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 500 }}>
+                                TERPILIH
+                            </Typography>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0f172a' }}>
+                                {selectedMonth ? getMonthName(selectedMonth) : '-'} {selectedYear}
+                            </Typography>
+                        </Box>
+
+                        <Button
+                            variant="contained"
+                            size="large"
+                            onClick={handleFetchClick}
+                            disabled={!selectedMonth || loading}
+                            endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ChevronRightIcon />}
+                            sx={{
+                                px: 4,
+                                py: 1.2,
+                                bgcolor: '#0f172a', // Dark slate for enterprise feel
+                                color: 'white',
+                                fontWeight: 700,
+                                textTransform: 'none',
+                                borderRadius: 1.5,
+                                '&:hover': {
+                                    bgcolor: '#1e293b'
+                                },
+                                '&:disabled': {
+                                    bgcolor: '#cbd5e1',
+                                    color: '#94a3b8'
+                                }
+                            }}
+                        >
+                            {loading ? 'Memproses Data...' : 'Tampilkan Data'}
+                        </Button>
+                    </Box>
                 </Box>
             </Paper>
-
-            {/* Year Selector Tabs */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-                <Paper elevation={2} sx={{ borderRadius: 6, bgcolor: '#fff', p: 0.5 }}>
-                    <Tabs
-                        value={selectedYear}
-                        onChange={handleYearChange}
-                        centered
-                        indicatorColor="primary"
-                        textColor="primary"
-                        sx={{
-                            '& .MuiTab-root': {
-                                borderRadius: 5,
-                                minWidth: 120,
-                                fontWeight: 'bold',
-                                fontSize: '1.1rem',
-                                transition: 'all 0.3s',
-                                '&.Mui-selected': {
-                                    bgcolor: 'primary.main',
-                                    color: 'white',
-                                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-                                }
-                            },
-                            '& .MuiTabs-indicator': { display: 'none' }
-                        }}
-                    >
-                        {years.map(year => (
-                            <Tab key={year} label={year} value={year} />
-                        ))}
-                    </Tabs>
-                </Paper>
-            </Box>
-
-            {/* Month Cards Grid */}
-            <Grid container spacing={2}>
-                {months.map((m, index) => {
-                    const isSelected = selectedMonth && selectedMonth.month === m.id && selectedMonth.year === selectedYear;
-
-                    return (
-                        <Grid item xs={6} sm={4} md={3} lg={2} key={m.id}>
-                            <Fade in={true} style={{ transitionDelay: `${index * 30}ms` }}>
-                                <Card
-                                    elevation={isSelected ? 8 : 2}
-                                    sx={{
-                                        height: '100%',
-                                        border: isSelected ? '3px solid #667eea' : '1px solid #e0e0e0',
-                                        bgcolor: isSelected ? '#f0f4ff' : 'white',
-                                        transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                        '&:hover': {
-                                            transform: 'translateY(-8px) scale(1.03)',
-                                            boxShadow: '0 12px 24px rgba(102, 126, 234, 0.25)',
-                                            borderColor: '#667eea'
-                                        }
-                                    }}
-                                >
-                                    <CardActionArea
-                                        onClick={() => handleMonthSelect(m.id)}
-                                        disabled={loading}
-                                        sx={{
-                                            height: '100%',
-                                            p: 2,
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            justifyContent: 'center',
-                                            alignItems: 'center'
-                                        }}
-                                    >
-                                        <CardContent sx={{ textAlign: 'center', p: 0 }}>
-                                            <Chip
-                                                label={selectedYear}
-                                                size="small"
-                                                sx={{
-                                                    mb: 1,
-                                                    bgcolor: isSelected ? 'primary.main' : 'grey.300',
-                                                    color: isSelected ? 'white' : 'grey.700',
-                                                    fontWeight: 600
-                                                }}
-                                            />
-                                            <Typography
-                                                variant="h6"
-                                                sx={{
-                                                    fontWeight: 800,
-                                                    color: isSelected ? 'primary.main' : 'text.primary',
-                                                    mb: 0.5
-                                                }}
-                                            >
-                                                {m.name}
-                                            </Typography>
-                                            <Typography
-                                                variant="caption"
-                                                sx={{
-                                                    color: isSelected ? 'primary.dark' : 'text.secondary',
-                                                    fontSize: '0.7rem'
-                                                }}
-                                            >
-                                                {isSelected ? '✓ Terpilih' : 'Klik untuk lihat'}
-                                            </Typography>
-                                        </CardContent>
-                                    </CardActionArea>
-                                </Card>
-                            </Fade>
-                        </Grid>
-                    );
-                })}
-            </Grid>
         </Box>
     );
 };

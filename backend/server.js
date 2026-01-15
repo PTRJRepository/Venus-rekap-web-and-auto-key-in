@@ -8,6 +8,7 @@ const stagingService = require('./services/stagingService');
 const { getChargeJobsForMonth } = require('./services/chargeJobService'); // Still useful for monthly view
 const { executeQuery } = require('./services/gateway'); // Direct query if needed
 const { getPTRJMapping, matchPTRJEmployeeId } = require('./services/mappingService');
+const exportService = require('./services/exportService');
 
 require('dotenv').config();
 
@@ -197,6 +198,41 @@ app.get('/api/monthly-grid', async (req, res) => {
         });
     } catch (error) {
         console.error("API Error in monthly-grid:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- Export Routes ---
+
+app.get('/api/export-options/employees', async (req, res) => {
+    console.log(`[API] /api/export-options/employees hit with params:`, req.query);
+    try {
+        const { start_date, end_date } = req.query;
+        if (!start_date || !end_date) {
+            console.warn("[API] Missing start_date or end_date");
+            return res.status(400).json({ success: false, error: 'Start date and End date required' });
+        }
+        
+        const employees = await exportService.getActiveEmployees(start_date, end_date);
+        res.json({ success: true, data: employees });
+    } catch (error) {
+        console.error("Error fetching active employees:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/export', async (req, res) => {
+    try {
+        const { start_date, end_date, employee_ids } = req.body;
+        
+        if (!start_date || !end_date || !employee_ids || !Array.isArray(employee_ids)) {
+            return res.status(400).json({ success: false, error: 'Invalid parameters' });
+        }
+
+        const result = await exportService.exportToJSON(start_date, end_date, employee_ids);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        console.error("Export error:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
