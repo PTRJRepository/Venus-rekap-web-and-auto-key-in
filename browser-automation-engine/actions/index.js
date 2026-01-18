@@ -72,7 +72,7 @@ const actions = {
                 // Start checking immediately (even after 1st char if possible) but usually need 2+
                 // Lowered threshold to i >= 0 to be more aggressive if needed, but sticking to i >= 1 safe
                 if (i >= 0) { 
-                    await new Promise(r => setTimeout(r, 600)); // Increased wait for UI update
+                    await new Promise(r => setTimeout(r, 250)); // Reduced wait for UI update
 
                     // Check dropdown count - Robust Version
                     const { optionCount, debugMsg } = await page.evaluate(() => {
@@ -112,19 +112,19 @@ const actions = {
             }
 
             // 4. Select Option
-            await new Promise(r => setTimeout(r, 300)); // Stabilize
+            await new Promise(r => setTimeout(r, 100)); // Stabilize
 
             if (foundSingleOption) {
                  console.log("  ⌨️  Selecting single option with ArrowDown + Enter...");
                  await page.keyboard.press('ArrowDown');
-                 await new Promise(r => setTimeout(r, 200));
+                 await new Promise(r => setTimeout(r, 50));
                  await page.keyboard.press('Enter');
             } else {
                 // Fallback: If we finished typing and never found a single option (or 0 options),
                 // we try to select the first one anyway if available.
                 console.log(`  ⚠️  Finished typing without isolating single option. Selecting first available.`);
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 200));
+                await new Promise(r => setTimeout(r, 100));
                 await page.keyboard.press('Enter');
             }
             
@@ -502,7 +502,7 @@ const actions = {
                 // Start checking immediately (even after 1st char if possible) but usually need 2+
                 // Lowered threshold to i >= 0 to be more aggressive if needed, but sticking to i >= 1 safe
                 if (i >= 0) {
-                    await new Promise(r => setTimeout(r, 600)); // Increased wait for UI update
+                    await new Promise(r => setTimeout(r, 250)); // Reduced wait for UI update
 
                     // Check dropdown count - Robust Version
                     const { optionCount, debugMsg } = await page.evaluate(() => {
@@ -541,18 +541,18 @@ const actions = {
             }
 
             // 4. Confirm Selection
-            await new Promise(r => setTimeout(r, 500)); // Stabilize
+            await new Promise(r => setTimeout(r, 100)); // Stabilize
 
             if (foundSingleOption) {
                 // Select the single option with keyboard
                 console.log("  ⌨️  Selecting single option with ArrowDown + Enter...");
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 200));
+                await new Promise(r => setTimeout(r, 50));
                 await page.keyboard.press('Enter');
             } else {
                 // Standard fallback
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 300));
+                await new Promise(r => setTimeout(r, 100));
                 await page.keyboard.press('Enter');
             }
 

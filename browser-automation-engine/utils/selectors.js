@@ -25,8 +25,8 @@ async function safeType(page, selector, text) {
     await page.click(selector, { clickCount: 3 }); // Triple click untuk select all
     await new Promise(r => setTimeout(r, 100));
 
-    // Type text dengan delay meniru ketikan manusia
-    await page.type(selector, text, { delay: 50 });
+    // Type text dengan delay meniru ketikan manusia (dipercepat)
+    await page.type(selector, text, { delay: 5 });
 }
 
 /**
@@ -78,7 +78,7 @@ async function safeTypeAtIndex(page, selector, index, text, timeout = 10000) {
     await element.click({ clickCount: 3 });
     await new Promise(r => setTimeout(r, 100));
     
-    await element.type(text, { delay: 50 });
+    await element.type(text, { delay: 5 });
 }
 
 /**

@@ -5,7 +5,6 @@ require('dotenv').config();
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8001/query';
 const API_TOKEN = process.env.API_TOKEN_QUERY;
 const SERVER_PROFILE = process.env.SERVER_PROFILE || 'SERVER_PROFILE_3';
-
 console.log(`[Gateway] URL: ${GATEWAY_URL}, Profile: ${SERVER_PROFILE}`);
 
 const gatewayClient = axios.create({
