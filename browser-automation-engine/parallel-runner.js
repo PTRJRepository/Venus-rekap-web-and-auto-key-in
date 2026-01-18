@@ -269,9 +269,24 @@ const runEngine = async (engineId, templateName, options) => {
         }
         console.log('═'.repeat(60) + '\n');
 
-        // Keep process alive
-        console.log('⏰ Browsers tetap terbuka. Tekan Ctrl+C untuk menutup.\n');
-        await new Promise(() => { });
+        // Check if Auto-Close is enabled
+        if (process.env.AUTO_CLOSE === 'true') {
+            console.log('\n🔒 AUTO_CLOSE enabled. Closing browsers...');
+
+            for (const r of results) {
+                if (r.engine && typeof r.engine.closeBrowser === 'function') {
+                    console.log(`   Closing Engine ${r.engineId}...`);
+                    await r.engine.closeBrowser();
+                }
+            }
+
+            console.log('👋 All done. Exiting.');
+            process.exit(allSuccess ? 0 : 1);
+        } else {
+            // Keep process alive
+            console.log('⏰ Browsers tetap terbuka. Tekan Ctrl+C untuk menutup.\n');
+            await new Promise(() => { });
+        }
 
     } catch (error) {
         console.error('\n💥 Fatal Error:', error.message);

@@ -10,6 +10,7 @@ const { executeQuery } = require('./services/gateway'); // Direct query if neede
 const { getPTRJMapping, matchPTRJEmployeeId } = require('./services/mappingService');
 const exportService = require('./services/exportService');
 const { updateEmployee, getAllEmployees } = require('./services/employeeMillService');
+const { saveAutomationData, startAutomationProcess } = require('./services/automationService');
 
 require('dotenv').config();
 
@@ -523,6 +524,84 @@ app.patch('/api/employee-mill/:venusId', async (req, res) => {
     } catch (error) {
         console.error('Error updating employee:', error);
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- Automation Routes ---
+
+app.post('/api/automation/run', async (req, res) => {
+    const { employees, month, year } = req.body;
+    if (!employees || !Array.isArray(employees)) {
+        return res.status(400).json({ error: 'Invalid data format. Expected { employees: [] }' });
+    }
+
+    try {
+        console.log(`[Automation] Request to run for ${employees.length} employees (${month}/${year})`);
+        const dataPath = saveAutomationData({ employees, month, year });
+        console.log(`[Automation] Data saved to ${dataPath}`);
+
+        // Start process
+        const child = startAutomationProcess(dataPath);
+
+        // Handle spawn errors
+        child.on('error', (err) => {
+            console.error('[Automation] Spawn error:', err);
+            if (!res.headersSent) {
+                res.status(500).json({ error: `Failed to start automation: ${err.message}` });
+            }
+        });
+
+        // Setup Streaming Response
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const sendChunk = (type, data) => {
+            try {
+                res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+            } catch (e) {
+                // Client may have disconnected
+            }
+        };
+
+        sendChunk('status', 'starting');
+        sendChunk('info', `Process started with ${employees.length} employees`);
+
+        child.stdout.on('data', (data) => {
+            data.toString().split('\n').forEach(line => {
+                if (line.trim()) {
+                    console.log(`[AutoEngine] ${line.trim()}`);
+                    sendChunk('log', line.trim());
+                }
+            });
+        });
+
+        child.stderr.on('data', (data) => {
+            data.toString().split('\n').forEach(line => {
+                if (line.trim()) {
+                    console.error(`[AutoEngine Err] ${line.trim()}`);
+                    sendChunk('error', line.trim());
+                }
+            });
+        });
+
+        child.on('close', (code) => {
+            console.log(`[Automation] Process exited with code ${code}`);
+            sendChunk('status', code === 0 ? 'completed' : 'failed');
+            sendChunk('done', { code });
+            try { res.end(); } catch (e) { }
+        });
+
+        // DON'T kill process on client disconnect - let it run!
+        req.on('close', () => {
+            console.log('[Automation] Client disconnected (process continues running)');
+        });
+
+    } catch (error) {
+        console.error('[Automation] Setup Error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        }
     }
 });
 
