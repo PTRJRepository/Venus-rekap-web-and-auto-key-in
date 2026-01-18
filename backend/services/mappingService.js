@@ -1,26 +1,20 @@
-const fs = require('fs');
-const path = require('path');
+const { getAllEmployees } = require('./employeeMillService');
 
-const MAPPING_FILE_PATH = path.join(__dirname, '../../../data/employee_id_mapping.json');
+// Cache the mapping object
+let cachedMapping = null;
+let lastCacheTime = 0;
+const CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
-const loadMapping = () => {
+const loadMappingFromDB = async () => {
     try {
-        if (!fs.existsSync(MAPPING_FILE_PATH)) {
-            console.warn(`Mapping file not found at ${MAPPING_FILE_PATH}`);
-            return {};
-        }
-        const rawData = fs.readFileSync(MAPPING_FILE_PATH, 'utf-8');
-        const jsonData = JSON.parse(rawData);
-        const mappingRecords = jsonData.mapping || [];
-
+        console.log('Fetching PTRJ Mapping from Database...');
+        const records = await getAllEmployees();
         const mapping = {};
 
-        mappingRecords.forEach(record => {
-            if (record.mapping_status !== 'matched') return;
-
+        records.forEach(record => {
             const nik = record.nik;
             const ptrjId = record.ptrj_employee_id;
-            const ptrjName = record.ptrj_employee_name || '';
+            const ptrjName = record.employee_name || '';
 
             if (!ptrjId) return;
 
@@ -33,26 +27,27 @@ const loadMapping = () => {
 
             // Priority 2: Name variants
             if (ptrjName) {
-                mapping[`name:${ptrjName}`] = ptrjCode;
-                mapping[`name:${ptrjName.toLowerCase().trim()}`] = ptrjCode;
-                mapping[`name:${ptrjName.replace(/\s/g, '').toLowerCase()}`] = ptrjCode;
+                const name = ptrjName.trim();
+                mapping[`name:${name}`] = ptrjCode;
+                mapping[`name:${name.toLowerCase()}`] = ptrjCode;
+                mapping[`name:${name.replace(/\s/g, '').toLowerCase()}`] = ptrjCode;
             }
         });
 
-        console.log(`Loaded ${Object.keys(mapping).length} mapping entries.`);
+        console.log(`Loaded ${Object.keys(mapping).length} PTRJ mapping entries from DB.`);
         return mapping;
     } catch (error) {
-        console.error('Error loading employee mapping:', error);
+        console.error('Error loading employee mapping from DB:', error);
         return {};
     }
 };
 
-let cachedMapping = null;
-
-const getPTRJMapping = () => {
-    if (!cachedMapping) {
-        cachedMapping = loadMapping();
+const getPTRJMapping = async () => {
+    if (cachedMapping && (Date.now() - lastCacheTime < CACHE_DURATION)) {
+        return cachedMapping;
     }
+    cachedMapping = await loadMappingFromDB();
+    lastCacheTime = Date.now();
     return cachedMapping;
 };
 
@@ -73,7 +68,7 @@ const matchPTRJEmployeeId = (venusEmployee, mapping) => {
 
     // Exact
     if (mapping[`name:${venusName}`]) return mapping[`name:${venusName}`];
-    
+
     // Lowercase
     const lowerName = venusName.toLowerCase();
     if (mapping[`name:${lowerName}`]) return mapping[`name:${lowerName}`];
@@ -82,6 +77,7 @@ const matchPTRJEmployeeId = (venusEmployee, mapping) => {
     const noSpaceName = lowerName.replace(/\s/g, '');
     if (mapping[`name:${noSpaceName}`]) return mapping[`name:${noSpaceName}`];
 
+    // console.log(`[DEBUG] No match for ${venusName} (${venusIdNo})`);
     return "N/A";
 };
 

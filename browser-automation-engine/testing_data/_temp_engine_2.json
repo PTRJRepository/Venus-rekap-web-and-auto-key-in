@@ -1,0 +1,144 @@
+{
+  "metadata": {
+    "export_date": "2026-01-14T04:47:22.456Z",
+    "period_start": "2026-01-01",
+    "period_end": "2026-01-19",
+    "total_employees": 1
+  },
+  "data": [
+    {
+      "EmployeeID": "PTRJ.241000025",
+      "EmployeeName": "Asqalany",
+      "PTRJEmployeeID": "POM00140",
+      "ChargeJob": "(OC7170) CLARIFICATION OPERATION / STN-CLR (STATION CLARIFICATION) / CLR00000 (LABOUR COST) / L (LABOUR)",
+      "Attendance": {
+        "2026-01-02": {
+          "date": "2026-01-02",
+          "dayName": "Jum",
+          "status": "Hadir",
+          "display": "✓ +4.0h",
+          "class": "hours-normal-overtime",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": null,
+          "overtimeHours": 4,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false
+        },
+        "2026-01-04": {
+          "date": "2026-01-04",
+          "dayName": "Min",
+          "status": "Hadir",
+          "display": "✓ +4.0h",
+          "class": "hours-normal-overtime",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": null,
+          "overtimeHours": 4,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": true
+        },
+        "2026-01-06": {
+          "date": "2026-01-06",
+          "dayName": "Sel",
+          "status": "Hadir",
+          "display": "✓ +6.0h",
+          "class": "hours-normal-overtime",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": null,
+          "overtimeHours": 6,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false
+        },
+        "2026-01-08": {
+          "date": "2026-01-08",
+          "dayName": "Kam",
+          "status": "Partial In",
+          "display": "⚠ +13.5h",
+          "class": "hours-partial-check-in-only",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": 7,
+          "overtimeHours": 13.5,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false
+        },
+        "2026-01-10": {
+          "date": "2026-01-10",
+          "dayName": "Sab",
+          "status": "Hadir",
+          "display": "✓ +6.5h",
+          "class": "hours-normal-overtime",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": null,
+          "overtimeHours": 6.5,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false
+        },
+        "2026-01-12": {
+          "date": "2026-01-12",
+          "dayName": "Sen",
+          "status": "Partial In",
+          "display": "⚠ +4.0h",
+          "class": "hours-partial-check-in-only",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": 7,
+          "overtimeHours": 4,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false
+        },
+        "2026-01-14": {
+          "date": "2026-01-14",
+          "dayName": "Rab",
+          "status": "OFF",
+          "display": "OFF",
+          "class": "hours-off",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": 0,
+          "overtimeHours": 0,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false
+        },
+        "2026-01-16": {
+          "date": "2026-01-16",
+          "dayName": "Jum",
+          "status": "Hadir",
+          "display": "✓ +4.0h",
+          "class": "hours-normal-overtime",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": null,
+          "overtimeHours": 4,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false
+        },
+        "2026-01-18": {
+          "date": "2026-01-18",
+          "dayName": "Min",
+          "status": "Hadir",
+          "display": "✓ +4.0h",
+          "class": "hours-normal-overtime",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": null,
+          "overtimeHours": 4,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": true
+        }
+      }
+    }
+  ]
+}

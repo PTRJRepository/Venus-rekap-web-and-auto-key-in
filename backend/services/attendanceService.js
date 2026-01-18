@@ -1,5 +1,8 @@
 const { executeQuery } = require('./gateway');
-const { getPTRJMapping, matchPTRJEmployeeId } = require('./mappingService');
+// const { getPTRJMapping, matchPTRJEmployeeId } = require('./mappingService'); // Now unused
+// const { getChargeJobMapFromDB } = require('./employeeMillService'); // Now unused
+const { getAllEmployees } = require('./employeeMillService');
+
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -7,7 +10,6 @@ const { parseISO, format, isValid, eachDayOfInterval, startOfMonth, endOfMonth, 
 const { id } = require('date-fns/locale');
 
 const HOLIDAYS_PATH = path.join(__dirname, '../../../data/national_holidays_2025.json');
-const CHARGE_JOB_DATA_URL = "https://script.google.com/macros/s/AKfycbxy72FcKPhhuTJ3qT_DhJCLI8Z_xk9NmQlZ4mdmmtdZ-HDTHM8ER2RpYk40W--rmKjQ/exec";
 
 // --- Helper: Load Holidays ---
 let holidaysCache = null;
@@ -36,56 +38,6 @@ const isNationalHoliday = (dateStr) => {
 const getHolidayName = (dateStr) => {
     const { info } = loadHolidays();
     return info[dateStr] || null;
-};
-
-// --- Helper: Charge Jobs from Google Sheets ---
-let chargeJobCache = null;
-let chargeJobCacheTime = 0;
-const CACHE_DURATION = 1000 * 60 * 15; // 15 minutes
-
-const fetchChargeJobsFromGAS = async () => {
-    if (chargeJobCache && (Date.now() - chargeJobCacheTime < CACHE_DURATION)) {
-        return chargeJobCache;
-    }
-
-    try {
-        console.log("Fetching charge jobs from Google Apps Script...");
-        const response = await axios.get(CHARGE_JOB_DATA_URL, { timeout: 10000 });
-        const data = response.data;
-
-        let employees = [];
-        if (data.data) employees = data.data;
-        else if (data.employees) employees = data.employees;
-        else if (Array.isArray(data)) employees = data;
-
-        const map = {};
-        employees.forEach(emp => {
-            const name = (emp.namaKaryawan || emp.employeeName || emp.EmployeeName || emp.name || '').trim();
-            const id = (emp.employeeId || emp.EmployeeID || emp.id || '').trim();
-            const job = (emp.chargeJob || emp.charge_job || emp.ChargeJob || '').trim();
-
-            // Parse charge job parts: TASK_CODE | STATION | MACHINE | EXPENSE
-            const parts = job.split('|').map(p => p.trim());
-            const chargeJobParsed = {
-                full: job || '-',
-                task_code: parts[0] || '-',
-                station: parts[1] || '-',
-                machine: parts[2] || '-',
-                expense: parts[3] || '-'
-            };
-
-            if (id) map[id] = chargeJobParsed;
-            if (name) map[name.toUpperCase()] = chargeJobParsed; // Fallback by name
-        });
-
-        chargeJobCache = map;
-        chargeJobCacheTime = Date.now();
-        console.log(`Cached ${Object.keys(map).length / 2} charge job records`); // Divide by 2 (ID + Name)
-        return map;
-    } catch (e) {
-        console.error("Error fetching charge jobs from GAS:", e.message);
-        return chargeJobCache || {}; // Return stale cache or empty
-    }
 };
 
 // --- Helper: Leave Expansion ---
@@ -127,6 +79,19 @@ const getLatestAvailableDate = async () => {
     return null;
 };
 
+// --- Helper: Parse Charge Job String ---
+const parseChargeJob = (jobString) => {
+    const job = jobString || '-';
+    const parts = job.split('|').map(p => p.trim());
+    return {
+        full: job,
+        task_code: parts[0] || '-',
+        station: parts[1] || '-',
+        machine: parts[2] || '-',
+        expense: parts[3] || '-'
+    };
+};
+
 // --- Main Data Fetcher ---
 const fetchAttendanceData = async (month, year) => {
     const startDate = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
@@ -136,26 +101,22 @@ const fetchAttendanceData = async (month, year) => {
 
     // 1. Fetch ALL Data in Parallel
     const [
-        employees,
+        employees, // Now from Employee Mill DB
         attendanceRaw,
         overtimeRaw,
         leavesRaw,
         absencesRaw,
-        chargeJobMap,
-        ptrjMapping,
         latestDateStr
     ] = await Promise.all([
-        fetchEmployees(),
+        getAllEmployees(),
         fetchAttendanceRaw(startDate, endDate),
         fetchOvertimeRaw(startDate, endDate),
         fetchLeavesRaw(startDate, endDate),
         fetchAbsencesRaw(startDate, endDate),
-        fetchChargeJobsFromGAS(),
-        Promise.resolve(getPTRJMapping()),
         getLatestAvailableDate()
     ]);
 
-    console.log(`Data fetched: ${employees.length} employees, ${attendanceRaw.length} attendance, ${overtimeRaw.length} overtime, ${leavesRaw.length} leaves, ${absencesRaw.length} absences`);
+    console.log(`Data fetched: ${employees.length} employees (from Mill DB), ${attendanceRaw.length} attendance, ${overtimeRaw.length} overtime, ${leavesRaw.length} leaves, ${absencesRaw.length} absences`);
 
     // 2. Build Lookups
     const attendanceMap = {};
@@ -214,11 +175,11 @@ const fetchAttendanceData = async (month, year) => {
     overtimeRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
     leavesRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
     absencesRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
-    
+
     console.log(`[FILTER] Total active employees found in data sources: ${activeEmployeeIds.size}`);
 
-    // Filter the master employee list
-    const activeEmployees = employees.filter(emp => activeEmployeeIds.has(emp.EmployeeID));
+    // Filter the master employee list using venus_employee_id (which maps to VenusHR EmployeeID)
+    const activeEmployees = employees.filter(emp => activeEmployeeIds.has(emp.venus_employee_id));
     console.log(`[FILTER] Filtered employee list from ${employees.length} to ${activeEmployees.length}`);
 
     // 3. Build Grid
@@ -228,14 +189,12 @@ const fetchAttendanceData = async (month, year) => {
     });
 
     const finalData = activeEmployees.map(emp => {
-        const empId = emp.EmployeeID;
-        const empName = emp.EmployeeName;
+        const empId = emp.venus_employee_id; // Using ID from Mill DB (matches Venus)
+        const empName = emp.employee_name;   // Using Name from Mill DB
+        const ptrjId = emp.ptrj_employee_id || 'N/A';
 
-        // Match PTRJ ID
-        const ptrjId = matchPTRJEmployeeId(emp, ptrjMapping);
-
-        // Match Charge Job (Try ID, then Name)
-        let chargeJobData = chargeJobMap[empId] || chargeJobMap[empName.toUpperCase()] || { full: '-', task_code: '-', station: '-', machine: '-', expense: '-' };
+        // Parse Charge Job directly from object
+        const chargeJobData = parseChargeJob(emp.charge_job);
 
         const empData = {
             id: empId,
@@ -327,7 +286,6 @@ const fetchAttendanceData = async (month, year) => {
                         cssClass = 'hours-off';
                     }
                 } else {
-                    // Working day but absent -> ALFA
                     status = 'ALFA';
                     display = 'ALFA';
                     cssClass = 'hours-alfa';
@@ -410,15 +368,7 @@ const fetchAttendanceData = async (month, year) => {
 
 // --- Gateway Query Wrappers ---
 
-const fetchEmployees = async () => {
-    const sql = `
-        SELECT EmployeeID, EmployeeName, IDNo
-        FROM [VenusHR14].[dbo].[HR_M_EmployeePI]
-        WHERE EmployeeID IS NOT NULL
-        ORDER BY EmployeeName
-    `;
-    return await executeQuery(sql);
-};
+// fetchEmployees Removed - Now handled by getAllEmployees() from employeeMillService
 
 const fetchAttendanceRaw = async (start, end) => {
     const sql = `
@@ -430,12 +380,17 @@ const fetchAttendanceRaw = async (start, end) => {
 };
 
 const fetchOvertimeRaw = async (start, end) => {
+    // Use exact same format as user's working query
     const sql = `
         SELECT EmployeeID, OTDate, OTHourDuration
         FROM [VenusHR14].[dbo].[HR_T_Overtime]
-        WHERE OTDate BETWEEN '${start}' AND '${end}' AND OTHourDuration > 0
+        WHERE OTDate >= '${start}' AND OTDate <= '${end}'
+        ORDER BY OTDate
     `;
-    return await executeQuery(sql);
+    console.log('[DEBUG] Overtime Query:', sql);
+    const result = await executeQuery(sql);
+    console.log('[DEBUG] Overtime Result Count:', result?.length || 0);
+    return result;
 };
 
 const fetchLeavesRaw = async (start, end) => {
@@ -479,4 +434,193 @@ const formatTime = (dateVal) => {
     }
 };
 
-module.exports = { fetchAttendanceData };
+/**
+ * OVERTIME-ONLY MODE
+ * Fetch attendance data using ONLY the Overtime table.
+ * If an employee has overtime on a date, they are considered "Hadir" with regularHours=7.
+ * Useful when HR_T_TAMachine_Summary data is not yet available.
+ */
+const fetchAttendanceDataOvertimeOnly = async (month, year) => {
+    const startDate = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
+    const endDate = format(endOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
+
+    console.log(`[OVERTIME-ONLY MODE] Fetching data for ${startDate} to ${endDate}`);
+
+    // Fetch data (skip attendance table)
+    const [
+        employees, // From Mill DB
+        overtimeRaw,
+        leavesRaw,
+        absencesRaw
+    ] = await Promise.all([
+        getAllEmployees(),
+        fetchOvertimeRaw(startDate, endDate),
+        fetchLeavesRaw(startDate, endDate),
+        fetchAbsencesRaw(startDate, endDate)
+    ]);
+
+    console.log(`[OVERTIME-ONLY] Data: ${employees.length} employees (from Mill DB), ${overtimeRaw.length} overtime records`);
+
+    // Build overtime map (only source of "attendance" now)
+    const overtimeMap = {};
+    overtimeRaw.forEach(row => {
+        const dateStr = formatDateSQL(row.OTDate);
+        const key = `${row.EmployeeID}_${dateStr}`;
+        overtimeMap[key] = (overtimeMap[key] || 0) + parseFloat(row.OTHourDuration || 0);
+    });
+
+    // Build leave map
+    const leaveMap = {};
+    leavesRaw.forEach(row => {
+        const duration = parseInt(row.Outgoing || 1);
+        const refDate = formatDateSQL(row.RefDate);
+        const dates = calculateConsecutiveWorkingDays(refDate, duration);
+        dates.forEach(d => {
+            leaveMap[`${row.EmployeeID}_${d}`] = {
+                type: row.LeaveTypeCode,
+                desc: row.LeaveTypeCode
+            };
+        });
+    });
+
+    // Build absence map
+    const absenceMap = {};
+    absencesRaw.forEach(row => {
+        const from = parseISO(formatDateSQL(row.FromDate));
+        const to = parseISO(formatDateSQL(row.ToDate));
+        const days = eachDayOfInterval({ start: from, end: to });
+        days.forEach(d => {
+            const dStr = format(d, 'yyyy-MM-dd');
+            absenceMap[`${row.EmployeeID}_${dStr}`] = {
+                type: row.AbsType,
+                isUnpaid: (row.AbsType || '').toLowerCase() === 'unpaid leave'
+            };
+        });
+    });
+
+    // Active employees = those with overtime only
+    const activeEmployeeIds = new Set();
+    overtimeRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
+    leavesRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
+    absencesRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
+
+    console.log(`[OVERTIME-ONLY] Active employees: ${activeEmployeeIds.size}`);
+
+    const activeEmployees = employees.filter(emp => activeEmployeeIds.has(emp.venus_employee_id));
+
+    // Build grid
+    const daysInMonth = eachDayOfInterval({
+        start: parseISO(startDate),
+        end: parseISO(endDate)
+    });
+
+    const finalData = activeEmployees.map(emp => {
+        const empId = emp.venus_employee_id;
+        const empName = emp.employee_name;
+        const ptrjId = emp.ptrj_employee_id || 'N/A';
+        const chargeJobData = parseChargeJob(emp.charge_job);
+
+        const empData = {
+            id: empId,
+            name: empName,
+            ptrjEmployeeID: ptrjId,
+            chargeJob: chargeJobData.full,
+            attendance: {}
+        };
+
+        daysInMonth.forEach(dateObj => {
+            const dateStr = format(dateObj, 'yyyy-MM-dd');
+            const dayNum = format(dateObj, 'd');
+            const dayName = format(dateObj, 'EEE', { locale: id });
+            const key = `${empId}_${dateStr}`;
+
+            const isSun = isSunday(dateObj);
+            const isSat = isSaturday(dateObj);
+            const holidayName = getHolidayName(dateStr);
+            const isHol = !!holidayName;
+
+            const otHours = overtimeMap[key] || 0;
+            const leave = leaveMap[key];
+            const absence = absenceMap[key];
+
+            let status = 'ALFA';
+            let display = 'ALFA';
+            let cssClass = 'hours-alfa';
+            let regularHours = 0;
+
+            // Priority 1: Absence
+            if (absence) {
+                if (absence.isUnpaid) {
+                    status = 'ALFA';
+                    display = 'ALFA';
+                    cssClass = 'hours-alfa';
+                } else {
+                    status = absence.type;
+                    display = absence.type;
+                    cssClass = `absence-${absence.type.toLowerCase().replace(/ /g, '-')}`;
+                }
+            }
+            // Priority 2: Leave
+            else if (leave) {
+                status = leave.type;
+                display = leave.type;
+                cssClass = `leave-${leave.type.toLowerCase()}`;
+            }
+            // Priority 3: Has Overtime = Hadir
+            else if (otHours > 0) {
+                // If there's overtime, assume they worked regular hours too
+                if (isSun || isHol) {
+                    regularHours = 0; // Sunday/Holiday = all OT, no regular
+                    status = 'Lembur';
+                    display = `${otHours.toFixed(1)}h`;
+                    cssClass = 'hours-overtime-only';
+                } else if (isSat) {
+                    regularHours = 5; // Saturday = 5 hours regular
+                    status = 'Hadir';
+                    display = `✓ +${otHours.toFixed(1)}h`;
+                    cssClass = 'hours-normal-overtime';
+                } else {
+                    regularHours = 7; // Weekday = 7 hours regular
+                    status = 'Hadir';
+                    display = `✓ +${otHours.toFixed(1)}h`;
+                    cssClass = 'hours-normal-overtime';
+                }
+            }
+            // Priority 4: No overtime, no record
+            else {
+                if (isSun || isHol) {
+                    status = 'OFF';
+                    display = 'OFF';
+                    cssClass = 'hours-off';
+                } else {
+                    // No data = unknown/absent
+                    status = 'ALFA';
+                    display = 'ALFA';
+                    cssClass = 'hours-alfa';
+                }
+            }
+
+            empData.attendance[dayNum] = {
+                date: dateStr,
+                dayName: dayName,
+                status: status,
+                display: display,
+                class: cssClass,
+                checkIn: null,
+                checkOut: null,
+                regularHours: regularHours,
+                overtimeHours: otHours,
+                isHoliday: isHol,
+                holidayName: holidayName,
+                isSunday: isSun
+            };
+        });
+
+        return empData;
+    });
+
+    console.log(`[OVERTIME-ONLY] Processed ${finalData.length} employees`);
+    return finalData;
+};
+
+module.exports = { fetchAttendanceData, fetchAttendanceDataOvertimeOnly };

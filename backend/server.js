@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { parseISO, format, getDay, isSunday } = require('date-fns');
-const { fetchAttendanceData } = require('./services/attendanceService');
+const { fetchAttendanceData, fetchAttendanceDataOvertimeOnly } = require('./services/attendanceService');
 const stagingService = require('./services/stagingService');
 const { getChargeJobsForMonth } = require('./services/chargeJobService'); // Still useful for monthly view
 const { executeQuery } = require('./services/gateway'); // Direct query if needed
@@ -82,12 +82,16 @@ app.get('/api/months', async (req, res) => {
 
 app.get('/api/attendance', async (req, res) => {
     const { month, year } = req.query;
-    console.log(`Received request for attendance: ${month}/${year}`);
+    const noAttendance = process.env.NO_ATTENDANCE === 'true';
+    console.log(`Received request for attendance: ${month}/${year} (no-attendance: ${noAttendance})`);
 
     if (!month || !year) return res.status(400).json({ error: 'Month and Year required' });
 
     try {
-        const data = await fetchAttendanceData(parseInt(month), parseInt(year));
+        // Use overtime-only mode if NO_ATTENDANCE is enabled
+        const data = noAttendance
+            ? await fetchAttendanceDataOvertimeOnly(parseInt(month), parseInt(year))
+            : await fetchAttendanceData(parseInt(month), parseInt(year));
 
         // Format response to match frontend expectations
         res.json({
@@ -112,12 +116,16 @@ app.get('/api/attendance', async (req, res) => {
 // Enhanced monthly grid endpoint that matches the original Python application
 app.get('/api/monthly-grid', async (req, res) => {
     const { month, year, bus_code } = req.query;
-    console.log(`Received request for monthly grid: ${month}/${year}, bus_code: ${bus_code}`);
+    const noAttendance = process.env.NO_ATTENDANCE === 'true';
+    console.log(`Received request for monthly grid: ${month}/${year}, bus_code: ${bus_code} (no-attendance: ${noAttendance})`);
 
     if (!month || !year) return res.status(400).json({ error: 'Month and Year required' });
 
     try {
-        const data = await fetchAttendanceData(parseInt(month), parseInt(year));
+        // Use overtime-only mode if NO_ATTENDANCE is enabled
+        const data = noAttendance
+            ? await fetchAttendanceDataOvertimeOnly(parseInt(month), parseInt(year))
+            : await fetchAttendanceData(parseInt(month), parseInt(year));
 
         // Process data into grid format
         const daysInMonth = new Date(year, month, 0).getDate();
@@ -202,6 +210,97 @@ app.get('/api/monthly-grid', async (req, res) => {
     }
 });
 
+// --- Monthly Grid Overtime-Only Mode ---
+// Same as monthly-grid but uses only Overtime table for attendance data
+app.get('/api/monthly-grid-overtime-only', async (req, res) => {
+    const { month, year } = req.query;
+    console.log(`[OVERTIME-ONLY GRID] Received request: ${month}/${year}`);
+
+    if (!month || !year) return res.status(400).json({ error: 'Month and Year required' });
+
+    try {
+        // Use overtime-only data fetcher
+        const data = await fetchAttendanceDataOvertimeOnly(parseInt(month), parseInt(year));
+
+        // Process data into grid format
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const monthName = new Date(year, month - 1).toLocaleString('id-ID', { month: 'long' });
+
+        // Create grid data structure
+        const gridData = data.map((emp, index) => {
+            const days = {};
+
+            // Initialize all days in the month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+                // Find corresponding attendance data for this day
+                const dayData = emp.attendance ? emp.attendance[day.toString()] : null;
+
+                if (dayData) {
+                    days[day] = {
+                        date: dayData.date,
+                        dayName: dayData.dayName,
+                        status: dayData.status,
+                        checkIn: dayData.checkIn,
+                        checkOut: dayData.checkOut,
+                        regularHours: dayData.regularHours,
+                        overtimeHours: dayData.overtimeHours,
+                        chargeJob: emp.chargeJob || '-',
+                        isHoliday: dayData.isHoliday,
+                        holidayName: dayData.holidayName,
+                        isSunday: dayData.isSunday
+                    };
+                } else {
+                    // Default values for days without data
+                    const dateObj = new Date(dateStr);
+                    const isSunday = dateObj.getDay() === 0;
+                    const holidayName = getHolidayName(dateStr);
+                    const isNationalHoliday = !!holidayName;
+
+                    days[day] = {
+                        date: dateStr,
+                        dayName: dateObj.toLocaleString('id-ID', { weekday: 'short' }),
+                        status: (isSunday || isNationalHoliday) ? 'OFF' : 'ALFA',
+                        checkIn: null,
+                        checkOut: null,
+                        regularHours: 0,
+                        overtimeHours: 0,
+                        chargeJob: '-',
+                        isHoliday: isNationalHoliday,
+                        holidayName: holidayName,
+                        isSunday: isSunday
+                    };
+                }
+            }
+
+            return {
+                No: index + 1,
+                EmployeeID: emp.id || emp.EmployeeID,
+                EmployeeName: emp.name || emp.EmployeeName,
+                PTRJEmployeeID: emp.ptrjEmployeeID || emp.PTRJEmployeeID || 'N/A',
+                ChargeJob: emp.chargeJob || '-',
+                days: days
+            };
+        });
+
+        res.json({
+            success: true,
+            mode: 'overtime-only',
+            year: parseInt(year),
+            month: parseInt(month),
+            month_name: monthName,
+            days_in_month: daysInMonth,
+            grid_data: gridData,
+            total_employees: gridData.length,
+            date_range: `${monthName} ${year} (Overtime-Only Mode)`
+        });
+    } catch (error) {
+        console.error("[OVERTIME-ONLY GRID] Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // --- Export Routes ---
 
 app.get('/api/export-options/employees', async (req, res) => {
@@ -212,7 +311,7 @@ app.get('/api/export-options/employees', async (req, res) => {
             console.warn("[API] Missing start_date or end_date");
             return res.status(400).json({ success: false, error: 'Start date and End date required' });
         }
-        
+
         const employees = await exportService.getActiveEmployees(start_date, end_date);
         res.json({ success: true, data: employees });
     } catch (error) {
@@ -224,7 +323,7 @@ app.get('/api/export-options/employees', async (req, res) => {
 app.post('/api/export', async (req, res) => {
     try {
         const { start_date, end_date, employee_ids } = req.body;
-        
+
         if (!start_date || !end_date || !employee_ids || !Array.isArray(employee_ids)) {
             return res.status(400).json({ success: false, error: 'Invalid parameters' });
         }
