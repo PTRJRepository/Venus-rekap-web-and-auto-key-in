@@ -1,47 +1,38 @@
 const { executeQuery } = require('./gateway');
 // const { getPTRJMapping, matchPTRJEmployeeId } = require('./mappingService'); // Now unused
 // const { getChargeJobMapFromDB } = require('./employeeMillService'); // Now unused
-const { getAllEmployees } = require('./employeeMillService');
+const { getAllEmployees, getHolidaysFromDB: fetchHolidaysFromMill } = require('./employeeMillService');
 
-const fs = require('fs');
-const path = require('path');
+// const fs = require('fs'); // Unused
+// const path = require('path'); // Unused
 const axios = require('axios');
 const { parseISO, format, isValid, eachDayOfInterval, startOfMonth, endOfMonth, getDay, addDays, isSunday, isSaturday, differenceInMinutes } = require('date-fns');
 const { id } = require('date-fns/locale');
 
-const HOLIDAYS_PATH = path.join(__dirname, '../../../data/national_holidays_2025.json');
+// const HOLIDAYS_PATH = ... // Removed
 
-// --- Helper: Load Holidays ---
-let holidaysCache = null;
-const loadHolidays = () => {
-    if (holidaysCache) return holidaysCache;
+// --- Helper: Fetch Holidays from DB ---
+const fetchHolidaysFromDB = async (start, end) => {
     try {
-        if (fs.existsSync(HOLIDAYS_PATH)) {
-            const data = JSON.parse(fs.readFileSync(HOLIDAYS_PATH, 'utf-8'));
-            const dates = new Set(data.holidays.map(h => h.date));
-            const info = {};
-            data.holidays.forEach(h => info[h.date] = h.description);
-            holidaysCache = { dates, info };
-            return holidaysCache;
+        const result = await fetchHolidaysFromMill(start, end);
+        const map = {};
+        if (result && Array.isArray(result)) {
+            result.forEach(row => {
+                const dateStr = formatDateSQL(row.HolidayDate);
+                if (dateStr) {
+                    map[dateStr] = row.Description || 'Holiday';
+                }
+            });
         }
+        return map;
     } catch (e) {
-        console.error("Error loading holidays:", e);
+        console.error("Error fetching holidays from DB helper:", e);
+        return {};
     }
-    return { dates: new Set(), info: {} };
-};
-
-const isNationalHoliday = (dateStr) => {
-    const { dates } = loadHolidays();
-    return dates.has(dateStr);
-};
-
-const getHolidayName = (dateStr) => {
-    const { info } = loadHolidays();
-    return info[dateStr] || null;
 };
 
 // --- Helper: Leave Expansion ---
-const calculateConsecutiveWorkingDays = (startDateStr, duration) => {
+const calculateConsecutiveWorkingDays = (startDateStr, duration, holidayMap) => {
     if (duration <= 0) return [];
 
     let currentDate = parseISO(startDateStr);
@@ -53,7 +44,7 @@ const calculateConsecutiveWorkingDays = (startDateStr, duration) => {
     while (workingDaysCounted < duration && iterations < maxIterations) {
         const dateStr = format(currentDate, 'yyyy-MM-dd');
         const isSun = isSunday(currentDate);
-        const isHoliday = isNationalHoliday(dateStr);
+        const isHoliday = holidayMap ? !!holidayMap[dateStr] : false;
 
         if (!isSun && !isHoliday) {
             leaveDates.push(dateStr);
@@ -106,17 +97,21 @@ const fetchAttendanceData = async (month, year) => {
         overtimeRaw,
         leavesRaw,
         absencesRaw,
-        latestDateStr
+        latestDateStr,
+        holidayMap
     ] = await Promise.all([
         getAllEmployees(),
         fetchAttendanceRaw(startDate, endDate),
         fetchOvertimeRaw(startDate, endDate),
         fetchLeavesRaw(startDate, endDate),
         fetchAbsencesRaw(startDate, endDate),
-        getLatestAvailableDate()
+        getLatestAvailableDate(),
+        fetchHolidaysFromDB(startDate, endDate)
     ]);
 
-    console.log(`Data fetched: ${employees.length} employees (from Mill DB), ${attendanceRaw.length} attendance, ${overtimeRaw.length} overtime, ${leavesRaw.length} leaves, ${absencesRaw.length} absences`);
+    console.log(`[DEBUG] Latest Date Available: ${latestDateStr}`);
+
+    console.log(`Data fetched: ${employees.length} employees (from Mill DB), ${attendanceRaw.length} attendance, ${overtimeRaw.length} overtime, ${leavesRaw.length} leaves, ${absencesRaw.length} absences, ${Object.keys(holidayMap).length} holidays`);
 
     // 2. Build Lookups
     const attendanceMap = {};
@@ -140,7 +135,7 @@ const fetchAttendanceData = async (month, year) => {
     leavesRaw.forEach((row, idx) => {
         const duration = parseInt(row.Outgoing || 1);
         const refDate = formatDateSQL(row.RefDate);
-        const dates = calculateConsecutiveWorkingDays(refDate, duration);
+        const dates = calculateConsecutiveWorkingDays(refDate, duration, holidayMap);
         dates.forEach(d => {
             leaveMap[`${row.EmployeeID}_${d}`] = {
                 type: row.LeaveTypeCode,
@@ -218,7 +213,7 @@ const fetchAttendanceData = async (month, year) => {
 
             const isSun = isSunday(dateObj);
             const isSat = isSaturday(dateObj);
-            const holidayName = getHolidayName(dateStr);
+            const holidayName = holidayMap[dateStr] || null;
             const isHol = !!holidayName;
 
             // Check Data Availability
@@ -273,25 +268,45 @@ const fetchAttendanceData = async (month, year) => {
                 display = leave.type;
                 cssClass = `leave-${leave.type.toLowerCase()}`;
             }
-            // Priority 3: No Record (Absent)
-            else if (!att) {
-                if (isSun || isHol) {
-                    if (otHours > 0) {
-                        status = 'Lembur';
-                        display = otHours.toFixed(1) + 'h'; // Only show overtime hours
-                        cssClass = 'hours-overtime-only';
-                    } else {
-                        status = 'OFF';
-                        display = 'OFF';
-                        cssClass = 'hours-off';
-                    }
+            // Priority 3: Holiday (Auto Present)
+            else if (isHol) {
+                // Auto Present Logic: "kalo hari libryu maka seharnya auto hadir semua ... hadir jam regular nya"
+                status = 'Hadir'; // Counts as HK
+
+                // Regular Hours Logic
+                if (isSat) regularHours = 5;
+                else regularHours = 7;
+
+                // Display Logic
+                if (otHours > 0) {
+                    display = `LBR +${otHours.toFixed(1)}h`;
+                    cssClass = 'hours-normal-overtime'; // Greenish
                 } else {
-                    status = 'ALFA';
-                    display = 'ALFA';
-                    cssClass = 'hours-alfa';
+                    display = 'LBR'; // Explicitly show it's holiday presence
+                    cssClass = 'hours-full'; // Green
                 }
             }
-            // Priority 4: Has Attendance Record
+            // Priority 4: Sunday (Auto Present as Rest Day)
+            else if (isSun) {
+                status = 'Hadir'; // Counts as HK (Rest Day is paid)
+                regularHours = 0; // No regular hours on Sunday
+
+                if (otHours > 0) {
+                    display = `OFF +${otHours.toFixed(1)}h`;
+                    cssClass = 'hours-overtime-only';
+                } else {
+                    display = 'OFF';
+                    cssClass = 'hours-off';
+                }
+            }
+            // Priority 5: No Record (Absent on working day)
+            else if (!att) {
+                // Working day but absent -> ALFA
+                status = 'ALFA';
+                display = 'ALFA';
+                cssClass = 'hours-alfa';
+            }
+            // Priority 5: Has Attendance Record (Normal working day)
             else {
                 // Calculate Hours
                 if (att.TACheckIn && att.TACheckOut) {
@@ -301,9 +316,7 @@ const fetchAttendanceData = async (month, year) => {
                     if (diffHrs < 0) diffHrs += 24; // Cross day fix
 
                     // Business Logic Caps
-                    if (isSun || isHol) {
-                        regularHours = 0; // All OT
-                    } else if (isSat) {
+                    if (isSat) {
                         regularHours = Math.min(diffHrs, 5.0);
                     } else {
                         regularHours = Math.min(diffHrs, 7.0);
@@ -323,8 +336,7 @@ const fetchAttendanceData = async (month, year) => {
 
                 } else {
                     // Incomplete
-                    if (isSun || isHol) regularHours = 0;
-                    else if (isSat) regularHours = 5;
+                    if (isSat) regularHours = 5;
                     else regularHours = 7;
 
                     if (otHours > 0) {
@@ -451,15 +463,17 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
         employees, // From Mill DB
         overtimeRaw,
         leavesRaw,
-        absencesRaw
+        absencesRaw,
+        holidayMap
     ] = await Promise.all([
         getAllEmployees(),
         fetchOvertimeRaw(startDate, endDate),
         fetchLeavesRaw(startDate, endDate),
-        fetchAbsencesRaw(startDate, endDate)
+        fetchAbsencesRaw(startDate, endDate),
+        fetchHolidaysFromDB(startDate, endDate)
     ]);
 
-    console.log(`[OVERTIME-ONLY] Data: ${employees.length} employees (from Mill DB), ${overtimeRaw.length} overtime records`);
+    console.log(`[OVERTIME-ONLY] Data: ${employees.length} employees (from Mill DB), ${overtimeRaw.length} overtime records, ${Object.keys(holidayMap).length} holidays`);
 
     // Build overtime map (only source of "attendance" now)
     const overtimeMap = {};
@@ -474,7 +488,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
     leavesRaw.forEach(row => {
         const duration = parseInt(row.Outgoing || 1);
         const refDate = formatDateSQL(row.RefDate);
-        const dates = calculateConsecutiveWorkingDays(refDate, duration);
+        const dates = calculateConsecutiveWorkingDays(refDate, duration, holidayMap);
         dates.forEach(d => {
             leaveMap[`${row.EmployeeID}_${d}`] = {
                 type: row.LeaveTypeCode,
@@ -536,7 +550,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
 
             const isSun = isSunday(dateObj);
             const isSat = isSaturday(dateObj);
-            const holidayName = getHolidayName(dateStr);
+            const holidayName = holidayMap[dateStr] || null;
             const isHol = !!holidayName;
 
             const otHours = overtimeMap[key] || 0;
@@ -569,10 +583,15 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
             // Priority 3: Has Overtime = Hadir
             else if (otHours > 0) {
                 // If there's overtime, assume they worked regular hours too
-                if (isSun || isHol) {
-                    regularHours = 0; // Sunday/Holiday = all OT, no regular
-                    status = 'Lembur';
-                    display = `${otHours.toFixed(1)}h`;
+                if (isHol) {
+                    regularHours = isSat ? 5 : 7; // Holiday = paid regular hours
+                    status = 'Hadir';
+                    display = `LBR +${otHours.toFixed(1)}h`;
+                    cssClass = 'hours-normal-overtime';
+                } else if (isSun) {
+                    regularHours = 0; // Sunday = rest day, no regular hours
+                    status = 'Hadir';
+                    display = `OFF +${otHours.toFixed(1)}h`;
                     cssClass = 'hours-overtime-only';
                 } else if (isSat) {
                     regularHours = 5; // Saturday = 5 hours regular
@@ -586,18 +605,19 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                     cssClass = 'hours-normal-overtime';
                 }
             }
-            // Priority 4: No overtime, no record
+            // Priority 4: Sunday/Holiday = Auto Present (Rest Day)
+            else if (isSun || isHol) {
+                status = 'Hadir'; // Counts as HK (paid rest day)
+                regularHours = isHol ? (isSat ? 5 : 7) : 0; // Holiday gets regular hours, Sunday doesn't
+                display = isHol ? 'LBR' : 'OFF';
+                cssClass = 'hours-off';
+            }
+            // Priority 5: No overtime, no record on working day
             else {
-                if (isSun || isHol) {
-                    status = 'OFF';
-                    display = 'OFF';
-                    cssClass = 'hours-off';
-                } else {
-                    // No data = unknown/absent
-                    status = 'ALFA';
-                    display = 'ALFA';
-                    cssClass = 'hours-alfa';
-                }
+                // No data = unknown/absent
+                status = 'ALFA';
+                display = 'ALFA';
+                cssClass = 'hours-alfa';
             }
 
             empData.attendance[dayNum] = {

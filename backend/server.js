@@ -9,6 +9,7 @@ const { getChargeJobsForMonth } = require('./services/chargeJobService'); // Sti
 const { executeQuery } = require('./services/gateway'); // Direct query if needed
 const { getPTRJMapping, matchPTRJEmployeeId } = require('./services/mappingService');
 const exportService = require('./services/exportService');
+const { updateEmployee, getAllEmployees } = require('./services/employeeMillService');
 
 require('dotenv').config();
 
@@ -488,6 +489,40 @@ app.get('/api/employees', async (req, res) => {
         res.json({ success: true, data });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Employee Mill Routes (extend_db_ptrj) ---
+
+// Get all employees from employee_mill table
+app.get('/api/employee-mill', async (req, res) => {
+    try {
+        const employees = await getAllEmployees();
+        res.json({ success: true, data: employees });
+    } catch (error) {
+        console.error('Error fetching employee_mill:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Update employee data (PTRJ ID, Charge Job)
+app.patch('/api/employee-mill/:venusId', async (req, res) => {
+    try {
+        const { venusId } = req.params;
+        const { ptrj_employee_id, charge_job } = req.body;
+
+        console.log(`[API] Updating employee ${venusId}:`, { ptrj_employee_id, charge_job });
+
+        const result = await updateEmployee(venusId, { ptrj_employee_id, charge_job });
+
+        if (result.success) {
+            res.json({ success: true, message: result.message });
+        } else {
+            res.status(400).json({ success: false, error: result.message });
+        }
+    } catch (error) {
+        console.error('Error updating employee:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Table,
@@ -11,7 +11,14 @@ import {
     Tooltip,
     Typography,
     Chip,
-    Avatar
+    Avatar,
+    Switch,
+    FormControlLabel,
+    TextField,
+    IconButton,
+    Snackbar,
+    Alert,
+    CircularProgress
 } from '@mui/material';
 import {
     CheckCircle as CheckIcon,
@@ -19,12 +26,65 @@ import {
     Warning as WarningIcon,
     Flight as FlightIcon,
     LocalHospital as HospitalIcon,
-    Person as PersonIcon
+    Person as PersonIcon,
+    Edit as EditIcon,
+    Save as SaveIcon,
+    Close as CloseIcon
 } from '@mui/icons-material';
+import { updateEmployeeMill } from '../services/api';
 
 // CRITICAL FIX: Charge job is in employee.chargeJob, NOT in daily attendance
-const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
+const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate }) => {
     const safeData = Array.isArray(data) ? data : [];
+
+    // Edit mode state
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [editingRow, setEditingRow] = useState(null);
+    const [editValues, setEditValues] = useState({ ptrjEmployeeID: '', chargeJob: '' });
+    const [saving, setSaving] = useState(false);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+    // Handle starting edit for a row
+    const handleStartEdit = (employee) => {
+        setEditingRow(employee.id);
+        setEditValues({
+            ptrjEmployeeID: employee.ptrjEmployeeID || '',
+            chargeJob: employee.chargeJob || ''
+        });
+    };
+
+    // Handle cancel edit
+    const handleCancelEdit = () => {
+        setEditingRow(null);
+        setEditValues({ ptrjEmployeeID: '', chargeJob: '' });
+    };
+
+    // Handle save edit
+    const handleSaveEdit = async (employee) => {
+        setSaving(true);
+        try {
+            const result = await updateEmployeeMill(employee.id, {
+                ptrj_employee_id: editValues.ptrjEmployeeID,
+                charge_job: editValues.chargeJob
+            });
+
+            if (result.success) {
+                setSnackbar({ open: true, message: 'Data berhasil disimpan!', severity: 'success' });
+                setEditingRow(null);
+
+                // Trigger parent refresh if callback provided
+                if (onDataUpdate) {
+                    onDataUpdate();
+                }
+            } else {
+                setSnackbar({ open: true, message: result.error || 'Gagal menyimpan', severity: 'error' });
+            }
+        } catch (error) {
+            setSnackbar({ open: true, message: error.message || 'Gagal menyimpan', severity: 'error' });
+        } finally {
+            setSaving(false);
+        }
+    };
 
     if (safeData.length === 0) {
         return (
@@ -53,25 +113,25 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
     // Status color helper
     const getStatusColor = (statusRaw) => {
         const status = (statusRaw || '').toUpperCase();
-        
+
         // 1. Hadir / Present
         if (status === 'HADIR') return { bg: '#ecfdf5', text: '#059669', icon: <CheckIcon sx={{ fontSize: 14, color: '#059669' }} />, label: 'H' };
-        
+
         // 2. ALFA / Absent
         if (status === 'ALFA') return { bg: '#7f1d1d', text: '#ffffff', icon: <CancelIcon sx={{ fontSize: 14 }} />, label: 'A' };
-        
+
         // 3. OFF / Holiday
         if (status === 'OFF') return { bg: '#f1f5f9', text: '#64748b', icon: null, label: 'OFF' };
-        
+
         // 4. Overtime Only (Weekend work)
         if (status.includes('LEMBUR')) return { bg: '#fff7ed', text: '#c2410c', icon: null, label: 'OT' };
-        
+
         // 5. Leave / Cuti / Izin
-        if (['CT', 'CUTI', 'IZIN', 'I'].includes(status) || status.includes('LEAVE')) 
+        if (['CT', 'CUTI', 'IZIN', 'I'].includes(status) || status.includes('LEAVE'))
             return { bg: '#eff6ff', text: '#1e40af', icon: <FlightIcon sx={{ fontSize: 12 }} />, label: status.substring(0, 2) };
-            
+
         // 6. Sick / Sakit
-        if (['S', 'SAKIT', 'SICK', 'SD'].includes(status)) 
+        if (['S', 'SAKIT', 'SICK', 'SD'].includes(status))
             return { bg: '#fee2e2', text: '#b91c1c', icon: <HospitalIcon sx={{ fontSize: 12 }} />, label: 'S' };
 
         // 7. Menstrual / Haid (Commonly 'M' or 'M-Leave')
@@ -95,6 +155,55 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
                 overflow: 'hidden'
             }}
         >
+            {/* Edit Mode Toggle Header - COMPACT */}
+            <Box sx={{
+                px: 1.5,
+                py: 0.5,
+                borderBottom: '1px solid #e5e7eb',
+                bgcolor: isEditMode ? '#fef3c7' : '#f9fafb',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                minHeight: 36
+            }}>
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={isEditMode}
+                            onChange={(e) => {
+                                setIsEditMode(e.target.checked);
+                                if (!e.target.checked) {
+                                    handleCancelEdit();
+                                }
+                            }}
+                            color="warning"
+                            size="small"
+                        />
+                    }
+                    label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <EditIcon sx={{ fontSize: 14, color: isEditMode ? '#d97706' : '#9ca3af' }} />
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    fontWeight: isEditMode ? 600 : 400,
+                                    color: isEditMode ? '#92400e' : '#6b7280',
+                                    fontSize: '0.75rem'
+                                }}
+                            >
+                                Edit Mode
+                            </Typography>
+                        </Box>
+                    }
+                    sx={{ m: 0 }}
+                />
+                {isEditMode && (
+                    <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.7rem' }}>
+                        Klik baris untuk edit PTRJ ID & Charge Job
+                    </Typography>
+                )}
+            </Box>
+
             {/* Table Container - Takes all available space */}
             <TableContainer sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'auto' }}>
                 <Table
@@ -138,22 +247,23 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
                             {/* PTRJ ID - Scrollable */}
                             <TableCell
                                 sx={{
-                                    bgcolor: '#f9fafb',
-                                    width: 110,
+                                    bgcolor: isEditMode ? '#fef3c7' : '#f9fafb',
+                                    width: 130,
                                     fontWeight: 700,
                                     fontSize: '0.7rem',
                                     textTransform: 'uppercase',
-                                    color: '#64748b'
+                                    color: isEditMode ? '#92400e' : '#64748b'
                                 }}
                             >
+                                {isEditMode && <EditIcon sx={{ fontSize: 12, mr: 0.5, verticalAlign: 'middle' }} />}
                                 PTRJ ID
                             </TableCell>
 
                             {/* Charge Job - Scrollable */}
                             <TableCell
                                 sx={{
-                                    bgcolor: '#fef8ed',
-                                    width: 200,
+                                    bgcolor: isEditMode ? '#fef3c7' : '#fef8ed',
+                                    width: 250,
                                     fontWeight: 700,
                                     fontSize: '0.7rem',
                                     textTransform: 'uppercase',
@@ -161,6 +271,7 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
                                     borderRight: '2px solid #f59e0b !important'
                                 }}
                             >
+                                {isEditMode && <EditIcon sx={{ fontSize: 12, mr: 0.5, verticalAlign: 'middle' }} />}
                                 ⚙️ CHARGE JOB
                             </TableCell>
 
@@ -176,15 +287,20 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
                                         align="center"
                                         sx={{
                                             width: 50,
-                                            bgcolor: isHoliday ? '#fef2f2' : (isSun ? '#fafafa' : '#ffffff'),
-                                            color: isHoliday ? '#dc2626' : (isSun ? '#9ca3af' : '#111827'),
+                                            bgcolor: isHoliday ? '#fef2f2' : (isSun ? '#fff1f2' : '#ffffff'),
+                                            color: isHoliday ? '#dc2626' : (isSun ? '#e11d48' : '#111827'),
                                             fontWeight: 600,
                                             fontSize: '0.75rem'
                                         }}
                                     >
                                         <Box sx={{ lineHeight: 1.2 }}>
-                                            <div style={{ fontWeight: 700 }}>{day}</div>
-                                            <div style={{ fontSize: '0.65rem', opacity: 0.7 }}>
+                                            <div style={{ fontWeight: 700, color: isSun ? '#e11d48' : 'inherit' }}>{day}</div>
+                                            <div style={{
+                                                fontSize: '0.65rem',
+                                                opacity: isSun ? 1 : 0.7,
+                                                color: isSun ? '#e11d48' : 'inherit',
+                                                fontWeight: isSun ? 700 : 400
+                                            }}>
                                                 {d?.dayName?.substring(0, 3).toUpperCase()}
                                             </div>
                                         </Box>
@@ -208,6 +324,7 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
                     <TableBody>
                         {safeData.map((employee, index) => {
                             const isEven = index % 2 === 0;
+                            const isEditing = editingRow === employee.id;
 
                             // Calculate totals
                             let totalHadir = 0;
@@ -227,10 +344,12 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
                                 <TableRow
                                     key={employee.id}
                                     hover
+                                    onClick={() => isEditMode && !isEditing && handleStartEdit(employee)}
                                     sx={{
-                                        bgcolor: isEven ? '#ffffff' : '#fafbfc',
+                                        bgcolor: isEditing ? '#fef3c7' : (isEven ? '#ffffff' : '#fafbfc'),
+                                        cursor: isEditMode ? 'pointer' : 'default',
                                         '&:hover': {
-                                            bgcolor: '#f0f9ff !important'
+                                            bgcolor: isEditing ? '#fef3c7' : (isEditMode ? '#fef9c3' : '#f0f9ff')
                                         }
                                     }}
                                 >
@@ -248,59 +367,107 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
                                         }}
                                     >
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', bgcolor: '#7c3aed' }}>
+                                            <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', bgcolor: isEditing ? '#d97706' : '#7c3aed' }}>
                                                 {employee.name.charAt(0)}
                                             </Avatar>
                                             <Typography variant="body2" noWrap sx={{ fontWeight: 500, fontSize: '0.85rem' }}>
                                                 {employee.name}
                                             </Typography>
+                                            {isEditing && (
+                                                <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto' }}>
+                                                    <IconButton
+                                                        size="small"
+                                                        color="success"
+                                                        onClick={(e) => { e.stopPropagation(); handleSaveEdit(employee); }}
+                                                        disabled={saving}
+                                                    >
+                                                        {saving ? <CircularProgress size={16} /> : <SaveIcon fontSize="small" />}
+                                                    </IconButton>
+                                                    <IconButton
+                                                        size="small"
+                                                        color="error"
+                                                        onClick={(e) => { e.stopPropagation(); handleCancelEdit(); }}
+                                                        disabled={saving}
+                                                    >
+                                                        <CloseIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Box>
+                                            )}
                                         </Box>
                                     </TableCell>
 
-                                    {/* PTRJ ID - Scrollable */}
+                                    {/* PTRJ ID - Editable */}
                                     <TableCell
                                         sx={{
-                                            bgcolor: 'inherit',
+                                            bgcolor: isEditing ? '#fef9c3' : 'inherit',
                                             color: '#6b7280',
                                             fontFamily: 'monospace',
                                             fontSize: '0.75rem'
                                         }}
+                                        onClick={(e) => isEditing && e.stopPropagation()}
                                     >
-                                        {employee.ptrjEmployeeID}
+                                        {isEditing ? (
+                                            <TextField
+                                                size="small"
+                                                value={editValues.ptrjEmployeeID}
+                                                onChange={(e) => setEditValues(prev => ({ ...prev, ptrjEmployeeID: e.target.value }))}
+                                                sx={{
+                                                    width: '100%',
+                                                    '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.5 }
+                                                }}
+                                                placeholder="PTRJ ID"
+                                            />
+                                        ) : (
+                                            employee.ptrjEmployeeID || '-'
+                                        )}
                                     </TableCell>
 
-                                    {/* CHARGE JOB - Scrollable */}
+                                    {/* CHARGE JOB - Editable */}
                                     <TableCell
                                         sx={{
-                                            bgcolor: isEven ? '#fffaf0' : '#fef8ed',
+                                            bgcolor: isEditing ? '#fef9c3' : (isEven ? '#fffaf0' : '#fef8ed'),
                                             borderRight: '2px solid #f59e0b !important'
                                         }}
+                                        onClick={(e) => isEditing && e.stopPropagation()}
                                     >
-                                        {employee.chargeJob && employee.chargeJob !== '-' ? (
-                                            <Tooltip title={employee.chargeJob} arrow placement="top">
-                                                <Chip
-                                                    label={employee.chargeJob}
-                                                    size="small"
-                                                    sx={{
-                                                        height: 22,
-                                                        fontSize: '0.7rem',
-                                                        maxWidth: 200,
-                                                        bgcolor: '#fff7ed', // Softer
-                                                        border: '1px solid #f59e0b',
-                                                        color: '#92400e',
-                                                        fontWeight: 500,
-                                                        '& .MuiChip-label': {
-                                                            whiteSpace: 'nowrap',
-                                                            overflow: 'hidden',
-                                                            textOverflow: 'ellipsis'
-                                                        }
-                                                    }}
-                                                />
-                                            </Tooltip>
+                                        {isEditing ? (
+                                            <TextField
+                                                size="small"
+                                                value={editValues.chargeJob}
+                                                onChange={(e) => setEditValues(prev => ({ ...prev, chargeJob: e.target.value }))}
+                                                sx={{
+                                                    width: '100%',
+                                                    '& .MuiInputBase-input': { fontSize: '0.7rem', py: 0.5 }
+                                                }}
+                                                placeholder="Charge Job (Task|Station|Machine|Expense)"
+                                            />
                                         ) : (
-                                            <Typography variant="caption" sx={{ color: '#9ca3af', fontStyle: 'italic' }}>
-                                                -
-                                            </Typography>
+                                            employee.chargeJob && employee.chargeJob !== '-' ? (
+                                                <Tooltip title={employee.chargeJob} arrow placement="top">
+                                                    <Chip
+                                                        label={employee.chargeJob}
+                                                        size="small"
+                                                        sx={{
+                                                            height: 22,
+                                                            fontSize: '0.7rem',
+                                                            maxWidth: 200,
+                                                            bgcolor: '#fff7ed',
+                                                            border: '1px solid #f59e0b',
+                                                            color: '#92400e',
+                                                            fontWeight: 500,
+                                                            '& .MuiChip-label': {
+                                                                whiteSpace: 'nowrap',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis'
+                                                            }
+                                                        }}
+                                                    />
+                                                </Tooltip>
+                                            ) : (
+                                                <Typography variant="caption" sx={{ color: '#9ca3af', fontStyle: 'italic' }}>
+                                                    -
+                                                </Typography>
+                                            )
                                         )}
                                     </TableCell>
 
@@ -348,23 +515,28 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
                                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.3 }}>
                                                     {statusStyle.icon}
                                                     <span style={{ fontSize: viewMode === 'detail' ? '0.7rem' : '0.65rem', fontWeight: 700 }}>
-                                                        {statusStyle.label} 
+                                                        {statusStyle.label}
                                                     </span>
                                                 </Box>
                                             );
                                         }
+
+                                        // Check if this day is Sunday for special styling
+                                        const isSundayCell = d?.isSunday;
 
                                         return (
                                             <Tooltip key={day} title={tooltipContent} arrow>
                                                 <TableCell
                                                     align="center"
                                                     sx={{
-                                                        bgcolor: statusStyle.bg,
+                                                        bgcolor: isSundayCell ? '#fff1f2' : statusStyle.bg,
                                                         color: statusStyle.text,
                                                         fontWeight: 600,
                                                         fontSize: '0.75rem',
                                                         cursor: 'crosshair',
                                                         transition: 'all 0.1s',
+                                                        borderLeft: isSundayCell ? '1px solid #fecdd3' : undefined,
+                                                        borderRight: isSundayCell ? '1px solid #fecdd3' : undefined,
                                                         '&:hover': {
                                                             filter: 'brightness(0.95)',
                                                             zIndex: 10
@@ -393,6 +565,22 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance' }) => {
                     </TableBody>
                 </Table>
             </TableContainer>
+
+            {/* Snackbar for notifications */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert
+                    onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+                    severity={snackbar.severity}
+                    sx={{ width: '100%' }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Paper>
     );
 };

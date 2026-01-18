@@ -26,16 +26,31 @@ import {
     Details as DetailsIcon,
     TableChart as TableChartIcon,
     ImportExport as ImportExportIcon,
-    SaveAlt as SaveAltIcon
+    SaveAlt as SaveAltIcon,
+    CheckCircle as CheckIcon,
+    Cancel as CancelIcon,
+    AccessTime as TimeIcon,
+    Flight as FlightIcon,
+    LocalHospital as HospitalIcon,
+    WbSunny as SunIcon
 } from '@mui/icons-material';
 import theme from './theme';
 import TopNavbar from './components/TopNavbar';
 import MonthNavigator from './components/MonthNavigator';
 import MonthYearSelector from './components/MonthYearSelector';
 import AttendanceMatrix from './components/AttendanceMatrix';
-import Legend from './components/Legend';
 import ExportTab from './components/ExportTab';
 import { fetchAttendanceData } from './services/api';
+
+// Compact Legend Items for inline display
+const legendItems = [
+    { icon: <CheckIcon sx={{ fontSize: 11, color: '#059669' }} />, label: 'H', tooltip: 'Hadir', color: '#ecfdf5' },
+    { icon: <CancelIcon sx={{ fontSize: 11, color: '#fff' }} />, label: 'A', tooltip: 'ALFA', color: '#7f1d1d' },
+    { icon: <SunIcon sx={{ fontSize: 11, color: '#64748b' }} />, label: 'OFF', tooltip: 'Libur/Minggu', color: '#f1f5f9' },
+    { icon: <TimeIcon sx={{ fontSize: 11, color: '#c2410c' }} />, label: 'OT', tooltip: 'Lembur', color: '#fff7ed' },
+    { icon: <FlightIcon sx={{ fontSize: 11, color: '#1e40af' }} />, label: 'C', tooltip: 'Cuti/Izin', color: '#eff6ff' },
+    { icon: <HospitalIcon sx={{ fontSize: 11, color: '#b91c1c' }} />, label: 'S', tooltip: 'Sakit', color: '#fee2e2' },
+];
 
 function App() {
     const [attendanceData, setAttendanceData] = useState([]);
@@ -94,120 +109,146 @@ function App() {
                 bgcolor: '#f3f4f6'
             }}>
 
-                {/* 1. Top Navbar (Fixed) */}
+                {/* 1. Top Navbar (Fixed) - COMPACT */}
                 <TopNavbar />
 
-                {/* 1.5 Main Tab Bar */}
-                <Paper square elevation={0} sx={{ borderBottom: '1px solid #e5e7eb', px: 2, bgcolor: 'white' }}>
-                    <Tabs 
-                        value={activeTab} 
-                        onChange={handleTabChange} 
-                        textColor="primary"
-                        indicatorColor="primary"
-                        sx={{ minHeight: 48 }}
-                    >
-                        <Tab 
-                            icon={<TableChartIcon fontSize="small" />} 
-                            iconPosition="start" 
-                            label="Matrix Absensi" 
-                            value="matrix" 
-                            sx={{ minHeight: 48, fontWeight: 600 }}
-                        />
-                        <Tab 
-                            icon={<SaveAltIcon fontSize="small" />} 
-                            iconPosition="start" 
-                            label="Ekspor Data" 
-                            value="export" 
-                            sx={{ minHeight: 48, fontWeight: 600 }}
-                        />
-                    </Tabs>
-                </Paper>
-
-                {/* 2. Control Bar (Fixed) - Only for Matrix View */}
-                {activeTab === 'matrix' && (
-                    <Paper
-                        elevation={0}
+                {/* 2. Combined Control Bar - Tabs + Period + Legend + Actions */}
+                <Paper
+                    elevation={0}
+                    sx={{
+                        borderRadius: 0,
+                        borderBottom: '1px solid #e5e7eb',
+                        px: 1.5,
+                        py: 0.75,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        zIndex: 10,
+                        bgcolor: '#ffffff',
+                        flexWrap: 'nowrap',
+                        minHeight: 48
+                    }}
+                >
+                    {/* Tab Buttons - Compact */}
+                    <ToggleButtonGroup
+                        value={activeTab}
+                        exclusive
+                        onChange={(e, v) => v && setActiveTab(v)}
+                        size="small"
                         sx={{
-                            borderRadius: 0,
-                            borderBottom: '1px solid #e5e7eb',
-                            px: 2,
-                            py: 1.5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 2,
-                            zIndex: 10,
-                            bgcolor: '#ffffff'
+                            '& .MuiToggleButton-root': {
+                                px: 1.5,
+                                py: 0.5,
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                textTransform: 'none',
+                                border: '1px solid #e5e7eb',
+                                '&.Mui-selected': {
+                                    bgcolor: '#7c3aed',
+                                    color: 'white',
+                                    '&:hover': { bgcolor: '#6d28d9' }
+                                }
+                            }
                         }}
                     >
-                        {/* Month Period Info */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <ToggleButton value="matrix">
+                            <TableChartIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                            Matrix
+                        </ToggleButton>
+                        <ToggleButton value="export">
+                            <SaveAltIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                            Export
+                        </ToggleButton>
+                    </ToggleButtonGroup>
+
+                    {activeTab === 'matrix' && (
+                        <>
+                            <Divider orientation="vertical" flexItem sx={{ height: 28, my: 'auto' }} />
+
+                            {/* Period Info */}
                             <Chip
-                                label="PERIODE"
+                                label={`${getMonthName(currentPeriod.month)} ${currentPeriod.year}`}
                                 size="small"
                                 sx={{
                                     height: 24,
-                                    fontSize: '0.65rem',
+                                    fontSize: '0.75rem',
                                     fontWeight: 700,
                                     bgcolor: '#ede9fe',
                                     color: '#7c3aed'
                                 }}
                             />
-                            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem', color: '#111827' }}>
-                                {getMonthName(currentPeriod.month)} {currentPeriod.year}
-                            </Typography>
-                        </Box>
 
-                        <Divider orientation="vertical" flexItem sx={{ my: 'auto', height: 28 }} />
-
-                        {/* Month Navigator */}
-                        <Box sx={{ flexGrow: 1 }}>
+                            {/* Month Navigator */}
                             <MonthNavigator onFetch={handleFetchData} loading={loading} />
-                        </Box>
 
-                        <Divider orientation="vertical" flexItem sx={{ my: 'auto', height: 28 }} />
+                            <Divider orientation="vertical" flexItem sx={{ height: 28, my: 'auto' }} />
 
-                        {/* View Mode Toggle */}
-                        <ToggleButtonGroup
-                            value={viewMode}
-                            exclusive
-                            onChange={(e, newMode) => newMode && setViewMode(newMode)}
-                            size="small"
-                            sx={{
-                                '& .MuiToggleButton-root': {
-                                    px: 1.5,
-                                    py: 0.5,
-                                    fontSize: '0.7rem',
-                                    fontWeight: 600,
-                                    textTransform: 'none',
-                                    border: '1px solid #e5e7eb',
-                                    color: '#64748b',
-                                    '&.Mui-selected': {
-                                        bgcolor: '#7c3aed',
-                                        color: 'white',
-                                        fontWeight: 700,
-                                        '&:hover': { bgcolor: '#6d28d9' }
+                            {/* View Mode Toggle - Super Compact */}
+                            <ToggleButtonGroup
+                                value={viewMode}
+                                exclusive
+                                onChange={(e, newMode) => newMode && setViewMode(newMode)}
+                                size="small"
+                                sx={{
+                                    '& .MuiToggleButton-root': {
+                                        px: 1,
+                                        py: 0.4,
+                                        fontSize: '0.65rem',
+                                        fontWeight: 600,
+                                        textTransform: 'none',
+                                        border: '1px solid #e5e7eb',
+                                        color: '#64748b',
+                                        '&.Mui-selected': {
+                                            bgcolor: '#0f172a',
+                                            color: 'white',
+                                            '&:hover': { bgcolor: '#1e293b' }
+                                        }
                                     }
-                                }
-                            }}
-                        >
-                            <ToggleButton value="attendance">
-                                <VisibilityIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                                Kehadiran
-                            </ToggleButton>
-                            <ToggleButton value="overtime">
-                                <TimerIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                                + Lembur
-                            </ToggleButton>
-                            <ToggleButton value="detail">
-                                <DetailsIcon sx={{ fontSize: 14, mr: 0.5 }} />
-                                Detail Lengkap
-                            </ToggleButton>
-                        </ToggleButtonGroup>
+                                }}
+                            >
+                                <ToggleButton value="attendance">
+                                    <VisibilityIcon sx={{ fontSize: 12, mr: 0.3 }} />
+                                    Hadir
+                                </ToggleButton>
+                                <ToggleButton value="overtime">
+                                    <TimerIcon sx={{ fontSize: 12, mr: 0.3 }} />
+                                    +OT
+                                </ToggleButton>
+                                <ToggleButton value="detail">
+                                    <DetailsIcon sx={{ fontSize: 12, mr: 0.3 }} />
+                                    Detail
+                                </ToggleButton>
+                            </ToggleButtonGroup>
 
-                        <Divider orientation="vertical" flexItem sx={{ my: 'auto', height: 28 }} />
+                            {/* Spacer */}
+                            <Box sx={{ flexGrow: 1 }} />
 
-                        {/* Action Buttons */}
-                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            {/* Inline Legend - Very Compact */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                {legendItems.map((item, index) => (
+                                    <Tooltip key={index} title={item.tooltip} arrow placement="bottom">
+                                        <Chip
+                                            icon={item.icon}
+                                            label={item.label}
+                                            size="small"
+                                            sx={{
+                                                height: 20,
+                                                bgcolor: item.color,
+                                                color: item.label === 'A' ? '#ffffff' : '#374151',
+                                                fontWeight: 600,
+                                                fontSize: '0.6rem',
+                                                border: '1px solid #e5e7eb',
+                                                '& .MuiChip-icon': { ml: 0.3, mr: -0.5 },
+                                                '& .MuiChip-label': { px: 0.3 }
+                                            }}
+                                        />
+                                    </Tooltip>
+                                ))}
+                            </Box>
+
+                            <Divider orientation="vertical" flexItem sx={{ height: 28, my: 'auto' }} />
+
+                            {/* Refresh Button */}
                             <Tooltip title="Refresh Data">
                                 <IconButton
                                     size="small"
@@ -216,34 +257,38 @@ function App() {
                                     sx={{
                                         border: '1px solid #e5e7eb',
                                         bgcolor: '#fafbfc',
+                                        width: 28,
+                                        height: 28,
                                         '&:hover': { bgcolor: '#f3f4f6' }
                                     }}
                                 >
-                                    <RefreshIcon fontSize="small" />
+                                    <RefreshIcon sx={{ fontSize: 16 }} />
                                 </IconButton>
                             </Tooltip>
-                        </Box>
 
-                        {/* Employee Count */}
-                        <Chip
-                            label={`${attendanceData.length} Karyawan`}
-                            size="small"
-                            icon={<InfoIcon />}
-                            sx={{
-                                height: 26,
-                                fontWeight: 600,
-                                bgcolor: '#eff6ff',
-                                color: '#1e40af',
-                                border: '1px solid #dbeafe'
-                            }}
-                        />
-                    </Paper>
-                )}
+                            {/* Employee Count */}
+                            <Chip
+                                label={`${attendanceData.length}`}
+                                size="small"
+                                icon={<InfoIcon sx={{ fontSize: '12px !important' }} />}
+                                sx={{
+                                    height: 22,
+                                    fontWeight: 700,
+                                    bgcolor: '#eff6ff',
+                                    color: '#1e40af',
+                                    border: '1px solid #dbeafe',
+                                    '& .MuiChip-icon': { ml: 0.5 },
+                                    '& .MuiChip-label': { px: 0.5 }
+                                }}
+                            />
+                        </>
+                    )}
+                </Paper>
 
-                {/* 3. Main Content Area - SINGLE SCROLL CONTAINER */}
+                {/* 3. Main Content Area - MAXIMIZED */}
                 <Box sx={{
                     flexGrow: 1,
-                    overflow: 'hidden', // Let children decide scroll
+                    overflow: 'hidden',
                     position: 'relative',
                     display: 'flex',
                     flexDirection: 'column',
@@ -258,7 +303,7 @@ function App() {
                                 <Alert
                                     severity="error"
                                     onClose={() => setError(null)}
-                                    sx={{ m: 2, mb: 0, borderRadius: 1 }}
+                                    sx={{ mx: 1, mt: 1, mb: 0, borderRadius: 1, py: 0.5 }}
                                 >
                                     {error}
                                 </Alert>
@@ -277,65 +322,40 @@ function App() {
                                     zIndex: 100,
                                     backdropFilter: 'blur(2px)'
                                 }}>
-                                    <CircularProgress size={40} thickness={4} />
-                                    <Typography variant="body2" sx={{ mt: 2, fontWeight: 500, color: '#6b7280' }}>
-                                        Mengambil data dari server...
+                                    <CircularProgress size={36} thickness={4} />
+                                    <Typography variant="body2" sx={{ mt: 1.5, fontWeight: 500, color: '#6b7280' }}>
+                                        Mengambil data...
                                     </Typography>
                                 </Box>
                             )}
 
-                            {/* Legend Bar */}
-                            {!loading && attendanceData.length > 0 && (
-                                <Box sx={{ px: 2, pt: 2 }}>
-                                    <Legend />
-                                </Box>
-                            )}
-
-                            {/* Attendance Matrix - FILLS REMAINING SPACE WITH INTERNAL SCROLL */}
+                            {/* Attendance Matrix - FILLS ALL REMAINING SPACE */}
                             <Box sx={{
                                 flexGrow: 1,
-                                p: 2,
-                                pt: attendanceData.length > 0 ? 1 : 2,
-                                overflow: 'auto', // Allow scrolling for the selector
+                                p: 1,
+                                overflow: 'hidden',
                                 display: 'flex',
                                 flexDirection: 'column'
                             }}>
                                 {attendanceData.length > 0 ? (
-                                    <AttendanceMatrix data={attendanceData} viewMode={viewMode} />
+                                    <AttendanceMatrix
+                                        data={attendanceData}
+                                        viewMode={viewMode}
+                                        onDataUpdate={() => handleFetchData(currentPeriod.month, currentPeriod.year)}
+                                    />
                                 ) : (
-                                    <Box sx={{ flexGrow: 1 }}>
+                                    <Box sx={{ flexGrow: 1, display: 'flex' }}>
                                         <MonthYearSelector onFetch={handleFetchData} loading={loading} />
                                     </Box>
                                 )}
                             </Box>
                         </>
                     ) : (
-                        /* Export Tab Content - Needs scrolling */
+                        /* Export Tab Content */
                         <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
                             <ExportTab />
                         </Box>
                     )}
-
-                    {/* Footer Status Bar (Fixed) */}
-                    <Box sx={{
-                        borderTop: '1px solid #e5e7eb',
-                        bgcolor: '#ffffff',
-                        px: 2,
-                        py: 0.75,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        fontSize: '0.75rem',
-                        color: '#6b7280',
-                        mt: 'auto' // Push to bottom if content is short
-                    }}>
-                        <Typography variant="caption">
-                            Sistem Rekap Absensi • VenusHR Enterprise
-                        </Typography>
-                        <Typography variant="caption">
-                            © 2026 Rebinmas Venus • v2.1
-                        </Typography>
-                    </Box>
                 </Box>
             </Box>
 

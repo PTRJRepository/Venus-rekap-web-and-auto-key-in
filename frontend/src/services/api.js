@@ -49,4 +49,15 @@ export const exportAttendanceJSON = async (startDate, endDate, employeeIds) => {
     }
 };
 
+// Update employee data in employee_mill table (PTRJ ID, Charge Job)
+export const updateEmployeeMill = async (venusEmployeeId, updates) => {
+    try {
+        const response = await apiClient.patch(`/employee-mill/${venusEmployeeId}`, updates);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating employee:', error);
+        throw error;
+    }
+};
+
 export default apiClient;

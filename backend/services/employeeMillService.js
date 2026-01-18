@@ -27,22 +27,26 @@ const queryExtendDB = async (sql, params = {}) => {
     // Previous scripts used logic: IS_PROXY ? `${GATEWAY_URL}/v1/query` : `${GATEWAY_URL}/v1/query`
     // If GATEWAY_URL is http://localhost:8001, endpoint is http://localhost:8001/v1/query
 
-    // Let's stick to the logic that worked in seeder/tests
     const IS_PROXY = GATEWAY_URL.includes('/query');
     const FINAL_URL = IS_PROXY ? `${GATEWAY_URL}/v1/query` : `${GATEWAY_URL}/v1/query`;
+
+    console.log(`[EmployeeMill] Querying: ${FINAL_URL}`);
+    console.log(`[EmployeeMill] Server: ${SERVER_PROFILE}, DB: ${params.database || DB}`);
+    console.log(`[EmployeeMill] SQL: ${sql.substring(0, 100)}...`);
 
     try {
         const response = await axios.post(FINAL_URL, {
             sql,
             // params, // Gateway might not support safe params yet, use string interpolation in caller if needed
             server: SERVER_PROFILE,
-            database: DB
+            database: params.database || DB
         }, {
             headers: { 'x-api-key': API_TOKEN },
             timeout: 10000
         });
 
         if (response.data.success) {
+            console.log(`[EmployeeMill] Success. Rows: ${response.data.data.recordset ? response.data.data.recordset.length : 0}`);
             return response.data.data.recordset;
         } else {
             console.error('EmployeeMillService Query Error:', response.data.error);
@@ -65,6 +69,20 @@ const getAllEmployees = async () => {
         WHERE is_active = 1
     `;
     return await queryExtendDB(sql);
+};
+
+/**
+ * Get Holidays from db_ptrj_mill
+ * Returns array of { HolidayDate, Description }
+ */
+const getHolidaysFromDB = async (start, end) => {
+    const sql = `
+        SELECT HolidayDate, Description 
+        FROM [db_ptrj_mill].[dbo].[HR_GPH] 
+        WHERE HolidayDate BETWEEN '${start}' AND '${end}'
+    `;
+    // Pass specific database for this query
+    return await queryExtendDB(sql, { database: 'db_ptrj_mill' });
 };
 
 /**
@@ -108,8 +126,67 @@ const getChargeJobMapFromDB = async () => {
     return map;
 };
 
+/**
+ * Update employee data in the database
+ * @param {string} venusEmployeeId - The Venus Employee ID to update
+ * @param {object} updates - Object containing { ptrj_employee_id, charge_job }
+ */
+const updateEmployee = async (venusEmployeeId, updates) => {
+    const { ptrj_employee_id, charge_job } = updates;
+
+    // Build SET clause dynamically
+    const setClauses = [];
+    if (ptrj_employee_id !== undefined) {
+        setClauses.push(`ptrj_employee_id = '${ptrj_employee_id.replace(/'/g, "''")}'`);
+    }
+    if (charge_job !== undefined) {
+        setClauses.push(`charge_job = '${charge_job.replace(/'/g, "''")}'`);
+    }
+    setClauses.push("updated_at = GETDATE()");
+
+    if (setClauses.length === 1) {
+        return { success: false, message: 'No valid fields to update' };
+    }
+
+    const sql = `
+        UPDATE employee_mill 
+        SET ${setClauses.join(', ')}
+        WHERE venus_employee_id = '${venusEmployeeId.replace(/'/g, "''")}'
+    `;
+
+    console.log('[EmployeeMillService] Update SQL:', sql);
+
+    const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8001';
+    const API_TOKEN = process.env.API_TOKEN_QUERY;
+    const FINAL_URL = GATEWAY_URL.includes('/query') ? `${GATEWAY_URL}/v1/query` : `${GATEWAY_URL}/v1/query`;
+
+    try {
+        const response = await axios.post(FINAL_URL, {
+            sql,
+            server: SERVER_PROFILE,
+            database: DB
+        }, {
+            headers: { 'x-api-key': API_TOKEN },
+            timeout: 10000
+        });
+
+        if (response.data.success) {
+            console.log(`[EmployeeMillService] Updated employee: ${venusEmployeeId}`);
+            return { success: true, message: 'Employee updated successfully' };
+        } else {
+            console.error('EmployeeMillService Update Error:', response.data.error);
+            return { success: false, message: response.data.error };
+        }
+    } catch (error) {
+        console.error('EmployeeMillService Update Failed:', error.message);
+        return { success: false, message: error.message };
+    }
+};
+
 module.exports = {
     getAllEmployees,
     getPTRJMappingFromDB,
-    getChargeJobMapFromDB
+    getChargeJobMapFromDB,
+    getHolidaysFromDB,
+    updateEmployee
 };

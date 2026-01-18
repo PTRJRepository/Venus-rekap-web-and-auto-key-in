@@ -1,55 +1,369 @@
 import React, { useState } from 'react';
-import { Container, Alert, Box, CircularProgress, Typography } from '@mui/material';
-import MonthYearSelector from '../components/MonthYearSelector';
+import {
+    Box,
+    Alert,
+    CircularProgress,
+    Typography,
+    Paper,
+    Select,
+    MenuItem,
+    FormControl,
+    Button,
+    Chip,
+    Tooltip,
+    IconButton,
+    Collapse
+} from '@mui/material';
+import {
+    CheckCircle as CheckIcon,
+    Cancel as CancelIcon,
+    AccessTime as TimeIcon,
+    Flight as FlightIcon,
+    LocalHospital as HospitalIcon,
+    WbSunny as SunIcon,
+    Search as SearchIcon,
+    ExpandMore as ExpandMoreIcon,
+    ExpandLess as ExpandLessIcon,
+    Refresh as RefreshIcon
+} from '@mui/icons-material';
 import AttendanceMatrix from '../components/AttendanceMatrix';
 import { fetchAttendanceData } from '../services/api';
+
+const getMonths = () => [
+    { id: 1, name: 'Januari', short: 'Jan' },
+    { id: 2, name: 'Februari', short: 'Feb' },
+    { id: 3, name: 'Maret', short: 'Mar' },
+    { id: 4, name: 'April', short: 'Apr' },
+    { id: 5, name: 'Mei', short: 'Mei' },
+    { id: 6, name: 'Juni', short: 'Jun' },
+    { id: 7, name: 'Juli', short: 'Jul' },
+    { id: 8, name: 'Agustus', short: 'Agt' },
+    { id: 9, name: 'September', short: 'Sep' },
+    { id: 10, name: 'Oktober', short: 'Okt' },
+    { id: 11, name: 'November', short: 'Nov' },
+    { id: 12, name: 'Desember', short: 'Des' },
+];
+
+const getYears = () => {
+    const currentYear = new Date().getFullYear();
+    return [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+};
+
+// Compact Legend Items
+const legendItems = [
+    { icon: <CheckIcon sx={{ fontSize: 12, color: '#059669' }} />, label: 'H', tooltip: 'Hadir', color: '#ecfdf5' },
+    { icon: <TimeIcon sx={{ fontSize: 12, color: '#c2410c' }} />, label: 'OT', tooltip: 'Lembur', color: '#fff7ed' },
+    { icon: <CancelIcon sx={{ fontSize: 12, color: '#ffffff' }} />, label: 'A', tooltip: 'ALFA', color: '#7f1d1d' },
+    { icon: <SunIcon sx={{ fontSize: 12, color: '#64748b' }} />, label: 'OFF', tooltip: 'Libur', color: '#f1f5f9' },
+    { icon: <FlightIcon sx={{ fontSize: 12, color: '#1e40af' }} />, label: 'C/I', tooltip: 'Cuti/Izin', color: '#eff6ff' },
+    { icon: <HospitalIcon sx={{ fontSize: 12, color: '#b91c1c' }} />, label: 'S', tooltip: 'Sakit', color: '#fee2e2' },
+    { icon: <HospitalIcon sx={{ fontSize: 12, color: '#be185d' }} />, label: 'M', tooltip: 'Haid', color: '#fce7f3' },
+];
 
 const AttendancePage = () => {
     const [attendanceData, setAttendanceData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [currentPeriod, setCurrentPeriod] = useState(null);
+    const [showLegend, setShowLegend] = useState(false);
 
-    const handleFetchData = async (month, year) => {
+    const months = getMonths();
+    const years = getYears();
+
+    const handleFetchData = async () => {
+        if (!selectedMonth || !selectedYear) return;
+
         setLoading(true);
         setError(null);
         try {
-            const data = await fetchAttendanceData(month, year);
+            const data = await fetchAttendanceData(selectedMonth, selectedYear);
             setAttendanceData(data);
+            setCurrentPeriod({
+                month: months.find(m => m.id === selectedMonth)?.name,
+                year: selectedYear,
+                count: data.length
+            });
         } catch (err) {
-            setError('Failed to load attendance data. Please check the backend connection.');
+            setError('Gagal memuat data. Periksa koneksi backend.');
             console.error('Fetch error:', err);
         } finally {
             setLoading(false);
         }
     };
 
+    const handleRefresh = () => {
+        if (currentPeriod) {
+            handleFetchData();
+        }
+    };
+
     return (
-        <Container maxWidth={false}>
-            <Box sx={{ mb: 4 }}>
-                <Typography variant="h4" gutterBottom component="div" sx={{ fontWeight: 500, color: 'primary.main' }}>
-                    Attendance Matrix
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                    View monthly attendance overview with status, overtime, and charge job codes.
-                </Typography>
-            </Box>
+        <Box sx={{
+            height: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            bgcolor: '#f8fafc',
+            overflow: 'hidden'
+        }}>
+            {/* Compact Header Bar */}
+            <Paper
+                elevation={0}
+                sx={{
+                    px: 2,
+                    py: 1,
+                    borderBottom: '1px solid #e2e8f0',
+                    bgcolor: '#ffffff',
+                    flexShrink: 0
+                }}
+            >
+                <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 2,
+                    flexWrap: 'wrap'
+                }}>
+                    {/* Left: Title + Period Selector */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        {/* Title */}
+                        <Typography
+                            variant="h6"
+                            sx={{
+                                fontWeight: 700,
+                                color: '#0f172a',
+                                fontSize: '1rem',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            📊 Rekap Absensi
+                        </Typography>
 
-            <MonthYearSelector onFetch={handleFetchData} loading={loading} />
+                        {/* Divider */}
+                        <Box sx={{ width: 1, height: 24, bgcolor: '#e2e8f0' }} />
 
+                        {/* Period Selector - Compact */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <FormControl size="small" sx={{ minWidth: 90 }}>
+                                <Select
+                                    value={selectedYear}
+                                    onChange={(e) => setSelectedYear(e.target.value)}
+                                    sx={{
+                                        fontSize: '0.85rem',
+                                        '& .MuiSelect-select': { py: 0.75, px: 1.5 }
+                                    }}
+                                >
+                                    {years.map(year => (
+                                        <MenuItem key={year} value={year}>{year}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+
+                            <FormControl size="small" sx={{ minWidth: 120 }}>
+                                <Select
+                                    value={selectedMonth}
+                                    onChange={(e) => setSelectedMonth(e.target.value)}
+                                    sx={{
+                                        fontSize: '0.85rem',
+                                        '& .MuiSelect-select': { py: 0.75, px: 1.5 }
+                                    }}
+                                >
+                                    {months.map(m => (
+                                        <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+
+                            <Button
+                                variant="contained"
+                                size="small"
+                                onClick={handleFetchData}
+                                disabled={loading}
+                                startIcon={loading ? <CircularProgress size={14} color="inherit" /> : <SearchIcon />}
+                                sx={{
+                                    bgcolor: '#7c3aed',
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                    fontSize: '0.8rem',
+                                    px: 2,
+                                    py: 0.75,
+                                    '&:hover': { bgcolor: '#6d28d9' }
+                                }}
+                            >
+                                {loading ? 'Loading...' : 'Tampilkan'}
+                            </Button>
+
+                            {currentPeriod && (
+                                <Tooltip title="Refresh Data">
+                                    <IconButton
+                                        size="small"
+                                        onClick={handleRefresh}
+                                        disabled={loading}
+                                        sx={{ color: '#64748b' }}
+                                    >
+                                        <RefreshIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                        </Box>
+                    </Box>
+
+                    {/* Center: Current Period Info */}
+                    {currentPeriod && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip
+                                label={`${currentPeriod.month} ${currentPeriod.year}`}
+                                size="small"
+                                sx={{
+                                    bgcolor: '#f0fdf4',
+                                    color: '#166534',
+                                    fontWeight: 600,
+                                    fontSize: '0.75rem'
+                                }}
+                            />
+                            <Chip
+                                label={`${currentPeriod.count} Karyawan`}
+                                size="small"
+                                sx={{
+                                    bgcolor: '#eff6ff',
+                                    color: '#1e40af',
+                                    fontWeight: 500,
+                                    fontSize: '0.75rem'
+                                }}
+                            />
+                        </Box>
+                    )}
+
+                    {/* Right: Legend Toggle + Compact Legend */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {/* Inline Compact Legend */}
+                        <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.5 }}>
+                            {legendItems.map((item, index) => (
+                                <Tooltip key={index} title={item.tooltip} arrow>
+                                    <Chip
+                                        icon={item.icon}
+                                        label={item.label}
+                                        size="small"
+                                        sx={{
+                                            height: 22,
+                                            bgcolor: item.color,
+                                            color: item.label === 'A' ? '#ffffff' : '#374151',
+                                            fontWeight: 600,
+                                            fontSize: '0.65rem',
+                                            border: '1px solid #e5e7eb',
+                                            '& .MuiChip-icon': { ml: 0.5, mr: -0.5 },
+                                            '& .MuiChip-label': { px: 0.5 }
+                                        }}
+                                    />
+                                </Tooltip>
+                            ))}
+                        </Box>
+
+                        {/* Mobile Legend Toggle */}
+                        <IconButton
+                            size="small"
+                            onClick={() => setShowLegend(!showLegend)}
+                            sx={{ display: { xs: 'flex', md: 'none' }, color: '#64748b' }}
+                        >
+                            {showLegend ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        </IconButton>
+                    </Box>
+                </Box>
+
+                {/* Mobile Legend Collapse */}
+                <Collapse in={showLegend}>
+                    <Box sx={{
+                        display: { xs: 'flex', md: 'none' },
+                        flexWrap: 'wrap',
+                        gap: 0.5,
+                        mt: 1,
+                        pt: 1,
+                        borderTop: '1px solid #f1f5f9'
+                    }}>
+                        {legendItems.map((item, index) => (
+                            <Chip
+                                key={index}
+                                icon={item.icon}
+                                label={item.tooltip}
+                                size="small"
+                                sx={{
+                                    height: 24,
+                                    bgcolor: item.color,
+                                    color: item.label === 'A' ? '#ffffff' : '#374151',
+                                    fontWeight: 500,
+                                    fontSize: '0.7rem',
+                                    border: '1px solid #e5e7eb',
+                                    '& .MuiChip-icon': { ml: 0.5 }
+                                }}
+                            />
+                        ))}
+                    </Box>
+                </Collapse>
+            </Paper>
+
+            {/* Error Alert */}
             {error && (
-                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+                <Alert
+                    severity="error"
+                    sx={{ mx: 2, mt: 1, flexShrink: 0 }}
+                    onClose={() => setError(null)}
+                >
                     {error}
                 </Alert>
             )}
 
-            {loading ? (
-                <Box display="flex" justifyContent="center" p={5}>
-                    <CircularProgress />
-                </Box>
-            ) : (
-                <AttendanceMatrix data={attendanceData} />
-            )}
-        </Container>
+            {/* Main Content Area - Takes all remaining space */}
+            <Box sx={{
+                flexGrow: 1,
+                overflow: 'hidden',
+                p: 1.5,
+                display: 'flex',
+                flexDirection: 'column'
+            }}>
+                {loading ? (
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%',
+                        bgcolor: '#ffffff',
+                        borderRadius: 1,
+                        border: '1px solid #e2e8f0'
+                    }}>
+                        <Box sx={{ textAlign: 'center' }}>
+                            <CircularProgress sx={{ mb: 2 }} />
+                            <Typography variant="body2" color="text.secondary">
+                                Memuat data absensi...
+                            </Typography>
+                        </Box>
+                    </Box>
+                ) : attendanceData.length === 0 ? (
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%',
+                        bgcolor: '#ffffff',
+                        borderRadius: 1,
+                        border: '1px solid #e2e8f0'
+                    }}>
+                        <Box sx={{ textAlign: 'center', p: 4 }}>
+                            <Typography variant="h6" color="text.secondary" gutterBottom>
+                                Pilih Periode
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Pilih bulan dan tahun, lalu klik "Tampilkan" untuk memuat data absensi
+                            </Typography>
+                        </Box>
+                    </Box>
+                ) : (
+                    <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+                        <AttendanceMatrix data={attendanceData} onDataUpdate={handleRefresh} />
+                    </Box>
+                )}
+            </Box>
+        </Box>
     );
 };
 
