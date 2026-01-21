@@ -18,7 +18,12 @@ const ensureDataDir = () => {
  * Web format: { id, name, ptrjEmployeeID, chargeJob, attendance: { "1": {...}, "2": {...} } }
  * Engine format: { EmployeeID, EmployeeName, PTRJEmployeeID, ChargeJob, Attendance: { "2026-01-01": {...} } }
  */
-const transformEmployeeData = (employees, month, year) => {
+/**
+ * Transform employee data from web format to automation engine format
+ * Web format: { id, name, ptrjEmployeeID, chargeJob, attendance: { "1": {...}, "2": {...} } }
+ * Engine format: { EmployeeID, EmployeeName, PTRJEmployeeID, ChargeJob, Attendance: { "2026-01-01": {...} } }
+ */
+const transformEmployeeData = (employees, month, year, startDate = null, endDate = null) => {
     return employees.map(emp => {
         // Transform attendance from day-number keys to date keys
         const attendanceByDate = {};
@@ -27,6 +32,11 @@ const transformEmployeeData = (employees, month, year) => {
             Object.entries(emp.attendance).forEach(([dayNum, data]) => {
                 // Construct date string from day number
                 const date = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+
+                // Filter by date range if provided
+                if (startDate && date < startDate) return;
+                if (endDate && date > endDate) return;
+
                 attendanceByDate[date] = {
                     date,
                     dayName: data.dayName || '',
@@ -66,14 +76,16 @@ const saveAutomationData = (data) => {
     const employees = data.employees || [];
     const month = data.month || new Date().getMonth() + 1;
     const year = data.year || new Date().getFullYear();
+    const startDate = data.startDate || null;
+    const endDate = data.endDate || null;
 
-    // Transform to engine format
-    const transformedData = transformEmployeeData(employees, month, year);
+    // Transform to engine format with filtering
+    const transformedData = transformEmployeeData(employees, month, year, startDate, endDate);
 
     // Calculate period
-    const firstDay = `${year}-${String(month).padStart(2, '0')}-01`;
+    const firstDay = startDate || `${year}-${String(month).padStart(2, '0')}-01`;
     const lastDay = new Date(year, month, 0).getDate();
-    const endDay = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    const endDay = endDate || `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     const payload = {
         metadata: {

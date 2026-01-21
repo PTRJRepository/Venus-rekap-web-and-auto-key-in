@@ -60,11 +60,11 @@ const queryExtendDB = async (sql, params = {}) => {
 
 /**
  * Get all employee mappings from DB
- * Returns array of { venus_employee_id, ptrj_employee_id, employee_name, charge_job }
+ * Returns array of { venus_employee_id, ptrj_employee_id, employee_name, charge_job, is_karyawan }
  */
 const getAllEmployees = async () => {
     const sql = `
-        SELECT nik, venus_employee_id, ptrj_employee_id, employee_name, charge_job 
+        SELECT nik, venus_employee_id, ptrj_employee_id, employee_name, charge_job, ISNULL(is_karyawan, 1) as is_karyawan 
         FROM employee_mill 
         WHERE is_active = 1
     `;
@@ -129,10 +129,10 @@ const getChargeJobMapFromDB = async () => {
 /**
  * Update employee data in the database
  * @param {string} venusEmployeeId - The Venus Employee ID to update
- * @param {object} updates - Object containing { ptrj_employee_id, charge_job, employee_name }
+ * @param {object} updates - Object containing { ptrj_employee_id, charge_job, employee_name, is_karyawan }
  */
 const updateEmployee = async (venusEmployeeId, updates) => {
-    const { ptrj_employee_id, charge_job, employee_name } = updates;
+    const { ptrj_employee_id, charge_job, employee_name, is_karyawan } = updates;
 
     // Build SET clause dynamically
     const setClauses = [];
@@ -144,6 +144,9 @@ const updateEmployee = async (venusEmployeeId, updates) => {
     }
     if (employee_name !== undefined) {
         setClauses.push(`employee_name = '${employee_name.replace(/'/g, "''")}'`);
+    }
+    if (is_karyawan !== undefined) {
+        setClauses.push(`is_karyawan = ${is_karyawan ? 1 : 0}`);
     }
     setClauses.push("updated_at = GETDATE()");
 
@@ -189,23 +192,24 @@ const updateEmployee = async (venusEmployeeId, updates) => {
 /**
  * Insert new employee into database
  * Used for new employees who don't exist in extend_db_ptrj
- * @param {object} employeeData - { venus_employee_id, employee_name, ptrj_employee_id, charge_job }
+ * @param {object} employeeData - { venus_employee_id, employee_name, ptrj_employee_id, charge_job, is_karyawan }
  */
 const insertEmployee = async (employeeData) => {
-    const { venus_employee_id, employee_name, ptrj_employee_id, charge_job } = employeeData;
+    const { venus_employee_id, employee_name, ptrj_employee_id, charge_job, is_karyawan = true } = employeeData;
 
     if (!venus_employee_id) {
         return { success: false, message: 'venus_employee_id is required' };
     }
 
     const sql = `
-        INSERT INTO employee_mill (nik, venus_employee_id, ptrj_employee_id, employee_name, charge_job, is_active, created_at, updated_at)
+        INSERT INTO employee_mill (nik, venus_employee_id, ptrj_employee_id, employee_name, charge_job, is_karyawan, is_active, created_at, updated_at)
         VALUES (
             '${(venus_employee_id || '').replace(/'/g, "''")}',
             '${(venus_employee_id || '').replace(/'/g, "''")}',
             '${(ptrj_employee_id || '').replace(/'/g, "''")}',
             '${(employee_name || '').replace(/'/g, "''")}',
             '${(charge_job || '').replace(/'/g, "''")}',
+            ${is_karyawan ? 1 : 0},
             1,
             GETDATE(),
             GETDATE()

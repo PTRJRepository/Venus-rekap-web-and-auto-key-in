@@ -11,16 +11,16 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
     const safeData = Array.isArray(data) ? data : [];
     const [isEditMode, setIsEditMode] = useState(false);
     const [editingRow, setEditingRow] = useState(null);
-    const [editValues, setEditValues] = useState({ ptrjEmployeeID: '', chargeJob: '', employeeName: '' });
+    const [editValues, setEditValues] = useState({ ptrjEmployeeID: '', chargeJob: '', employeeName: '', isKaryawan: true });
     const [saving, setSaving] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-    const handleStartEdit = (emp) => { setEditingRow(emp.id); setEditValues({ ptrjEmployeeID: emp.ptrjEmployeeID || '', chargeJob: emp.chargeJob || '', employeeName: emp.name || '' }); };
-    const handleCancelEdit = () => { setEditingRow(null); setEditValues({ ptrjEmployeeID: '', chargeJob: '', employeeName: '' }); };
+    const handleStartEdit = (emp) => { setEditingRow(emp.id); setEditValues({ ptrjEmployeeID: emp.ptrjEmployeeID || '', chargeJob: emp.chargeJob || '', employeeName: emp.name || '', isKaryawan: emp.isKaryawan !== false }); };
+    const handleCancelEdit = () => { setEditingRow(null); setEditValues({ ptrjEmployeeID: '', chargeJob: '', employeeName: '', isKaryawan: true }); };
     const handleSaveEdit = async (emp) => {
         setSaving(true);
         try {
-            const result = await updateEmployeeMill(emp.id, { ptrj_employee_id: editValues.ptrjEmployeeID, charge_job: editValues.chargeJob, employee_name: editValues.employeeName });
+            const result = await updateEmployeeMill(emp.id, { ptrj_employee_id: editValues.ptrjEmployeeID, charge_job: editValues.chargeJob, employee_name: editValues.employeeName, is_karyawan: editValues.isKaryawan });
             if (result.success) {
                 setSnackbar({ open: true, message: 'Data tersimpan!', severity: 'success' });
                 setEditingRow(null);
@@ -32,7 +32,8 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                         updates: {
                             name: editValues.employeeName,
                             ptrjEmployeeID: editValues.ptrjEmployeeID,
-                            chargeJob: editValues.chargeJob
+                            chargeJob: editValues.chargeJob,
+                            isKaryawan: editValues.isKaryawan
                         }
                     });
                 }
@@ -81,6 +82,13 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                             <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#fef8ed', minWidth: 200, fontWeight: 700, fontSize: '0.7rem', color: '#92400e', whiteSpace: 'normal', wordBreak: 'break-word' }}>
                                 CHARGE JOB
                             </TableCell>
+
+                            {/* Status Karyawan Column - only visible in edit mode */}
+                            {isEditMode && (
+                                <TableCell sx={{ bgcolor: '#fef3c7', width: 80, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center' }}>
+                                    is_karyawan
+                                </TableCell>
+                            )}
 
                             {dayNumbers.map(day => {
                                 const d = daysMap[day];
@@ -150,6 +158,44 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                                             </Tooltip>
                                         )}
                                     </TableCell>
+
+                                    {/* Status Karyawan Cell - only visible in edit mode */}
+                                    {isEditMode && (
+                                        <TableCell align="center" onClick={(e) => e.stopPropagation()} sx={{ bgcolor: isEditing ? '#fef3c7' : 'transparent' }}>
+                                            <Checkbox
+                                                size="small"
+                                                checked={isEditing ? editValues.isKaryawan : (emp.isKaryawan !== false)}
+                                                onChange={async (e) => {
+                                                    e.stopPropagation();
+                                                    const newValue = e.target.checked;
+                                                    if (isEditing) {
+                                                        // If editing, update the edit state
+                                                        setEditValues(p => ({ ...p, isKaryawan: newValue }));
+                                                    } else {
+                                                        // If not editing, save directly
+                                                        try {
+                                                            const result = await updateEmployeeMill(emp.id, { is_karyawan: newValue });
+                                                            if (result.success) {
+                                                                setSnackbar({ open: true, message: 'Status tersimpan!', severity: 'success' });
+                                                                if (onDataUpdate) {
+                                                                    onDataUpdate({
+                                                                        type: 'update_employee',
+                                                                        id: emp.id,
+                                                                        updates: { isKaryawan: newValue }
+                                                                    });
+                                                                }
+                                                            } else {
+                                                                setSnackbar({ open: true, message: result.error || 'Gagal', severity: 'error' });
+                                                            }
+                                                        } catch (err) {
+                                                            setSnackbar({ open: true, message: err.message, severity: 'error' });
+                                                        }
+                                                    }
+                                                }}
+                                                color="success"
+                                            />
+                                        </TableCell>
+                                    )}
 
                                     {dayNumbers.map(day => {
                                         const d = emp.attendance?.[day];

@@ -1,5 +1,32 @@
 const { waitForElement, safeType, safeTypeAtIndex } = require('../utils/selectors');
 
+// Helper: Wait for page to be stable (internal usage)
+const _waitForPageStable = async (page, timeoutMs = 3000) => {
+    try {
+        await page.waitForFunction(() => document.readyState === 'complete', { timeout: timeoutMs });
+        await new Promise(r => setTimeout(r, 500)); // Extra stabilization
+    } catch (e) {
+        // Timeout is ok
+    }
+};
+
+// Helper: Safe evaluate that handles navigation errors
+const safeEvaluate = async (page, fn, ...args) => {
+    for (let retry = 0; retry < 3; retry++) {
+        try {
+            return await page.evaluate(fn, ...args);
+        } catch (e) {
+            if (e.message.includes('context was destroyed') || e.message.includes('navigation')) {
+                console.log(`  ⚠️ Page navigated, waiting for stability...`);
+                await _waitForPageStable(page);
+            } else {
+                throw e;
+            }
+        }
+    }
+    return null;
+};
+
 const actions = {
     /**
      * Navigasi ke URL
@@ -253,7 +280,26 @@ const actions = {
     click: async (page, params) => {
         console.log(`🖱️  Mengklik elemen: ${params.selector}`);
         await waitForElement(page, params.selector, params.timeout || 10000);
-        await page.click(params.selector);
+
+        // Try standard click first
+        try {
+            await page.click(params.selector);
+        } catch (e) {
+            console.log(`  ⚠️ Standard click failed, trying JS click...`);
+        }
+
+        // Always enforce JS click for robustness (especially for ASP.NET buttons)
+        await safeEvaluate(page, (sel) => {
+            const el = document.querySelector(sel);
+            if (el) {
+                el.click();
+                // Also dispatch mousedown/mouseup just in case
+                el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+                return true;
+            }
+            return false;
+        }, params.selector);
     },
 
     /**
@@ -561,15 +607,384 @@ const actions = {
      * params.index: input index (optional)
      * params.confirmKey: key to press after type (default: Enter)
      * params.validationSelector: selector for error message (e.g. "Please select Task Code")
-     * params.maxRetries: max attempts (default 3)
+     * params.maxRetries: max attempts (default 5)
+     * params.formReentryFields: array of previous fields to re-input when validation error detected
+     *   Each field: { selector, value, index?, isDropdown? }
      */
     retryInputWithValidation: async (page, params, context, engine) => {
-        const { selector, value, index, validationSelector, maxRetries = 5 } = params;
+        const { selector, value, index, validationSelector, maxRetries = 5, formReentryFields = [] } = params;
 
         console.log(`🔁 Retry Input: "${value}" into ${selector} (Max Retries: ${maxRetries})`);
 
+        // Helper: Check for any visible validation error containing "Please"
+        const checkForValidationErrors = async () => {
+            try {
+                const errorSpans = await page.$$('span[style*="color:Red"], span[style*="color: red"], span.RedText');
+                for (const span of errorSpans) {
+                    const isVisible = await span.evaluate(el => {
+                        const style = window.getComputedStyle(el);
+                        return style && style.display !== 'none' && style.visibility !== 'hidden' && el.offsetHeight > 0;
+                    });
+                    if (isVisible) {
+                        const text = await span.evaluate(el => el.textContent.trim());
+                        if (text.toLowerCase().includes('please')) {
+                            return { hasError: true, message: text };
+                        }
+                    }
+                }
+            } catch (e) { }
+            return { hasError: false, message: '' };
+        };
+
+        // Helper: Re-input a single field
+        const reInputField = async (field) => {
+            console.log(`    🔄 Re-entering: ${field.selector}[${field.index}] = "${field.value}"`);
+            let elementHandle;
+
+            try {
+                if (field.index !== undefined) {
+                    const elements = await page.$$(field.selector);
+                    const visibleElements = [];
+                    for (const el of elements) {
+                        const isVisible = await el.evaluate(node => node.offsetParent !== null);
+                        if (isVisible) visibleElements.push(el);
+                    }
+                    if (visibleElements.length > field.index) {
+                        elementHandle = visibleElements[field.index];
+                    }
+                } else {
+                    elementHandle = await page.$(field.selector);
+                }
+
+                if (!elementHandle) {
+                    console.log(`    ⚠️ Element not found for re-entry`);
+                    return;
+                }
+
+                // Focus first
+                await elementHandle.click();
+                await new Promise(r => setTimeout(r, 300));
+
+                // Clear with Ctrl+A + Delete
+                await page.keyboard.down('Control');
+                await page.keyboard.press('a');
+                await page.keyboard.up('Control');
+                await page.keyboard.press('Delete');
+                await new Promise(r => setTimeout(r, 200));
+
+                // Try JavaScript-based autocomplete trigger first
+                const triggerResult = await safeEvaluate((sel, idx, val) => {
+                    const elements = document.querySelectorAll(sel);
+                    const visibleElements = [];
+                    for (const el of elements) {
+                        if (el.offsetParent !== null) visibleElements.push(el);
+                    }
+                    if (visibleElements.length <= idx) return { success: false };
+
+                    const el = visibleElements[idx];
+                    el.value = val;
+
+                    // Try jQuery autocomplete
+                    if (window.jQuery && window.jQuery(el).autocomplete) {
+                        try {
+                            window.jQuery(el).autocomplete('search', val);
+                            return { success: true, method: 'jquery' };
+                        } catch (e) { }
+                    }
+
+                    // Fallback: dispatch events
+                    ['focus', 'input', 'keydown', 'keyup', 'change'].forEach(evt => {
+                        el.dispatchEvent(new Event(evt, { bubbles: true }));
+                    });
+                    return { success: true, method: 'events' };
+                }, field.selector, field.index, field.value) || { success: false, method: 'failed' };
+
+                console.log(`    📋 Autocomplete trigger: ${triggerResult.method}`);
+
+                // Wait for dropdown to appear
+                await new Promise(r => setTimeout(r, 800));
+
+                // Select from dropdown
+                await page.keyboard.press('ArrowDown');
+                await new Promise(r => setTimeout(r, 300));
+                await page.keyboard.press('Enter');
+                await new Promise(r => setTimeout(r, 1500)); // Wait longer for page update
+
+                // Verify field was filled
+                const verifyResult = await elementHandle.evaluate(el => el.value || '');
+                console.log(`    📋 Field value after re-entry: "${verifyResult}"`);
+
+            } catch (e) {
+                console.log(`    ⚠️ Failed to re-enter field: ${e.message}`);
+            }
+        };
+
+        // Helper: Verify if input field has a value (not empty)
+        const verifyInputValue = async (sel, idx) => {
+            try {
+                let elementHandle;
+                if (idx !== undefined) {
+                    const elements = await page.$$(sel);
+                    const visibleElements = [];
+                    for (const el of elements) {
+                        const isVisible = await el.evaluate(node => node.offsetParent !== null);
+                        if (isVisible) visibleElements.push(el);
+                    }
+                    if (visibleElements.length > idx) {
+                        elementHandle = visibleElements[idx];
+                    }
+                } else {
+                    elementHandle = await page.$(sel);
+                }
+
+                if (!elementHandle) return { hasValue: false, value: '' };
+
+                const inputValue = await elementHandle.evaluate(el => el.value || '');
+                return { hasValue: inputValue.trim().length > 0, value: inputValue.trim() };
+            } catch (e) {
+                return { hasValue: false, value: '' };
+            }
+        };
+
+        // Helper: Check if previous fields need to be re-entered
+        const checkPreviousFieldsNeedReentry = async () => {
+            for (const field of formReentryFields) {
+                const result = await verifyInputValue(field.selector, field.index);
+                if (!result.hasValue) {
+                    console.log(`  ⚠️ Previous field ${field.selector}[${field.index}] is empty, need re-entry`);
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        // Helper: Capture form state and log HTML structure for debugging
+        const captureFormState = async () => {
+            try {
+                const formState = await page.evaluate(() => {
+                    // Get all CBOBox inputs (autocomplete fields)
+                    const cboBoxes = document.querySelectorAll('.ui-autocomplete-input.CBOBox');
+                    const fieldValues = [];
+                    cboBoxes.forEach((el, idx) => {
+                        fieldValues.push({
+                            index: idx,
+                            value: el.value || '(empty)',
+                            visible: el.offsetParent !== null
+                        });
+                    });
+
+                    // Get all visible validation errors
+                    const errors = [];
+                    const errorSpans = document.querySelectorAll('span');
+                    errorSpans.forEach(span => {
+                        const style = window.getComputedStyle(span);
+                        if (style.display !== 'none' && span.offsetHeight > 0) {
+                            const text = span.textContent.trim();
+                            if (text.toLowerCase().includes('please')) {
+                                errors.push(text);
+                            }
+                        }
+                    });
+
+                    // Get key form elements HTML
+                    const formTable = document.querySelector('#MainContent_tblSelection');
+                    const formHTML = formTable ? formTable.outerHTML.substring(0, 2000) : 'Form not found';
+
+                    return { fieldValues, errors, formHTML };
+                });
+
+                console.log('\n  ═══════════════════════════════════════════════');
+                console.log('  📊 FORM STATE CAPTURE');
+                console.log('  ═══════════════════════════════════════════════');
+                console.log('  Field Values:');
+                formState.fieldValues.forEach(f => {
+                    const status = f.value === '(empty)' ? '❌' : '✅';
+                    console.log(`    ${status} [${f.index}]: "${f.value}" ${f.visible ? '' : '(hidden)'}`);
+                });
+
+                if (formState.errors.length > 0) {
+                    console.log('  \n  ⚠️ Validation Errors:');
+                    formState.errors.forEach(e => console.log(`    - ${e}`));
+                }
+
+                console.log('  \n  📄 Form HTML (truncated):');
+                console.log('  ' + formState.formHTML.substring(0, 500) + '...');
+                console.log('  ═══════════════════════════════════════════════\n');
+
+                return formState;
+            } catch (e) {
+                console.log(`  ⚠️ Failed to capture form state: ${e.message}`);
+                return { fieldValues: [], errors: [], formHTML: '' };
+            }
+        };
+
+        // Helper: Wait for element to be fully ready (visible, enabled, and stable)
+        const waitForElementReady = async (sel, idx, timeoutMs = 5000) => {
+            const startTime = Date.now();
+            let lastValue = null;
+            let stableCount = 0;
+
+            while (Date.now() - startTime < timeoutMs) {
+                try {
+                    const elements = await page.$$(sel);
+                    const visibleElements = [];
+                    for (const el of elements) {
+                        const isVisible = await el.evaluate(node => node.offsetParent !== null);
+                        if (isVisible) visibleElements.push(el);
+                    }
+
+                    if (idx !== undefined && visibleElements.length > idx) {
+                        const el = visibleElements[idx];
+                        const state = await el.evaluate(node => ({
+                            enabled: !node.disabled,
+                            visible: node.offsetParent !== null,
+                            value: node.value || ''
+                        }));
+
+                        if (state.visible && state.enabled) {
+                            // Check if value is stable (not loading)
+                            if (lastValue === state.value) {
+                                stableCount++;
+                                if (stableCount >= 2) {
+                                    console.log(`  ✅ Element [${idx}] ready: visible=${state.visible}, enabled=${state.enabled}`);
+                                    return true;
+                                }
+                            } else {
+                                lastValue = state.value;
+                                stableCount = 0;
+                            }
+                        }
+                    }
+                } catch (e) { }
+
+                await new Promise(r => setTimeout(r, 200));
+            }
+
+            console.log(`  ⚠️ Element [${idx}] not ready after ${timeoutMs}ms`);
+            return false;
+        };
+
+        // Helper: Get a fresh element reference (prevents stale handle errors)
+        const getFreshElement = async (sel, idx) => {
+            const elements = await page.$$(sel);
+            const visibleElements = [];
+            for (const el of elements) {
+                try {
+                    const isVisible = await el.evaluate(node => node.offsetParent !== null);
+                    if (isVisible) visibleElements.push(el);
+                } catch (e) {
+                    // Element became stale, skip it
+                }
+            }
+            if (idx !== undefined && visibleElements.length > idx) {
+                return visibleElements[idx];
+            }
+            return visibleElements[0] || null;
+        };
+
+        // Helper: Wait for page to be stable (no ongoing navigation)
+        const waitForPageStable = async (timeoutMs = 3000) => {
+            try {
+                await page.waitForFunction(() => document.readyState === 'complete', { timeout: timeoutMs });
+                await new Promise(r => setTimeout(r, 500)); // Extra stabilization
+            } catch (e) {
+                // Timeout is ok, continue
+            }
+        };
+
+        // Helper: Safe evaluate that handles navigation errors
+        const safeEvaluate = async (fn, ...args) => {
+            for (let retry = 0; retry < 3; retry++) {
+                try {
+                    return await page.evaluate(fn, ...args);
+                } catch (e) {
+                    if (e.message.includes('context was destroyed') || e.message.includes('navigation')) {
+                        console.log(`  ⚠️ Page navigated, waiting for stability...`);
+                        await waitForPageStable();
+                    } else {
+                        throw e;
+                    }
+                }
+            }
+            return null;
+        };
+
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             console.log(`  ┌─ Attempt ${attempt}/${maxRetries} ─────`);
+
+            // STRICT ENFORCEMENT: ALWAYS check and fill previous fields BEFORE attempting current input
+            // This prevents skipping to next field when prior fields are empty
+            if (formReentryFields.length > 0) {
+                let previousFieldsValid = false;
+                let reentryAttempt = 0;
+                const maxReentryAttempts = 3;
+
+                while (!previousFieldsValid && reentryAttempt < maxReentryAttempts) {
+                    reentryAttempt++;
+
+                    // Check each previous field
+                    let allFieldsFilled = true;
+                    for (const field of formReentryFields) {
+                        const result = await verifyInputValue(field.selector, field.index);
+                        if (!result.hasValue) {
+                            console.log(`  ❌ Required field [${field.index}] is EMPTY - must fill before proceeding`);
+                            allFieldsFilled = false;
+                        } else {
+                            console.log(`  ✅ Field [${field.index}] has value: "${result.value}"`);
+                        }
+                    }
+
+                    if (!allFieldsFilled) {
+                        console.log(`  🔄 Re-entry attempt ${reentryAttempt}/${maxReentryAttempts}: Filling all previous fields...`);
+
+                        // Capture form state for debugging
+                        await captureFormState();
+
+                        // Re-enter all previous fields
+                        for (const field of formReentryFields) {
+                            await reInputField(field);
+
+                            // Verify this field was filled after input
+                            const verifyResult = await verifyInputValue(field.selector, field.index);
+                            if (!verifyResult.hasValue) {
+                                console.log(`  ⚠️ Field [${field.index}] still empty after input, retrying...`);
+                                await reInputField(field);
+                            }
+                        }
+                        await new Promise(r => setTimeout(r, 1500));
+                    } else {
+                        previousFieldsValid = true;
+                        console.log(`  ✅ All previous fields verified as filled`);
+                    }
+                }
+
+                if (!previousFieldsValid) {
+                    console.log(`  ❌ Could not fill previous fields after ${maxReentryAttempts} attempts`);
+                    await captureFormState();
+                    throw new Error(`Prerequisites not met: previous fields could not be filled`);
+                }
+            }
+
+            // Also check for validation errors
+            const preCheck = await checkForValidationErrors();
+            if (preCheck.hasError) {
+                console.log(`  ⚠️ Validation error still present: "${preCheck.message}"`);
+            }
+
+            // 0. Wait for element to be ready before proceeding
+            console.log(`  ⏳ Waiting for element [${index}] to be ready...`);
+            await waitForElementReady(selector, index, 10000);
+
+            // optimization: Check if field already has a value (User requested to skip if filled)
+            try {
+                const currentStatus = await verifyInputValue(selector, index);
+                if (currentStatus.hasValue && currentStatus.value && currentStatus.value.trim().length > 0) {
+                    console.log(`  ⏭️  Field already filled with: "${currentStatus.value}". Skipping input.`);
+                    return true;
+                }
+            } catch (e) {
+                console.log(`  ⚠️ Failed to check existing value: ${e.message}. Proceeding with input.`);
+            }
 
             // 1. Find Element (Manual logic to support incremental typing)
             let elementHandle;
@@ -583,89 +998,235 @@ const actions = {
                     );
                 } catch (e) { } // ignore timeout, proceed to find
 
-                const elements = await page.$$(selector);
-                const visibleElements = [];
-                for (const el of elements) {
-                    const isVisible = await el.evaluate(node => node.offsetParent !== null);
-                    if (isVisible) visibleElements.push(el);
+                // 1. Find Element (Manual logic to support incremental typing)
+                // Wait loop for finding element visibility
+                const findStartTime = Date.now();
+                while (true) {
+                    const elements = await page.$$(selector);
+                    const visibleElements = [];
+                    for (const el of elements) {
+                        try {
+                            const isVisible = await el.evaluate(node => node.offsetParent !== null);
+                            if (isVisible) visibleElements.push(el);
+                        } catch (e) { }
+                    }
+
+                    if (visibleElements.length > index) {
+                        elementHandle = visibleElements[index];
+                        break;
+                    }
+
+                    if (Date.now() - findStartTime > 10000) {
+                        console.log(`  ❌ Element at index ${index} not found. Found ${visibleElements.length} visible.`);
+                        await captureFormState();
+                        // One last attempt to fetch to ensure error accuracy
+                        const freshElements = await page.$$(selector);
+                        throw new Error(`Element at index ${index} not found. Found ${freshElements.length} found (some might be hidden).`);
+                    }
+                    await new Promise(r => setTimeout(r, 500));
                 }
-                if (visibleElements.length <= index) {
-                    throw new Error(`Element at index ${index} not found. Found ${visibleElements.length} visible.`);
-                }
-                elementHandle = visibleElements[index];
             } else {
                 await waitForElement(page, selector);
                 elementHandle = await page.$(selector);
             }
 
-            // 2. Clear Input
-            await elementHandle.click({ clickCount: 3 });
-            await elementHandle.press('Backspace');
+            // 2. Ensure proper focus and clear input using JavaScript (more reliable)
+            console.log(`  🔍 Focusing and clearing element...`);
+
+            try {
+                // Click to focus (may fail if stale, that's ok)
+                await elementHandle.click();
+                await new Promise(r => setTimeout(r, 200));
+            } catch (e) {
+                // Element stale, get fresh one
+                elementHandle = await getFreshElement(selector, index);
+                if (elementHandle) await elementHandle.click();
+                await new Promise(r => setTimeout(r, 200));
+            }
+
+            // Use page.keyboard and JavaScript for clearing (more reliable)
+            await page.keyboard.down('Control');
+            await page.keyboard.press('a');
+            await page.keyboard.up('Control');
+            await page.keyboard.press('Delete');
             await new Promise(r => setTimeout(r, 200));
 
-            // 3. Smart Incremental Typing
-            // "Ketik sampai sisa 1 opsi"
-            console.log("  ⌨️  Smart Typing...");
+            // 3. Smart Incremental Typing with Autocomplete Triggering
+            console.log("  ⌨️ Smart Typing...");
             let foundSingleOption = false;
 
-            for (let i = 0; i < value.length; i++) {
-                await elementHandle.type(value[i]);
+            // First, try to trigger autocomplete using JavaScript (more reliable)
+            const triggerAutocomplete = await safeEvaluate((sel, idx, val) => {
+                const elements = document.querySelectorAll(sel);
+                const visibleElements = [];
+                for (const el of elements) {
+                    if (el.offsetParent !== null) visibleElements.push(el);
+                }
+                if (visibleElements.length <= idx) return { success: false, error: 'Element not found' };
 
-                // Start checking immediately (even after 1st char if possible) but usually need 2+
-                // Lowered threshold to i >= 0 to be more aggressive if needed, but sticking to i >= 1 safe
-                if (i >= 0) {
-                    await new Promise(r => setTimeout(r, 250)); // Reduced wait for UI update
+                const el = visibleElements[idx];
 
-                    // Check dropdown count - Robust Version
-                    const { optionCount, debugMsg } = await page.evaluate(() => {
-                        const lists = document.querySelectorAll('ul.ui-autocomplete');
-                        let activeList = null;
+                // Set value
+                el.value = val;
 
-                        // Find the visible list
-                        for (const list of lists) {
-                            if (list.style.display !== 'none' && list.offsetParent !== null) {
-                                activeList = list;
-                                break;
-                            }
-                        }
+                // Trigger all the events that jQuery UI autocomplete listens for
+                const events = ['focus', 'input', 'keydown', 'keyup', 'change'];
+                events.forEach(eventType => {
+                    const event = new Event(eventType, { bubbles: true, cancelable: true });
+                    el.dispatchEvent(event);
+                });
 
-                        if (!activeList) {
-                            return { optionCount: -1, debugMsg: `Found ${lists.length} lists, none visible` };
-                        }
-
-                        // Count items
-                        const items = activeList.querySelectorAll('li.ui-menu-item'); // Standard jQuery UI
-
-                        return {
-                            optionCount: items.length,
-                            debugMsg: `Visible list found. Items: ${items.length}`
-                        };
-                    });
-
-                    // console.log(`     [${value.substring(0, i+1)}] -> ${debugMsg}`);
-
-                    if (optionCount === 1) {
-                        console.log(`  ✨ Single option found after typing "${value.substring(0, i + 1)}". Clicking it!`);
-                        foundSingleOption = true;
-                        break;
+                // Also try jQuery trigger if jQuery is available
+                if (window.jQuery && window.jQuery(el).autocomplete) {
+                    try {
+                        window.jQuery(el).autocomplete('search', val);
+                        return { success: true, method: 'jquery-autocomplete' };
+                    } catch (e) {
+                        // Fall through to keyboard approach
                     }
                 }
+
+                return { success: true, method: 'events' };
+            }, selector, index, value) || { success: false, method: 'failed' };
+
+            console.log(`  📋 Autocomplete trigger: ${JSON.stringify(triggerAutocomplete)}`);
+
+            // Wait for dropdown to appear (and page to stabilize)
+            await new Promise(r => setTimeout(r, 800));
+            await waitForPageStable(2000);
+
+            // Check if dropdown appeared (using safe evaluate for navigation handling)
+            const dropdownAfterTrigger = await safeEvaluate(() => {
+                const lists = document.querySelectorAll('ul.ui-autocomplete');
+                for (const list of lists) {
+                    if (list.style.display !== 'none' && list.offsetParent !== null) {
+                        const items = list.querySelectorAll('li.ui-menu-item');
+                        return { visible: true, itemCount: items.length };
+                    }
+                }
+                return { visible: false, itemCount: 0 };
+            }) || { visible: false, itemCount: 0 };
+
+            if (!dropdownAfterTrigger.visible) {
+                console.log(`  ⚠️ Dropdown not visible after JavaScript trigger. Trying keyboard approach...`);
+
+                // Fallback: Re-focus and type character by character
+                try {
+                    elementHandle = await getFreshElement(selector, index);
+                    if (elementHandle) await elementHandle.click();
+                } catch (e) { }
+                await new Promise(r => setTimeout(r, 200));
+
+                // Clear first
+                await page.keyboard.down('Control');
+                await page.keyboard.press('a');
+                await page.keyboard.up('Control');
+                await page.keyboard.press('Delete');
+                await new Promise(r => setTimeout(r, 200));
+
+                // Type each character using page.keyboard (more reliable)
+                for (let i = 0; i < value.length; i++) {
+                    await page.keyboard.type(value[i]);
+
+                    // Dispatch input event after each character
+                    await page.evaluate((sel, idx) => {
+                        const elements = document.querySelectorAll(sel);
+                        const visibleElements = [];
+                        for (const el of elements) {
+                            if (el.offsetParent !== null) visibleElements.push(el);
+                        }
+                        if (visibleElements.length > idx) {
+                            const el = visibleElements[idx];
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                            el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+                        }
+                    }, selector, index);
+
+                    await new Promise(r => setTimeout(r, 150));
+
+                    // Check for dropdown
+                    const dropdown = await page.evaluate(() => {
+                        const lists = document.querySelectorAll('ul.ui-autocomplete');
+                        for (const list of lists) {
+                            if (list.style.display !== 'none' && list.offsetParent !== null) {
+                                const items = list.querySelectorAll('li.ui-menu-item');
+                                return items.length;
+                            }
+                        }
+                        return 0;
+                    });
+
+                    if (dropdown === 1) {
+                        console.log(`  ✨ Single option found after typing \"${value.substring(0, i + 1)}\"`);
+                        foundSingleOption = true;
+                        break;
+                    } else if (dropdown > 0) {
+                        console.log(`  📋 Dropdown visible with ${dropdown} options after "${value.substring(0, i + 1)}"`);
+                    }
+                }
+            } else {
+                console.log(`  📋 Dropdown appeared with ${dropdownAfterTrigger.itemCount} items`);
+                if (dropdownAfterTrigger.itemCount === 1) foundSingleOption = true;
             }
 
             // 4. Confirm Selection
             await new Promise(r => setTimeout(r, 500)); // Stabilize
 
-            // Ensure focus
-            if (elementHandle) await elementHandle.focus();
+            // Check if dropdown is visible before selecting
+            const dropdownCheck = await page.evaluate(() => {
+                const lists = document.querySelectorAll('ul.ui-autocomplete');
+                for (const list of lists) {
+                    if (list.style.display !== 'none' && list.offsetParent !== null) {
+                        const items = list.querySelectorAll('li.ui-menu-item');
+                        return { visible: true, itemCount: items.length };
+                    }
+                }
+                return { visible: false, itemCount: 0 };
+            });
 
-            if (foundSingleOption) {
-                // Select the single option with keyboard
-                console.log("  ⌨️  Selecting single option with ArrowDown + Enter...");
-                await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 300));
-                await page.keyboard.press('Enter');
+            if (!dropdownCheck.visible) {
+                console.log(`  ⚠️ No dropdown visible after typing. Will try ArrowDown anyway.`);
             } else {
-                // Standard fallback
+                console.log(`  📋 Dropdown visible with ${dropdownCheck.itemCount} items.`);
+            }
+
+            // Ensure focus before selecting (with stale handle protection)
+            try {
+                elementHandle = await getFreshElement(selector, index);
+                if (elementHandle) await elementHandle.click();
+            } catch (e) { }
+            await new Promise(r => setTimeout(r, 200));
+
+            let selectionSuccess = false;
+            if (dropdownCheck.visible) {
+                console.log("  🖱️ Attempting to click dropdown option directly...");
+                // Try clicking the first item directly via JS
+                selectionSuccess = await safeEvaluate(() => {
+                    const lists = document.querySelectorAll('ul.ui-autocomplete');
+                    for (const list of lists) {
+                        if (list.style.display !== 'none' && list.offsetParent !== null) {
+                            const item = list.querySelector('li.ui-menu-item');
+                            if (item) {
+                                // jQuery UI often puts the click listener on the inner DIV or A tag
+                                const target = item.querySelector('div, a') || item;
+
+                                // Simulate full mouse event sequence including mouseover
+                                target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view: window }));
+                                target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+                                target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+                                target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                });
+            }
+
+            if (selectionSuccess) {
+                console.log("  ✅ Clicked dropdown option successfully");
+            } else {
+                console.log("  ⌨️  Click failed/unavailable. Using ArrowDown + Enter...");
                 await page.keyboard.press('ArrowDown');
                 await new Promise(r => setTimeout(r, 300));
                 await page.keyboard.press('Enter');
@@ -674,30 +1235,49 @@ const actions = {
             // 5. Wait for potential error or success
             await new Promise(r => setTimeout(r, 2000));
 
-            // 6. Check validation
-            let hasError = false;
-            try {
-                const errorEl = await page.$(validationSelector);
-                if (errorEl) {
-                    const isVisible = await errorEl.evaluate(el => {
-                        const style = window.getComputedStyle(el);
-                        return style && style.display !== 'none' && style.visibility !== 'hidden' && el.offsetHeight > 0;
-                    });
-                    if (isVisible) {
-                        const errorText = await errorEl.evaluate(el => el.textContent.trim());
-                        console.log(`  ⚠️  Error detected: "${errorText}"`);
-                        hasError = true;
-                    }
-                }
-            } catch (e) { }
+            // 6. Check validation - now using comprehensive check
+            const postCheck = await checkForValidationErrors();
 
-            if (!hasError) {
+            // Also check specific validation selector if provided
+            let hasSpecificError = false;
+            if (validationSelector) {
+                try {
+                    const errorEl = await page.$(validationSelector);
+                    if (errorEl) {
+                        const isVisible = await errorEl.evaluate(el => {
+                            const style = window.getComputedStyle(el);
+                            return style && style.display !== 'none' && style.visibility !== 'hidden' && el.offsetHeight > 0;
+                        });
+                        if (isVisible) {
+                            const errorText = await errorEl.evaluate(el => el.textContent.trim());
+                            console.log(`  ⚠️ Error detected: "${errorText}"`);
+                            hasSpecificError = true;
+                        }
+                    }
+                } catch (e) { }
+            }
+
+            // 7. Verify the current field actually has a value
+            const fieldValue = await verifyInputValue(selector, index);
+            if (!fieldValue.hasValue) {
+                console.log(`  ⚠️ Field is empty after input attempt`);
+                hasSpecificError = true;
+            } else {
+                console.log(`  📋 Field value: "${fieldValue.value}"`);
+            }
+
+            if (!postCheck.hasError && !hasSpecificError) {
                 console.log(`  ✅ Input Success`);
                 console.log(`  └─────────────────────────\n`);
                 return; // Success!
             }
 
             console.log(`  ❌ Attempt ${attempt} failed.`);
+            // Capture form state for debugging when attempt fails
+            if (attempt === maxRetries) {
+                console.log(`  🔍 Capturing final form state for debugging...`);
+                await captureFormState();
+            }
             console.log(`  └─────────────────────────\n`);
 
             await new Promise(r => setTimeout(r, 1000));

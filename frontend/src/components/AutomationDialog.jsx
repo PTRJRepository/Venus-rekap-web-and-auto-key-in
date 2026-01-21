@@ -7,6 +7,8 @@ import RobotIcon from '@mui/icons-material/SmartToy';
 const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => {
     const [logs, setLogs] = useState([]);
     const [status, setStatus] = useState('idle');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const logEndRef = useRef(null);
 
     useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs]);
@@ -15,12 +17,19 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => 
         setLogs([]);
         setStatus('running');
         addLog('info', `Starting automation for ${selectedEmployees.length} employees (${month}/${year})`);
+        if (startDate && endDate) addLog('info', `Date Filter: ${startDate} to ${endDate}`);
 
         try {
             const response = await fetch('/api/automation/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ employees: selectedEmployees, month, year })
+                body: JSON.stringify({
+                    employees: selectedEmployees,
+                    month,
+                    year,
+                    startDate,
+                    endDate
+                })
             });
 
             if (!response.ok) {
@@ -73,7 +82,29 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => 
             </DialogTitle>
             <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ p: 2, bgcolor: '#252526', borderBottom: '1px solid #333' }}>
-                    <Typography variant="body2" sx={{ color: '#aaa' }}>Target: <strong>{selectedEmployees.length} Karyawan</strong> | Periode: <strong>{month}/{year}</strong></Typography>
+                    <Typography variant="body2" sx={{ color: '#aaa', mb: 1 }}>Target: <strong>{selectedEmployees.length} Karyawan</strong> | Periode: <strong>{month}/{year}</strong></Typography>
+
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <label style={{ fontSize: '0.75rem', color: '#888' }}>Start Date</label>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                style={{ background: '#333', border: '1px solid #555', color: 'white', padding: '4px', borderRadius: '4px' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <label style={{ fontSize: '0.75rem', color: '#888' }}>End Date</label>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                style={{ background: '#333', border: '1px solid #555', color: 'white', padding: '4px', borderRadius: '4px' }}
+                            />
+                        </div>
+                    </Box>
+
                     {status === 'running' && <LinearProgress color="success" sx={{ mt: 1 }} />}
                 </Box>
                 <Box sx={{ flexGrow: 1, p: 2, overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.85rem', maxHeight: 400 }}>
@@ -86,7 +117,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => 
                     ))}
                     <div ref={logEndRef} />
                 </Box>
-            </DialogContent>
+            </DialogContent >
             <DialogActions sx={{ borderTop: '1px solid #333', p: 2 }}>
                 <Button onClick={onClose} disabled={status === 'running'} sx={{ color: '#aaa' }}>Close</Button>
                 {status !== 'running' && (
@@ -95,7 +126,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => 
                     </Button>
                 )}
             </DialogActions>
-        </Dialog>
+        </Dialog >
     );
 };
 

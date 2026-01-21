@@ -510,12 +510,12 @@ app.get('/api/employee-mill', async (req, res) => {
 app.patch('/api/employee-mill/:venusId', async (req, res) => {
     try {
         const { venusId } = req.params;
-        const { ptrj_employee_id, charge_job, employee_name } = req.body;
+        const { ptrj_employee_id, charge_job, employee_name, is_karyawan } = req.body;
 
-        console.log(`[API] Upsert employee ${venusId}:`, { ptrj_employee_id, charge_job, employee_name });
+        console.log(`[API] Upsert employee ${venusId}:`, { ptrj_employee_id, charge_job, employee_name, is_karyawan });
 
         // Use upsertEmployee to auto-insert if not exists
-        const result = await upsertEmployee(venusId, { ptrj_employee_id, charge_job, employee_name });
+        const result = await upsertEmployee(venusId, { ptrj_employee_id, charge_job, employee_name, is_karyawan });
 
         if (result.success) {
             res.json({ success: true, message: result.message });
@@ -531,14 +531,16 @@ app.patch('/api/employee-mill/:venusId', async (req, res) => {
 // --- Automation Routes ---
 
 app.post('/api/automation/run', async (req, res) => {
-    const { employees, month, year } = req.body;
+    const { employees, month, year, startDate, endDate } = req.body;
     if (!employees || !Array.isArray(employees)) {
         return res.status(400).json({ error: 'Invalid data format. Expected { employees: [] }' });
     }
 
     try {
         console.log(`[Automation] Request to run for ${employees.length} employees (${month}/${year})`);
-        const dataPath = saveAutomationData({ employees, month, year });
+        if (startDate && endDate) console.log(`[Automation] Date Filter: ${startDate} to ${endDate}`);
+
+        const dataPath = saveAutomationData({ employees, month, year, startDate, endDate });
         console.log(`[Automation] Data saved to ${dataPath}`);
 
         // Start process
