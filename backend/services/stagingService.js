@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
 const DB_PATH = path.join(__dirname, '../../../data/staging_attendance.db');
@@ -7,6 +8,13 @@ const DB_PATH = path.join(__dirname, '../../../data/staging_attendance.db');
 // Initialize Database
 const initStagingDB = () => {
     return new Promise((resolve, reject) => {
+        // Ensure the data directory exists
+        const dataDir = path.dirname(DB_PATH);
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+            console.log(`Created data directory: ${dataDir}`);
+        }
+
         const db = new sqlite3.Database(DB_PATH, (err) => {
             if (err) {
                 console.error('Failed to connect to staging DB:', err);
@@ -114,11 +122,11 @@ const addStagingRecord = (record) => {
         const db = getStagingConnection();
         const id = uuidv4();
         const now = new Date().toISOString();
-        
+
         // Basic duplicate check or upsert logic
         // For simplicity, we use INSERT OR REPLACE or standard INSERT and handle unique constraint
         // The legacy app does update if exists.
-        
+
         const query = `
             INSERT INTO staging_attendance (
                 id, employee_id, employee_name, ptrj_employee_id, date, day_of_week, shift,
@@ -158,7 +166,7 @@ const addStagingRecord = (record) => {
             now, now, record.source_record_id, record.notes
         ];
 
-        db.run(query, params, function(err) {
+        db.run(query, params, function (err) {
             db.close();
             if (err) reject(err);
             else resolve({ id: id, changes: this.changes });
@@ -169,7 +177,7 @@ const addStagingRecord = (record) => {
 const deleteStagingRecord = (id) => {
     return new Promise((resolve, reject) => {
         const db = getStagingConnection();
-        db.run('DELETE FROM staging_attendance WHERE id = ?', [id], function(err) {
+        db.run('DELETE FROM staging_attendance WHERE id = ?', [id], function (err) {
             db.close();
             if (err) reject(err);
             else resolve({ changes: this.changes });
@@ -180,7 +188,7 @@ const deleteStagingRecord = (id) => {
 const deleteAllStaging = () => {
     return new Promise((resolve, reject) => {
         const db = getStagingConnection();
-        db.run('DELETE FROM staging_attendance', [], function(err) {
+        db.run('DELETE FROM staging_attendance', [], function (err) {
             db.close();
             if (err) reject(err);
             else resolve({ changes: this.changes });
