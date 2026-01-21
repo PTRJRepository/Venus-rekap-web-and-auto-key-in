@@ -10,18 +10,110 @@ const actions = {
     },
 
     /**
+     * Wait for page to be stable (no pending network requests, animations, etc.)
+     * Useful for ensuring page is fully loaded before interacting
+     */
+    waitForPageStable: async (page, params) => {
+        const timeout = params.timeout || 5000;
+        const checkInterval = params.interval || 500;
+
+        console.log(`⏳ Waiting for page to stabilize (timeout: ${timeout}ms)...`);
+
+        const startTime = Date.now();
+        let lastHtml = '';
+        let stableCount = 0;
+        const requiredStableChecks = 2;
+
+        while (Date.now() - startTime < timeout) {
+            // Wait for network idle
+            try {
+                await page.waitForNetworkIdle({ timeout: checkInterval, idleTime: 250 });
+            } catch (e) {
+                // Network still busy, continue
+            }
+
+            // Check if DOM is stable
+            const currentHtml = await page.evaluate(() => document.body?.innerHTML?.length || 0);
+
+            if (currentHtml === lastHtml && currentHtml > 0) {
+                stableCount++;
+                if (stableCount >= requiredStableChecks) {
+                    console.log(`  ✅ Page stable after ${Date.now() - startTime}ms`);
+                    return;
+                }
+            } else {
+                stableCount = 0;
+            }
+
+            lastHtml = currentHtml;
+            await new Promise(r => setTimeout(r, checkInterval));
+        }
+
+        console.log(`  ⚠️ Page stability timeout reached`);
+    },
+
+    /**
+     * Assert that a specific element has focus before typing
+     * Prevents typing into wrong elements in parallel execution
+     */
+    assertFocus: async (page, params) => {
+        const { selector, index, retries = 3, delay = 500 } = params;
+
+        console.log(`🎯 Asserting focus on: ${selector}${index !== undefined ? ` (index: ${index})` : ''}`);
+
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            let targetElement;
+
+            if (index !== undefined) {
+                const elements = await page.$$(selector);
+                const visibleElements = [];
+                for (const el of elements) {
+                    const isVisible = await el.evaluate(node => node.offsetParent !== null);
+                    if (isVisible) visibleElements.push(el);
+                }
+                targetElement = visibleElements[index];
+            } else {
+                targetElement = await page.$(selector);
+            }
+
+            if (!targetElement) {
+                console.log(`  ⚠️ Element not found, retrying (${attempt}/${retries})...`);
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
+
+            // Click to ensure focus
+            await targetElement.click();
+            await new Promise(r => setTimeout(r, 100));
+
+            // Verify focus
+            const hasFocus = await targetElement.evaluate(el => document.activeElement === el);
+
+            if (hasFocus) {
+                console.log(`  ✅ Focus confirmed`);
+                return true;
+            }
+
+            console.log(`  ⚠️ Focus not on target, retrying (${attempt}/${retries})...`);
+            await new Promise(r => setTimeout(r, delay));
+        }
+
+        throw new Error(`Failed to assert focus on ${selector} after ${retries} attempts`);
+    },
+
+    /**
      * Mengetik input text
      */
     typeInput: async (page, params) => {
         // Detect if this is an autocomplete field (CBOBox) that needs smart selection
         const isAutocomplete = (params.selector && (
-            params.selector.includes('ui-autocomplete-input') || 
+            params.selector.includes('ui-autocomplete-input') ||
             params.selector.includes('CBOBox')
         )) || params.smartSelect === true;
 
         if (isAutocomplete) {
             console.log(`⌨️  Smart Typing "${params.value}" ke elemen: ${params.selector} (Index: ${params.index || 0})`);
-            
+
             const selector = params.selector;
             const index = params.index;
             const value = params.value;
@@ -32,10 +124,10 @@ const actions = {
                 try {
                     await page.waitForFunction(
                         (sel, idx) => {
-                             const els = document.querySelectorAll(sel);
-                             let count = 0;
-                             for(const el of els) if(el.offsetParent !== null) count++;
-                             return count >= idx + 1;
+                            const els = document.querySelectorAll(sel);
+                            let count = 0;
+                            for (const el of els) if (el.offsetParent !== null) count++;
+                            return count >= idx + 1;
                         },
                         { timeout: 5000 }, selector, index
                     );
@@ -47,7 +139,7 @@ const actions = {
                     const isVisible = await el.evaluate(node => node.offsetParent !== null);
                     if (isVisible) visibleElements.push(el);
                 }
-                
+
                 if (visibleElements.length <= index) {
                     throw new Error(`Element at index ${index} not found. Found ${visibleElements.length} visible.`);
                 }
@@ -65,20 +157,20 @@ const actions = {
 
             // 3. Type character by character and check dropdown
             let foundSingleOption = false;
-            
+
             for (let i = 0; i < value.length; i++) {
                 await elementHandle.type(value[i]);
-                
+
                 // Start checking immediately (even after 1st char if possible) but usually need 2+
                 // Lowered threshold to i >= 0 to be more aggressive if needed, but sticking to i >= 1 safe
-                if (i >= 0) { 
+                if (i >= 0) {
                     await new Promise(r => setTimeout(r, 250)); // Reduced wait for UI update
 
                     // Check dropdown count - Robust Version
                     const { optionCount, debugMsg } = await page.evaluate(() => {
                         const lists = document.querySelectorAll('ul.ui-autocomplete');
                         let activeList = null;
-                        
+
                         // Find the visible list
                         for (const list of lists) {
                             if (list.style.display !== 'none' && list.offsetParent !== null) {
@@ -86,7 +178,7 @@ const actions = {
                                 break;
                             }
                         }
-                        
+
                         if (!activeList) {
                             return { optionCount: -1, debugMsg: `Found ${lists.length} lists, none visible` };
                         }
@@ -94,40 +186,43 @@ const actions = {
                         // Count items
                         const items = activeList.querySelectorAll('li.ui-menu-item'); // Standard jQuery UI
                         // Fallback selector if needed? usually li is enough
-                        
-                        return { 
-                            optionCount: items.length, 
-                            debugMsg: `Visible list found. Items: ${items.length}` 
+
+                        return {
+                            optionCount: items.length,
+                            debugMsg: `Visible list found. Items: ${items.length}`
                         };
                     });
 
                     // console.log(`     [${value.substring(0, i+1)}] -> ${debugMsg}`);
 
                     if (optionCount === 1) {
-                         console.log(`  ✨ Single option found after typing "${value.substring(0, i + 1)}". Clicking it!`);
-                         foundSingleOption = true;
-                         break;
+                        console.log(`  ✨ Single option found after typing "${value.substring(0, i + 1)}". Clicking it!`);
+                        foundSingleOption = true;
+                        break;
                     }
                 }
             }
 
             // 4. Select Option
-            await new Promise(r => setTimeout(r, 100)); // Stabilize
+            await new Promise(r => setTimeout(r, 500)); // Stabilize UI before selection
+
+            // Ensure focus is still on the input
+            if (elementHandle) await elementHandle.focus();
 
             if (foundSingleOption) {
-                 console.log("  ⌨️  Selecting single option with ArrowDown + Enter...");
-                 await page.keyboard.press('ArrowDown');
-                 await new Promise(r => setTimeout(r, 50));
-                 await page.keyboard.press('Enter');
+                console.log("  ⌨️  Selecting single option with ArrowDown + Enter...");
+                await page.keyboard.press('ArrowDown');
+                await new Promise(r => setTimeout(r, 300)); // Increased delay for stability
+                await page.keyboard.press('Enter');
             } else {
                 // Fallback: If we finished typing and never found a single option (or 0 options),
                 // we try to select the first one anyway if available.
                 console.log(`  ⚠️  Finished typing without isolating single option. Selecting first available.`);
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 100));
+                await new Promise(r => setTimeout(r, 300)); // Increased delay for stability
                 await page.keyboard.press('Enter');
             }
-            
+
             // Additional wait to ensure UI settles
             await new Promise(r => setTimeout(r, 500));
 
@@ -141,6 +236,15 @@ const actions = {
                 await safeType(page, params.selector, params.value);
             }
         }
+    },
+
+    /**
+     * Alias for pressKey
+     */
+    press: async (page, params) => {
+        const key = params.key || 'Enter';
+        console.log(`⌨️  Menekan tombol: ${key}`);
+        await page.keyboard.press(key);
     },
 
     /**
@@ -414,14 +518,14 @@ const actions = {
         if (typeof condition === 'string') {
             const value = engine.substituteVariables(`\${${condition}}`, context);
             // Treat specific status strings as falsy to prevent "Regular Input"
-            result = !!value && 
-                     value !== 'null' && 
-                     value !== 'undefined' && 
-                     value !== '0' && 
-                     value !== 'ALFA' && 
-                     value !== 'ALPHA' && 
-                     value !== 'OFF' && 
-                     value !== 'LIBUR';
+            result = !!value &&
+                value !== 'null' &&
+                value !== 'undefined' &&
+                value !== '0' &&
+                value !== 'ALFA' &&
+                value !== 'ALPHA' &&
+                value !== 'OFF' &&
+                value !== 'LIBUR';
         } else if (typeof condition === 'boolean') {
             result = condition;
         }
@@ -531,7 +635,7 @@ const actions = {
 
                         // Count items
                         const items = activeList.querySelectorAll('li.ui-menu-item'); // Standard jQuery UI
-                        
+
                         return {
                             optionCount: items.length,
                             debugMsg: `Visible list found. Items: ${items.length}`
@@ -549,18 +653,21 @@ const actions = {
             }
 
             // 4. Confirm Selection
-            await new Promise(r => setTimeout(r, 100)); // Stabilize
+            await new Promise(r => setTimeout(r, 500)); // Stabilize
+
+            // Ensure focus
+            if (elementHandle) await elementHandle.focus();
 
             if (foundSingleOption) {
                 // Select the single option with keyboard
                 console.log("  ⌨️  Selecting single option with ArrowDown + Enter...");
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 50));
+                await new Promise(r => setTimeout(r, 300));
                 await page.keyboard.press('Enter');
             } else {
                 // Standard fallback
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 100));
+                await new Promise(r => setTimeout(r, 300));
                 await page.keyboard.press('Enter');
             }
 

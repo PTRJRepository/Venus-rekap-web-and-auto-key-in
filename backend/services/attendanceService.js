@@ -1,7 +1,7 @@
 const { executeQuery } = require('./gateway');
 // const { getPTRJMapping, matchPTRJEmployeeId } = require('./mappingService'); // Now unused
 // const { getChargeJobMapFromDB } = require('./employeeMillService'); // Now unused
-const { getAllEmployees, getHolidaysFromDB: fetchHolidaysFromMill } = require('./employeeMillService');
+const { getAllEmployees: getMillEmployees, getHolidaysFromDB: fetchHolidaysFromMill } = require('./employeeMillService');
 
 // const fs = require('fs'); // Unused
 // const path = require('path'); // Unused
@@ -83,6 +83,27 @@ const parseChargeJob = (jobString) => {
     };
 };
 
+// --- Helper: Fetch Employees from Weekly Attendance Table ---
+// This is the main source of employee list - only employees with records in Weekly table
+// Note: No date filter because current month data only exists after closing
+const fetchWeeklyEmployees = async () => {
+    try {
+        // Get ALL distinct employees from HR_T_TimeAttendanceWeekly (no date filter)
+        // This table only has data after month closing, so we get all available employees
+        const sql = `
+            SELECT DISTINCT EmployeeID
+            FROM [VenusHR14].[dbo].[HR_T_TimeAttendanceWeekly]
+            ORDER BY EmployeeID
+        `;
+        const result = await executeQuery(sql);
+        console.log(`[Weekly] Fetched ${result?.length || 0} distinct employees from HR_T_TimeAttendanceWeekly (all months)`);
+        return result || [];
+    } catch (e) {
+        console.error("Error fetching Weekly employees:", e);
+        return [];
+    }
+};
+
 // --- Main Data Fetcher ---
 const fetchAttendanceData = async (month, year) => {
     const startDate = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
@@ -91,8 +112,11 @@ const fetchAttendanceData = async (month, year) => {
     console.log(`Fetching ETL data for ${startDate} to ${endDate}`);
 
     // 1. Fetch ALL Data in Parallel
+    // Employee list comes from HR_T_TimeAttendanceWeekly (Venus) 
+    // Then LEFT JOIN with extend_db_ptrj for ptrj_employee_id and charge_job
     const [
-        employees, // Now from Employee Mill DB
+        weeklyEmployeeIds,  // Distinct EmployeeIDs from HR_T_TimeAttendanceWeekly
+        millEmployees,      // From extend_db_ptrj for mapping
         attendanceRaw,
         overtimeRaw,
         leavesRaw,
@@ -100,7 +124,8 @@ const fetchAttendanceData = async (month, year) => {
         latestDateStr,
         holidayMap
     ] = await Promise.all([
-        getAllEmployees(),
+        fetchWeeklyEmployees(),  // Get ALL employees from Weekly table (no date filter)
+        getMillEmployees(),                        // Get mapping data from extend_db_ptrj
         fetchAttendanceRaw(startDate, endDate),
         fetchOvertimeRaw(startDate, endDate),
         fetchLeavesRaw(startDate, endDate),
@@ -110,8 +135,28 @@ const fetchAttendanceData = async (month, year) => {
     ]);
 
     console.log(`[DEBUG] Latest Date Available: ${latestDateStr}`);
+    console.log(`Data fetched: ${weeklyEmployeeIds.length} employees (from HR_T_TimeAttendanceWeekly), ${millEmployees.length} mappings, ${attendanceRaw.length} attendance, ${overtimeRaw.length} overtime`);
 
-    console.log(`Data fetched: ${employees.length} employees (from Mill DB), ${attendanceRaw.length} attendance, ${overtimeRaw.length} overtime, ${leavesRaw.length} leaves, ${absencesRaw.length} absences, ${Object.keys(holidayMap).length} holidays`);
+    // Build mapping from extend_db_ptrj (venus_employee_id -> ptrj info)
+    const millMap = {};
+    millEmployees.forEach(me => {
+        if (me.venus_employee_id) {
+            millMap[me.venus_employee_id] = me;
+        }
+    });
+
+    // LEFT JOIN: Start with Weekly employees, get mapping from extend_db_ptrj if available
+    const employees = weeklyEmployeeIds.map(we => {
+        const millData = millMap[we.EmployeeID];
+        return {
+            venus_employee_id: we.EmployeeID,
+            employee_name: millData?.employee_name || we.EmployeeName || we.EmployeeID, // Fallback to ID if no name
+            ptrj_employee_id: millData?.ptrj_employee_id || null,
+            charge_job: millData?.charge_job || null
+        };
+    });
+
+    console.log(`[DEBUG] Final employee list: ${employees.length} (with ${employees.filter(e => e.ptrj_employee_id).length} having PTRJ mapping)`);
 
     // 2. Build Lookups
     const attendanceMap = {};
@@ -173,7 +218,7 @@ const fetchAttendanceData = async (month, year) => {
 
     console.log(`[FILTER] Total active employees found in data sources: ${activeEmployeeIds.size}`);
 
-    // Filter the master employee list using venus_employee_id (which maps to VenusHR EmployeeID)
+    // Filter the merged employee list using venus_employee_id
     const activeEmployees = employees.filter(emp => activeEmployeeIds.has(emp.venus_employee_id));
     console.log(`[FILTER] Filtered employee list from ${employees.length} to ${activeEmployees.length}`);
 
@@ -188,20 +233,14 @@ const fetchAttendanceData = async (month, year) => {
         const empName = emp.employee_name;   // Using Name from Mill DB
         const ptrjId = emp.ptrj_employee_id || 'N/A';
 
-        // Parse Charge Job directly from object
-        const chargeJobData = parseChargeJob(emp.charge_job);
+        // Use Charge Job as combined string (no splitting)
+        const chargeJob = emp.charge_job || '-';
 
         const empData = {
             id: empId,
             name: empName,
             ptrjEmployeeID: ptrjId,
-            chargeJob: chargeJobData.full,
-            chargeJobParts: {
-                task_code: chargeJobData.task_code,
-                station: chargeJobData.station,
-                machine: chargeJobData.machine,
-                expense: chargeJobData.expense
-            },
+            chargeJob: chargeJob,  // Combined format, not split
             attendance: {}
         };
 
@@ -532,13 +571,13 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
         const empId = emp.venus_employee_id;
         const empName = emp.employee_name;
         const ptrjId = emp.ptrj_employee_id || 'N/A';
-        const chargeJobData = parseChargeJob(emp.charge_job);
+        const chargeJob = emp.charge_job || '-';
 
         const empData = {
             id: empId,
             name: empName,
             ptrjEmployeeID: ptrjId,
-            chargeJob: chargeJobData.full,
+            chargeJob: chargeJob,  // Combined format, not split
             attendance: {}
         };
 

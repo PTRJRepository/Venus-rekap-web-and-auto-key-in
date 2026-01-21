@@ -1,0 +1,359 @@
+<td colspan="6">
+                <table id="MainContent_tblSelection" class="mb-c tblSelection">
+	<tbody><tr>
+		<td>
+                            <table id="MainContent_tblLine" class="tblChild">
+			<tbody><tr class="mb-c">
+				<td class="tdChildLabel">
+                                        Transaction Date :<span class="RedText">*</span>
+                                    </td>
+				<td class="tdChildInput">
+                                        <input name="ctl00$MainContent$txtTrxDate" type="text" value="02/01/2026" onchange="javascript:setTimeout('__doPostBack(\'ctl00$MainContent$txtTrxDate\',\'\')', 0)" onkeypress="if (WebForm_TextBoxKeyHandler(event) == false) return false;" id="MainContent_txtTrxDate" style="width:200px;" fdprocessedid="abl8jr">
+                                        
+                                        <span id="MainContent_rvtxtTrxDate" style="color:Red;display:none;"><br>Current valid date is 1/1/2026 To 31/1/2026 </span>
+                                        <span id="MainContent_rvftxtTrxDate" type="Date" style="color:Red;display:none;"><br>Please key in Date</span>
+                                       
+                                    </td>
+				<td class="tdMiddleSplit">
+                                    </td>
+				<td class="tdChildLabel">
+                                        <input id="MainContent_chkKeepData" type="checkbox" name="ctl00$MainContent$chkKeepData"><label for="MainContent_chkKeepData">Keep Enter Data after save</label>
+                                    </td>
+				<td class="tdChildInput">
+                                    </td>
+				<td class="tdMiddleSplit">
+                                    </td>
+			</tr>
+			<tr class="mb-c">
+				<td class="tdChildLabel">
+                                        Employee :<span class="RedText">*</span>
+                                    </td>
+				<td colspan="5">
+                                        <select name="ctl00$MainContent$ddlEmployee" onchange="javascript:setTimeout('__doPostBack(\'ctl00$MainContent$ddlEmployee\',\'\')', 0)" id="MainContent_ddlEmployee" style="width: 300px; display: none;">
+					<option value=""></option>
+					<option selected="selected" value="DHEA AGATHA PASARIBU">DHEA AGATHA PASARIBU (POM00282)</option>
+					<option value="POM00020">POM00020 (Tigo)</option>
+					<option value="POM00021">POM00021 (Padli.A)</option>
+					<option value="POM00022">POM00022 (Ramadani)</option>
+					<option value="POM00023">POM00023 (Arianto)</option>
+					<option value="POM000235">POM000235 (Risky Sumantri)</option>
+					<option value="POM00024">POM00024 (Husaini)</option>
+					<option value="POM000245">POM000245 (RENDY)</option>
+					<option value="POM00025">POM00025 (Ferry Fadly)</option>
+					<option value="POM00026">POM00026 (Nursamsi)</option>
+					<option value="POM00028">POM00028 (Derry)</option>
+					<option value="POM00029">POM00029 (Yulizar)</option>
+					<option value="POM00030">POM00030 (Zurianto)</option>
+					<option value="POM00033">POM00033 (Supandi)</option>
+					<option value="POM00036">POM00036 (Ichsanudin)</option>
+					<option value="POM00038">POM00038 (Pordiman Samosir)</option>
+					<option value="POM00040">POM00040 (dedy Burhansyah)</option>
+					<option value="POM00041">POM00041 (Adi Apriadi)</option>
+					<option value="POM00042">POM00042 (Sudiar)</option>
+					<option value="POM00043">POM00043 (Najmi)</option>
+					<option value="POM00046">POM00046 (Dedi)</option>
+					<option value="POM00048">POM00048 (Hendra Winardi)</option>
+					<option value="POM00051">POM00051 (Suhartomo)</option>
+					<option value="POM00053">POM00053 (Sofiyan)</option>
+					<option value="POM00054">POM00054 (Atmo Haryo)</option>
+					<option value="POM00055">POM00055 (Asmadi)</option>
+					<option value="POM00059">POM00059 (Imran Supardi)</option>
+					<option value="POM00061">POM00061 (Mediarta)</option>
+					<option value="POM00062">POM00062 (Pujiono)</option>
+					<option value="POM00063">POM00063 (Hanip)</option>
+					<option value="POM00064">POM00064 (Andri Iswadi)</option>
+					<option value="POM00065">POM00065 (Dick Havianto)</option>
+					<option value="POM00066">POM00066 (Eko Juniyansah)</option>
+					<option value="POM00067">POM00067 (Suharjono)</option>
+					<option value="POM00068">POM00068 (Rastanto)</option>
+					<option value="POM00076">POM00076 (Helmi)</option>
+					<option value="POM00078">POM00078 (Slamet Widodo)</option>
+					<option value="POM00079">POM00079 (Beni Apriyanto)</option>
+					<option value="POM00087">POM00087 (Jaya Saputra)</option>
+					<option value="POM00088">POM00088 (Dafid Iwan Saputra)</option>
+					<option value="POM00089">POM00089 (Yusnizar)</option>
+					<option value="POM00092">POM00092 (Riky Maryanto Susanto)</option>
+					<option value="POM00093">POM00093 (Ibnu Wardana)</option>
+					<option value="POM00094">POM00094 (Siaga Pratama)</option>
+					<option value="POM00095">POM00095 (Bambang Supriyono)</option>
+					<option value="POM00101">POM00101 (Marja Isnata)</option>
+					<option value="POM00102">POM00102 (Ari Widodo)</option>
+					<option value="POM00103">POM00103 (Tri Bowono Yudo)</option>
+					<option value="POM00104">POM00104 (Darma Setiawan)</option>
+					<option value="POM00106">POM00106 (Agus Irawan)</option>
+					<option value="POM00109">POM00109 (LIGA FIRDANA)</option>
+					<option value="POM00114">POM00114 (ANWAR)</option>
+					<option value="POM00115">POM00115 (SAMSIR)</option>
+					<option value="POM00120">POM00120 (EDDO PRATHAMA)</option>
+					<option value="POM00121">POM00121 (RENDY GUSTOYO)</option>
+					<option value="POM00123">POM00123 (PANDU PRATAMA PURSA)</option>
+					<option value="POM00124">POM00124 (GALUH FERDIANJAYA)</option>
+					<option value="POM00125">POM00125 (ASWANDI)</option>
+					<option value="POM00127">POM00127 (MUHAMAD KHALIQ)</option>
+					<option value="POM00128">POM00128 (DEFI FANTERA)</option>
+					<option value="POM00130">POM00130 (SYAFRILLIYANSYAH)</option>
+					<option value="POM00132">POM00132 (SEPTIAN ADE PRATAMA)</option>
+					<option value="POM00133">POM00133 (TEDDY CRISWANTO)</option>
+					<option value="POM00135">POM00135 (IRWAN)</option>
+					<option value="POM00137">POM00137 (TAUFIK HIDAYAT)</option>
+					<option value="POM00138">POM00138 (ANDRIANO SANOPRIANSYAH)</option>
+					<option value="POM00139">POM00139 (ANDRI JULIANDRI)</option>
+					<option value="POM00140">POM00140 (ASQALANY)</option>
+					<option value="POM00141">POM00141 (RAFLI RENALDI)</option>
+					<option value="POM00143">POM00143 (REZA WAHYUDI)</option>
+					<option value="POM00144">POM00144 (Danang Budi Santoso)</option>
+					<option value="POM00145">POM00145 (Aturi)</option>
+					<option value="POM00146">POM00146 (Januarzy)</option>
+					<option value="POM00149">POM00149 (SYAHRIL)</option>
+					<option value="POM00151">POM00151 (ARI YANTO)</option>
+					<option value="POM00158">POM00158 (MAMAN ERYANDI)</option>
+					<option value="POM00159">POM00159 (ANDRIANSYAH)</option>
+					<option value="POM00160">POM00160 (HERYANDI)</option>
+					<option value="POM00162">POM00162 (PERLY FEBRIANTO)</option>
+					<option value="POM00163">POM00163 (JUMHADI)</option>
+					<option value="POM00164">POM00164 (CHERPIANSYAH)</option>
+					<option value="POM00165">POM00165 (AZRUL KHAN)</option>
+					<option value="POM00168">POM00168 (DAVID FIRDAUS)</option>
+					<option value="POM00169">POM00169 (ALYAN)</option>
+					<option value="POM00171">POM00171 (SURYANTO)</option>
+					<option value="POM00173">POM00173 (DENI ARDIANSAH)</option>
+					<option value="POM00174">POM00174 (KIKI FIRMANSYAH)</option>
+					<option value="POM00175">POM00175 (RAJU ARISTO)</option>
+					<option value="POM00176">POM00176 (ISBANDI)</option>
+					<option value="POM00177">POM00177 (Fedrico Diazta)</option>
+					<option value="POM00179">POM00179 (RENDY NOPRIYANDI)</option>
+					<option value="POM00180">POM00180 (ARI WIDODO)</option>
+					<option value="POM00181">POM00181 (ADE PRASETYA)</option>
+					<option value="POM00182">POM00182 (FERDY ARLIANSYAH)</option>
+					<option value="POM00183">POM00183 (AGUS RIYADI)</option>
+					<option value="POM00184">POM00184 (FIKRIANSYAH)</option>
+					<option value="POM00185">POM00185 (APRIZAL)</option>
+					<option value="POM00186">POM00186 (SULTHONIK PELUBI)</option>
+					<option value="POM00188">POM00188 (HARRY NUGROHO PRABOWO)</option>
+					<option value="POM00189">POM00189 (LILI NURAINI)</option>
+					<option value="POM00190">POM00190 (RIDHO ANDYTHIA)</option>
+					<option value="POM00191">POM00191 (TINO POETRA)</option>
+					<option value="POM00192">POM00192 (RIO)</option>
+					<option value="POM00193">POM00193 (MUHAMMAD FIRMANSYAH)</option>
+					<option value="POM00194">POM00194 (MOCHAMAD FEBRY)</option>
+					<option value="POM00197">POM00197 (Rivaldi Prasetyo)</option>
+					<option value="POM00199">POM00199 (OKTORIO DWI SAKTI)</option>
+					<option value="POM00204">POM00204 (RIZKY)</option>
+					<option value="POM00206">POM00206 (BRAM TRIO HUSADA)</option>
+					<option value="POM00207">POM00207 (FAIZAL)</option>
+					<option value="POM00208">POM00208 (GUNTUR)</option>
+					<option value="POM00209">POM00209 (JOKO PRIONO)</option>
+					<option value="POM00210">POM00210 (WANDA ANDIKA)</option>
+					<option value="POM00211">POM00211 (TAUPIK HIDAYAT)</option>
+					<option value="POM00212">POM00212 (FIRLANDI)</option>
+					<option value="POM00213">POM00213 (ADYKA)</option>
+					<option value="POM00214">POM00214 (AGUS SETIAWAN)</option>
+					<option value="POM00215">POM00215 (WAHYU PRATAMA)</option>
+					<option value="POM00216">POM00216 (CHARYADI)</option>
+					<option value="POM00217">POM00217 (SUHERMAN SAPUTRA)</option>
+					<option value="POM00218">POM00218 (FERDI PRIHANDA)</option>
+					<option value="POM00219">POM00219 (TIKI BASISTA)</option>
+					<option value="POM00220">POM00220 (RETNO SUGIARTO)</option>
+					<option value="POM00221">POM00221 (MAMAN SURYADI)</option>
+					<option value="POM00223">POM00223 (AGUSTIAN)</option>
+					<option value="POM00224">POM00224 (ABU HURAIROH)</option>
+					<option value="POM00226">POM00226 (RASAT)</option>
+					<option value="pom00227">pom00227 (MAHMUDI)</option>
+					<option value="POM00229">POM00229 (HERU SURADI)</option>
+					<option value="POM00230">POM00230 (ELISA SUGIARTA)</option>
+					<option value="POM00231">POM00231 (ROZI IFANDI)</option>
+					<option value="POM00233">POM00233 (WENIMA BUULOLO)</option>
+					<option value="POM00235">POM00235 (Risky Sumantri)</option>
+					<option value="POM00236">POM00236 (DEDY PRASAPTA)</option>
+					<option value="POM00237">POM00237 (RIZKY SUGANDA)</option>
+					<option value="POM00238">POM00238 (LIO PRATAMA)</option>
+					<option value="POM00239">POM00239 (ERWIN SUSANTO)</option>
+					<option value="POM00240">POM00240 (HENDRA JAYA)</option>
+					<option value="POM00241">POM00241 (AGUSTIAWAN)</option>
+					<option value="POM00242">POM00242 (ARDIANSYAH)</option>
+					<option value="POM00244">POM00244 (SABANI WARUWU)</option>
+					<option value="POM00245">POM00245 (RENDY)</option>
+					<option value="POM00246">POM00246 (FEBRIAN SAPUTRA)</option>
+					<option value="POM00247">POM00247 (RIZKY ABDILLAH)</option>
+					<option value="POM00248">POM00248 (ABU DZAR AL GHIFFARI)</option>
+					<option value="POM00251">POM00251 (M. DIFFARIO KUSUMA)</option>
+					<option value="POM00253">POM00253 (ARYAT DHIMI OCTOVAN)</option>
+					<option value="POM00254">POM00254 (RIZAL SAHRONI)</option>
+					<option value="POM00255">POM00255 (SUWARI)</option>
+					<option value="POM00256">POM00256 (AZMAR)</option>
+					<option value="POM00258">POM00258 (RIDHO PURNAMA)</option>
+					<option value="POM00259">POM00259 (WAHYU YULIANTO)</option>
+					<option value="POM00260">POM00260 (IHSAN ALFAHRY)</option>
+					<option value="POM00261">POM00261 (DEDI)</option>
+					<option value="POM00262">POM00262 (PANJI MEKA BUANA)</option>
+					<option value="POM00263">POM00263 (DEKA SETIAWAN)</option>
+					<option value="POM00265">POM00265 (HERLY HIDAYAT)</option>
+					<option value="POM00266">POM00266 (ALDI WINATA)</option>
+					<option value="POM00267">POM00267 (MUHAMMAD RIDHO AKBAR PAPILAYA)</option>
+					<option value="POM00268">POM00268 (MAXIMA CAHYANI)</option>
+					<option value="POM00269">POM00269 (HANDREAN WAHYU NUGROHO)</option>
+					<option value="POM00270">POM00270 (BINTANG PUJIYONO)</option>
+					<option value="POM00271">POM00271 (KELVIN AGUSTIANTO)</option>
+					<option value="POM00272">POM00272 (ANGGY)</option>
+					<option value="POM00273">POM00273 (VIRANDA)</option>
+					<option value="POM00274">POM00274 (KARNO PUTRA)</option>
+					<option value="POM00275">POM00275 (EKO RAMADHAN)</option>
+					<option value="POM00276">POM00276 (REZA AGUSTIAN)</option>
+					<option value="POM00277">POM00277 (MAUKAR)</option>
+					<option value="POM00278">POM00278 (SELAMAT ALAMSYAH)</option>
+					<option value="POM00281">POM00281 (PUTERI DIEKA AFRIANI)</option>
+					<option value="POM00282">POM00282 (DHEA AGATHA PASARIBU)</option>
+					<option value="POM00283">POM00283 (ALDI)</option>
+					<option value="POM00284">POM00284 (VOLIOKA AURORA)</option>
+					<option value="POM00285">POM00285 (JEKI RISTIANDI)</option>
+					<option value="POM00286">POM00286 (ANUGRAH PRATAMA PUTRA)</option>
+					<option value="POM00287">POM00287 (AAN  KRIS WANDA)</option>
+					<option value="POM00288">POM00288 (YOSSI PRANATA)</option>
+					<option value="POM00289">POM00289 (FUJI PRASTAMA)</option>
+					<option value="POM00290">POM00290 (SEPTIAN PRATAMA)</option>
+					<option value="POM00291">POM00291 (NOVI)</option>
+					<option value="POM00292">POM00292 (LIO HERWANTO)</option>
+					<option value="POM00294">POM00294 (MUHAMMAD SALMAN ALFARIZI)</option>
+					<option value="POM00296">POM00296 (HANDY MUKHLIS)</option>
+					<option value="POM00297">POM00297 (FIK RANGGA)</option>
+					<option value="POM00298">POM00298 (FERZI ARIS SETIAWAN)</option>
+					<option value="POM00299">POM00299 (NOVALDI)</option>
+					<option value="POM00301">POM00301 (ADRINUR ARIF)</option>
+					<option value="POM00302">POM00302 (DAVIN MEIGIYAWAN PUTRA)</option>
+					<option value="POM0232">POM0232 (MUHAMMAD FAJAR)</option>
+					<option value="SUP00017">SUP00017 (CV. Bumi Karya Kampit)</option>
+
+				</select><input class="ui-autocomplete-input ui-widget CBOBox" autocomplete="off" role="textbox" aria-autocomplete="list" aria-haspopup="true" style="width: 296.4px; height: 17px;" fdprocessedid="ztj4sy"><button type="button" style="display: none" tabindex="-1" title="Show All Items" class="ui-button ui-widget ui-state-default ui-button-icon-only ui-button-icon" role="button" aria-disabled="false"><span class="ui-button-icon-primary ui-icon ui-icon-triangle-1-s"></span><span class="ui-button-text">&nbsp;</span></button>
+                                        <span id="MainContent_ddlEmployee_RFV" style="color:Red;display:none;"><br>Please select Employee</span>
+                                        
+                                    </td>
+			</tr>
+			<tr class="mb-c">
+				<td class="tdChildLabel">
+                                        Transaction Type :<span class="RedText">*</span>
+                                    </td>
+				<td colspan="5">
+                                        <table id="MainContent_rblOT">
+					<tbody><tr>
+						<td><span class="aspNetDisabled"><input id="MainContent_rblOT_0" type="radio" name="ctl00$MainContent$rblOT" value="1" disabled="disabled" onclick="javascript:setTimeout('__doPostBack(\'ctl00$MainContent$rblOT$0\',\'\')', 0)"><label for="MainContent_rblOT_0">Normal</label></span></td><td><span><input id="MainContent_rblOT_1" type="radio" name="ctl00$MainContent$rblOT" value="2" checked="checked"><label for="MainContent_rblOT_1">Overtime</label></span></td>
+					</tr>
+				</tbody></table>
+                                    </td>
+			</tr>
+			<tr class="mb-c">
+				<td class="tdChildLabel">
+                                        Shift
+                                    </td>
+				<td colspan="5">
+                                        <select name="ctl00$MainContent$ddlShift" id="MainContent_ddlShift" style="width: 300px" fdprocessedid="d2vy29">
+
+				</select>
+                                        <span id="MainContent_ddlShift_RFV" style="color:Red;display:none;"><br>Please select Shift</span>
+                                    </td>
+			</tr>
+			<tr class="mb-c">
+				<td class="tdChildLabel">
+                                        Task Code :<span class="RedText">*</span>
+                                    </td>
+				<td colspan="5">
+                                        <select name="ctl00$MainContent$ddlTaskCode" onchange="javascript:setTimeout('__doPostBack(\'ctl00$MainContent$ddlTaskCode\',\'\')', 0)" id="MainContent_ddlTaskCode" style="width: 300px; display: none;">
+					<option selected="selected" value="">Select Task Code</option>
+					<option value="CA4814">(CA4814) C/Roll Wages (Compos)</option>
+					<option value="GA9010">(GA9010) VEHICLE RUNNING</option>
+					<option value="GA9050">(GA9050) WORKSHOP CONTROL ACCOUNT</option>
+					<option value="GA9127">(GA9127) (AL) PERSONNEL SICK LEAVE</option>
+					<option value="GA9130">(GA9130) PERSONNEL ANNUAL LEAVE</option>
+					<option value="GA9234">(GA9234) UPKEEP OF BUILDINGS</option>
+					<option value="OC7110">(OC7110) FRUIT RECEPTION AND STORAGE</option>
+					<option value="OC7120">(OC7120) STERILIZER OPERATION</option>
+					<option value="OC7130">(OC7130) THRESHING STATION OPERATION</option>
+					<option value="OC7140">(OC7140) EFB HANDLING OPERATION</option>
+					<option value="OC7150">(OC7150) EFB PREBREAKER STATION </option>
+					<option value="OC7160">(OC7160) PRESS OPERATION</option>
+					<option value="OC7170">(OC7170) CLARIFICATION OPERATION</option>
+					<option value="OC7180">(OC7180) KERNEL OPERATION</option>
+					<option value="OC7190">(OC7190) BOILER OPERATION</option>
+					<option value="OC7200">(OC7200) ENGINE ROOM OPERATION</option>
+					<option value="OC7210">(OC7210) CPO STORAGE OPERATION</option>
+					<option value="OC7220">(OC7220) EFFLUENT TREATMENT PLANT</option>
+					<option value="OC7230">(OC7230) WATER PLANT OPERATION</option>
+					<option value="OC7240">(OC7240) LABORATORY ANALYSIS</option>
+					<option value="OC7250">(OC7250) WORKSHOP MAINTENANCE</option>
+					<option value="OC7260">(OC7260) GENERAL WAREHOUSE</option>
+					<option value="OC7319">(OC7319) UPKEEP OF WHELL LOADER</option>
+					<option value="OC7320">(OC7320) UPKEEP OF FACTORY </option>
+					<option value="OC7321">(OC7321) UPKEEP OF WEIGHBRIDGE</option>
+
+				</select><input class="ui-autocomplete-input ui-widget CBOBox" autocomplete="off" role="textbox" aria-autocomplete="list" aria-haspopup="true" style="width: 296.4px; height: 17px;" fdprocessedid="vj68qj"><button type="button" style="display: none" tabindex="-1" title="Show All Items" class="ui-button ui-widget ui-state-default ui-button-icon-only ui-button-icon" role="button" aria-disabled="false"><span class="ui-button-icon-primary ui-icon ui-icon-triangle-1-s"></span><span class="ui-button-text">&nbsp;</span></button>
+                                        <span id="MainContent_ddlTaskCode_RFV" style="color:Red;display:none;"><br>Please select Task Code</span>
+                                    </td>
+			</tr>
+			<tr id="MainContent_trHours" class="mb-c">
+				<td valign="top" class="tdChildLabel">
+                                        Hours :<span class="RedText">*</span>
+                                    </td>
+				<td valign="top" colspan="5">
+                                        <input name="ctl00$MainContent$txtHours" type="text" value="0" maxlength="4" id="MainContent_txtHours" onkeyup="javascript:CheckHours()" style="width:100px;" fdprocessedid="j9w1eg">
+                                        <span id="MainContent_revHours" style="color:Red;display:none;">Maximum length of four with at most 2 decimal points only. </span>
+                                        <span id="MainContent_txtHours_RFV" style="color:Red;display:none;"><br>Please key in Hours</span>
+                                        <span id="MainContent_txtHours_CV" style="color:Red;display:none;">Please enter numeric value!</span>
+                                        <span id="MainContent_RVtxtHours" style="color:Red;display:none;">Please key in 0 to 24</span>
+                                        <span id="MainContent_CompareValidator3" style="color:Red;display:none;"><br>Please key in Hours,0 is Not Allow. </span>
+                                        <span id="errHours" style="display: none; color: red;">working hours / OT hours exceed limit!</span>
+
+                                    </td>
+			</tr>
+			<tr id="MainContent_tr1" class="mb-c">
+				<td class="tdChildLabel">
+                                        Unit :<span class="RedText">*</span>
+                                    </td>
+				<td colspan="5">
+                                        <input name="ctl00$MainContent$txtUnit" type="text" value="1" maxlength="8" id="MainContent_txtUnit" onkeyup="javascript:calUnitAmount();" style="width:100px;" fdprocessedid="4jrs7">
+                                        <span id="MainContent_lblTaskCodeUOM"></span>
+                                        <span id="MainContent_txtUnit_RFV" style="color:Red;display:none;"><br>Please key in Unit</span>
+                                        <span id="MainContent_txtUnit_CV" style="color:Red;display:none;"><br>Please enter numeric value</span>
+                                        <span id="MainContent_txtUnit_RV" style="color:Red;display:none;">Units must be greater or equal to 0</span>
+                                        <span id="MainContent_CompareValidator2" style="color:Red;display:none;"><br>Please key in Unit,0 is Not Allow. </span>
+                                    </td>
+			</tr>
+			<tr>
+				<td class="tdChildLabel">Rate :<span class="RedText">*</span></td>
+				<td colspan="5">
+                                        <input name="ctl00$MainContent$txtUnitRate" type="text" value="0" maxlength="8" id="MainContent_txtUnitRate" disabled="disabled" class="aspNetDisabled" onkeyup="javascript:calUnitAmount();" style="width:100px;" fdprocessedid="edp6ee">
+                                        <span id="MainContent_txtUntRate_RFV" type="Currency" style="color:Red;display:none;"><br>Please key in Rate</span>
+                                       
+                                    </td>
+			</tr>
+			<tr>
+				<td class="tdChildLabel">Amount :</td>
+				<td colspan="5"><span id="MainContent_lblUnitAmountVal" style="text-align: left">0</span></td>
+			</tr>
+			<tr id="MainContent_trUnit" class="mb-c">
+				<td valign="top" class="tdChildLabel">
+                                    </td>
+				<td valign="top" class="tdChildInput">
+                                    </td>
+				<td valign="middle" align="center" class="tdMiddleSplit">
+                                    </td>
+				<td valign="top" class="tdChildLabel">
+                                    </td>
+				<td valign="middle" align="center" class="tdChildLabel">
+                                    </td>
+				<td valign="top" class="tdMiddleSplit">
+                                    </td>
+			</tr>
+			<tr class="mb-c">
+				<td colspan="6">
+                                        <input type="submit" name="ctl00$MainContent$btnAdd" value="Add" onclick="return(DoValidation());WebForm_DoPostBackWithOptions(new WebForm_PostBackOptions(&quot;ctl00$MainContent$btnAdd&quot;, &quot;&quot;, true, &quot;&quot;, &quot;&quot;, false, false))" id="MainContent_btnAdd" class="button" fdprocessedid="ld6wl2">
+                                        
+                                        
+                                        
+                                    </td>
+			</tr>
+		</tbody></table>
+		
+                        </td>
+	</tr>
+</tbody></table>
+
+            </td>

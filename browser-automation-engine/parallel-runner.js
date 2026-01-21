@@ -25,8 +25,13 @@ if (!dataFilePath) {
 const engineOptions = {
     headless: process.env.HEADLESS === 'true',
     slowMo: parseInt(process.env.SLOW_MO || '0'),
-    screenshot: process.env.SCREENSHOT !== 'false'
+    screenshot: process.env.SCREENSHOT !== 'false',
+    inputBlocking: process.env.INPUT_BLOCKING !== 'false' // Enable input blocking by default
 };
+
+// Configurable delay between engine starts (in milliseconds)
+// Higher delay = less chance of race conditions
+const ENGINE_START_DELAY = parseInt(process.env.ENGINE_START_DELAY || '8000');
 
 // Template name for attendance input
 const TEMPLATE_NAME = 'attendance-input-loop';
@@ -239,8 +244,8 @@ const runEngine = async (engineId, templateName, options) => {
 
         // Add delay before starting Engine 2
         if (engine2Info.dateCount > 0) {
-            console.log('[Engine 2] Waiting 5s before start...');
-            await new Promise(r => setTimeout(r, 5000));
+            console.log(`[Engine 2] Waiting ${ENGINE_START_DELAY / 1000}s before start for isolation...`);
+            await new Promise(r => setTimeout(r, ENGINE_START_DELAY));
             console.log('[Engine 2] Starting...');
             enginePromises.push(runEngine(2, engine2Info.templateName, engineOptions));
         }

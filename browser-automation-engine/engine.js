@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const actions = require('./actions');
 const { captureErrorScreenshot } = require('./utils/selectors');
+const RecoveryManager = require('./utils/recovery');
 
 class AutomationEngine {
     constructor(options = {}) {
@@ -11,6 +12,112 @@ class AutomationEngine {
         this.headless = options.headless !== undefined ? options.headless : false;
         this.slowMo = options.slowMo || 0;
         this.screenshot = options.screenshot !== undefined ? options.screenshot : true;
+        this.inputBlocking = options.inputBlocking !== undefined ? options.inputBlocking : true;
+        this.engineId = options.engineId || 'default';
+        this.recoveryManager = new RecoveryManager(this.engineId);
+    }
+
+    /**
+     * Script to show visual overlay and block input with Gatekeeper logic
+     */
+    static INPUT_BLOCKING_SCRIPT = `
+        (function() {
+            if (document.getElementById('__automation_overlay')) return;
+            
+            // 1. Create Visual Overlay (Pass-through)
+            const overlay = document.createElement('div');
+            overlay.id = '__automation_overlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.1);z-index:999999;display:flex;align-items:flex-end;justify-content:center;pointer-events:none;padding-bottom: 20px;';
+            overlay.innerHTML = '<div style="background:#dc2626;color:#fff;padding:12px 24px;border-radius:50px;font-family:Segoe UI, sans-serif;font-weight:600;box-shadow:0 4px 15px rgba(0,0,0,0.3);display:flex;align-items:center;gap:10px;"><span style="font-size:20px;">⛔</span><span>USER INPUT DISABLED - AUTOMATION RUNNING</span></div>';
+            document.body.appendChild(overlay);
+
+            // 2. Initialize Gatekeeper Flag
+            window.__PUPPETEER_ACTING = false;
+
+            // 3. Block Events
+            const blockEvents = ['mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu', 'keydown', 'keyup', 'keypress', 'touchstart', 'touchmove', 'touchend', 'wheel'];
+            
+            window.__automationHandlers = [];
+            
+            const handler = (e) => {
+                // GATEKEEPER: If Puppeteer is acting, let the event pass
+                if (window.__PUPPETEER_ACTING) return;
+
+                // Otherwise, BLOCK IT
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                return false;
+            };
+
+            blockEvents.forEach(evt => {
+                window.addEventListener(evt, handler, { capture: true, passive: false });
+                window.__automationHandlers.push({ evt, handler });
+            });
+        })();
+    `;
+
+    /**
+     * Script to remove visual overlay and unblock
+     */
+    static INPUT_UNBLOCKING_SCRIPT = `
+        (function() {
+            const overlay = document.getElementById('__automation_overlay');
+            if (overlay) overlay.remove();
+            
+            if (window.__automationHandlers) {
+                window.__automationHandlers.forEach(({ evt, handler }) => {
+                    window.removeEventListener(evt, handler, { capture: true });
+                });
+                window.__automationHandlers = [];
+            }
+        })();
+    `;
+
+    /**
+     * Enable input blocking on the current page
+     */
+    async enableInputBlocking() {
+        if (!this.page || !this.inputBlocking) return;
+        try {
+            await this.page.evaluate(AutomationEngine.INPUT_BLOCKING_SCRIPT);
+            console.log('🔒 Input blocking enabled (Gatekeeper Mode)');
+        } catch (error) {
+            console.error('⚠️ Failed to enable input blocking:', error.message);
+        }
+    }
+
+    /**
+     * Disable input blocking on the current page
+     */
+    async disableInputBlocking() {
+        if (!this.page) return;
+        try {
+            await this.page.evaluate(AutomationEngine.INPUT_UNBLOCKING_SCRIPT);
+            console.log('🔓 Input blocking disabled');
+        } catch (error) {
+            // Ignore errors
+        }
+    }
+
+    /**
+     * Open the gate for Puppeteer actions
+     */
+    async startPuppeteerAction() {
+        if (!this.page || !this.inputBlocking) return;
+        try {
+            await this.page.evaluate(() => window.__PUPPETEER_ACTING = true);
+        } catch (e) {}
+    }
+
+    /**
+     * Close the gate after Puppeteer actions
+     */
+    async endPuppeteerAction() {
+        if (!this.page || !this.inputBlocking) return;
+        try {
+            await this.page.evaluate(() => window.__PUPPETEER_ACTING = false);
+        } catch (e) {}
     }
 
     /**
@@ -34,6 +141,13 @@ class AutomationEngine {
         await this.page.setUserAgent(
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         );
+
+        // Enable input blocking on page load/navigation
+        if (this.inputBlocking) {
+            this.page.on('domcontentloaded', async () => {
+                await this.enableInputBlocking();
+            });
+        }
     }
 
     /**
@@ -89,7 +203,7 @@ class AutomationEngine {
                 if (value && typeof value === 'object') {
                     value = value[key];
                 } else {
-                    console.log(`⚠️  Variable not found: ${path} (failed at key: ${key})`);
+                    // console.log(`⚠️  Variable not found: ${path} (failed at key: ${key})`);
                     return match; // Tidak ditemukan, kembalikan original
                 }
             }
@@ -165,6 +279,9 @@ class AutomationEngine {
                 await captureErrorScreenshot(this.page, error.message);
             }
 
+            // Save state on crash
+            this.recoveryManager.saveState({ status: 'CRASHED', error: error.message });
+
             throw error;
         } finally {
             // Uncomment jika ingin browser otomatis tertutup
@@ -183,16 +300,51 @@ class AutomationEngine {
 
         for (let i = 0; i < steps.length; i++) {
             const step = steps[i];
-            console.log(`${prefix}[Step ${i + 1}/${steps.length}] Action: ${step.action}`);
-
+            
             // Substitute variables di params
             const substitutedParams = this.substituteParams(step.params, context);
 
-            // Cek apakah aksi ada di modul actions
-            if (actions[step.action]) {
-                await actions[step.action](this.page, substitutedParams, context, this);
+            // --- SMART VALIDATION ---
+            // Before executing, check if we can/should skip this step
+            if (this.page && ['type', 'select'].includes(step.action)) {
+                const validation = await this.recoveryManager.validateStep(this.page, step, substitutedParams);
+                
+                if (validation.shouldSkip) {
+                    console.log(`${prefix}[Step ${i + 1}/${steps.length}] ${validation.reason}. Skipping action.`);
+                    continue; // SKIP EXECUTION
+                } else {
+                    // Log why we are executing (e.g. "Field is empty")
+                    console.log(`${prefix}[Step ${i + 1}/${steps.length}] Action: ${step.action} (${validation.reason})`);
+                }
             } else {
-                throw new Error(`Aksi "${step.action}" tidak dikenali.`);
+                 console.log(`${prefix}[Step ${i + 1}/${steps.length}] Action: ${step.action}`);
+            }
+
+            try {
+                // Cek apakah aksi ada di modul actions
+                if (actions[step.action]) {
+                    // GATEKEEPER: Open the gate for Puppeteer
+                    await this.startPuppeteerAction();
+                    
+                    try {
+                        await actions[step.action](this.page, substitutedParams, context, this);
+                    } finally {
+                        // GATEKEEPER: Close the gate immediately
+                        await this.endPuppeteerAction();
+                    }
+                    
+                    // Save state after successful critical actions (optional optimization to avoid too many writes)
+                    if (['type', 'click', 'select'].includes(step.action)) {
+                         this.recoveryManager.saveState({ lastSuccessStepIndex: i, lastAction: step.action });
+                    }
+
+                } else {
+                    throw new Error(`Aksi "${step.action}" tidak dikenali.`);
+                }
+            } catch (err) {
+                console.error(`${prefix}⚠️ Error at step ${i + 1}: ${err.message}. Trying to recover/save state...`);
+                this.recoveryManager.saveState({ failedStepIndex: i, error: err.message });
+                throw err; // Re-throw to be caught by runTemplate
             }
 
             // Jeda kecil antar langkah agar lebih natural (opsional)
