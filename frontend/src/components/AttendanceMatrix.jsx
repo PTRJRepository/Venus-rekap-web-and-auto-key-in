@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Tooltip, Typography, Chip, Avatar, Switch, FormControlLabel, TextField, IconButton, Snackbar, Alert, Checkbox } from '@mui/material';
 import CheckIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-import FlightIcon from '@mui/icons-material/Flight';
-import HospitalIcon from '@mui/icons-material/LocalHospital';
 import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
@@ -38,6 +35,12 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
     const daysMap = safeData[0]?.attendance || {};
     const dayNumbers = Object.keys(daysMap).sort((a, b) => Number(a) - Number(b));
 
+    // Calculate max columns for Charge Job
+    const maxJobColumns = safeData.reduce((max, emp) => {
+        const count = (emp.chargeJob || '').split('/').length;
+        return Math.max(max, count);
+    }, 1);
+
     const getStatusColor = (s) => {
         const st = (s || '').toUpperCase();
         if (st === 'HADIR') return { bg: '#ecfdf5', text: '#059669', label: 'H' };
@@ -64,12 +67,18 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                             <TableCell padding="checkbox" sx={{ position: 'sticky', left: 0, zIndex: 111, bgcolor: '#f9fafb', width: 40 }}><Checkbox indeterminate={selectedIds.length > 0 && selectedIds.length < safeData.length} checked={safeData.length > 0 && selectedIds.length === safeData.length} onChange={handleSelectAll} size="small" /></TableCell>
                             <TableCell sx={{ position: 'sticky', left: 40, zIndex: 111, bgcolor: '#f9fafb', width: 200, fontWeight: 700, fontSize: '0.7rem', boxShadow: '2px 0 5px rgba(0,0,0,0.08)' }}><PersonIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />NAMA</TableCell>
                             <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#f9fafb', width: 100, fontWeight: 700, fontSize: '0.7rem' }}>PTRJ ID</TableCell>
-                            <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#fef8ed', width: 180, fontWeight: 700, fontSize: '0.7rem', color: '#92400e' }}>CHARGE JOB</TableCell>
+                            
+                            {/* Dynamic Job Columns */}
+                            {Array.from({ length: maxJobColumns }).map((_, i) => (
+                                <TableCell key={`h-job-${i}`} sx={{ bgcolor: isEditMode ? '#fef3c7' : '#fef8ed', minWidth: 120, fontWeight: 700, fontSize: '0.7rem', color: '#92400e' }}>
+                                    JOB {i + 1}
+                                </TableCell>
+                            ))}
+
                             {dayNumbers.map(day => {
                                 const d = daysMap[day];
                                 const isHoliday = d?.isHoliday;
                                 const isSunday = d?.isSunday;
-                                // Holiday: red bg, Sunday: pink bg, Normal: white
                                 const bgColor = isHoliday ? '#fecaca' : isSunday ? '#fff1f2' : '#fff';
                                 const textColor = isHoliday ? '#991b1b' : isSunday ? '#e11d48' : '#111';
                                 return (
@@ -90,6 +99,10 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                             const isEven = idx % 2 === 0;
                             const isEditing = editingRow === emp.id;
                             const isSelected = selectedIds.includes(emp.id);
+                            
+                            // Split jobs for this employee
+                            const jobParts = (emp.chargeJob || '').split('/').map(s => s.trim());
+
                             return (
                                 <TableRow key={emp.id} hover selected={isSelected} onClick={() => { if (isEditMode && !isEditing) handleStartEdit(emp); else if (!isEditMode) handleSelectRow(emp.id); }} sx={{ bgcolor: isEditing ? '#fef3c7' : isSelected ? '#eff6ff' : isEven ? '#fff' : '#fafbfc', cursor: 'pointer' }}>
                                     <TableCell padding="checkbox" sx={{ position: 'sticky', left: 0, zIndex: 101, bgcolor: isEditing ? '#fef3c7' : isSelected ? '#eff6ff' : isEven ? '#fff' : '#fafbfc' }} onClick={(e) => { e.stopPropagation(); handleSelectRow(emp.id); }}><Checkbox checked={isSelected} size="small" /></TableCell>
@@ -101,29 +114,50 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                                         </Box>
                                     </TableCell>
                                     <TableCell onClick={(e) => isEditing && e.stopPropagation()}>{isEditing ? <TextField size="small" value={editValues.ptrjEmployeeID} onChange={(e) => setEditValues(p => ({ ...p, ptrjEmployeeID: e.target.value }))} sx={{ width: '100%', '& input': { py: 0.5, fontSize: '0.75rem' } }} /> : (emp.ptrjEmployeeID || '-')}</TableCell>
-                                    <TableCell onClick={(e) => isEditing && e.stopPropagation()}>{isEditing ? <TextField size="small" value={editValues.chargeJob} onChange={(e) => setEditValues(p => ({ ...p, chargeJob: e.target.value }))} sx={{ width: '100%', '& input': { py: 0.5, fontSize: '0.7rem' } }} /> : (emp.chargeJob && emp.chargeJob !== '-' ? <Tooltip title={emp.chargeJob}><Chip label={emp.chargeJob} size="small" sx={{ height: 20, fontSize: '0.65rem', maxWidth: 150 }} /></Tooltip> : '-')}</TableCell>
+                                    
+                                    {/* Render Dynamic Job Cells */}
+                                    {Array.from({ length: maxJobColumns }).map((_, i) => {
+                                        const partValue = jobParts[i] || '';
+                                        return (
+                                            <TableCell key={`cell-job-${i}`} onClick={(e) => isEditing && e.stopPropagation()} sx={{ borderRight: '1px solid #f3f4f6' }}>
+                                                {isEditing ? (
+                                                    <TextField
+                                                        size="small"
+                                                        value={editValues.chargeJob.split('/')[i] || ''}
+                                                        onChange={(e) => {
+                                                            const parts = editValues.chargeJob.split('/');
+                                                            // Pad array if needed
+                                                            while (parts.length <= i) parts.push('');
+                                                            parts[i] = e.target.value;
+                                                            // Rejoin, potentially handling empty slots if necessary, but simple join is safest for now
+                                                            setEditValues(p => ({ ...p, chargeJob: parts.join('/') }));
+                                                        }}
+                                                        sx={{ width: '100%', '& input': { py: 0.5, fontSize: '0.7rem' } }}
+                                                    />
+                                                ) : (
+                                                    partValue ? <Tooltip title={partValue}><Chip label={partValue} size="small" sx={{ height: 20, fontSize: '0.65rem', maxWidth: 120 }} /></Tooltip> : '-'
+                                                )}
+                                            </TableCell>
+                                        );
+                                    })}
+
                                     {dayNumbers.map(day => {
                                         const d = emp.attendance?.[day];
                                         if (!d) return <TableCell key={day} />;
                                         const st = getStatusColor(d.status);
 
-                                        // Determine cell content based on viewMode
                                         let cellContent;
                                         if (viewMode === 'overtime') {
-                                            // Show overtime hours
                                             const ot = d.overtimeHours || 0;
                                             cellContent = ot > 0 ? <span style={{ color: '#c2410c', fontWeight: 700 }}>{ot}</span> : '-';
                                         } else if (viewMode === 'detail') {
-                                            // Show regular + OT hours
                                             const reg = d.regularHours || 0;
                                             const ot = d.overtimeHours || 0;
                                             cellContent = <span>{reg}{ot > 0 ? <span style={{ color: '#c2410c' }}>+{ot}</span> : ''}</span>;
                                         } else {
-                                            // Default: attendance status
                                             cellContent = d.status === 'Hadir' ? <CheckIcon sx={{ fontSize: 14, color: '#059669' }} /> : st.label;
                                         }
 
-                                        // Holiday: red bg, Sunday: pink bg, else status bg
                                         const cellBg = d.isHoliday ? '#fecaca' : d.isSunday ? '#fff1f2' : st.bg;
 
                                         return <TableCell key={day} align="center" sx={{ bgcolor: cellBg, color: st.text, fontWeight: 600, fontSize: '0.7rem' }}>{cellContent}</TableCell>;
@@ -140,3 +174,4 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
 };
 
 export default AttendanceMatrix;
+
