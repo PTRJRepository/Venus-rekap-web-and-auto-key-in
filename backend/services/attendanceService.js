@@ -209,18 +209,17 @@ const fetchAttendanceData = async (month, year) => {
     console.log(`[DEBUG] Map sizes - Att: ${Object.keys(attendanceMap).length}, OT: ${Object.keys(overtimeMap).length}, Leave: ${Object.keys(leaveMap).length}, Abs: ${Object.keys(absenceMap).length}`);
 
     // --- Active Employee Filter ---
-    // Create a set of Employee IDs that have ANY data in the raw results
+    // Only include employees who have ATTENDANCE records in the database
+    // Employees with only overtime/leave/absence but no attendance will be excluded
     const activeEmployeeIds = new Set();
     attendanceRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
-    overtimeRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
-    leavesRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
-    absencesRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
 
-    console.log(`[FILTER] Total active employees found in data sources: ${activeEmployeeIds.size}`);
+    // Log for debugging
+    console.log(`[FILTER] Employees with attendance records: ${activeEmployeeIds.size}`);
 
-    // Filter the merged employee list using venus_employee_id
+    // Filter the employee list - only show those with actual attendance data
     const activeEmployees = employees.filter(emp => activeEmployeeIds.has(emp.venus_employee_id));
-    console.log(`[FILTER] Filtered employee list from ${employees.length} to ${activeEmployees.length}`);
+    console.log(`[FILTER] Filtered employee list from ${employees.length} to ${activeEmployees.length} (based on attendance records only)`);
 
     // 3. Build Grid
     const daysInMonth = eachDayOfInterval({
@@ -307,46 +306,42 @@ const fetchAttendanceData = async (month, year) => {
                 display = leave.type;
                 cssClass = `leave-${leave.type.toLowerCase()}`;
             }
-            // Priority 3: Holiday (Auto Present)
-            else if (isHol) {
-                // Auto Present Logic: "kalo hari libryu maka seharnya auto hadir semua ... hadir jam regular nya"
-                status = 'Hadir'; // Counts as HK
-
-                // Regular Hours Logic
-                if (isSat) regularHours = 5;
-                else regularHours = 7;
-
-                // Display Logic
-                if (otHours > 0) {
-                    display = `LBR +${otHours.toFixed(1)}h`;
-                    cssClass = 'hours-normal-overtime'; // Greenish
-                } else {
-                    display = 'LBR'; // Explicitly show it's holiday presence
-                    cssClass = 'hours-full'; // Green
-                }
+            // Priority 3: Has Attendance Record (from database)
+            else if (att) {
+                // Has attendance data - will be processed below
+                // This is handled in the next else block
             }
-            // Priority 4: Sunday (Auto Present as Rest Day)
-            else if (isSun) {
-                status = 'Hadir'; // Counts as HK (Rest Day is paid)
-                regularHours = 0; // No regular hours on Sunday
-
-                if (otHours > 0) {
-                    display = `OFF +${otHours.toFixed(1)}h`;
-                    cssClass = 'hours-overtime-only';
-                } else {
+            // Priority 4: No Record - show as ALFA or OFF based on day type
+            else {
+                // No attendance record exists in database
+                if (isSun) {
+                    // Sunday with no record
+                    status = 'OFF';
                     display = 'OFF';
                     cssClass = 'hours-off';
+                    if (otHours > 0) {
+                        display = `OFF +${otHours.toFixed(1)}h`;
+                        cssClass = 'hours-overtime-only';
+                    }
+                } else if (isHol) {
+                    // Holiday with no record
+                    status = 'LBR';
+                    display = 'LBR';
+                    cssClass = 'hours-holiday';
+                    if (otHours > 0) {
+                        display = `LBR +${otHours.toFixed(1)}h`;
+                        cssClass = 'hours-normal-overtime';
+                    }
+                } else {
+                    // Working day without attendance record = ALFA
+                    status = 'ALFA';
+                    display = 'ALFA';
+                    cssClass = 'hours-alfa';
                 }
             }
-            // Priority 5: No Record (Absent on working day)
-            else if (!att) {
-                // Working day but absent -> ALFA
-                status = 'ALFA';
-                display = 'ALFA';
-                cssClass = 'hours-alfa';
-            }
-            // Priority 5: Has Attendance Record (Normal working day)
-            else {
+
+            // Process attendance record if exists (from database)
+            if (att && !absence && !leave) {
                 // Calculate Hours
                 if (att.TACheckIn && att.TACheckOut) {
                     const start = new Date(att.TACheckIn);
@@ -374,7 +369,7 @@ const fetchAttendanceData = async (month, year) => {
                     }
 
                 } else {
-                    // Incomplete
+                    // Incomplete attendance record
                     if (isSat) regularHours = 5;
                     else regularHours = 7;
 
@@ -644,16 +639,21 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                     cssClass = 'hours-normal-overtime';
                 }
             }
-            // Priority 4: Sunday/Holiday = Auto Present (Rest Day)
-            else if (isSun || isHol) {
-                status = 'Hadir'; // Counts as HK (paid rest day)
-                regularHours = isHol ? (isSat ? 5 : 7) : 0; // Holiday gets regular hours, Sunday doesn't
-                display = isHol ? 'LBR' : 'OFF';
+            // Priority 4: Sunday/Holiday - show as OFF/LBR but NOT auto-Hadir
+            else if (isSun) {
+                status = 'OFF';
+                display = 'OFF';
                 cssClass = 'hours-off';
+                regularHours = 0;
             }
-            // Priority 5: No overtime, no record on working day
+            else if (isHol) {
+                status = 'LBR';
+                display = 'LBR';
+                cssClass = 'hours-holiday';
+                regularHours = 0;
+            }
+            // Priority 5: No overtime, no record on working day = ALFA
             else {
-                // No data = unknown/absent
                 status = 'ALFA';
                 display = 'ALFA';
                 cssClass = 'hours-alfa';
