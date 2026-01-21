@@ -9,7 +9,7 @@ const { getChargeJobsForMonth } = require('./services/chargeJobService'); // Sti
 const { executeQuery } = require('./services/gateway'); // Direct query if needed
 const { getPTRJMapping, matchPTRJEmployeeId } = require('./services/mappingService');
 const exportService = require('./services/exportService');
-const { updateEmployee, getAllEmployees } = require('./services/employeeMillService');
+const { updateEmployee, getAllEmployees, upsertEmployee } = require('./services/employeeMillService');
 const { saveAutomationData, startAutomationProcess } = require('./services/automationService');
 
 require('dotenv').config();
@@ -506,15 +506,16 @@ app.get('/api/employee-mill', async (req, res) => {
     }
 });
 
-// Update employee data (PTRJ ID, Charge Job)
+// Update employee data (PTRJ ID, Charge Job, Name) - Auto-inserts if not exists
 app.patch('/api/employee-mill/:venusId', async (req, res) => {
     try {
         const { venusId } = req.params;
-        const { ptrj_employee_id, charge_job } = req.body;
+        const { ptrj_employee_id, charge_job, employee_name } = req.body;
 
-        console.log(`[API] Updating employee ${venusId}:`, { ptrj_employee_id, charge_job });
+        console.log(`[API] Upsert employee ${venusId}:`, { ptrj_employee_id, charge_job, employee_name });
 
-        const result = await updateEmployee(venusId, { ptrj_employee_id, charge_job });
+        // Use upsertEmployee to auto-insert if not exists
+        const result = await upsertEmployee(venusId, { ptrj_employee_id, charge_job, employee_name });
 
         if (result.success) {
             res.json({ success: true, message: result.message });

@@ -71,7 +71,7 @@ const AttendancePage = () => {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [currentPeriod, setCurrentPeriod] = useState(null);
     const [showLegend, setShowLegend] = useState(false);
-    
+
     // Automation State
     const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
     const [isAutomationOpen, setIsAutomationOpen] = useState(false);
@@ -104,6 +104,26 @@ const AttendancePage = () => {
     const handleRefresh = () => {
         if (currentPeriod) {
             handleFetchData();
+        }
+    };
+
+    // Handle data updates - either full refresh or local state update
+    const handleDataUpdate = (updateInfo) => {
+        if (!updateInfo) {
+            // No info = full refresh (backward compatibility)
+            handleRefresh();
+            return;
+        }
+
+        if (updateInfo.type === 'update_employee') {
+            // Local state update - don't fetch all data again
+            setAttendanceData(prevData =>
+                prevData.map(emp =>
+                    emp.id === updateInfo.id
+                        ? { ...emp, ...updateInfo.updates }
+                        : emp
+                )
+            );
         }
     };
 
@@ -247,7 +267,7 @@ const AttendancePage = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {/* Sync Button */}
                         {selectedEmployeeIds.length > 0 && (
-                             <Button
+                            <Button
                                 variant="contained"
                                 size="small"
                                 color="success"
@@ -386,9 +406,9 @@ const AttendancePage = () => {
                     </Box>
                 ) : (
                     <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-                        <AttendanceMatrix 
-                            data={attendanceData} 
-                            onDataUpdate={handleRefresh}
+                        <AttendanceMatrix
+                            data={attendanceData}
+                            onDataUpdate={handleDataUpdate}
                             selectedIds={selectedEmployeeIds}
                             onToggleSelect={setSelectedEmployeeIds}
                         />

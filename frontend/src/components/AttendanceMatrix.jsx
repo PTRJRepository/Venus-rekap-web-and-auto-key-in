@@ -11,17 +11,32 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
     const safeData = Array.isArray(data) ? data : [];
     const [isEditMode, setIsEditMode] = useState(false);
     const [editingRow, setEditingRow] = useState(null);
-    const [editValues, setEditValues] = useState({ ptrjEmployeeID: '', chargeJob: '' });
+    const [editValues, setEditValues] = useState({ ptrjEmployeeID: '', chargeJob: '', employeeName: '' });
     const [saving, setSaving] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-    const handleStartEdit = (emp) => { setEditingRow(emp.id); setEditValues({ ptrjEmployeeID: emp.ptrjEmployeeID || '', chargeJob: emp.chargeJob || '' }); };
-    const handleCancelEdit = () => { setEditingRow(null); setEditValues({ ptrjEmployeeID: '', chargeJob: '' }); };
+    const handleStartEdit = (emp) => { setEditingRow(emp.id); setEditValues({ ptrjEmployeeID: emp.ptrjEmployeeID || '', chargeJob: emp.chargeJob || '', employeeName: emp.name || '' }); };
+    const handleCancelEdit = () => { setEditingRow(null); setEditValues({ ptrjEmployeeID: '', chargeJob: '', employeeName: '' }); };
     const handleSaveEdit = async (emp) => {
         setSaving(true);
         try {
-            const result = await updateEmployeeMill(emp.id, { ptrj_employee_id: editValues.ptrjEmployeeID, charge_job: editValues.chargeJob });
-            if (result.success) { setSnackbar({ open: true, message: 'Data tersimpan!', severity: 'success' }); setEditingRow(null); onDataUpdate && onDataUpdate(); }
+            const result = await updateEmployeeMill(emp.id, { ptrj_employee_id: editValues.ptrjEmployeeID, charge_job: editValues.chargeJob, employee_name: editValues.employeeName });
+            if (result.success) {
+                setSnackbar({ open: true, message: 'Data tersimpan!', severity: 'success' });
+                setEditingRow(null);
+                // Update local state without full refresh - call parent with updated employee info
+                if (onDataUpdate) {
+                    onDataUpdate({
+                        type: 'update_employee',
+                        id: emp.id,
+                        updates: {
+                            name: editValues.employeeName,
+                            ptrjEmployeeID: editValues.ptrjEmployeeID,
+                            chargeJob: editValues.chargeJob
+                        }
+                    });
+                }
+            }
             else setSnackbar({ open: true, message: result.error || 'Gagal', severity: 'error' });
         } catch (e) { setSnackbar({ open: true, message: e.message, severity: 'error' }); }
         finally { setSaving(false); }
@@ -98,10 +113,20 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                             return (
                                 <TableRow key={emp.id} hover selected={isSelected} onClick={() => { if (isEditMode && !isEditing) handleStartEdit(emp); else if (!isEditMode) handleSelectRow(emp.id); }} sx={{ bgcolor: isEditing ? '#fef3c7' : isSelected ? '#eff6ff' : isEven ? '#fff' : '#fafbfc', cursor: 'pointer' }}>
                                     <TableCell padding="checkbox" sx={{ position: 'sticky', left: 0, zIndex: 101, bgcolor: isEditing ? '#fef3c7' : isSelected ? '#eff6ff' : isEven ? '#fff' : '#fafbfc' }} onClick={(e) => { e.stopPropagation(); handleSelectRow(emp.id); }}><Checkbox checked={isSelected} size="small" /></TableCell>
-                                    <TableCell sx={{ position: 'sticky', left: 40, zIndex: 101, bgcolor: isEditing ? '#fef3c7' : isSelected ? '#eff6ff' : isEven ? '#fff' : '#fafbfc', boxShadow: '2px 0 5px rgba(0,0,0,0.05)', fontWeight: 500 }}>
+                                    <TableCell sx={{ position: 'sticky', left: 40, zIndex: 101, bgcolor: isEditing ? '#fef3c7' : isSelected ? '#eff6ff' : isEven ? '#fff' : '#fafbfc', boxShadow: '2px 0 5px rgba(0,0,0,0.05)', fontWeight: 500, minWidth: 200 }} onClick={(e) => isEditing && e.stopPropagation()}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Avatar sx={{ width: 24, height: 24, fontSize: '0.7rem', bgcolor: isEditing ? '#d97706' : '#7c3aed' }}>{emp.name?.charAt(0)}</Avatar>
-                                            <Typography variant="body2" noWrap sx={{ fontSize: '0.8rem' }}>{emp.name}</Typography>
+                                            <Avatar sx={{ width: 24, height: 24, fontSize: '0.7rem', bgcolor: isEditing ? '#d97706' : '#7c3aed' }}>{(isEditing ? editValues.employeeName : emp.name)?.charAt(0)}</Avatar>
+                                            {isEditing ? (
+                                                <TextField
+                                                    size="small"
+                                                    value={editValues.employeeName}
+                                                    onChange={(e) => setEditValues(p => ({ ...p, employeeName: e.target.value }))}
+                                                    sx={{ flex: 1, '& input': { py: 0.5, fontSize: '0.75rem' } }}
+                                                    placeholder="Nama Karyawan"
+                                                />
+                                            ) : (
+                                                <Typography variant="body2" noWrap sx={{ fontSize: '0.8rem' }}>{emp.name}</Typography>
+                                            )}
                                             {isEditing && <Box sx={{ ml: 'auto', display: 'flex' }}><IconButton size="small" color="success" onClick={(e) => { e.stopPropagation(); handleSaveEdit(emp); }} disabled={saving}><SaveIcon fontSize="small" /></IconButton><IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleCancelEdit(); }}><CloseIcon fontSize="small" /></IconButton></Box>}
                                         </Box>
                                     </TableCell>

@@ -129,10 +129,10 @@ const getChargeJobMapFromDB = async () => {
 /**
  * Update employee data in the database
  * @param {string} venusEmployeeId - The Venus Employee ID to update
- * @param {object} updates - Object containing { ptrj_employee_id, charge_job }
+ * @param {object} updates - Object containing { ptrj_employee_id, charge_job, employee_name }
  */
 const updateEmployee = async (venusEmployeeId, updates) => {
-    const { ptrj_employee_id, charge_job } = updates;
+    const { ptrj_employee_id, charge_job, employee_name } = updates;
 
     // Build SET clause dynamically
     const setClauses = [];
@@ -141,6 +141,9 @@ const updateEmployee = async (venusEmployeeId, updates) => {
     }
     if (charge_job !== undefined) {
         setClauses.push(`charge_job = '${charge_job.replace(/'/g, "''")}'`);
+    }
+    if (employee_name !== undefined) {
+        setClauses.push(`employee_name = '${employee_name.replace(/'/g, "''")}'`);
     }
     setClauses.push("updated_at = GETDATE()");
 
@@ -183,10 +186,97 @@ const updateEmployee = async (venusEmployeeId, updates) => {
     }
 };
 
+/**
+ * Insert new employee into database
+ * Used for new employees who don't exist in extend_db_ptrj
+ * @param {object} employeeData - { venus_employee_id, employee_name, ptrj_employee_id, charge_job }
+ */
+const insertEmployee = async (employeeData) => {
+    const { venus_employee_id, employee_name, ptrj_employee_id, charge_job } = employeeData;
+
+    if (!venus_employee_id) {
+        return { success: false, message: 'venus_employee_id is required' };
+    }
+
+    const sql = `
+        INSERT INTO employee_mill (nik, venus_employee_id, ptrj_employee_id, employee_name, charge_job, is_active, created_at, updated_at)
+        VALUES (
+            '${(venus_employee_id || '').replace(/'/g, "''")}',
+            '${(venus_employee_id || '').replace(/'/g, "''")}',
+            '${(ptrj_employee_id || '').replace(/'/g, "''")}',
+            '${(employee_name || '').replace(/'/g, "''")}',
+            '${(charge_job || '').replace(/'/g, "''")}',
+            1,
+            GETDATE(),
+            GETDATE()
+        )
+    `;
+
+    console.log('[EmployeeMillService] Insert SQL:', sql);
+
+    const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8001';
+    const API_TOKEN = process.env.API_TOKEN_QUERY;
+    const FINAL_URL = GATEWAY_URL.includes('/query') ? `${GATEWAY_URL}/v1/query` : `${GATEWAY_URL}/v1/query`;
+
+    try {
+        const response = await axios.post(FINAL_URL, {
+            sql,
+            server: SERVER_PROFILE,
+            database: DB
+        }, {
+            headers: { 'x-api-key': API_TOKEN },
+            timeout: 10000
+        });
+
+        if (response.data.success) {
+            console.log(`[EmployeeMillService] Inserted new employee: ${venus_employee_id}`);
+            return { success: true, message: 'Employee inserted successfully' };
+        } else {
+            console.error('EmployeeMillService Insert Error:', response.data.error);
+            return { success: false, message: response.data.error };
+        }
+    } catch (error) {
+        console.error('EmployeeMillService Insert Failed:', error.message);
+        return { success: false, message: error.message };
+    }
+};
+
+/**
+ * Check if employee exists in database
+ * @param {string} venusEmployeeId - The Venus Employee ID to check
+ */
+const employeeExists = async (venusEmployeeId) => {
+    const sql = `SELECT 1 FROM employee_mill WHERE venus_employee_id = '${venusEmployeeId.replace(/'/g, "''")}'`;
+    const result = await queryExtendDB(sql);
+    return result && result.length > 0;
+};
+
+/**
+ * Upsert employee - Update if exists, Insert if not
+ * @param {string} venusEmployeeId - The Venus Employee ID
+ * @param {object} data - { employee_name, ptrj_employee_id, charge_job }
+ */
+const upsertEmployee = async (venusEmployeeId, data) => {
+    const exists = await employeeExists(venusEmployeeId);
+
+    if (exists) {
+        return await updateEmployee(venusEmployeeId, data);
+    } else {
+        return await insertEmployee({
+            venus_employee_id: venusEmployeeId,
+            ...data
+        });
+    }
+};
+
 module.exports = {
     getAllEmployees,
     getPTRJMappingFromDB,
     getChargeJobMapFromDB,
     getHolidaysFromDB,
-    updateEmployee
+    updateEmployee,
+    insertEmployee,
+    employeeExists,
+    upsertEmployee
 };
+

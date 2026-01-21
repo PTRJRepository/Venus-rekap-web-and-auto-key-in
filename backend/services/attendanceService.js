@@ -311,12 +311,13 @@ const fetchAttendanceData = async (month, year) => {
                 // Has attendance data - will be processed below
                 // This is handled in the next else block
             }
-            // Priority 4: No Record - show as ALFA or OFF based on day type
+            // Priority 4: No Record - Auto-Hadir for OFF/Holiday, ALFA for working days
             else {
                 // No attendance record exists in database
                 if (isSun) {
-                    // Sunday with no record
-                    status = 'OFF';
+                    // Sunday = Auto Hadir with OFF display
+                    status = 'Hadir';  // Counts as HK
+                    regularHours = 0;  // No regular hours on Sunday
                     display = 'OFF';
                     cssClass = 'hours-off';
                     if (otHours > 0) {
@@ -324,8 +325,9 @@ const fetchAttendanceData = async (month, year) => {
                         cssClass = 'hours-overtime-only';
                     }
                 } else if (isHol) {
-                    // Holiday with no record
-                    status = 'LBR';
+                    // Holiday = Auto Hadir with LBR display
+                    status = 'Hadir';  // Counts as HK
+                    regularHours = isSat ? 5 : 7;  // Holiday gets regular hours
                     display = 'LBR';
                     cssClass = 'hours-holiday';
                     if (otHours > 0) {
@@ -639,18 +641,18 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                     cssClass = 'hours-normal-overtime';
                 }
             }
-            // Priority 4: Sunday/Holiday - show as OFF/LBR but NOT auto-Hadir
+            // Priority 4: Sunday/Holiday - Auto Hadir with OFF/LBR display
             else if (isSun) {
-                status = 'OFF';
+                status = 'Hadir';  // Counts as HK
                 display = 'OFF';
                 cssClass = 'hours-off';
                 regularHours = 0;
             }
             else if (isHol) {
-                status = 'LBR';
+                status = 'Hadir';  // Counts as HK
                 display = 'LBR';
                 cssClass = 'hours-holiday';
-                regularHours = 0;
+                regularHours = isSat ? 5 : 7;
             }
             // Priority 5: No overtime, no record on working day = ALFA
             else {
