@@ -12,7 +12,8 @@ import {
     Chip,
     Tooltip,
     IconButton,
-    Collapse
+    Collapse,
+    Badge
 } from '@mui/material';
 import {
     CheckCircle as CheckIcon,
@@ -24,9 +25,11 @@ import {
     Search as SearchIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
-    Refresh as RefreshIcon
+    Refresh as RefreshIcon,
+    Sync as SyncIcon
 } from '@mui/icons-material';
 import AttendanceMatrix from '../components/AttendanceMatrix';
+import AutomationDialog from '../components/AutomationDialog';
 import { fetchAttendanceData } from '../services/api';
 
 const getMonths = () => [
@@ -68,6 +71,10 @@ const AttendancePage = () => {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [currentPeriod, setCurrentPeriod] = useState(null);
     const [showLegend, setShowLegend] = useState(false);
+    
+    // Automation State
+    const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
+    const [isAutomationOpen, setIsAutomationOpen] = useState(false);
 
     const months = getMonths();
     const years = getYears();
@@ -77,6 +84,7 @@ const AttendancePage = () => {
 
         setLoading(true);
         setError(null);
+        setSelectedEmployeeIds([]); // Reset selection on new fetch
         try {
             const data = await fetchAttendanceData(selectedMonth, selectedYear);
             setAttendanceData(data);
@@ -237,6 +245,25 @@ const AttendancePage = () => {
 
                     {/* Right: Legend Toggle + Compact Legend */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {/* Sync Button */}
+                        {selectedEmployeeIds.length > 0 && (
+                             <Button
+                                variant="contained"
+                                size="small"
+                                color="success"
+                                startIcon={<SyncIcon />}
+                                onClick={() => setIsAutomationOpen(true)}
+                                sx={{
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                    fontSize: '0.8rem',
+                                    mr: 2
+                                }}
+                            >
+                                Sinkron ke Millware ({selectedEmployeeIds.length})
+                            </Button>
+                        )}
+
                         {/* Inline Compact Legend */}
                         <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.5 }}>
                             {legendItems.map((item, index) => (
@@ -359,10 +386,24 @@ const AttendancePage = () => {
                     </Box>
                 ) : (
                     <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-                        <AttendanceMatrix data={attendanceData} onDataUpdate={handleRefresh} />
+                        <AttendanceMatrix 
+                            data={attendanceData} 
+                            onDataUpdate={handleRefresh}
+                            selectedIds={selectedEmployeeIds}
+                            onToggleSelect={setSelectedEmployeeIds}
+                        />
                     </Box>
                 )}
             </Box>
+
+            {/* Automation Dialog */}
+            <AutomationDialog
+                open={isAutomationOpen}
+                onClose={() => setIsAutomationOpen(false)}
+                selectedEmployees={attendanceData.filter(e => selectedEmployeeIds.includes(e.id))}
+                month={selectedMonth}
+                year={selectedYear}
+            />
         </Box>
     );
 };

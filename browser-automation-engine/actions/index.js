@@ -413,7 +413,15 @@ const actions = {
         // Simple evaluation: check if value exists and is truthy
         if (typeof condition === 'string') {
             const value = engine.substituteVariables(`\${${condition}}`, context);
-            result = !!value && value !== 'null' && value !== 'undefined' && value !== '0' && value !== 'ALFA';
+            // Treat specific status strings as falsy to prevent "Regular Input"
+            result = !!value && 
+                     value !== 'null' && 
+                     value !== 'undefined' && 
+                     value !== '0' && 
+                     value !== 'ALFA' && 
+                     value !== 'ALPHA' && 
+                     value !== 'OFF' && 
+                     value !== 'LIBUR';
         } else if (typeof condition === 'boolean') {
             result = condition;
         }
