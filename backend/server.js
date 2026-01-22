@@ -540,11 +540,12 @@ app.post('/api/automation/run', async (req, res) => {
         console.log(`[Automation] Request to run for ${employees.length} employees (${month}/${year})`);
         if (startDate && endDate) console.log(`[Automation] Date Filter: ${startDate} to ${endDate}`);
 
-        const dataPath = saveAutomationData({ employees, month, year, startDate, endDate });
-        console.log(`[Automation] Data saved to ${dataPath}`);
+        // Save data to current_data.json (fixed filename)
+        saveAutomationData({ employees, month, year, startDate, endDate });
+        console.log(`[Automation] Data saved to current_data.json`);
 
-        // Start process
-        const child = startAutomationProcess(dataPath);
+        // Start process (uses current_data.json automatically)
+        const child = startAutomationProcess();
 
         // Handle spawn errors
         child.on('error', (err) => {

@@ -381,13 +381,18 @@ const actions = {
      * Parse ChargeJob string to extract parts separated by '/'
      * Example: "(GA9010) VEHICLE RUNNING / BE001 (...) / 11 (...)"
      * Results: part1="VEHICLE RUNNING", part2="BE001 (...)", part3="11 (...)"
+     * Also stores: chargeJobPartsCount, hasChargeJobPart2, hasChargeJobPart3
      */
     parseChargeJob: async (page, params, context, engine) => {
         const chargeJob = params.chargeJob || params.value || '';
         console.log(`🔍 Parsing ChargeJob: "${chargeJob}"`);
 
         // Split by '/'
-        const parts = chargeJob.split('/').map(p => p.trim());
+        const parts = chargeJob.split('/').map(p => p.trim()).filter(p => p.length > 0);
+
+        // Store parts count for conditional logic (excluding Employee field)
+        context.chargeJobPartsCount = parts.length;
+        console.log(`  📊 Total parts found: ${parts.length}`);
 
         // Store DIRECTLY in context (top-level) for easy access
         // Part 1: Task Code
@@ -404,23 +409,27 @@ const actions = {
             context.chargeJobPart1Clean = "";
         }
 
-        // Part 2: Resource
+        // Part 2: Resource/Equipment
         if (parts.length > 1 && parts[1]) {
             context.chargeJobPart2 = parts[1].trim();
+            context.hasChargeJobPart2 = true;
             console.log(`  Part 2: "${context.chargeJobPart2}"`);
         } else {
             context.chargeJobPart2 = "";
+            context.hasChargeJobPart2 = false;
         }
 
         // Part 3: Cost Center
         if (parts.length > 2 && parts[2]) {
             context.chargeJobPart3 = parts[2].trim();
+            context.hasChargeJobPart3 = true;
             console.log(`  Part 3: "${context.chargeJobPart3}"`);
         } else {
             context.chargeJobPart3 = "";
+            context.hasChargeJobPart3 = false;
         }
 
-        console.log(`  ✅ ChargeJob parsed successfully - variables stored in context`);
+        console.log(`  ✅ ChargeJob parsed - ${parts.length} parts (hasP2: ${context.hasChargeJobPart2}, hasP3: ${context.hasChargeJobPart3})`);
     },
 
     /**
@@ -642,15 +651,40 @@ const actions = {
             let elementHandle;
 
             try {
+                // CRITICAL: Wait for page to be stable before trying to find elements
+                // ASP.NET postbacks can temporarily remove all elements from DOM
+                await page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 }).catch(() => { });
+
+                // Wait for the form table to be present (indicates page has loaded)
+                await page.waitForFunction(
+                    () => document.querySelector('#MainContent_tblSelection') !== null,
+                    { timeout: 10000 }
+                ).catch(() => {
+                    console.log(`    ⚠️ Form table not found, waiting...`);
+                });
+
+                // Extra stabilization wait
+                await new Promise(r => setTimeout(r, 500));
+
                 if (field.index !== undefined) {
-                    const elements = await page.$$(field.selector);
-                    const visibleElements = [];
-                    for (const el of elements) {
-                        const isVisible = await el.evaluate(node => node.offsetParent !== null);
-                        if (isVisible) visibleElements.push(el);
-                    }
-                    if (visibleElements.length > field.index) {
-                        elementHandle = visibleElements[field.index];
+                    // Retry loop to find element (it may not be visible immediately after postback)
+                    const findStartTime = Date.now();
+                    while (Date.now() - findStartTime < 15000) {
+                        const elements = await page.$$(field.selector);
+                        const visibleElements = [];
+                        for (const el of elements) {
+                            try {
+                                const isVisible = await el.evaluate(node => node.offsetParent !== null);
+                                if (isVisible) visibleElements.push(el);
+                            } catch (e) {
+                                // Element became stale, skip
+                            }
+                        }
+                        if (visibleElements.length > field.index) {
+                            elementHandle = visibleElements[field.index];
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 500));
                     }
                 } else {
                     elementHandle = await page.$(field.selector);
@@ -720,30 +754,44 @@ const actions = {
         };
 
         // Helper: Verify if input field has a value (not empty)
+        // Includes retry logic for elements that may be temporarily unavailable during postbacks
         const verifyInputValue = async (sel, idx) => {
-            try {
-                let elementHandle;
-                if (idx !== undefined) {
-                    const elements = await page.$$(sel);
-                    const visibleElements = [];
-                    for (const el of elements) {
-                        const isVisible = await el.evaluate(node => node.offsetParent !== null);
-                        if (isVisible) visibleElements.push(el);
+            // Retry a few times in case page is still loading
+            for (let verifyRetry = 0; verifyRetry < 3; verifyRetry++) {
+                try {
+                    let elementHandle;
+                    if (idx !== undefined) {
+                        const elements = await page.$$(sel);
+                        const visibleElements = [];
+                        for (const el of elements) {
+                            try {
+                                const isVisible = await el.evaluate(node => node.offsetParent !== null);
+                                if (isVisible) visibleElements.push(el);
+                            } catch (e) {
+                                // Element became stale, skip
+                            }
+                        }
+                        if (visibleElements.length > idx) {
+                            elementHandle = visibleElements[idx];
+                        }
+                    } else {
+                        elementHandle = await page.$(sel);
                     }
-                    if (visibleElements.length > idx) {
-                        elementHandle = visibleElements[idx];
+
+                    if (!elementHandle) {
+                        // Element not found, wait and retry
+                        await new Promise(r => setTimeout(r, 500));
+                        continue;
                     }
-                } else {
-                    elementHandle = await page.$(sel);
+
+                    const inputValue = await elementHandle.evaluate(el => el.value || '');
+                    return { hasValue: inputValue.trim().length > 0, value: inputValue.trim() };
+                } catch (e) {
+                    // Wait and retry
+                    await new Promise(r => setTimeout(r, 500));
                 }
-
-                if (!elementHandle) return { hasValue: false, value: '' };
-
-                const inputValue = await elementHandle.evaluate(el => el.value || '');
-                return { hasValue: inputValue.trim().length > 0, value: inputValue.trim() };
-            } catch (e) {
-                return { hasValue: false, value: '' };
             }
+            return { hasValue: false, value: '' };
         };
 
         // Helper: Check if previous fields need to be re-entered
@@ -922,6 +970,15 @@ const actions = {
                 while (!previousFieldsValid && reentryAttempt < maxReentryAttempts) {
                     reentryAttempt++;
 
+                    // CRITICAL: Wait for page stability BEFORE checking fields
+                    // ASP.NET postbacks can temporarily remove elements
+                    await page.waitForFunction(() => document.readyState === 'complete', { timeout: 5000 }).catch(() => { });
+                    await page.waitForFunction(
+                        () => document.querySelector('#MainContent_tblSelection') !== null,
+                        { timeout: 5000 }
+                    ).catch(() => { });
+                    await new Promise(r => setTimeout(r, 500));
+
                     // Check each previous field
                     let allFieldsFilled = true;
                     for (const field of formReentryFields) {
@@ -973,7 +1030,7 @@ const actions = {
 
             // 0. Wait for element to be ready before proceeding
             console.log(`  ⏳ Waiting for element [${index}] to be ready...`);
-            await waitForElementReady(selector, index, 10000);
+            await waitForElementReady(selector, index, 20000);
 
             // optimization: Check if field already has a value (User requested to skip if filled)
             try {
@@ -994,7 +1051,7 @@ const actions = {
                 try {
                     await page.waitForFunction(
                         (sel, idx) => document.querySelectorAll(sel).length >= idx + 1,
-                        { timeout: 5000 }, selector, index
+                        { timeout: 15000 }, selector, index
                     );
                 } catch (e) { } // ignore timeout, proceed to find
 
@@ -1015,8 +1072,8 @@ const actions = {
                         elementHandle = visibleElements[index];
                         break;
                     }
-
-                    if (Date.now() - findStartTime > 10000) {
+                    // Timeout after 20 seconds (increased for ASP.NET postbacks)
+                    if (Date.now() - findStartTime > 20000) {
                         console.log(`  ❌ Element at index ${index} not found. Found ${visibleElements.length} visible.`);
                         await captureFormState();
                         // One last attempt to fetch to ensure error accuracy
@@ -1055,6 +1112,11 @@ const actions = {
             console.log("  ⌨️ Smart Typing...");
             let foundSingleOption = false;
 
+            // OPTIMIZATION: Truncate value by 3 characters to help autocomplete filter better
+            // This avoids over-specifying and lets the dropdown show fewer/single results
+            const truncatedValue = value.length > 3 ? value.slice(0, -3) : value;
+            console.log(`  📝 Typing truncated value: "${truncatedValue}" (original: "${value}")`);
+
             // First, try to trigger autocomplete using JavaScript (more reliable)
             const triggerAutocomplete = await safeEvaluate((sel, idx, val) => {
                 const elements = document.querySelectorAll(sel);
@@ -1066,7 +1128,7 @@ const actions = {
 
                 const el = visibleElements[idx];
 
-                // Set value
+                // Set value (truncated)
                 el.value = val;
 
                 // Trigger all the events that jQuery UI autocomplete listens for
@@ -1087,7 +1149,7 @@ const actions = {
                 }
 
                 return { success: true, method: 'events' };
-            }, selector, index, value) || { success: false, method: 'failed' };
+            }, selector, index, truncatedValue) || { success: false, method: 'failed' };
 
             console.log(`  📋 Autocomplete trigger: ${JSON.stringify(triggerAutocomplete)}`);
 

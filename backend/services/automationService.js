@@ -69,8 +69,8 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
  */
 const saveAutomationData = (data) => {
     ensureDataDir();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileName = `web_input_${timestamp}.json`;
+    // Use fixed filename instead of timestamped - overwrites previous data
+    const fileName = 'current_data.json';
     const filePath = path.join(DATA_DIR, fileName);
 
     const employees = data.employees || [];
@@ -105,21 +105,22 @@ const saveAutomationData = (data) => {
 
 /**
  * Spawns the automation process
+ * Uses current_data.json automatically (no file path needed)
  */
-const startAutomationProcess = (dataFilePath) => {
+const startAutomationProcess = () => {
     const env = {
         ...process.env,
         AUTO_CLOSE: 'true',
         HEADLESS: 'false'
     };
 
-    console.log(`[Automation] Starting runner: node ${RUNNER_SCRIPT} ${dataFilePath}`);
+    console.log(`[Automation] Starting runner: node ${RUNNER_SCRIPT}`);
 
-    const child = spawn('node', [RUNNER_SCRIPT, dataFilePath], {
+    // No need to pass data file path - runner uses current_data.json by default
+    const child = spawn('node', [RUNNER_SCRIPT], {
         env,
         cwd: ENGINE_DIR,
         stdio: ['ignore', 'pipe', 'pipe']
-        // No shell:true - paths with spaces work correctly without shell
     });
 
     return child;

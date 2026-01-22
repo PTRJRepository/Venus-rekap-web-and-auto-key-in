@@ -243,52 +243,70 @@
                                                 }
                                             },
                                             {
-                                                "action": "retryInputWithValidation",
-                                                "comment": "Input Part 2 with Validation Retry - re-enters Employee and Task Code if validation fails",
+                                                "comment": "═══ CONDITIONAL: Input Part 2 only if exists ═══",
+                                                "action": "if",
                                                 "params": {
-                                                    "selector": ".ui-autocomplete-input.CBOBox",
-                                                    "index": 2,
-                                                    "value": "${chargeJobPart2}",
-                                                    "validationSelector": "#MainContent_ddlAccountCode_RFV",
-                                                    "maxRetries": 5,
-                                                    "formReentryFields": [
+                                                    "condition": "hasChargeJobPart2",
+                                                    "thenSteps": [
                                                         {
-                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                            "index": 0,
-                                                            "value": "${employee.PTRJEmployeeID}"
-                                                        },
-                                                        {
-                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                            "index": 1,
-                                                            "value": "${chargeJobPart1Clean}"
+                                                            "action": "retryInputWithValidation",
+                                                            "comment": "Input Part 2 with Validation Retry",
+                                                            "params": {
+                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                "index": 2,
+                                                                "value": "${chargeJobPart2}",
+                                                                "validationSelector": "#MainContent_ddlAccountCode_RFV",
+                                                                "maxRetries": 5,
+                                                                "formReentryFields": [
+                                                                    {
+                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                        "index": 0,
+                                                                        "value": "${employee.PTRJEmployeeID}"
+                                                                    },
+                                                                    {
+                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                        "index": 1,
+                                                                        "value": "${chargeJobPart1Clean}"
+                                                                    }
+                                                                ]
+                                                            }
                                                         }
                                                     ]
                                                 }
                                             },
                                             {
-                                                "action": "retryInputWithValidation",
-                                                "comment": "Input Part 3 with Validation Retry - re-enters previous fields if validation fails",
+                                                "comment": "═══ CONDITIONAL: Input Part 3 only if exists ═══",
+                                                "action": "if",
                                                 "params": {
-                                                    "selector": ".ui-autocomplete-input.CBOBox",
-                                                    "index": 3,
-                                                    "value": "${chargeJobPart3}",
-                                                    "validationSelector": "#MainContent_ddlSubBlock_RFV",
-                                                    "maxRetries": 5,
-                                                    "formReentryFields": [
+                                                    "condition": "hasChargeJobPart3",
+                                                    "thenSteps": [
                                                         {
-                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                            "index": 0,
-                                                            "value": "${employee.PTRJEmployeeID}"
-                                                        },
-                                                        {
-                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                            "index": 1,
-                                                            "value": "${chargeJobPart1Clean}"
-                                                        },
-                                                        {
-                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                            "index": 2,
-                                                            "value": "${chargeJobPart2}"
+                                                            "action": "retryInputWithValidation",
+                                                            "comment": "Input Part 3 with Validation Retry",
+                                                            "params": {
+                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                "index": 3,
+                                                                "value": "${chargeJobPart3}",
+                                                                "validationSelector": "#MainContent_ddlSubBlock_RFV",
+                                                                "maxRetries": 5,
+                                                                "formReentryFields": [
+                                                                    {
+                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                        "index": 0,
+                                                                        "value": "${employee.PTRJEmployeeID}"
+                                                                    },
+                                                                    {
+                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                        "index": 1,
+                                                                        "value": "${chargeJobPart1Clean}"
+                                                                    },
+                                                                    {
+                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                        "index": 2,
+                                                                        "value": "${chargeJobPart2}"
+                                                                    }
+                                                                ]
+                                                            }
                                                         }
                                                     ]
                                                 }
@@ -661,78 +679,111 @@
                                                 }
                                             },
                                             {
-                                                "action": "retryInputWithValidation",
-                                                "comment": "Input Part 2 with Validation Retry (Overtime)",
+                                                "action": "wait",
+                                                "params": {
+                                                    "duration": 3000,
+                                                    "comment": "Wait for ASP.NET postback to load Equipment dropdown"
+                                                }
+                                            },
+                                            {
+                                                "action": "waitForElement",
                                                 "params": {
                                                     "selector": ".ui-autocomplete-input.CBOBox",
-                                                    "index": 2,
-                                                    "value": "${chargeJobPart2}",
-                                                    "validationSelector": "#MainContent_ddlAccountCode_RFV",
-                                                    "maxRetries": 5,
-                                                    "formReentryFields": [
+                                                    "timeout": 15000,
+                                                    "comment": "Wait for Equipment dropdown to appear after postback"
+                                                }
+                                            },
+                                            {
+                                                "comment": "═══ CONDITIONAL: Input Part 2 only if exists (Overtime) ═══",
+                                                "action": "if",
+                                                "params": {
+                                                    "condition": "hasChargeJobPart2",
+                                                    "thenSteps": [
                                                         {
-                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                            "index": 0,
-                                                            "value": "${employee.PTRJEmployeeID}"
+                                                            "action": "retryInputWithValidation",
+                                                            "comment": "Input Part 2 with Validation Retry (Overtime)",
+                                                            "params": {
+                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                "index": 2,
+                                                                "value": "${chargeJobPart2}",
+                                                                "validationSelector": "#MainContent_ddlAccountCode_RFV",
+                                                                "maxRetries": 5,
+                                                                "formReentryFields": [
+                                                                    {
+                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                        "index": 0,
+                                                                        "value": "${employee.PTRJEmployeeID}"
+                                                                    },
+                                                                    {
+                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                        "index": 1,
+                                                                        "value": "${chargeJobPart1Clean}"
+                                                                    }
+                                                                ]
+                                                            }
                                                         },
                                                         {
-                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                            "index": 1,
-                                                            "value": "${chargeJobPart1Clean}"
+                                                            "action": "wait",
+                                                            "params": {
+                                                                "duration": 1000
+                                                            }
+                                                        },
+                                                        {
+                                                            "action": "pressKey",
+                                                            "params": {
+                                                                "key": "Enter"
+                                                            }
                                                         }
                                                     ]
                                                 }
                                             },
                                             {
-                                                "action": "wait",
+                                                "comment": "═══ CONDITIONAL: Input Part 3 only if exists (Overtime) ═══",
+                                                "action": "if",
                                                 "params": {
-                                                    "duration": 1000
-                                                }
-                                            },
-                                            {
-                                                "action": "pressKey",
-                                                "params": {
-                                                    "key": "Enter"
-                                                }
-                                            },
-                                            {
-                                                "action": "retryInputWithValidation",
-                                                "comment": "Input Part 3 with Validation Retry (Overtime)",
-                                                "params": {
-                                                    "selector": ".ui-autocomplete-input.CBOBox",
-                                                    "index": 3,
-                                                    "value": "${chargeJobPart3}",
-                                                    "validationSelector": "#MainContent_ddlSubBlock_RFV",
-                                                    "maxRetries": 5,
-                                                    "formReentryFields": [
+                                                    "condition": "hasChargeJobPart3",
+                                                    "thenSteps": [
                                                         {
-                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                            "index": 0,
-                                                            "value": "${employee.PTRJEmployeeID}"
+                                                            "action": "retryInputWithValidation",
+                                                            "comment": "Input Part 3 with Validation Retry (Overtime)",
+                                                            "params": {
+                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                "index": 3,
+                                                                "value": "${chargeJobPart3}",
+                                                                "validationSelector": "#MainContent_ddlSubBlock_RFV",
+                                                                "maxRetries": 5,
+                                                                "formReentryFields": [
+                                                                    {
+                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                        "index": 0,
+                                                                        "value": "${employee.PTRJEmployeeID}"
+                                                                    },
+                                                                    {
+                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                        "index": 1,
+                                                                        "value": "${chargeJobPart1Clean}"
+                                                                    },
+                                                                    {
+                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                        "index": 2,
+                                                                        "value": "${chargeJobPart2}"
+                                                                    }
+                                                                ]
+                                                            }
                                                         },
                                                         {
-                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                            "index": 1,
-                                                            "value": "${chargeJobPart1Clean}"
+                                                            "action": "wait",
+                                                            "params": {
+                                                                "duration": 1000
+                                                            }
                                                         },
                                                         {
-                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                            "index": 2,
-                                                            "value": "${chargeJobPart2}"
+                                                            "action": "pressKey",
+                                                            "params": {
+                                                                "key": "Enter"
+                                                            }
                                                         }
                                                     ]
-                                                }
-                                            },
-                                            {
-                                                "action": "wait",
-                                                "params": {
-                                                    "duration": 1000
-                                                }
-                                            },
-                                            {
-                                                "action": "pressKey",
-                                                "params": {
-                                                    "key": "Enter"
                                                 }
                                             },
                                             {
@@ -764,7 +815,23 @@
                                             {
                                                 "action": "wait",
                                                 "params": {
-                                                    "duration": 1500
+                                                    "duration": 3000,
+                                                    "comment": "Wait for page to reload after Add"
+                                                }
+                                            },
+                                            {
+                                                "action": "waitForElement",
+                                                "params": {
+                                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                                    "timeout": 10000,
+                                                    "comment": "Wait for form to be ready after Add"
+                                                }
+                                            },
+                                            {
+                                                "action": "wait",
+                                                "params": {
+                                                    "duration": 500,
+                                                    "comment": "Extra stabilization after reload"
                                                 }
                                             },
                                             {

@@ -11,15 +11,14 @@ const AutomationEngine = require('./engine');
 const fs = require('fs');
 const path = require('path');
 
-// Get data file from command line
-const dataFilePath = process.argv[2];
+// Default data file - use current_data.json for simplified workflow
+const DEFAULT_DATA_FILE = path.join(__dirname, 'testing_data', 'current_data.json');
 
-if (!dataFilePath) {
-    console.error('⚠️  Harap tentukan path ke data file.');
-    console.log('   Cara pakai: node parallel-runner.js <data-file>');
-    console.log('   Contoh: node parallel-runner.js testing_data/test_data.json');
-    process.exit(1);
-}
+// Get data file from command line, or use default
+const dataFilePath = process.argv[2] || DEFAULT_DATA_FILE;
+
+// No longer require data file argument - use default if not provided
+console.log(`📂 Using data file: ${dataFilePath}`);
 
 // Engine options
 const engineOptions = {
@@ -65,8 +64,9 @@ const loadBaseTemplate = () => {
 };
 
 /**
- * Partition data by ATTENDANCE DATES (even/odd)
+ * Partition data by ATTENDANCE DATES (even/odd/all)
  * Each employee keeps all their info, but Attendance is split by date index
+ * 'all' = no partitioning, returns all data
  */
 const partitionByAttendanceDates = (data, partition) => {
     const partitionedData = {
@@ -76,8 +76,9 @@ const partitionByAttendanceDates = (data, partition) => {
             const attendanceEntries = Object.entries(employee.Attendance || {});
             attendanceEntries.sort((a, b) => a[0].localeCompare(b[0])); // Sort by date
 
-            // Filter by index (even/odd)
+            // Filter by index (even/odd) or return all
             const filteredEntries = attendanceEntries.filter((_, index) => {
+                if (partition === 'all') return true; // No filtering
                 return partition === 'even' ? index % 2 === 0 : index % 2 === 1;
             });
 
@@ -217,45 +218,50 @@ const runEngine = async (engineId, templateName, options) => {
         console.log(`📝 Loading base template: ${TEMPLATE_NAME}`);
         const baseTemplate = loadBaseTemplate();
 
-        // 3. Create partitioned templates (partition by dates)
-        console.log('\n📋 Partitioning by attendance dates...');
+        // 3. Create engine template 
+        // SINGLE INSTANCE MODE: Using all data for Engine 1 only (no partitioning)
+        console.log('\n📋 Single Instance Mode (Parallel Disabled)...');
 
-        const engine1Info = createEngineTemplate(baseTemplate, data, 1, 'even');
-        const engine2Info = createEngineTemplate(baseTemplate, data, 2, 'odd');
+        // Create a template with ALL data (no partition filter)
+        const engine1Info = createEngineTemplate(baseTemplate, data, 1, 'all');
 
-        console.log(`\n   Engine 1: ${engine1Info.dateCount} dates (index genap)`);
+        // COMMENTED OUT: Engine 2 for parallel execution
+        // const engine2Info = createEngineTemplate(baseTemplate, data, 2, 'odd');
+
+        console.log(`\n   Engine 1: ${engine1Info.dateCount} dates (ALL DATA)`);
         console.log(`      Dates: ${engine1Info.dates.slice(0, 5).join(', ')}${engine1Info.dates.length > 5 ? '...' : ''}`);
 
-        console.log(`   Engine 2: ${engine2Info.dateCount} dates (index ganjil)`);
-        console.log(`      Dates: ${engine2Info.dates.slice(0, 5).join(', ')}${engine2Info.dates.length > 5 ? '...' : ''}`);
+        // COMMENTED OUT: Engine 2 display
+        // console.log(`   Engine 2: ${engine2Info.dateCount} dates (index ganjil)`);
+        // console.log(`      Dates: ${engine2Info.dates.slice(0, 5).join(', ')}${engine2Info.dates.length > 5 ? '...' : ''}`);
 
         // 4. Run engines
         console.log('\n' + '─'.repeat(60));
-        console.log('🏃 Starting parallel execution...');
+        console.log('🏃 Starting SINGLE engine execution...');
         console.log('─'.repeat(60) + '\n');
 
         const enginePromises = [];
 
-        // Engine 1 - start first
+        // Engine 1 - start with ALL data
         if (engine1Info.dateCount > 0) {
-            console.log('[Engine 1] Starting...');
+            console.log('[Engine 1] Starting with ALL data...');
             enginePromises.push(runEngine(1, engine1Info.templateName, engineOptions));
         }
 
-        // Add delay before starting Engine 2
-        if (engine2Info.dateCount > 0) {
-            console.log(`[Engine 2] Waiting ${ENGINE_START_DELAY / 1000}s before start for isolation...`);
-            await new Promise(r => setTimeout(r, ENGINE_START_DELAY));
-            console.log('[Engine 2] Starting...');
-            enginePromises.push(runEngine(2, engine2Info.templateName, engineOptions));
-        }
+        // COMMENTED OUT: Engine 2 parallel execution
+        // if (engine2Info.dateCount > 0) {
+        //     console.log(`[Engine 2] Waiting ${ENGINE_START_DELAY / 1000}s before start for isolation...`);
+        //     await new Promise(r => setTimeout(r, ENGINE_START_DELAY));
+        //     console.log('[Engine 2] Starting...');
+        //     enginePromises.push(runEngine(2, engine2Info.templateName, engineOptions));
+        // }
 
         // Wait for all engines
         const results = await Promise.all(enginePromises);
 
         // Summary
         console.log('\n' + '═'.repeat(60));
-        console.log('  📊 EXECUTION SUMMARY');
+        console.log('  📊 EXECUTION SUMMARY (SINGLE INSTANCE)');
         console.log('═'.repeat(60));
 
         results.forEach(r => {
