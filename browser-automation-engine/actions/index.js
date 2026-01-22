@@ -475,6 +475,7 @@ const actions = {
      * params.items: path ke array dalam context (contoh: "data.data")
      * params.itemName: nama variable untuk setiap item (contoh: "employee")
      * params.steps: array of steps yang akan dijalankan untuk setiap item
+     * WITH ERROR RECOVERY: On error, refresh page and skip to next item
      */
     forEach: async (page, params, context, engine) => {
         // Ambil array dari context menggunakan path
@@ -493,13 +494,18 @@ const actions = {
         const itemName = params.itemName || 'item';
         const steps = params.steps || [];
 
+        // Error recovery configuration
+        const TASK_REGISTER_URL = 'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx';
+        const failedItems = [];
+
         console.log(`\n🔁 Loop forEach: ${items.length} items dari "${itemsPath}"`);
         console.log(`   Variable name: "${itemName}"`);
         console.log(`   Steps: ${steps.length} actions\n`);
 
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
-            console.log(`\n  ┌─ Iteration ${i + 1}/${items.length} ─────`);
+            const itemLabel = item.EmployeeName || item.PTRJEmployeeID || `Item ${i + 1}`;
+            console.log(`\n  ┌─ Iteration ${i + 1}/${items.length}: ${itemLabel} ─────`);
 
             // Buat context baru dengan item saat ini
             const loopContext = {
@@ -510,15 +516,58 @@ const actions = {
                 isLast: i === items.length - 1
             };
 
-            // Execute steps dengan context baru
-            await engine.executeSteps(steps, loopContext, 2);
-            console.log(`  └─────────────────────────\n`);
+            try {
+                // Execute steps dengan context baru
+                await engine.executeSteps(steps, loopContext, 2);
+                console.log(`  └─────────────────────────\n`);
+            } catch (error) {
+                // ═══ ERROR RECOVERY ═══
+                console.error(`\n  ⚠️ ERROR at ${itemLabel}: ${error.message}`);
+                console.log(`  🔄 RECOVERY: Refreshing page and skipping to next employee...`);
+
+                failedItems.push({ label: itemLabel, error: error.message });
+
+                try {
+                    // Navigate back to task register page
+                    await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+                    // Wait for page to be ready
+                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 15000 });
+
+                    // Click "New" button to start fresh
+                    try {
+                        await page.click('#MainContent_btnNew');
+                        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
+                    } catch (navError) {
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+
+                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 10000 });
+
+                    console.log(`  ✅ RECOVERY: Page refreshed. Continuing to next employee...`);
+                    console.log(`  └─────────────────────────\n`);
+                } catch (recoveryError) {
+                    console.error(`  ❌ RECOVERY FAILED: ${recoveryError.message}`);
+                    console.log(`  Attempting to continue anyway...`);
+                    console.log(`  └─────────────────────────\n`);
+                }
+            }
+        }
+
+        // Report failed items at the end
+        if (failedItems.length > 0) {
+            console.log(`\n⚠️ EMPLOYEE LOOP SUMMARY: ${failedItems.length} employees failed:`);
+            failedItems.forEach(item => {
+                console.log(`   - ${item.label}: ${item.error}`);
+            });
+            console.log('');
         }
     },
 
     /**
      * forEachProperty - Loop through object properties
      * Berguna untuk loop tanggal dalam Attendance object
+     * WITH ERROR RECOVERY: On error, refresh page and skip to next item
      */
     forEachProperty: async (page, params, context, engine) => {
         const objectPath = params.object;
@@ -537,6 +586,10 @@ const actions = {
         const valueName = params.valueName || 'value';
         const steps = params.steps || [];
 
+        // Error recovery configuration
+        const TASK_REGISTER_URL = 'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx';
+        const failedItems = [];
+
         const entries = Object.entries(obj);
         console.log(`\n🔁 Loop forEachProperty: ${entries.length} properties dari "${objectPath}"`);
         console.log(`   Steps: ${steps.length} actions\n`);
@@ -554,8 +607,53 @@ const actions = {
                 isLast: i === entries.length - 1
             };
 
-            await engine.executeSteps(steps, loopContext, 2);
-            console.log(`  └─────────────────────────\n`);
+            try {
+                // Execute steps for this attendance
+                await engine.executeSteps(steps, loopContext, 2);
+                console.log(`  └─────────────────────────\n`);
+            } catch (error) {
+                // ═══ ERROR RECOVERY ═══
+                console.error(`\n  ⚠️ ERROR at ${key}: ${error.message}`);
+                console.log(`  🔄 RECOVERY: Refreshing page and skipping to next...`);
+
+                failedItems.push({ key, error: error.message });
+
+                try {
+                    // Navigate back to task register page
+                    await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+                    // Wait for page to be ready
+                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 15000 });
+
+                    // Click "New" button to start fresh
+                    try {
+                        await page.click('#MainContent_btnNew');
+                        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
+                    } catch (navError) {
+                        // If navigation doesn't happen, just wait for form
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+
+                    // Wait for form to be ready
+                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 10000 });
+
+                    console.log(`  ✅ RECOVERY: Page refreshed. Continuing to next item...`);
+                    console.log(`  └─────────────────────────\n`);
+                } catch (recoveryError) {
+                    console.error(`  ❌ RECOVERY FAILED: ${recoveryError.message}`);
+                    console.log(`  Attempting to continue anyway...`);
+                    console.log(`  └─────────────────────────\n`);
+                }
+            }
+        }
+
+        // Report failed items at the end
+        if (failedItems.length > 0) {
+            console.log(`\n⚠️ SUMMARY: ${failedItems.length} items failed during processing:`);
+            failedItems.forEach(item => {
+                console.log(`   - ${item.key}: ${item.error}`);
+            });
+            console.log('');
         }
     },
 
