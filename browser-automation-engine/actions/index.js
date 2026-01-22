@@ -1385,91 +1385,100 @@ const actions = {
     },
 
     /**
-     * Verify that Add button click was successful by checking for page reload
-     * params.timeout: max time to wait for reload (default 10000ms)
-     * params.successSelector: element that should be empty/reset after successful add (e.g., employee field)
+     * Verify that Add button click was successful by detecting page navigation/reload
+     * Uses Puppeteer's native waitForNavigation for fast, event-based detection
+     * params.timeout: max time to wait for reload (default 15000ms)
      */
     verifyAddButtonClicked: async (page, params, context, engine) => {
-        const timeout = params.timeout || 10000;
-        const successSelector = params.successSelector || '.ui-autocomplete-input.CBOBox';
-        const successIndex = params.successIndex !== undefined ? params.successIndex : 0;
+        const timeout = params.timeout || 15000;
 
-        console.log(`🔍 Verifying Add button was clicked (timeout: ${timeout}ms)...`);
+        console.log(`🔍 Waiting for page reload after Add button...`);
 
-        const startTime = Date.now();
-        let previousValue = null;
-        let reloadDetected = false;
-
-        // Get initial value of the first field
         try {
-            const elements = await page.$$(successSelector);
-            const visibleElements = [];
-            for (const el of elements) {
-                const isVisible = await el.evaluate(node => node.offsetParent !== null);
-                if (isVisible) visibleElements.push(el);
-            }
-            if (visibleElements.length > successIndex) {
-                previousValue = await visibleElements[successIndex].evaluate(el => el.value || '');
-            }
-        } catch (e) {
-            console.log(`  ⚠️ Could not get initial field value`);
-        }
-
-        // Wait for page readyState to change (indicates reload started)
-        while (Date.now() - startTime < timeout) {
-            try {
-                // Check if document is reloading
-                const readyState = await page.evaluate(() => document.readyState);
-                if (readyState === 'loading' || readyState === 'interactive') {
-                    console.log(`  📄 Page is reloading (readyState: ${readyState})`);
-                    reloadDetected = true;
-                }
-
-                // Also check if the employee field was cleared (indicates successful add)
-                const elements = await page.$$(successSelector);
-                const visibleElements = [];
-                for (const el of elements) {
-                    try {
-                        const isVisible = await el.evaluate(node => node.offsetParent !== null);
-                        if (isVisible) visibleElements.push(el);
-                    } catch (e) { }
-                }
-
-                if (visibleElements.length > successIndex) {
-                    const currentValue = await visibleElements[successIndex].evaluate(el => el.value || '');
-                    // If previous value was set and now it's empty, reload happened
-                    if (previousValue && previousValue.length > 0 && currentValue.length === 0) {
-                        console.log(`  ✅ Add successful: Field was cleared (previous: "${previousValue}" → current: empty)`);
-                        reloadDetected = true;
-                        break;
-                    }
-                    // If form table disappeared and reappeared, that's also a reload
-                    if (reloadDetected && readyState === 'complete') {
-                        console.log(`  ✅ Page reload completed`);
-                        break;
-                    }
-                }
-            } catch (e) {
-                // During reload, page might be unstable - that's expected
-                if (e.message.includes('context was destroyed') || e.message.includes('navigation')) {
-                    console.log(`  📄 Page navigation detected`);
-                    reloadDetected = true;
-                }
-            }
-
-            await new Promise(r => setTimeout(r, 500));
-        }
-
-        if (reloadDetected) {
-            console.log(`  ✅ Add button click verified - page reloaded`);
-            // Wait for page to fully stabilize
-            try {
-                await page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 });
-                await new Promise(r => setTimeout(r, 1000));
-            } catch (e) { }
+            // Use Puppeteer's native waitForNavigation - this is EVENT-BASED, not polling
+            // It will wait for the page to start and finish navigating
+            await page.waitForNavigation({
+                waitUntil: 'domcontentloaded',
+                timeout: timeout
+            });
+            console.log(`  ✅ Page reload detected - Add successful`);
             return true;
-        } else {
-            console.log(`  ⚠️ Add button verification timeout - page may not have reloaded`);
+        } catch (e) {
+            // If waitForNavigation times out but we still see a fresh form, it's a partial reload (ASP.NET postback)
+            console.log(`  ⚠️ Navigation event not detected, checking form state...`);
+
+            // Quick check: is the Employee field empty? (indicates successful add)
+            try {
+                const employeeField = await page.$('.ui-autocomplete-input.CBOBox');
+                if (employeeField) {
+                    const value = await employeeField.evaluate(el => el.value || '');
+                    if (value.length === 0) {
+                        console.log(`  ✅ Form reset detected (Employee field empty) - Add successful`);
+                        return true;
+                    }
+                }
+            } catch (checkError) {
+                // Ignore
+            }
+
+            console.log(`  ⚠️ Add verification unclear, continuing...`);
+            return false;
+        }
+    },
+
+    /**
+     * Wait for an element to appear (event-based, no polling delay)
+     * More efficient replacement for wait + waitForElement combo
+     * params.selector: CSS selector to wait for
+     * params.timeout: max time to wait (default 10000ms)
+     * params.visible: if true, wait for element to be visible (default true)
+     */
+    waitForReady: async (page, params) => {
+        const { selector, timeout = 10000, visible = true } = params;
+
+        console.log(`⏳ Waiting for ${selector} to be ready...`);
+
+        try {
+            await page.waitForSelector(selector, {
+                visible: visible,
+                timeout: timeout
+            });
+            console.log(`  ✅ ${selector} is ready`);
+            return true;
+        } catch (e) {
+            console.log(`  ⚠️ ${selector} not ready after ${timeout}ms`);
+            return false;
+        }
+    },
+
+    /**
+     * Click and wait for navigation in a single atomic action
+     * Combines click + waitForNavigation for ASP.NET postback buttons
+     * params.selector: button selector to click
+     * params.timeout: max time to wait for navigation (default 15000ms)
+     */
+    clickAndWaitForReload: async (page, params) => {
+        const { selector, timeout = 15000 } = params;
+
+        console.log(`🖱️ Clicking ${selector} and waiting for page reload...`);
+
+        try {
+            // Start navigation wait BEFORE clicking (important for race condition)
+            const navigationPromise = page.waitForNavigation({
+                waitUntil: 'domcontentloaded',
+                timeout: timeout
+            });
+
+            // Click the button
+            await page.click(selector);
+
+            // Wait for navigation to complete
+            await navigationPromise;
+
+            console.log(`  ✅ Click + reload successful`);
+            return true;
+        } catch (e) {
+            console.log(`  ⚠️ Click or navigation failed: ${e.message}`);
             return false;
         }
     },

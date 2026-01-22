@@ -25,7 +25,7 @@ const engineOptions = {
     headless: process.env.HEADLESS === 'true',
     slowMo: parseInt(process.env.SLOW_MO || '0'),
     screenshot: process.env.SCREENSHOT !== 'false',
-    inputBlocking: process.env.INPUT_BLOCKING !== 'false' // Enable input blocking by default
+    inputBlocking: process.env.INPUT_BLOCKING === 'true' // Disabled by default - user can interact with browser
 };
 
 // Configurable delay between engine starts (in milliseconds)

@@ -327,33 +327,18 @@
                         }
                       },
                       {
-                        "action": "wait",
+                        "comment": "═══ CLICK ADD AND WAIT FOR PAGE RELOAD ═══",
+                        "action": "clickAndWaitForReload",
                         "params": {
-                          "duration": 500
+                          "selector": "#MainContent_btnAdd",
+                          "timeout": 15000
                         }
                       },
                       {
-                        "comment": "═══ KLIK ADD BUTTON ═══",
-                        "action": "click",
-                        "params": {
-                          "selector": "#MainContent_btnAdd"
-                        }
-                      },
-                      {
-                        "comment": "═══ VERIFY ADD WAS SUCCESSFUL ═══",
-                        "action": "verifyAddButtonClicked",
-                        "params": {
-                          "timeout": 15000,
-                          "successSelector": ".ui-autocomplete-input.CBOBox",
-                          "successIndex": 0
-                        }
-                      },
-                      {
-                        "action": "waitForElement",
+                        "action": "waitForReady",
                         "params": {
                           "selector": ".ui-autocomplete-input.CBOBox",
-                          "timeout": 10000,
-                          "comment": "Wait for form to be ready after Add"
+                          "timeout": 10000
                         }
                       },
                       {
@@ -497,33 +482,18 @@
                         }
                       },
                       {
-                        "action": "wait",
+                        "comment": "═══ CLICK ADD AND WAIT FOR PAGE RELOAD (OVERTIME) ═══",
+                        "action": "clickAndWaitForReload",
                         "params": {
-                          "duration": 500
+                          "selector": "#MainContent_btnAdd",
+                          "timeout": 15000
                         }
                       },
                       {
-                        "comment": "═══ KLIK ADD BUTTON (OVERTIME) ═══",
-                        "action": "click",
-                        "params": {
-                          "selector": "#MainContent_btnAdd"
-                        }
-                      },
-                      {
-                        "comment": "═══ VERIFY ADD WAS SUCCESSFUL ═══",
-                        "action": "verifyAddButtonClicked",
-                        "params": {
-                          "timeout": 15000,
-                          "successSelector": ".ui-autocomplete-input.CBOBox",
-                          "successIndex": 0
-                        }
-                      },
-                      {
-                        "action": "waitForElement",
+                        "action": "waitForReady",
                         "params": {
                           "selector": ".ui-autocomplete-input.CBOBox",
-                          "timeout": 10000,
-                          "comment": "Wait for form to be ready after Add"
+                          "timeout": 10000
                         }
                       }
                     ]
@@ -788,33 +758,18 @@
                         }
                       },
                       {
-                        "action": "wait",
+                        "comment": "═══ CLICK ADD AND WAIT FOR PAGE RELOAD (OVERTIME) ═══",
+                        "action": "clickAndWaitForReload",
                         "params": {
-                          "duration": 500
+                          "selector": "#MainContent_btnAdd",
+                          "timeout": 15000
                         }
                       },
                       {
-                        "comment": "═══ KLIK ADD BUTTON ═══",
-                        "action": "click",
-                        "params": {
-                          "selector": "#MainContent_btnAdd"
-                        }
-                      },
-                      {
-                        "comment": "═══ VERIFY ADD WAS SUCCESSFUL ═══",
-                        "action": "verifyAddButtonClicked",
-                        "params": {
-                          "timeout": 15000,
-                          "successSelector": ".ui-autocomplete-input.CBOBox",
-                          "successIndex": 0
-                        }
-                      },
-                      {
-                        "action": "waitForElement",
+                        "action": "waitForReady",
                         "params": {
                           "selector": ".ui-autocomplete-input.CBOBox",
-                          "timeout": 10000,
-                          "comment": "Wait for form to be ready after Add"
+                          "timeout": 10000
                         }
                       },
                       {

@@ -12,7 +12,7 @@ class AutomationEngine {
         this.headless = options.headless !== undefined ? options.headless : false;
         this.slowMo = options.slowMo || 0;
         this.screenshot = options.screenshot !== undefined ? options.screenshot : true;
-        this.inputBlocking = options.inputBlocking !== undefined ? options.inputBlocking : true;
+        this.inputBlocking = options.inputBlocking !== undefined ? options.inputBlocking : false; // Disabled by default - allows user interaction
         this.engineId = options.engineId || 'default';
         this.recoveryManager = new RecoveryManager(this.engineId);
     }
@@ -107,7 +107,7 @@ class AutomationEngine {
         if (!this.page || !this.inputBlocking) return;
         try {
             await this.page.evaluate(() => window.__PUPPETEER_ACTING = true);
-        } catch (e) {}
+        } catch (e) { }
     }
 
     /**
@@ -117,7 +117,7 @@ class AutomationEngine {
         if (!this.page || !this.inputBlocking) return;
         try {
             await this.page.evaluate(() => window.__PUPPETEER_ACTING = false);
-        } catch (e) {}
+        } catch (e) { }
     }
 
     /**
@@ -300,7 +300,7 @@ class AutomationEngine {
 
         for (let i = 0; i < steps.length; i++) {
             const step = steps[i];
-            
+
             // Substitute variables di params
             const substitutedParams = this.substituteParams(step.params, context);
 
@@ -308,7 +308,7 @@ class AutomationEngine {
             // Before executing, check if we can/should skip this step
             if (this.page && ['type', 'select'].includes(step.action)) {
                 const validation = await this.recoveryManager.validateStep(this.page, step, substitutedParams);
-                
+
                 if (validation.shouldSkip) {
                     console.log(`${prefix}[Step ${i + 1}/${steps.length}] ${validation.reason}. Skipping action.`);
                     continue; // SKIP EXECUTION
@@ -317,7 +317,7 @@ class AutomationEngine {
                     console.log(`${prefix}[Step ${i + 1}/${steps.length}] Action: ${step.action} (${validation.reason})`);
                 }
             } else {
-                 console.log(`${prefix}[Step ${i + 1}/${steps.length}] Action: ${step.action}`);
+                console.log(`${prefix}[Step ${i + 1}/${steps.length}] Action: ${step.action}`);
             }
 
             try {
@@ -325,17 +325,17 @@ class AutomationEngine {
                 if (actions[step.action]) {
                     // GATEKEEPER: Open the gate for Puppeteer
                     await this.startPuppeteerAction();
-                    
+
                     try {
                         await actions[step.action](this.page, substitutedParams, context, this);
                     } finally {
                         // GATEKEEPER: Close the gate immediately
                         await this.endPuppeteerAction();
                     }
-                    
+
                     // Save state after successful critical actions (optional optimization to avoid too many writes)
                     if (['type', 'click', 'select'].includes(step.action)) {
-                         this.recoveryManager.saveState({ lastSuccessStepIndex: i, lastAction: step.action });
+                        this.recoveryManager.saveState({ lastSuccessStepIndex: i, lastAction: step.action });
                     }
 
                 } else {
