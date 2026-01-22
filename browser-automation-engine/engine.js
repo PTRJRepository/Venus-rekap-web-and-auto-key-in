@@ -12,8 +12,9 @@ class AutomationEngine {
         this.headless = options.headless !== undefined ? options.headless : false;
         this.slowMo = options.slowMo || 0;
         this.screenshot = options.screenshot !== undefined ? options.screenshot : true;
-        this.inputBlocking = options.inputBlocking !== undefined ? options.inputBlocking : false; // Disabled by default - allows user interaction
+        this.inputBlocking = options.inputBlocking !== undefined ? options.inputBlocking : false;
         this.engineId = options.engineId || 'default';
+        this.userDataDir = options.userDataDir || null; // Separate Chrome profile for parallel execution
         this.recoveryManager = new RecoveryManager(this.engineId);
     }
 
@@ -124,8 +125,9 @@ class AutomationEngine {
      * Memulai browser
      */
     async launch() {
-        console.log('🚀 Meluncurkan Browser Chrome...');
-        this.browser = await puppeteer.launch({
+        console.log(`🚀 [Engine ${this.engineId}] Meluncurkan Browser Chrome...`);
+
+        const launchOptions = {
             headless: this.headless,
             slowMo: this.slowMo,
             defaultViewport: null,
@@ -134,7 +136,15 @@ class AutomationEngine {
                 '--no-sandbox',
                 '--disable-setuid-sandbox'
             ]
-        });
+        };
+
+        // Use separate user data directory for parallel execution
+        if (this.userDataDir) {
+            launchOptions.userDataDir = this.userDataDir;
+            console.log(`  📂 Using Chrome profile: ${this.userDataDir}`);
+        }
+
+        this.browser = await puppeteer.launch(launchOptions);
         this.page = await this.browser.newPage();
 
         // Set user agent agar tidak terdeteksi sebagai bot

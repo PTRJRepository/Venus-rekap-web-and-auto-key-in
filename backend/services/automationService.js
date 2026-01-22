@@ -106,15 +106,19 @@ const saveAutomationData = (data) => {
 /**
  * Spawns the automation process
  * Uses current_data.json automatically (no file path needed)
+ * Reads AUTOMATION_INSTANCES from .env to control parallel execution
  */
 const startAutomationProcess = () => {
     const env = {
         ...process.env,
-        AUTO_CLOSE: 'true',
-        HEADLESS: 'false'
+        AUTO_CLOSE: process.env.AUTO_CLOSE || 'true',
+        HEADLESS: process.env.HEADLESS || 'false',
+        AUTOMATION_INSTANCES: process.env.AUTOMATION_INSTANCES || '2',
+        ENGINE_START_DELAY: process.env.ENGINE_START_DELAY || '2000'
     };
 
-    console.log(`[Automation] Starting runner: node ${RUNNER_SCRIPT}`);
+    const instances = env.AUTOMATION_INSTANCES;
+    console.log(`[Automation] Starting runner with ${instances} instance(s): node ${RUNNER_SCRIPT}`);
 
     // No need to pass data file path - runner uses current_data.json by default
     const child = spawn('node', [RUNNER_SCRIPT], {
