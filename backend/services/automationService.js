@@ -49,7 +49,11 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
                     overtimeHours: data.overtimeHours || 0,
                     isHoliday: data.isHoliday || false,
                     holidayName: data.holidayName || null,
-                    isSunday: data.isSunday || false
+                    isSunday: data.isSunday || false,
+                    // Leave type info for automation
+                    isAnnualLeave: data.isAnnualLeave || false,
+                    leaveTaskCode: data.leaveTaskCode || null,
+                    leaveDescription: data.leaveDescription || null
                 };
             });
         }

@@ -9,6 +9,49 @@ const axios = require('axios');
 const { parseISO, format, isValid, eachDayOfInterval, startOfMonth, endOfMonth, getDay, addDays, isSunday, isSaturday, differenceInMinutes } = require('date-fns');
 const { id } = require('date-fns/locale');
 
+// --- Leave Type Configuration ---
+// Leave types that should use task code "(GA9130) PERSONNEL ANNUAL LEAVE" in Millware
+// Excludes Sakit (Sick) and Haid (Menstrual) which have their own handling
+const ANNUAL_LEAVE_TYPES = ['CT', 'MELAHIRKAN', 'P1', 'P2', 'P3'];
+const ANNUAL_LEAVE_TASK_CODE = '(GA9130) PERSONNEL ANNUAL LEAVE';
+
+// Cache for leave type descriptions
+let leaveTypeCache = null;
+
+// --- Helper: Fetch Leave Type Descriptions from DB ---
+const fetchLeaveTypesFromDB = async () => {
+    if (leaveTypeCache) return leaveTypeCache;
+
+    try {
+        const sql = `
+            SELECT LeaveTypeCode, LeaveTypeName, Description
+            FROM [VenusHR14].[dbo].[HR_M_LeaveType]
+        `;
+        const result = await executeQuery(sql);
+        const map = {};
+        if (result && Array.isArray(result)) {
+            result.forEach(row => {
+                map[row.LeaveTypeCode] = {
+                    name: row.LeaveTypeName,
+                    description: row.Description
+                };
+            });
+        }
+        leaveTypeCache = map;
+        console.log(`[LeaveTypes] Loaded ${Object.keys(map).length} leave types from DB`);
+        return map;
+    } catch (e) {
+        console.error("Error fetching leave types from DB:", e);
+        return {};
+    }
+};
+
+// --- Helper: Check if leave type is Annual Leave ---
+const isAnnualLeaveType = (leaveTypeCode) => {
+    if (!leaveTypeCode) return false;
+    return ANNUAL_LEAVE_TYPES.includes(leaveTypeCode.toUpperCase());
+};
+
 // const HOLIDAYS_PATH = ... // Removed
 
 // --- Helper: Fetch Holidays from DB ---
@@ -122,7 +165,8 @@ const fetchAttendanceData = async (month, year) => {
         leavesRaw,
         absencesRaw,
         latestDateStr,
-        holidayMap
+        holidayMap,
+        leaveTypesMap       // Leave type descriptions from HR_M_LeaveType
     ] = await Promise.all([
         fetchWeeklyEmployees(),  // Get ALL employees from Weekly table (no date filter)
         getMillEmployees(),                        // Get mapping data from extend_db_ptrj
@@ -131,7 +175,8 @@ const fetchAttendanceData = async (month, year) => {
         fetchLeavesRaw(startDate, endDate),
         fetchAbsencesRaw(startDate, endDate),
         getLatestAvailableDate(),
-        fetchHolidaysFromDB(startDate, endDate)
+        fetchHolidaysFromDB(startDate, endDate),
+        fetchLeaveTypesFromDB()  // Fetch leave type descriptions
     ]);
 
     console.log(`[DEBUG] Latest Date Available: ${latestDateStr}`);
@@ -181,13 +226,19 @@ const fetchAttendanceData = async (month, year) => {
         const duration = parseInt(row.Outgoing || 1);
         const refDate = formatDateSQL(row.RefDate);
         const dates = calculateConsecutiveWorkingDays(refDate, duration, holidayMap);
+        const leaveTypeCode = row.LeaveTypeCode || '';
+        const leaveTypeName = leaveTypesMap[leaveTypeCode]?.name || leaveTypeCode;
+        const isAnnual = isAnnualLeaveType(leaveTypeCode);
+
         dates.forEach(d => {
             leaveMap[`${row.EmployeeID}_${d}`] = {
-                type: row.LeaveTypeCode,
-                desc: row.LeaveTypeCode
+                type: leaveTypeCode,
+                desc: leaveTypeName,
+                isAnnualLeave: isAnnual,
+                leaveTaskCode: isAnnual ? ANNUAL_LEAVE_TASK_CODE : null
             };
         });
-        if (idx === 0) console.log(`[DEBUG] First leave: RefDate=${refDate}, expanded to ${dates.length} dates`);
+        if (idx === 0) console.log(`[DEBUG] First leave: RefDate=${refDate}, type=${leaveTypeCode}, isAnnual=${isAnnual}, expanded to ${dates.length} dates`);
     });
 
     const absenceMap = {};
@@ -288,7 +339,7 @@ const fetchAttendanceData = async (month, year) => {
             let checkIn = att ? formatTime(att.TACheckIn) : null;
             let checkOut = att ? formatTime(att.TACheckOut) : null;
 
-            // Priority 1: Absence (HR_T_Absence)
+            // Priority 1: Absence (HR_T_Absence) - highest priority
             if (absence) {
                 if (absence.isUnpaid) {
                     status = 'ALFA';
@@ -300,16 +351,16 @@ const fetchAttendanceData = async (month, year) => {
                     cssClass = `absence-${absence.type.toLowerCase().replace(/ /g, '-')}`;
                 }
             }
-            // Priority 2: Leave (HR_H_Leave)
+            // Priority 2: Attendance Record (HR_T_TAMachine_Summary) - if employee clocked in, they're present
+            else if (att) {
+                // Has attendance data - will be processed below in the attendance processing block
+                // Setting status here, detailed processing happens later
+            }
+            // Priority 3: Leave (HR_H_Leave) - only if NO attendance record
             else if (leave) {
                 status = leave.type;
                 display = leave.type;
                 cssClass = `leave-${leave.type.toLowerCase()}`;
-            }
-            // Priority 3: Has Attendance Record (from database)
-            else if (att) {
-                // Has attendance data - will be processed below
-                // This is handled in the next else block
             }
             // Priority 4: No Record - Auto-Hadir for OFF/Holiday, ALFA for working days
             else {
@@ -342,8 +393,8 @@ const fetchAttendanceData = async (month, year) => {
                 }
             }
 
-            // Process attendance record if exists (from database)
-            if (att && !absence && !leave) {
+            // Process attendance record if exists (from database) - attendance overrides leave
+            if (att && !absence) {
                 // Calculate Hours
                 if (att.TACheckIn && att.TACheckOut) {
                     const start = new Date(att.TACheckIn);
@@ -403,7 +454,11 @@ const fetchAttendanceData = async (month, year) => {
                 overtimeHours: otHours,
                 isHoliday: isHol,
                 holidayName: holidayName,
-                isSunday: isSun
+                isSunday: isSun,
+                // Leave type info for automation - only set if leave is actually applied (no attendance record)
+                isAnnualLeave: (!att && !absence && leave?.isAnnualLeave) || false,
+                leaveTaskCode: (!att && !absence && leave?.leaveTaskCode) || null,
+                leaveDescription: (!att && !absence && leave?.desc) || null
             };
         });
 
@@ -500,13 +555,15 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
         overtimeRaw,
         leavesRaw,
         absencesRaw,
-        holidayMap
+        holidayMap,
+        leaveTypesMap
     ] = await Promise.all([
         getAllEmployees(),
         fetchOvertimeRaw(startDate, endDate),
         fetchLeavesRaw(startDate, endDate),
         fetchAbsencesRaw(startDate, endDate),
-        fetchHolidaysFromDB(startDate, endDate)
+        fetchHolidaysFromDB(startDate, endDate),
+        fetchLeaveTypesFromDB()
     ]);
 
     console.log(`[OVERTIME-ONLY] Data: ${employees.length} employees (from Mill DB), ${overtimeRaw.length} overtime records, ${Object.keys(holidayMap).length} holidays`);
@@ -525,10 +582,16 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
         const duration = parseInt(row.Outgoing || 1);
         const refDate = formatDateSQL(row.RefDate);
         const dates = calculateConsecutiveWorkingDays(refDate, duration, holidayMap);
+        const leaveTypeCode = row.LeaveTypeCode || '';
+        const leaveTypeName = leaveTypesMap[leaveTypeCode]?.name || leaveTypeCode;
+        const isAnnual = isAnnualLeaveType(leaveTypeCode);
+
         dates.forEach(d => {
             leaveMap[`${row.EmployeeID}_${d}`] = {
-                type: row.LeaveTypeCode,
-                desc: row.LeaveTypeCode
+                type: leaveTypeCode,
+                desc: leaveTypeName,
+                isAnnualLeave: isAnnual,
+                leaveTaskCode: isAnnual ? ANNUAL_LEAVE_TASK_CODE : null
             };
         });
     });
@@ -610,13 +673,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                     cssClass = `absence-${absence.type.toLowerCase().replace(/ /g, '-')}`;
                 }
             }
-            // Priority 2: Leave
-            else if (leave) {
-                status = leave.type;
-                display = leave.type;
-                cssClass = `leave-${leave.type.toLowerCase()}`;
-            }
-            // Priority 3: Has Overtime = Hadir
+            // Priority 2: Has Overtime = Hadir (takes precedence over leave)
             else if (otHours > 0) {
                 // If there's overtime, assume they worked regular hours too
                 if (isHol) {
@@ -640,6 +697,12 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                     display = `✓ +${otHours.toFixed(1)}h`;
                     cssClass = 'hours-normal-overtime';
                 }
+            }
+            // Priority 3: Leave (only if NO overtime)
+            else if (leave) {
+                status = leave.type;
+                display = leave.type;
+                cssClass = `leave-${leave.type.toLowerCase()}`;
             }
             // Priority 4: Sunday/Holiday - Auto Hadir with OFF/LBR display
             else if (isSun) {
@@ -673,7 +736,11 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                 overtimeHours: otHours,
                 isHoliday: isHol,
                 holidayName: holidayName,
-                isSunday: isSun
+                isSunday: isSun,
+                // Leave type info for automation - only set if leave is actually applied (no overtime)
+                isAnnualLeave: (otHours === 0 && !absence && leave?.isAnnualLeave) || false,
+                leaveTaskCode: (otHours === 0 && !absence && leave?.leaveTaskCode) || null,
+                leaveDescription: (otHours === 0 && !absence && leave?.desc) || null
             };
         });
 
