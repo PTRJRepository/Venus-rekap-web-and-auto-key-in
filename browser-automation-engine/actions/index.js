@@ -674,16 +674,33 @@ const actions = {
 
         // Simple evaluation: check if value exists and is truthy
         if (typeof condition === 'string') {
-            const value = engine.substituteVariables(`\${${condition}}`, context);
-            // Treat specific status strings as falsy to prevent "Regular Input"
-            result = !!value &&
-                value !== 'null' &&
-                value !== 'undefined' &&
-                value !== '0' &&
-                value !== 'ALFA' &&
-                value !== 'ALPHA' &&
-                value !== 'OFF' &&
-                value !== 'LIBUR';
+            // CHECK: Is this an expression or a simple variable?
+            // If it contains operators, treat as expression
+            if (condition.includes(' === ') || condition.includes(' !== ') || condition.includes(' == ') || condition.includes(' != ') || 
+                condition.includes(' || ') || condition.includes(' && ') || condition.includes(' > ') || condition.includes(' < ')) {
+                
+                try {
+                    // Evaluate expression using context variables
+                    const fn = new Function('context', `with(context) { return ${condition}; }`);
+                    result = fn(context);
+                } catch (e) {
+                    console.log(`  ⚠️ Failed to evaluate expression "${condition}": ${e.message}`);
+                    // Fallback to false on error
+                    result = false;
+                }
+            } else {
+                // Legacy/Simple Mode: Variable substitution + Truthy check with Blacklist
+                const value = engine.substituteVariables(`\${${condition}}`, context);
+                // Treat specific status strings as falsy to prevent "Regular Input"
+                result = !!value &&
+                    value !== 'null' &&
+                    value !== 'undefined' &&
+                    value !== '0' &&
+                    value !== 'ALFA' &&
+                    value !== 'ALPHA' &&
+                    value !== 'OFF' &&
+                    value !== 'LIBUR';
+            }
         } else if (typeof condition === 'boolean') {
             result = condition;
         }

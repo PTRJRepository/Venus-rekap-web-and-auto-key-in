@@ -1,17 +1,17 @@
 {
   "metadata": {
-    "export_date": "2026-01-22T05:05:10.718Z",
+    "export_date": "2026-01-22T09:42:39.249Z",
     "period_start": "2026-01-01",
     "period_end": "2026-01-31",
-    "total_employees": 3,
+    "total_employees": 1,
     "source": "web_interface"
   },
   "data": [
     {
-      "EmployeeID": "PTRJ.241000004",
-      "EmployeeName": "Adyka",
-      "PTRJEmployeeID": "POM00213",
-      "ChargeJob": "(GA9010) VEHICLE RUNNING / BE001 ((XGMA1) Whell Loader) / 11 (DRIVER WAGES)",
+      "EmployeeID": "PTRJ.241000001",
+      "EmployeeName": "Ade Prasety",
+      "PTRJEmployeeID": "POM00181",
+      "ChargeJob": "(OC7190) BOILER OPERATION / STN-BLR (STATION BOILER) / BLR00000 (LABOUR COST) / L (LABOUR)",
       "Attendance": {
         "2026-01-01": {
           "date": "2026-01-01",
@@ -25,35 +25,44 @@
           "overtimeHours": 0,
           "isHoliday": true,
           "holidayName": "Tahun Baru Masehi                                                                                                               ",
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-02": {
           "date": "2026-01-02",
           "dayName": "Jum",
-          "status": "CT",
-          "display": "CT",
-          "class": "leave-ct",
+          "status": "Hadir",
+          "display": "✓",
+          "class": "hours-normal",
           "checkIn": null,
           "checkOut": null,
           "regularHours": 0,
-          "overtimeHours": 1.5,
+          "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-03": {
           "date": "2026-01-03",
           "dayName": "Sab",
           "status": "Hadir",
-          "display": "✓ +2.0h",
-          "class": "hours-normal-overtime",
+          "display": "✓",
+          "class": "hours-normal",
           "checkIn": null,
           "checkOut": null,
           "regularHours": 0,
-          "overtimeHours": 2,
+          "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-04": {
           "date": "2026-01-04",
@@ -67,81 +76,31 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": true
+          "isSunday": true,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-05": {
           "date": "2026-01-05",
           "dayName": "Sen",
-          "status": "ALFA",
-          "display": "ALFA",
-          "class": "hours-alfa",
-          "checkIn": null,
-          "checkOut": null,
-          "regularHours": 0,
-          "overtimeHours": 0,
-          "isHoliday": false,
-          "holidayName": null,
-          "isSunday": false
-        },
-        "2026-01-06": {
-          "date": "2026-01-06",
-          "dayName": "Sel",
           "status": "Partial In",
-          "display": "⚠ +2.0h",
+          "display": "⚠ +4.5h",
           "class": "hours-partial-check-in-only",
           "checkIn": null,
           "checkOut": null,
           "regularHours": 7,
-          "overtimeHours": 2,
+          "overtimeHours": 4.5,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
-        "2026-01-07": {
-          "date": "2026-01-07",
-          "dayName": "Rab",
-          "status": "Hadir",
-          "display": "✓",
-          "class": "hours-normal",
-          "checkIn": null,
-          "checkOut": null,
-          "regularHours": 0,
-          "overtimeHours": 0,
-          "isHoliday": false,
-          "holidayName": null,
-          "isSunday": false
-        },
-        "2026-01-08": {
-          "date": "2026-01-08",
-          "dayName": "Kam",
-          "status": "Hadir",
-          "display": "✓ +2.0h",
-          "class": "hours-normal-overtime",
-          "checkIn": null,
-          "checkOut": null,
-          "regularHours": 0,
-          "overtimeHours": 2,
-          "isHoliday": false,
-          "holidayName": null,
-          "isSunday": false
-        },
-        "2026-01-09": {
-          "date": "2026-01-09",
-          "dayName": "Jum",
-          "status": "Hadir",
-          "display": "✓ +3.0h",
-          "class": "hours-normal-overtime",
-          "checkIn": null,
-          "checkOut": null,
-          "regularHours": 0,
-          "overtimeHours": 3,
-          "isHoliday": false,
-          "holidayName": null,
-          "isSunday": false
-        },
-        "2026-01-10": {
-          "date": "2026-01-10",
-          "dayName": "Sab",
+        "2026-01-06": {
+          "date": "2026-01-06",
+          "dayName": "Sel",
           "status": "Hadir",
           "display": "✓ +4.0h",
           "class": "hours-normal-overtime",
@@ -151,49 +110,129 @@
           "overtimeHours": 4,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
+        },
+        "2026-01-07": {
+          "date": "2026-01-07",
+          "dayName": "Rab",
+          "status": "Hadir",
+          "display": "✓ +3.5h",
+          "class": "hours-normal-overtime",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": 0,
+          "overtimeHours": 3.5,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
+        },
+        "2026-01-08": {
+          "date": "2026-01-08",
+          "dayName": "Kam",
+          "status": "Hadir",
+          "display": "✓ +1.0h",
+          "class": "hours-normal-overtime",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": 0,
+          "overtimeHours": 1,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
+        },
+        "2026-01-09": {
+          "date": "2026-01-09",
+          "dayName": "Jum",
+          "status": "Hadir",
+          "display": "✓ +2.5h",
+          "class": "hours-normal-overtime",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": 0,
+          "overtimeHours": 2.5,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
+        },
+        "2026-01-10": {
+          "date": "2026-01-10",
+          "dayName": "Sab",
+          "status": "Hadir",
+          "display": "✓ +3.5h",
+          "class": "hours-normal-overtime",
+          "checkIn": null,
+          "checkOut": null,
+          "regularHours": 0,
+          "overtimeHours": 3.5,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-11": {
           "date": "2026-01-11",
           "dayName": "Min",
           "status": "Hadir",
-          "display": "OFF",
-          "class": "hours-off",
+          "display": "✓ +8.0h",
+          "class": "hours-normal-overtime",
           "checkIn": null,
           "checkOut": null,
           "regularHours": 0,
-          "overtimeHours": 0,
+          "overtimeHours": 8,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": true
+          "isSunday": true,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-12": {
           "date": "2026-01-12",
           "dayName": "Sen",
           "status": "Hadir",
-          "display": "✓ +2.0h",
+          "display": "✓ +3.0h",
           "class": "hours-normal-overtime",
           "checkIn": null,
           "checkOut": null,
           "regularHours": 0,
-          "overtimeHours": 2,
+          "overtimeHours": 3,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-13": {
           "date": "2026-01-13",
           "dayName": "Sel",
-          "status": "Hadir",
-          "display": "✓ +2.0h",
-          "class": "hours-normal-overtime",
+          "status": "Partial In",
+          "display": "⚠",
+          "class": "hours-partial-check-in-only",
           "checkIn": null,
           "checkOut": null,
-          "regularHours": 0,
-          "overtimeHours": 2,
+          "regularHours": 7,
+          "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-14": {
           "date": "2026-01-14",
@@ -207,7 +246,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-15": {
           "date": "2026-01-15",
@@ -221,7 +263,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-16": {
           "date": "2026-01-16",
@@ -235,7 +280,10 @@
           "overtimeHours": 0,
           "isHoliday": true,
           "holidayName": "Isra Miraj Nabi Muhamad SAW                                                                                                     ",
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-17": {
           "date": "2026-01-17",
@@ -249,21 +297,27 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-18": {
           "date": "2026-01-18",
           "dayName": "Min",
           "status": "Hadir",
-          "display": "✓",
-          "class": "hours-normal",
+          "display": "OFF",
+          "class": "hours-off",
           "checkIn": null,
           "checkOut": null,
           "regularHours": 0,
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": true
+          "isSunday": true,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-19": {
           "date": "2026-01-19",
@@ -277,7 +331,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-20": {
           "date": "2026-01-20",
@@ -291,7 +348,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-21": {
           "date": "2026-01-21",
@@ -305,7 +365,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-22": {
           "date": "2026-01-22",
@@ -319,7 +382,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-23": {
           "date": "2026-01-23",
@@ -333,7 +399,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-24": {
           "date": "2026-01-24",
@@ -347,7 +416,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-25": {
           "date": "2026-01-25",
@@ -361,7 +433,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": true
+          "isSunday": true,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-26": {
           "date": "2026-01-26",
@@ -375,7 +450,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-27": {
           "date": "2026-01-27",
@@ -389,7 +467,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-28": {
           "date": "2026-01-28",
@@ -403,7 +484,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-29": {
           "date": "2026-01-29",
@@ -417,7 +501,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-30": {
           "date": "2026-01-30",
@@ -431,7 +518,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         },
         "2026-01-31": {
           "date": "2026-01-31",
@@ -445,7 +535,10 @@
           "overtimeHours": 0,
           "isHoliday": false,
           "holidayName": null,
-          "isSunday": false
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null
         }
       }
     }
