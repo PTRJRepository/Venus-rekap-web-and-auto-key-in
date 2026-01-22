@@ -387,16 +387,21 @@ const actions = {
         const chargeJob = params.chargeJob || params.value || '';
         console.log(`🔍 Parsing ChargeJob: "${chargeJob}"`);
 
-        // Split by '/'
-        const parts = chargeJob.split('/').map(p => p.trim()).filter(p => p.length > 0);
+        // Split by '/' and filter out empty/whitespace parts
+        // A valid part must have at least 2 meaningful characters
+        const parts = chargeJob.split('/').map(p => p.trim()).filter(p => p.length >= 2);
 
         // Store parts count for conditional logic (excluding Employee field)
         context.chargeJobPartsCount = parts.length;
-        console.log(`  📊 Total parts found: ${parts.length}`);
+        // Expected field count = parts.length + 1 (for Employee field at index 0)
+        // This is used by retryInputWithValidation to skip waiting for non-existent fields
+        context.expectedFieldCount = parts.length + 1;
+        console.log(`  📊 Total VALID parts found: ${parts.length}, Expected fields: ${context.expectedFieldCount}`);
+        console.log(`  📋 Parts: ${JSON.stringify(parts)}`);
 
         // Store DIRECTLY in context (top-level) for easy access
         // Part 1: Task Code
-        if (parts.length > 0 && parts[0]) {
+        if (parts.length > 0 && parts[0] && parts[0].length >= 2) {
             const rawPart1 = parts[0];
             context.chargeJobPart1 = rawPart1;
 
@@ -410,7 +415,7 @@ const actions = {
         }
 
         // Part 2: Resource/Equipment
-        if (parts.length > 1 && parts[1]) {
+        if (parts.length > 1 && parts[1] && parts[1].length >= 2) {
             context.chargeJobPart2 = parts[1].trim();
             context.hasChargeJobPart2 = true;
             console.log(`  Part 2: "${context.chargeJobPart2}"`);
@@ -419,8 +424,8 @@ const actions = {
             context.hasChargeJobPart2 = false;
         }
 
-        // Part 3: Cost Center
-        if (parts.length > 2 && parts[2]) {
+        // Part 3: Cost Center - ONLY if it actually exists and has valid content
+        if (parts.length > 2 && parts[2] && parts[2].length >= 2) {
             context.chargeJobPart3 = parts[2].trim();
             context.hasChargeJobPart3 = true;
             console.log(`  Part 3: "${context.chargeJobPart3}"`);
@@ -621,9 +626,16 @@ const actions = {
      *   Each field: { selector, value, index?, isDropdown? }
      */
     retryInputWithValidation: async (page, params, context, engine) => {
-        const { selector, value, index, validationSelector, maxRetries = 5, formReentryFields = [] } = params;
+        const { selector, value, index, validationSelector, maxRetries = 5, formReentryFields = [], stopConditionSelector, expectedFieldCount } = params;
 
-        console.log(`🔁 Retry Input: "${value}" into ${selector} (Max Retries: ${maxRetries})`);
+        // CRITICAL: If expectedFieldCount is provided and target index is >= expectedFieldCount, skip immediately
+        // This prevents waiting 20s for fields that don't exist (e.g., index 3 when only 2 jobs in charge job)
+        if (expectedFieldCount !== undefined && index !== undefined && index >= expectedFieldCount) {
+            console.log(`⏭️  Skipping input for index ${index}: expectedFieldCount is ${expectedFieldCount}`);
+            return;
+        }
+
+        console.log(`🔁 Retry Input: "${value}" into ${selector} (Max Retries: ${maxRetries}, ExpectedFields: ${expectedFieldCount || 'N/A'})`);
 
         // Helper: Check for any visible validation error containing "Please"
         const checkForValidationErrors = async () => {
@@ -881,6 +893,18 @@ const actions = {
                         if (isVisible) visibleElements.push(el);
                     }
 
+                    // Check stop condition if target not found yet
+                    if ((idx === undefined || visibleElements.length <= idx) && stopConditionSelector) {
+                        const stopEl = await page.$(stopConditionSelector);
+                        if (stopEl) {
+                            const isStopVisible = await stopEl.evaluate(node => node.offsetParent !== null && node.offsetHeight > 0);
+                            if (isStopVisible) {
+                                console.log(`  🛑 Stop condition met: ${stopConditionSelector} is visible. Skipping target.`);
+                                return 'skipped';
+                            }
+                        }
+                    }
+
                     if (idx !== undefined && visibleElements.length > idx) {
                         const el = visibleElements[idx];
                         const state = await el.evaluate(node => ({
@@ -1030,7 +1054,11 @@ const actions = {
 
             // 0. Wait for element to be ready before proceeding
             console.log(`  ⏳ Waiting for element [${index}] to be ready...`);
-            await waitForElementReady(selector, index, 20000);
+            const readyState = await waitForElementReady(selector, index, 20000);
+            if (readyState === 'skipped') {
+                console.log(`  ⏭️  Skipping input: Stop condition met.`);
+                return;
+            }
 
             // optimization: Check if field already has a value (User requested to skip if filled)
             try {
@@ -1112,10 +1140,18 @@ const actions = {
             console.log("  ⌨️ Smart Typing...");
             let foundSingleOption = false;
 
-            // OPTIMIZATION: Truncate value by 3 characters to help autocomplete filter better
-            // This avoids over-specifying and lets the dropdown show fewer/single results
-            const truncatedValue = value.length > 3 ? value.slice(0, -3) : value;
-            console.log(`  📝 Typing truncated value: "${truncatedValue}" (original: "${value}")`);
+            // OPTIMIZATION: Truncate value by 3 characters ONLY for Charge Job fields (index > 0)
+            // Employee/PTRJ ID (index 0) must be typed in FULL
+            let truncatedValue;
+            if (index === 0) {
+                // Employee field - type FULL value
+                truncatedValue = value;
+                console.log(`  📝 Typing FULL value (Employee): "${truncatedValue}"`);
+            } else {
+                // Charge Job fields - truncate last 3 characters
+                truncatedValue = value.length > 3 ? value.slice(0, -3) : value;
+                console.log(`  📝 Typing truncated value (Charge Job): "${truncatedValue}" (original: "${value}")`);
+            }
 
             // First, try to trigger autocomplete using JavaScript (more reliable)
             const triggerAutocomplete = await safeEvaluate((sel, idx, val) => {
@@ -1346,6 +1382,96 @@ const actions = {
         }
 
         throw new Error(`Failed to input "${value}" after ${maxRetries} attempts.`);
+    },
+
+    /**
+     * Verify that Add button click was successful by checking for page reload
+     * params.timeout: max time to wait for reload (default 10000ms)
+     * params.successSelector: element that should be empty/reset after successful add (e.g., employee field)
+     */
+    verifyAddButtonClicked: async (page, params, context, engine) => {
+        const timeout = params.timeout || 10000;
+        const successSelector = params.successSelector || '.ui-autocomplete-input.CBOBox';
+        const successIndex = params.successIndex !== undefined ? params.successIndex : 0;
+
+        console.log(`🔍 Verifying Add button was clicked (timeout: ${timeout}ms)...`);
+
+        const startTime = Date.now();
+        let previousValue = null;
+        let reloadDetected = false;
+
+        // Get initial value of the first field
+        try {
+            const elements = await page.$$(successSelector);
+            const visibleElements = [];
+            for (const el of elements) {
+                const isVisible = await el.evaluate(node => node.offsetParent !== null);
+                if (isVisible) visibleElements.push(el);
+            }
+            if (visibleElements.length > successIndex) {
+                previousValue = await visibleElements[successIndex].evaluate(el => el.value || '');
+            }
+        } catch (e) {
+            console.log(`  ⚠️ Could not get initial field value`);
+        }
+
+        // Wait for page readyState to change (indicates reload started)
+        while (Date.now() - startTime < timeout) {
+            try {
+                // Check if document is reloading
+                const readyState = await page.evaluate(() => document.readyState);
+                if (readyState === 'loading' || readyState === 'interactive') {
+                    console.log(`  📄 Page is reloading (readyState: ${readyState})`);
+                    reloadDetected = true;
+                }
+
+                // Also check if the employee field was cleared (indicates successful add)
+                const elements = await page.$$(successSelector);
+                const visibleElements = [];
+                for (const el of elements) {
+                    try {
+                        const isVisible = await el.evaluate(node => node.offsetParent !== null);
+                        if (isVisible) visibleElements.push(el);
+                    } catch (e) { }
+                }
+
+                if (visibleElements.length > successIndex) {
+                    const currentValue = await visibleElements[successIndex].evaluate(el => el.value || '');
+                    // If previous value was set and now it's empty, reload happened
+                    if (previousValue && previousValue.length > 0 && currentValue.length === 0) {
+                        console.log(`  ✅ Add successful: Field was cleared (previous: "${previousValue}" → current: empty)`);
+                        reloadDetected = true;
+                        break;
+                    }
+                    // If form table disappeared and reappeared, that's also a reload
+                    if (reloadDetected && readyState === 'complete') {
+                        console.log(`  ✅ Page reload completed`);
+                        break;
+                    }
+                }
+            } catch (e) {
+                // During reload, page might be unstable - that's expected
+                if (e.message.includes('context was destroyed') || e.message.includes('navigation')) {
+                    console.log(`  📄 Page navigation detected`);
+                    reloadDetected = true;
+                }
+            }
+
+            await new Promise(r => setTimeout(r, 500));
+        }
+
+        if (reloadDetected) {
+            console.log(`  ✅ Add button click verified - page reloaded`);
+            // Wait for page to fully stabilize
+            try {
+                await page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 });
+                await new Promise(r => setTimeout(r, 1000));
+            } catch (e) { }
+            return true;
+        } else {
+            console.log(`  ⚠️ Add button verification timeout - page may not have reloaded`);
+            return false;
+        }
     },
 };
 

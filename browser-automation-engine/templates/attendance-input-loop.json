@@ -257,6 +257,7 @@
                                                                 "value": "${chargeJobPart2}",
                                                                 "validationSelector": "#MainContent_ddlAccountCode_RFV",
                                                                 "maxRetries": 5,
+                                                                "expectedFieldCount": "${expectedFieldCount}",
                                                                 "formReentryFields": [
                                                                     {
                                                                         "selector": ".ui-autocomplete-input.CBOBox",
@@ -289,6 +290,7 @@
                                                                 "value": "${chargeJobPart3}",
                                                                 "validationSelector": "#MainContent_ddlSubBlock_RFV",
                                                                 "maxRetries": 5,
+                                                                "expectedFieldCount": "${expectedFieldCount}",
                                                                 "formReentryFields": [
                                                                     {
                                                                         "selector": ".ui-autocomplete-input.CBOBox",
@@ -338,10 +340,12 @@
                                                 }
                                             },
                                             {
-                                                "action": "wait",
+                                                "comment": "═══ VERIFY ADD WAS SUCCESSFUL ═══",
+                                                "action": "verifyAddButtonClicked",
                                                 "params": {
-                                                    "duration": 3000,
-                                                    "comment": "Wait for page to reload after Add"
+                                                    "timeout": 15000,
+                                                    "successSelector": ".ui-autocomplete-input.CBOBox",
+                                                    "successIndex": 0
                                                 }
                                             },
                                             {
@@ -350,13 +354,6 @@
                                                     "selector": ".ui-autocomplete-input.CBOBox",
                                                     "timeout": 10000,
                                                     "comment": "Wait for form to be ready after Add"
-                                                }
-                                            },
-                                            {
-                                                "action": "wait",
-                                                "params": {
-                                                    "duration": 500,
-                                                    "comment": "Extra stabilization after reload"
                                                 }
                                             },
                                             {
@@ -507,22 +504,18 @@
                                             },
                                             {
                                                 "comment": "═══ KLIK ADD BUTTON (OVERTIME) ═══",
-                                                "action": "wait",
-                                                "params": {
-                                                    "duration": 500
-                                                }
-                                            },
-                                            {
                                                 "action": "click",
                                                 "params": {
                                                     "selector": "#MainContent_btnAdd"
                                                 }
                                             },
                                             {
-                                                "action": "wait",
+                                                "comment": "═══ VERIFY ADD WAS SUCCESSFUL ═══",
+                                                "action": "verifyAddButtonClicked",
                                                 "params": {
-                                                    "duration": 3000,
-                                                    "comment": "Wait for page to reload after Add"
+                                                    "timeout": 15000,
+                                                    "successSelector": ".ui-autocomplete-input.CBOBox",
+                                                    "successIndex": 0
                                                 }
                                             },
                                             {
@@ -531,13 +524,6 @@
                                                     "selector": ".ui-autocomplete-input.CBOBox",
                                                     "timeout": 10000,
                                                     "comment": "Wait for form to be ready after Add"
-                                                }
-                                            },
-                                            {
-                                                "action": "wait",
-                                                "params": {
-                                                    "duration": 500,
-                                                    "comment": "Extra stabilization after reload"
                                                 }
                                             }
                                         ]
@@ -708,6 +694,7 @@
                                                                 "value": "${chargeJobPart2}",
                                                                 "validationSelector": "#MainContent_ddlAccountCode_RFV",
                                                                 "maxRetries": 5,
+                                                                "expectedFieldCount": "${expectedFieldCount}",
                                                                 "formReentryFields": [
                                                                     {
                                                                         "selector": ".ui-autocomplete-input.CBOBox",
@@ -752,6 +739,7 @@
                                                                 "value": "${chargeJobPart3}",
                                                                 "validationSelector": "#MainContent_ddlSubBlock_RFV",
                                                                 "maxRetries": 5,
+                                                                "expectedFieldCount": "${expectedFieldCount}",
                                                                 "formReentryFields": [
                                                                     {
                                                                         "selector": ".ui-autocomplete-input.CBOBox",
@@ -813,10 +801,12 @@
                                                 }
                                             },
                                             {
-                                                "action": "wait",
+                                                "comment": "═══ VERIFY ADD WAS SUCCESSFUL ═══",
+                                                "action": "verifyAddButtonClicked",
                                                 "params": {
-                                                    "duration": 3000,
-                                                    "comment": "Wait for page to reload after Add"
+                                                    "timeout": 15000,
+                                                    "successSelector": ".ui-autocomplete-input.CBOBox",
+                                                    "successIndex": 0
                                                 }
                                             },
                                             {
@@ -825,13 +815,6 @@
                                                     "selector": ".ui-autocomplete-input.CBOBox",
                                                     "timeout": 10000,
                                                     "comment": "Wait for form to be ready after Add"
-                                                }
-                                            },
-                                            {
-                                                "action": "wait",
-                                                "params": {
-                                                    "duration": 500,
-                                                    "comment": "Extra stabilization after reload"
                                                 }
                                             },
                                             {
