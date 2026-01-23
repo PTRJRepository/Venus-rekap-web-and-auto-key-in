@@ -165,6 +165,27 @@ class RecoveryManager {
     }
 
     /**
+     * Save loop state (e.g. current employee index)
+     */
+    saveLoopState(loopId, index, extraData = {}) {
+        const state = this.loadState() || {};
+        state.loops = state.loops || {};
+        state.loops[loopId] = { index, timestamp: new Date().toISOString(), ...extraData };
+        this.saveState(state);
+    }
+
+    /**
+     * Get saved loop index
+     */
+    getLoopState(loopId) {
+        const state = this.loadState();
+        if (state && state.loops && state.loops[loopId]) {
+            return state.loops[loopId].index;
+        }
+        return -1;
+    }
+
+    /**
      * Save current execution state
      */
     saveState(data) {

@@ -16,6 +16,41 @@ class AutomationEngine {
         this.engineId = options.engineId || 'default';
         this.userDataDir = options.userDataDir || null; // Separate Chrome profile for parallel execution
         this.recoveryManager = new RecoveryManager(this.engineId);
+        this.heartbeatInterval = null;
+    }
+
+    /**
+     * Update heartbeat file to indicate process is alive
+     */
+    heartbeat() {
+        try {
+            const heartbeatFile = path.join(__dirname, 'logs', `heartbeat_engine_${this.engineId}.json`);
+            fs.writeFileSync(heartbeatFile, JSON.stringify({
+                timestamp: Date.now(),
+                pid: process.pid,
+                engineId: this.engineId
+            }));
+        } catch (e) {
+            // Ignore heartbeat errors
+        }
+    }
+
+    /**
+     * Start sending heartbeats
+     */
+    startHeartbeat() {
+        this.heartbeat(); // Initial beat
+        this.heartbeatInterval = setInterval(() => this.heartbeat(), 5000); // Every 5s
+    }
+
+    /**
+     * Stop sending heartbeats
+     */
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
     }
 
     /**
@@ -259,6 +294,7 @@ class AutomationEngine {
      */
     async runTemplate(templateName, initialContext = {}) {
         try {
+            this.startHeartbeat(); // START HEARTBEAT
             await this.launch();
             const template = this.loadTemplate(templateName);
 
@@ -294,6 +330,7 @@ class AutomationEngine {
 
             throw error;
         } finally {
+            this.stopHeartbeat(); // STOP HEARTBEAT
             // Uncomment jika ingin browser otomatis tertutup
             // if (this.browser) {
             //     await this.browser.close();

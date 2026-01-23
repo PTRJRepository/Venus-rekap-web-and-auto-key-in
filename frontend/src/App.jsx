@@ -187,8 +187,15 @@ const App = () => {
                     {/* RIGHT ACTIONS */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         {selectedIds.length > 0 && (
-                            <Button variant="contained" color="secondary" size="small" startIcon={<AutoIcon />} onClick={() => setOpenAutoDialog(true)} sx={{ textTransform: 'none', fontWeight: 600 }}>
-                                Sync ({selectedIds.length})
+                            <Button
+                                variant="contained"
+                                color={compareMode !== 'off' ? "warning" : "secondary"}
+                                size="small"
+                                startIcon={<AutoIcon />}
+                                onClick={() => setOpenAutoDialog(true)}
+                                sx={{ textTransform: 'none', fontWeight: 600 }}
+                            >
+                                {compareMode !== 'off' ? `Sync Mismatches` : `Sync (${selectedIds.length})`}
                             </Button>
                         )}
                         <ToggleButtonGroup value={viewMode} exclusive onChange={(e, v) => v && setViewMode(v)} size="small" sx={{ height: 32 }}>
@@ -224,7 +231,15 @@ const App = () => {
             <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
                 <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
             </Snackbar>
-            <AutomationDialog open={openAutoDialog} onClose={() => setOpenAutoDialog(false)} selectedEmployees={selectedEmployees} month={selectedMonth} year={selectedYear} />
+            <AutomationDialog
+                open={openAutoDialog}
+                onClose={() => setOpenAutoDialog(false)}
+                selectedEmployees={selectedEmployees}
+                month={selectedMonth}
+                year={selectedYear}
+                compareMode={compareMode}
+                comparisonData={comparisonData}
+            />
             <ComparisonDialog
                 open={openCompareDialog}
                 onClose={() => setOpenCompareDialog(false)}

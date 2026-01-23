@@ -4,7 +4,7 @@ import PlayIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RobotIcon from '@mui/icons-material/SmartToy';
 
-const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => {
+const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compareMode, comparisonData }) => {
     const [logs, setLogs] = useState([]);
     const [status, setStatus] = useState('idle');
     const [startDate, setStartDate] = useState('');
@@ -12,12 +12,76 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => 
     const [onlyOvertime, setOnlyOvertime] = useState(false);
     const logEndRef = useRef(null);
 
+    // Auto-set Overtime Mode if Compare Mode is Overtime
+    useEffect(() => {
+        if (open && compareMode === 'overtime') {
+            setOnlyOvertime(true);
+        } else if (open) {
+            setOnlyOvertime(false);
+        }
+    }, [open, compareMode]);
+
     useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs]);
 
     const handleRun = async () => {
         setLogs([]);
         setStatus('running');
-        addLog('info', `Starting automation for ${selectedEmployees.length} employees (${month}/${year})`);
+
+        // --- SMART SYNC FILTERING ---
+        let employeesToProcess = selectedEmployees;
+        let modeLog = "";
+
+        if (compareMode && compareMode !== 'off' && comparisonData) {
+            addLog('info', `Filtering for ${compareMode === 'presence' ? 'Presence' : 'Overtime'} Mismatches...`);
+
+            employeesToProcess = selectedEmployees.map(emp => {
+                const ptrjId = emp.ptrjEmployeeID;
+                if (!ptrjId || ptrjId === 'N/A') return null;
+
+                // Clone attendance map to filter it
+                const filteredAttendance = {};
+                let hasMismatch = false;
+
+                Object.values(emp.attendance || {}).forEach(day => {
+                    const dateStr = day.date;
+                    const key = `${ptrjId}_${dateStr}`;
+                    const millwareRecord = comparisonData[key];
+
+                    // Filter Logic based on Compare Mode
+                    if (compareMode === 'presence') {
+                        // Keep if Hadir AND Not in Millware
+                        if (day.status === 'Hadir' && !millwareRecord) {
+                            filteredAttendance[new Date(dateStr).getDate()] = day;
+                            hasMismatch = true;
+                        }
+                    } else if (compareMode === 'overtime') {
+                        // Keep if OT > 0 AND (Not in Millware OR Mismatch)
+                        const ot = day.overtimeHours || 0;
+                        if (ot > 0) {
+                            if (!millwareRecord || Math.abs(millwareRecord.hours - ot) >= 0.1) {
+                                filteredAttendance[new Date(dateStr).getDate()] = day;
+                                hasMismatch = true;
+                            }
+                        }
+                    }
+                });
+
+                if (!hasMismatch) return null;
+
+                // Return employee with filtered attendance
+                return { ...emp, attendance: filteredAttendance };
+            }).filter(Boolean);
+
+            modeLog = ` (Filtered: ${employeesToProcess.length} employees with mismatches)`;
+
+            if (employeesToProcess.length === 0) {
+                addLog('info', 'No mismatched records found to sync.');
+                setStatus('completed');
+                return;
+            }
+        }
+
+        addLog('info', `Starting automation for ${employeesToProcess.length} employees (${month}/${year})${modeLog}`);
         if (startDate && endDate) addLog('info', `Date Filter: ${startDate} to ${endDate}`);
         if (onlyOvertime) addLog('info', `Mode: Only Overtime (skipping regular attendance)`);
 
@@ -26,7 +90,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    employees: selectedEmployees,
+                    employees: employeesToProcess,
                     month,
                     year,
                     startDate,
