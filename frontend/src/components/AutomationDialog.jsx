@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Box, LinearProgress } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Box, LinearProgress, Switch, FormControlLabel } from '@mui/material';
 import PlayIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RobotIcon from '@mui/icons-material/SmartToy';
@@ -9,6 +9,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => 
     const [status, setStatus] = useState('idle');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [onlyOvertime, setOnlyOvertime] = useState(false);
     const logEndRef = useRef(null);
 
     useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs]);
@@ -18,6 +19,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => 
         setStatus('running');
         addLog('info', `Starting automation for ${selectedEmployees.length} employees (${month}/${year})`);
         if (startDate && endDate) addLog('info', `Date Filter: ${startDate} to ${endDate}`);
+        if (onlyOvertime) addLog('info', `Mode: Only Overtime (skipping regular attendance)`);
 
         try {
             const response = await fetch('/api/automation/run', {
@@ -28,7 +30,8 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => 
                     month,
                     year,
                     startDate,
-                    endDate
+                    endDate,
+                    onlyOvertime
                 })
             });
 
@@ -75,10 +78,10 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => 
         <Dialog open={open} onClose={status === 'running' ? undefined : onClose} maxWidth="md" fullWidth PaperProps={{ sx: { minHeight: '60vh', bgcolor: '#1e1e1e', color: '#e0e0e0' } }}>
             <DialogTitle sx={{ borderBottom: '1px solid #333', display: 'flex', alignItems: 'center', gap: 1 }}>
                 <RobotIcon sx={{ color: '#4caf50' }} />
-                <Typography variant="h6" sx={{ flexGrow: 1 }}>Automation Console</Typography>
-                {status === 'running' && <Typography variant="caption" sx={{ color: '#fb8c00', border: '1px solid #fb8c00', px: 1, borderRadius: 1 }}>RUNNING</Typography>}
-                {status === 'completed' && <Typography variant="caption" sx={{ color: '#4caf50', border: '1px solid #4caf50', px: 1, borderRadius: 1 }}>COMPLETED</Typography>}
-                {status === 'failed' && <Typography variant="caption" sx={{ color: '#f44336', border: '1px solid #f44336', px: 1, borderRadius: 1 }}>FAILED</Typography>}
+                <Typography component="span" variant="h6" sx={{ flexGrow: 1 }}>Automation Console</Typography>
+                {status === 'running' && <Typography component="span" variant="caption" sx={{ color: '#fb8c00', border: '1px solid #fb8c00', px: 1, borderRadius: 1 }}>RUNNING</Typography>}
+                {status === 'completed' && <Typography component="span" variant="caption" sx={{ color: '#4caf50', border: '1px solid #4caf50', px: 1, borderRadius: 1 }}>COMPLETED</Typography>}
+                {status === 'failed' && <Typography component="span" variant="caption" sx={{ color: '#f44336', border: '1px solid #f44336', px: 1, borderRadius: 1 }}>FAILED</Typography>}
             </DialogTitle>
             <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ p: 2, bgcolor: '#252526', borderBottom: '1px solid #333' }}>
@@ -103,6 +106,17 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year }) => 
                                 style={{ background: '#333', border: '1px solid #555', color: 'white', padding: '4px', borderRadius: '4px' }}
                             />
                         </div>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={onlyOvertime}
+                                    onChange={(e) => setOnlyOvertime(e.target.checked)}
+                                    color="warning"
+                                />
+                            }
+                            label={<Typography variant="body2" sx={{ color: onlyOvertime ? '#fb8c00' : '#888' }}>Only Overtime</Typography>}
+                            sx={{ ml: 2 }}
+                        />
                     </Box>
 
                     {status === 'running' && <LinearProgress color="success" sx={{ mt: 1 }} />}

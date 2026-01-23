@@ -5,9 +5,12 @@ import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
+import SyncIcon from '@mui/icons-material/Sync';
+import SyncDisabledIcon from '@mui/icons-material/SyncDisabled';
+import WarningIcon from '@mui/icons-material/Warning';
 import { updateEmployeeMill } from '../services/api';
 
-const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, selectedIds = [], onToggleSelect }) => {
+const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, selectedIds = [], onToggleSelect, compareMode = 'off', comparisonData = null }) => {
     const safeData = Array.isArray(data) ? data : [];
     const [isEditMode, setIsEditMode] = useState(false);
     const [editingRow, setEditingRow] = useState(null);
@@ -59,6 +62,72 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
         if (['CT', 'CUTI', 'I', 'IZIN'].includes(st)) return { bg: '#eff6ff', text: '#1e40af', label: st.substring(0, 2) };
         if (['S', 'SAKIT', 'SD'].includes(st)) return { bg: '#fee2e2', text: '#b91c1c', label: 'S' };
         return { bg: '#fff', text: '#1e293b', label: s };
+    };
+
+    // Get sync status for a cell (compareMode)
+    // Simple comparison: if Venus shows "Hadir" and record exists in Millware for that date = SYNCED
+    // Get sync status for a cell (compareMode)
+    const getSyncStatus = (ptrjId, dateStr, venusStatus, venusOtHours = 0) => {
+        if (!compareMode || compareMode === 'off' || !comparisonData || !ptrjId || ptrjId === 'N/A') {
+            return null;
+        }
+
+        const key = `${ptrjId}_${dateStr}`;
+        const millwareRecord = comparisonData[key];
+
+        // --- PRESENCE MODE (OT=0) ---
+        if (compareMode === 'presence') {
+            // Skip non-working statuses
+            const skipStatuses = ['ALFA', 'OFF', 'N/A'];
+            if (skipStatuses.includes(venusStatus?.toUpperCase())) {
+                return null;
+            }
+
+            if (!millwareRecord) {
+                return {
+                    status: 'not_synced',
+                    icon: <SyncDisabledIcon sx={{ fontSize: 10, color: '#dc2626' }} />,
+                    tooltip: `❌ Belum absen (Normal) di Millware`
+                };
+            }
+            return {
+                status: 'synced',
+                icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
+                tooltip: `✓ Tersinkron (${millwareRecord.hours}h Normal)`
+            };
+        }
+
+        // --- OVERTIME MODE (OT=1) ---
+        if (compareMode === 'overtime') {
+            // Only check if there is OT in Venus
+            if (venusOtHours <= 0) return null;
+
+            if (!millwareRecord) {
+                return {
+                    status: 'not_synced',
+                    icon: <SyncDisabledIcon sx={{ fontSize: 10, color: '#dc2626' }} />,
+                    tooltip: `❌ Lembur ${venusOtHours}h belum masuk Millware`
+                };
+            }
+
+            // Compare OT hours
+            const diff = Math.abs(millwareRecord.hours - venusOtHours);
+            if (diff < 0.1) {
+                return {
+                    status: 'synced',
+                    icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
+                    tooltip: `✓ Lembur tersinkron (${millwareRecord.hours}h)`
+                };
+            } else {
+                return {
+                    status: 'mismatch',
+                    icon: <WarningIcon sx={{ fontSize: 10, color: '#d97706' }} />,
+                    tooltip: `⚠ Lembur beda: Venus=${venusOtHours}h vs Millware=${millwareRecord.hours}h`
+                };
+            }
+        }
+
+        return null;
     };
 
     return (
@@ -207,16 +276,72 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                                             const ot = d.overtimeHours || 0;
                                             cellContent = ot > 0 ? <span style={{ color: '#c2410c', fontWeight: 700 }}>{ot}</span> : '-';
                                         } else if (viewMode === 'detail') {
-                                            const reg = d.regularHours || 0;
+                                            // Calculate regular hours based on day: Friday/Saturday = 5h, others = 7h
+                                            const date = new Date(d.date);
+                                            const dayOfWeek = date.getDay(); // 0=Sunday, 5=Friday, 6=Saturday
+                                            const isFridayOrSat = dayOfWeek === 5 || dayOfWeek === 6;
+
+                                            // If Hadir or Partial In, use calculated hours; otherwise use 0
+                                            let reg = 0;
+                                            if (d.status === 'Hadir' || d.status === 'Partial In') {
+                                                reg = d.regularHours > 0 ? d.regularHours : (isFridayOrSat ? 5 : 7);
+                                            }
                                             const ot = d.overtimeHours || 0;
-                                            cellContent = <span>{reg}{ot > 0 ? <span style={{ color: '#c2410c' }}>+{ot}</span> : ''}</span>;
+
+                                            if (d.status === 'Hadir' || d.status === 'Partial In') {
+                                                cellContent = <span>{reg}{ot > 0 ? <span style={{ color: '#c2410c' }}>+{ot}</span> : ''}</span>;
+                                            } else {
+                                                cellContent = st.label; // Show status label for non-hadir
+                                            }
                                         } else {
+                                            // Default attendance view - checkmark for Hadir
                                             cellContent = d.status === 'Hadir' ? <CheckIcon sx={{ fontSize: 14, color: '#059669' }} /> : st.label;
                                         }
 
                                         const cellBg = d.isHoliday ? '#fecaca' : d.isSunday ? '#fff1f2' : st.bg;
 
-                                        return <TableCell key={day} align="center" sx={{ bgcolor: cellBg, color: st.text, fontWeight: 600, fontSize: '0.7rem' }}>{cellContent}</TableCell>;
+                                        // Get sync status if in compare mode
+                                        const syncStatus = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.overtimeHours || 0);
+
+                                        // Determine border style based on sync status
+                                        let borderStyle = {};
+                                        if (syncStatus) {
+                                            if (syncStatus.status === 'synced') {
+                                                borderStyle = { boxShadow: 'inset 0 0 0 2px #16a34a' };
+                                            } else if (syncStatus.status === 'not_synced') {
+                                                borderStyle = { boxShadow: 'inset 0 0 0 2px #dc2626' };
+                                            } else if (syncStatus.status === 'mismatch') {
+                                                borderStyle = { boxShadow: 'inset 0 0 0 2px #d97706' };
+                                            }
+                                        }
+
+                                        return (
+                                            <Tooltip key={day} title={syncStatus?.tooltip || ''} arrow disableHoverListener={!syncStatus}>
+                                                <TableCell
+                                                    align="center"
+                                                    sx={{
+                                                        bgcolor: cellBg,
+                                                        color: st.text,
+                                                        fontWeight: 600,
+                                                        fontSize: '0.7rem',
+                                                        position: 'relative',
+                                                        ...borderStyle
+                                                    }}
+                                                >
+                                                    {cellContent}
+                                                    {syncStatus && (
+                                                        <Box sx={{
+                                                            position: 'absolute',
+                                                            top: 1,
+                                                            right: 1,
+                                                            lineHeight: 1
+                                                        }}>
+                                                            {syncStatus.icon}
+                                                        </Box>
+                                                    )}
+                                                </TableCell>
+                                            </Tooltip>
+                                        );
                                     })}
                                 </TableRow>
                             );

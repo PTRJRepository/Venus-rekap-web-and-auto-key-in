@@ -12,10 +12,12 @@ import FlightIcon from '@mui/icons-material/Flight';
 import HospitalIcon from '@mui/icons-material/LocalHospital';
 import AutoIcon from '@mui/icons-material/AutoMode';
 import CalendarIcon from '@mui/icons-material/CalendarMonth';
+import CompareIcon from '@mui/icons-material/CompareArrows';
 
 import AttendanceMatrix from './components/AttendanceMatrix';
 import AutomationDialog from './components/AutomationDialog';
-import { fetchAttendanceData, fetchMonths } from './services/api';
+import ComparisonDialog from './components/ComparisonDialog';
+import { fetchAttendanceData, fetchMonths, fetchComparisonData } from './services/api';
 
 const App = () => {
     const [activeTab, setActiveTab] = useState('matrix');
@@ -29,6 +31,12 @@ const App = () => {
     // Automation State
     const [selectedIds, setSelectedIds] = useState([]);
     const [openAutoDialog, setOpenAutoDialog] = useState(false);
+    const [openCompareDialog, setOpenCompareDialog] = useState(false);
+
+    // Compare Mode State: 'off', 'presence' (ot=0), 'overtime' (ot=1)
+    const [compareMode, setCompareMode] = useState('off');
+    const [comparisonData, setComparisonData] = useState(null);
+    const [comparingLoading, setComparingLoading] = useState(false);
 
     // Month names
     const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -57,6 +65,49 @@ const App = () => {
     const showSnackbar = (message, severity = 'info') => setSnackbar({ open: true, message, severity });
 
     const selectedEmployees = data && Array.isArray(data) ? data.filter(d => selectedIds.includes(d.id)) : [];
+
+    // Toggle Compare Mode: OFF -> PRESENCE (OT=0) -> OVERTIME (OT=1) -> OFF
+    const handleToggleCompareMode = async () => {
+        let nextMode = 'off';
+        let otFilter = null;
+
+        if (compareMode === 'off') {
+            nextMode = 'presence';
+            otFilter = 0; // Normal hours only
+        } else if (compareMode === 'presence') {
+            nextMode = 'overtime';
+            otFilter = 1; // Overtime only
+        } else {
+            // Back to OFF
+            setCompareMode('off');
+            setComparisonData(null);
+            return;
+        }
+
+        // Fetch comparison data with filter
+        setComparingLoading(true);
+        try {
+            const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+            const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+            const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+            // Get all PTRJ IDs from current data
+            const ptrjIds = data
+                ?.filter(emp => emp.ptrjEmployeeID && emp.ptrjEmployeeID !== 'N/A')
+                .map(emp => emp.ptrjEmployeeID) || [];
+
+            const compData = await fetchComparisonData(startDate, endDate, ptrjIds, otFilter);
+            setComparisonData(compData);
+            setCompareMode(nextMode);
+
+            const modeText = nextMode === 'presence' ? 'Absensi (Normal)' : 'Lembur (Overtime)';
+            showSnackbar(`Mode Compare: ${modeText} aktif - ${Object.keys(compData).length} records`, 'info');
+        } catch (error) {
+            showSnackbar(`Gagal memuat comparison data: ${error.message}`, 'error');
+        } finally {
+            setComparingLoading(false);
+        }
+    };
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: '#f3f4f6' }}>
@@ -110,6 +161,27 @@ const App = () => {
                         <Tooltip title="Off"><Chip size="small" label="OFF" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#f1f5f9', color: '#64748b' }} /></Tooltip>
                         <Tooltip title="Cuti"><Chip size="small" icon={<FlightIcon style={{ fontSize: 12 }} />} label="C" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#eff6ff', color: '#1e40af' }} /></Tooltip>
                         <Tooltip title="Sakit"><Chip size="small" icon={<HospitalIcon style={{ fontSize: 12 }} />} label="S" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#fee2e2', color: '#b91c1c' }} /></Tooltip>
+
+                        {/* Compare Button - next to legend */}
+                        {data && data.length > 0 && (
+                            <Button
+                                variant={compareMode !== 'off' ? "contained" : "outlined"}
+                                size="small"
+                                color={compareMode === 'presence' ? "warning" : compareMode === 'overtime' ? "secondary" : "info"}
+                                startIcon={comparingLoading ? <CircularProgress size={14} color="inherit" /> : <CompareIcon />}
+                                onClick={handleToggleCompareMode}
+                                disabled={comparingLoading}
+                                sx={{
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                    fontSize: '0.75rem',
+                                    height: 28,
+                                    ml: 1
+                                }}
+                            >
+                                {compareMode === 'presence' ? 'Comp: Absen' : compareMode === 'overtime' ? 'Comp: Lembur' : 'Compare'}
+                            </Button>
+                        )}
                     </Box>
 
                     {/* RIGHT ACTIONS */}
@@ -134,7 +206,15 @@ const App = () => {
 
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 1, overflow: 'hidden' }}>
                 {activeTab === 'matrix' && (
-                    <AttendanceMatrix data={data || []} viewMode={viewMode} onDataUpdate={handleFetchData} selectedIds={selectedIds} onToggleSelect={setSelectedIds} />
+                    <AttendanceMatrix
+                        data={data || []}
+                        viewMode={viewMode}
+                        onDataUpdate={handleFetchData}
+                        selectedIds={selectedIds}
+                        onToggleSelect={setSelectedIds}
+                        compareMode={compareMode}
+                        comparisonData={comparisonData}
+                    />
                 )}
                 {activeTab === 'export' && (
                     <Box sx={{ p: 4, textAlign: 'center' }}><Typography variant="h6" color="text.secondary">Fitur Ekspor (Segera Hadir)</Typography></Box>
@@ -145,6 +225,13 @@ const App = () => {
                 <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
             </Snackbar>
             <AutomationDialog open={openAutoDialog} onClose={() => setOpenAutoDialog(false)} selectedEmployees={selectedEmployees} month={selectedMonth} year={selectedYear} />
+            <ComparisonDialog
+                open={openCompareDialog}
+                onClose={() => setOpenCompareDialog(false)}
+                selectedEmployees={selectedIds.length > 0 ? selectedEmployees : (data || [])}
+                month={selectedMonth}
+                year={selectedYear}
+            />
         </Box>
     );
 };

@@ -11,6 +11,7 @@ const { getPTRJMapping, matchPTRJEmployeeId } = require('./services/mappingServi
 const exportService = require('./services/exportService');
 const { updateEmployee, getAllEmployees, upsertEmployee } = require('./services/employeeMillService');
 const { saveAutomationData, startAutomationProcess } = require('./services/automationService');
+const { queryTaskRegData, compareWithTaskReg, getSyncSummaryByEmployee } = require('./services/comparisonService');
 
 require('dotenv').config();
 
@@ -528,10 +529,144 @@ app.patch('/api/employee-mill/:venusId', async (req, res) => {
     }
 });
 
+// --- Debug Routes ---
+
+// Debug endpoint to check attendance data for specific employee/date
+app.get('/api/debug/attendance', async (req, res) => {
+    try {
+        const { employee_id, date, month, year } = req.query;
+        const result = {
+            query: { employee_id, date, month, year },
+            data: {}
+        };
+
+        // Build date range
+        let startDate, endDate;
+        if (date) {
+            startDate = date;
+            endDate = date;
+        } else if (month && year) {
+            startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+            const lastDay = new Date(year, month, 0).getDate();
+            endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        } else {
+            return res.status(400).json({ success: false, error: 'Need either date or month+year' });
+        }
+
+        // Query HR_T_TAMachine_Summary
+        const attSql = employee_id
+            ? `SELECT * FROM [VenusHR14].[dbo].[HR_T_TAMachine_Summary] WHERE TADate BETWEEN '${startDate}' AND '${endDate}' AND EmployeeID = '${employee_id}'`
+            : `SELECT TOP 100 * FROM [VenusHR14].[dbo].[HR_T_TAMachine_Summary] WHERE TADate BETWEEN '${startDate}' AND '${endDate}'`;
+        result.data.attendance = await executeQuery(attSql);
+
+        // Query HR_H_Leave
+        const leaveSql = employee_id
+            ? `SELECT * FROM [VenusHR14].[dbo].[HR_H_Leave] WHERE RefDate BETWEEN '${startDate}' AND '${endDate}' AND EmployeeID = '${employee_id}'`
+            : `SELECT TOP 100 * FROM [VenusHR14].[dbo].[HR_H_Leave] WHERE RefDate BETWEEN '${startDate}' AND '${endDate}'`;
+        result.data.leave = await executeQuery(leaveSql);
+
+        // Query HR_T_Absence
+        const absSql = employee_id
+            ? `SELECT * FROM [VenusHR14].[dbo].[HR_T_Absence] WHERE FromDate <= '${endDate}' AND ToDate >= '${startDate}' AND EmployeeID = '${employee_id}'`
+            : `SELECT TOP 100 * FROM [VenusHR14].[dbo].[HR_T_Absence] WHERE FromDate <= '${endDate}' AND ToDate >= '${startDate}'`;
+        result.data.absence = await executeQuery(absSql);
+
+        // Query HR_T_TimeAttendanceWeekly (employee list source)
+        if (employee_id) {
+            const weeklySql = `SELECT DISTINCT EmployeeID FROM [VenusHR14].[dbo].[HR_T_TimeAttendanceWeekly] WHERE EmployeeID = '${employee_id}'`;
+            result.data.weeklyEmployee = await executeQuery(weeklySql);
+        }
+
+        // Summary
+        result.summary = {
+            attendanceCount: result.data.attendance?.length || 0,
+            leaveCount: result.data.leave?.length || 0,
+            absenceCount: result.data.absence?.length || 0,
+            inWeeklyTable: result.data.weeklyEmployee?.length > 0 || 'not checked'
+        };
+
+        res.json({ success: true, ...result });
+    } catch (error) {
+        console.error('Debug query error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- Comparison Routes (Millware Sync Validation) ---
+
+// Query PR_TASKREGLN data directly
+app.get('/api/comparison/task-reg', async (req, res) => {
+    try {
+        const { start_date, end_date, emp_codes, ot_filter } = req.query;
+
+        if (!start_date || !end_date) {
+            return res.status(400).json({ success: false, error: 'start_date and end_date required' });
+        }
+
+        const empCodeArray = emp_codes ? emp_codes.split(',') : null;
+        // ot_filter: 0 = normal hours only, 1 = overtime only, undefined/null = all
+        const otFilterValue = ot_filter !== undefined ? parseInt(ot_filter) : null;
+        const data = await queryTaskRegData(start_date, end_date, empCodeArray, otFilterValue);
+
+        res.json({
+            success: true,
+            data,
+            count: data.length,
+            period: { start: start_date, end: end_date },
+            otFilter: otFilterValue
+        });
+    } catch (error) {
+        console.error('Error querying PR_TASKREGLN:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Compare Venus attendance with Millware PR_TASKREGLN
+app.post('/api/comparison/compare', async (req, res) => {
+    try {
+        const { employees, startDate, endDate } = req.body;
+
+        if (!employees || !Array.isArray(employees) || !startDate || !endDate) {
+            return res.status(400).json({ success: false, error: 'employees array, startDate, endDate required' });
+        }
+
+        console.log(`[Comparison] Comparing ${employees.length} employees for ${startDate} to ${endDate}`);
+        const result = await compareWithTaskReg(employees, startDate, endDate);
+
+        res.json({
+            success: true,
+            ...result,
+            period: { start: startDate, end: endDate }
+        });
+    } catch (error) {
+        console.error('Error comparing data:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get sync summary by employee
+app.get('/api/comparison/summary', async (req, res) => {
+    try {
+        const { start_date, end_date, emp_codes } = req.query;
+
+        if (!start_date || !end_date) {
+            return res.status(400).json({ success: false, error: 'start_date and end_date required' });
+        }
+
+        const empCodeArray = emp_codes ? emp_codes.split(',') : null;
+        const data = await getSyncSummaryByEmployee(start_date, end_date, empCodeArray);
+
+        res.json({ success: true, data });
+    } catch (error) {
+        console.error('Error getting sync summary:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // --- Automation Routes ---
 
 app.post('/api/automation/run', async (req, res) => {
-    const { employees, month, year, startDate, endDate } = req.body;
+    const { employees, month, year, startDate, endDate, onlyOvertime } = req.body;
     if (!employees || !Array.isArray(employees)) {
         return res.status(400).json({ error: 'Invalid data format. Expected { employees: [] }' });
     }
@@ -539,9 +674,10 @@ app.post('/api/automation/run', async (req, res) => {
     try {
         console.log(`[Automation] Request to run for ${employees.length} employees (${month}/${year})`);
         if (startDate && endDate) console.log(`[Automation] Date Filter: ${startDate} to ${endDate}`);
+        if (onlyOvertime) console.log(`[Automation] Mode: ONLY OVERTIME`);
 
         // Save data to current_data.json (fixed filename)
-        saveAutomationData({ employees, month, year, startDate, endDate });
+        saveAutomationData({ employees, month, year, startDate, endDate, onlyOvertime });
         console.log(`[Automation] Data saved to current_data.json`);
 
         // Start process (uses current_data.json automatically)

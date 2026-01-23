@@ -294,10 +294,10 @@
                                                     ],
                                                     "elseSteps": [
                                                         {
-                                                            "comment": "Input REGULAR jika hadir (bukan annual leave)",
+                                                            "comment": "Input REGULAR jika hadir (bukan annual leave) DAN bukan mode Only Overtime",
                                                             "action": "if",
                                                             "params": {
-                                                                "condition": "attendance.status",
+                                                                "condition": "attendance.status && !metadata.onlyOvertime",
                                                                 "thenSteps": [
                                                                     {
                                                                         "action": "log",

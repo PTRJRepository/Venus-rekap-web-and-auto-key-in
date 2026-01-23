@@ -9,6 +9,12 @@ const axios = require('axios');
 const { parseISO, format, isValid, eachDayOfInterval, startOfMonth, endOfMonth, getDay, addDays, isSunday, isSaturday, differenceInMinutes } = require('date-fns');
 const { id } = require('date-fns/locale');
 
+// --- Constants ---
+const WORK_HOURS = {
+    NORMAL: 7.0,
+    SHORT: 5.0
+};
+
 // --- Leave Type Configuration ---
 // Leave types that should use task code "(GA9130) PERSONNEL ANNUAL LEAVE" in Millware
 // Excludes Sakit (Sick) and Haid (Menstrual) which have their own handling
@@ -339,8 +345,57 @@ const fetchAttendanceData = async (month, year) => {
             let checkIn = att ? formatTime(att.TACheckIn) : null;
             let checkOut = att ? formatTime(att.TACheckOut) : null;
 
-            // Priority 1: Absence (HR_T_Absence) - highest priority
-            if (absence) {
+            // Priority 1: Attendance Record (HR_T_TAMachine_Summary) - Reality
+            // If attendance exists (even partial), it takes precedence over everything else
+            if (att) {
+                // Calculate Hours
+                if (att.TACheckIn && att.TACheckOut) {
+                    const start = new Date(att.TACheckIn);
+                    const end = new Date(att.TACheckOut);
+                    let diffHrs = (end - start) / (1000 * 60 * 60);
+                    if (diffHrs < 0) diffHrs += 24; // Cross day fix
+
+                    // Business Logic Caps
+                    if (isSat) {
+                        regularHours = Math.min(diffHrs, WORK_HOURS.SHORT);
+                    } else {
+                        regularHours = Math.min(diffHrs, WORK_HOURS.NORMAL);
+                    }
+
+                    status = 'Hadir';
+                    cssClass = 'hours-full';
+
+                    // Simplified Display: Only show overtime if present
+                    if (otHours > 0) {
+                        display = `✓ +${otHours.toFixed(1)}h`; // Checkmark + overtime
+                        cssClass = 'hours-normal-overtime';
+                    } else {
+                        display = '✓'; // Just checkmark for normal attendance
+                        cssClass = 'hours-normal';
+                    }
+
+                } else {
+                    // Incomplete attendance record
+                    if (isSat) regularHours = WORK_HOURS.SHORT;
+                    else regularHours = WORK_HOURS.NORMAL;
+
+                    if (otHours > 0) {
+                        display = `⚠ +${otHours.toFixed(1)}h`; // Warning + overtime
+                    } else {
+                        display = '⚠'; // Warning for incomplete
+                    }
+
+                    if (att.TACheckIn && !att.TACheckOut) {
+                        status = 'Partial In';
+                        cssClass = 'hours-partial-check-in-only';
+                    } else {
+                        status = 'Partial Out';
+                        cssClass = 'hours-partial-check-out-only';
+                    }
+                }
+            }
+            // Priority 2: Absence (HR_T_Absence)
+            else if (absence) {
                 if (absence.isUnpaid) {
                     status = 'ALFA';
                     display = 'ALFA';
@@ -351,12 +406,7 @@ const fetchAttendanceData = async (month, year) => {
                     cssClass = `absence-${absence.type.toLowerCase().replace(/ /g, '-')}`;
                 }
             }
-            // Priority 2: Attendance Record (HR_T_TAMachine_Summary) - if employee clocked in, they're present
-            else if (att) {
-                // Has attendance data - will be processed below in the attendance processing block
-                // Setting status here, detailed processing happens later
-            }
-            // Priority 3: Leave (HR_H_Leave) - only if NO attendance record
+            // Priority 3: Leave (HR_H_Leave)
             else if (leave) {
                 status = leave.type;
                 display = leave.type;
@@ -378,7 +428,7 @@ const fetchAttendanceData = async (month, year) => {
                 } else if (isHol) {
                     // Holiday = Auto Hadir with LBR display
                     status = 'Hadir';  // Counts as HK
-                    regularHours = isSat ? 5 : 7;  // Holiday gets regular hours
+                    regularHours = isSat ? WORK_HOURS.SHORT : WORK_HOURS.NORMAL;  // Holiday gets regular hours
                     display = 'LBR';
                     cssClass = 'hours-holiday';
                     if (otHours > 0) {
@@ -390,55 +440,6 @@ const fetchAttendanceData = async (month, year) => {
                     status = 'ALFA';
                     display = 'ALFA';
                     cssClass = 'hours-alfa';
-                }
-            }
-
-            // Process attendance record if exists (from database) - attendance overrides leave
-            if (att && !absence) {
-                // Calculate Hours
-                if (att.TACheckIn && att.TACheckOut) {
-                    const start = new Date(att.TACheckIn);
-                    const end = new Date(att.TACheckOut);
-                    let diffHrs = (end - start) / (1000 * 60 * 60);
-                    if (diffHrs < 0) diffHrs += 24; // Cross day fix
-
-                    // Business Logic Caps
-                    if (isSat) {
-                        regularHours = Math.min(diffHrs, 5.0);
-                    } else {
-                        regularHours = Math.min(diffHrs, 7.0);
-                    }
-
-                    status = 'Hadir';
-                    cssClass = 'hours-full';
-
-                    // Simplified Display: Only show overtime if present
-                    if (otHours > 0) {
-                        display = `✓ +${otHours.toFixed(1)}h`; // Checkmark + overtime
-                        cssClass = 'hours-normal-overtime';
-                    } else {
-                        display = '✓'; // Just checkmark for normal attendance
-                        cssClass = 'hours-normal';
-                    }
-
-                } else {
-                    // Incomplete attendance record
-                    if (isSat) regularHours = 5;
-                    else regularHours = 7;
-
-                    if (otHours > 0) {
-                        display = `⚠ +${otHours.toFixed(1)}h`; // Warning + overtime
-                    } else {
-                        display = '⚠'; // Warning for incomplete
-                    }
-
-                    if (att.TACheckIn && !att.TACheckOut) {
-                        status = 'Partial In';
-                        cssClass = 'hours-partial-check-in-only';
-                    } else {
-                        status = 'Partial Out';
-                        cssClass = 'hours-partial-check-out-only';
-                    }
                 }
             }
 
@@ -517,11 +518,10 @@ const fetchAbsencesRaw = async (start, end) => {
 // --- Utils ---
 const formatDateSQL = (dateVal) => {
     if (!dateVal) return null;
-    // CRITICAL FIX: Always extract date-only part, even from ISO string
-    // SQL Server returns "2025-09-01T00:00:00.000Z" but we need "2025-09-01"
+    // CRITICAL FIX: Use date-fns format to respect local/parsed time and avoid UTC shifting
     const d = typeof dateVal === 'string' ? new Date(dateVal) : new Date(dateVal);
     if (isNaN(d.getTime())) return null;
-    return d.toISOString().split('T')[0]; // Always return YYYY-MM-DD
+    return format(d, 'yyyy-MM-dd');
 };
 
 
@@ -677,7 +677,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
             else if (otHours > 0) {
                 // If there's overtime, assume they worked regular hours too
                 if (isHol) {
-                    regularHours = isSat ? 5 : 7; // Holiday = paid regular hours
+                    regularHours = isSat ? WORK_HOURS.SHORT : WORK_HOURS.NORMAL; // Holiday = paid regular hours
                     status = 'Hadir';
                     display = `LBR +${otHours.toFixed(1)}h`;
                     cssClass = 'hours-normal-overtime';
@@ -687,12 +687,12 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                     display = `OFF +${otHours.toFixed(1)}h`;
                     cssClass = 'hours-overtime-only';
                 } else if (isSat) {
-                    regularHours = 5; // Saturday = 5 hours regular
+                    regularHours = WORK_HOURS.SHORT; // Saturday = 5 hours regular
                     status = 'Hadir';
                     display = `✓ +${otHours.toFixed(1)}h`;
                     cssClass = 'hours-normal-overtime';
                 } else {
-                    regularHours = 7; // Weekday = 7 hours regular
+                    regularHours = WORK_HOURS.NORMAL; // Weekday = 7 hours regular
                     status = 'Hadir';
                     display = `✓ +${otHours.toFixed(1)}h`;
                     cssClass = 'hours-normal-overtime';
@@ -715,7 +715,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                 status = 'Hadir';  // Counts as HK
                 display = 'LBR';
                 cssClass = 'hours-holiday';
-                regularHours = isSat ? 5 : 7;
+                regularHours = isSat ? WORK_HOURS.SHORT : WORK_HOURS.NORMAL;
             }
             // Priority 5: No overtime, no record on working day = ALFA
             else {

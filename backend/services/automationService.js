@@ -82,6 +82,7 @@ const saveAutomationData = (data) => {
     const year = data.year || new Date().getFullYear();
     const startDate = data.startDate || null;
     const endDate = data.endDate || null;
+    const onlyOvertime = data.onlyOvertime || false;
 
     // Transform to engine format with filtering
     const transformedData = transformEmployeeData(employees, month, year, startDate, endDate);
@@ -97,12 +98,13 @@ const saveAutomationData = (data) => {
             period_start: firstDay,
             period_end: endDay,
             total_employees: transformedData.length,
-            source: 'web_interface'
+            source: 'web_interface',
+            onlyOvertime: onlyOvertime
         },
         data: transformedData
     };
 
-    console.log(`[Automation] Saving ${transformedData.length} employees with attendance data`);
+    console.log(`[Automation] Saving ${transformedData.length} employees${onlyOvertime ? ' (ONLY OVERTIME mode)' : ''}`);
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));
     return filePath;
 };

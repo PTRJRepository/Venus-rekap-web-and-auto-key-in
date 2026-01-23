@@ -70,4 +70,43 @@ export const updateEmployeeMill = async (venusEmployeeId, updates) => {
     }
 };
 
+// Fetch comparison data from db_ptrj for sync status indicators
+export const fetchComparisonData = async (startDate, endDate, empCodes = null, otFilter = null) => {
+    try {
+        const params = { start_date: startDate, end_date: endDate };
+        if (empCodes && empCodes.length > 0) {
+            params.emp_codes = empCodes.join(',');
+        }
+        if (otFilter !== null) {
+            params.ot_filter = otFilter;
+        }
+        const response = await apiClient.get('/comparison/task-reg', { params });
+
+        // Transform to lookup map: { "PTRJ_ID_YYYY-MM-DD": { hours, taskCode, synced: true } }
+        const comparisonMap = {};
+        if (response.data.success && response.data.data) {
+            response.data.data.forEach(record => {
+                const dateStr = record.TrxDate ? record.TrxDate.substring(0, 10) : null;
+                if (dateStr && record.EmpCode) {
+                    const key = `${record.EmpCode}_${dateStr}`;
+                    if (!comparisonMap[key]) {
+                        comparisonMap[key] = {
+                            hours: 0,
+                            records: [],
+                            synced: true
+                        };
+                    }
+                    comparisonMap[key].hours += parseFloat(record.Hours || 0);
+                    comparisonMap[key].records.push(record);
+                }
+            });
+        }
+        return comparisonMap;
+    } catch (error) {
+        console.error('Error fetching comparison data:', error);
+        throw error;
+    }
+};
+
 export default apiClient;
+
