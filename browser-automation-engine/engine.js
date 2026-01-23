@@ -169,7 +169,19 @@ class AutomationEngine {
             args: [
                 '--start-maximized',
                 '--no-sandbox',
-                '--disable-setuid-sandbox'
+                '--disable-setuid-sandbox',
+                // Optimasi Resource untuk N Instances
+                '--disable-dev-shm-usage', // Mencegah crash memori di container/low-ram
+                '--disable-gpu', // Hemat resource GPU
+                '--no-first-run',
+                '--no-zygote',
+                '--disable-extensions', // Matikan ekstensi yang memakan RAM
+                '--disable-background-networking',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-breakpad',
+                '--disable-component-extensions-with-background-pages',
+                '--disable-features=TranslateUI,BlinkGenPropertyTrees'
             ]
         };
 
