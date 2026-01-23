@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
+const { compareWithTaskReg } = require('./comparisonService');
 
 // Define paths
 const ENGINE_DIR = path.resolve(__dirname, '../../browser-automation-engine');
@@ -71,7 +72,7 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
 /**
  * Saves input data to a temporary JSON file for the automation engine
  */
-const saveAutomationData = (data) => {
+const saveAutomationData = async (data) => {
     ensureDataDir();
     // Use fixed filename instead of timestamped - overwrites previous data
     const fileName = 'current_data.json';
@@ -83,14 +84,57 @@ const saveAutomationData = (data) => {
     const startDate = data.startDate || null;
     const endDate = data.endDate || null;
     const onlyOvertime = data.onlyOvertime || false;
+    const syncMismatchesOnly = data.syncMismatchesOnly || false;
 
     // Transform to engine format with filtering
-    const transformedData = transformEmployeeData(employees, month, year, startDate, endDate);
+    let transformedData = transformEmployeeData(employees, month, year, startDate, endDate);
 
     // Calculate period
     const firstDay = startDate || `${year}-${String(month).padStart(2, '0')}-01`;
     const lastDay = new Date(year, month, 0).getDate();
     const endDay = endDate || `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    // --- FILTER: Sync Mismatches Only ---
+    if (syncMismatchesOnly) {
+        console.log(`[Automation] 🔍 Filtering for MISMATCHES ONLY (${firstDay} to ${endDay})...`);
+        
+        // Use comparison service to check status
+        const comparison = await compareWithTaskReg(transformedData, firstDay, endDay);
+        const resultsMap = {};
+        
+        // Index results by EmployeeID + Date
+        comparison.results.forEach(res => {
+            const key = `${res.employeeId}_${res.date}`;
+            resultsMap[key] = res.syncStatus;
+        });
+
+        // Filter employees and their attendance dates
+        transformedData = transformedData.map(emp => {
+            const newAttendance = {};
+            let hasMismatches = false;
+
+            Object.entries(emp.Attendance || {}).forEach(([date, att]) => {
+                // Check sync status
+                const key = `${emp.EmployeeID}_${date}`;
+                const status = resultsMap[key];
+
+                // Keep ONLY if status is NOT 'synced' (meaning it is 'not_synced' or 'mismatch')
+                // AND ensure we ignore dates that weren't even in the comparison (e.g. ALFA)
+                if (status && status !== 'synced') {
+                    newAttendance[date] = att;
+                    hasMismatches = true;
+                }
+            });
+
+            // Return employee with filtered attendance (or null if no mismatches)
+            if (hasMismatches) {
+                return { ...emp, Attendance: newAttendance };
+            }
+            return null;
+        }).filter(emp => emp !== null);
+
+        console.log(`[Automation] 📉 Filtered down to ${transformedData.length} employees with mismatches.`);
+    }
 
     const payload = {
         metadata: {
@@ -99,7 +143,8 @@ const saveAutomationData = (data) => {
             period_end: endDay,
             total_employees: transformedData.length,
             source: 'web_interface',
-            onlyOvertime: onlyOvertime
+            onlyOvertime: onlyOvertime,
+            syncMismatchesOnly: syncMismatchesOnly
         },
         data: transformedData
     };
@@ -133,10 +178,39 @@ const startAutomationProcess = () => {
         stdio: ['ignore', 'pipe', 'pipe']
     });
 
+    currentProcess = child;
+
+    child.on('exit', () => {
+        currentProcess = null;
+    });
+
     return child;
 };
 
+const stopAutomationProcess = () => {
+    if (currentProcess) {
+        if (process.platform === 'win32') {
+            try {
+                // Force kill process tree on Windows
+                exec(`taskkill /pid ${currentProcess.pid} /T /F`);
+                console.log(`[Automation] Force killed process ${currentProcess.pid}`);
+            } catch (e) {
+                console.error('[Automation] Failed to taskkill:', e);
+            }
+        } else {
+            currentProcess.kill('SIGINT');
+        }
+        currentProcess = null;
+        return true;
+    }
+    return false;
+};
+
+// Track active process
+let currentProcess = null;
+
 module.exports = {
     saveAutomationData,
-    startAutomationProcess
+    startAutomationProcess,
+    stopAutomationProcess
 };

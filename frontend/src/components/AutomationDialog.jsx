@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Box, LinearProgress, Switch, FormControlLabel } from '@mui/material';
 import PlayIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import StopIcon from '@mui/icons-material/Stop';
 import RobotIcon from '@mui/icons-material/SmartToy';
 
 const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compareMode, comparisonData }) => {
@@ -10,6 +11,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [onlyOvertime, setOnlyOvertime] = useState(false);
+    const [filterSynced, setFilterSynced] = useState(true);
     const logEndRef = useRef(null);
 
     // Auto-set Overtime Mode if Compare Mode is Overtime
@@ -31,8 +33,9 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
         let employeesToProcess = selectedEmployees;
         let modeLog = "";
 
-        if (compareMode && compareMode !== 'off' && comparisonData) {
-            addLog('info', `Filtering for ${compareMode === 'presence' ? 'Presence' : 'Overtime'} Mismatches...`);
+        // Only filter if compareMode is active AND filterSynced is TRUE
+        if (compareMode && compareMode !== 'off' && comparisonData && filterSynced) {
+            addLog('info', `🔍 STRICT FILTERING: Keeping only ${compareMode.toUpperCase()} Mismatches/Missing...`);
 
             employeesToProcess = selectedEmployees.map(emp => {
                 const ptrjId = emp.ptrjEmployeeID;
@@ -47,22 +50,68 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                     const key = `${ptrjId}_${dateStr}`;
                     const millwareRecord = comparisonData[key];
 
+                    // Date range filter (if applied)
+                    if (startDate && dateStr < startDate) return;
+                    if (endDate && dateStr > endDate) return;
+
+                    let shouldInclude = false;
+                    let reason = "";
+
                     // Filter Logic based on Compare Mode
                     if (compareMode === 'presence') {
-                        // Keep if Hadir AND Not in Millware
-                        if (day.status === 'Hadir' && !millwareRecord) {
-                            filteredAttendance[new Date(dateStr).getDate()] = day;
-                            hasMismatch = true;
+                        // Include if Hadir AND (Not in Millware OR Mismatch)
+                        if (day.status === 'Hadir') {
+                            if (!millwareRecord) {
+                                shouldInclude = true;
+                                reason = "Checking-in (Missing in Millware)";
+                            } else {
+                                // Strictly exclude if record exists
+                                shouldInclude = false;
+                            }
                         }
                     } else if (compareMode === 'overtime') {
                         // Keep if OT > 0 AND (Not in Millware OR Mismatch)
                         const ot = day.overtimeHours || 0;
                         if (ot > 0) {
-                            if (!millwareRecord || Math.abs(millwareRecord.hours - ot) >= 0.1) {
-                                filteredAttendance[new Date(dateStr).getDate()] = day;
-                                hasMismatch = true;
+                            const millwareOt = (millwareRecord && millwareRecord.ot !== undefined) ? millwareRecord.ot : (millwareRecord ? millwareRecord.hours : 0);
+
+                            if (!millwareRecord) {
+                                shouldInclude = true;
+                                reason = `OT ${ot}h Missing in backend`;
+                            } else if (Math.abs(millwareOt - ot) >= 0.1) {
+                                shouldInclude = true;
+                                reason = `OT Mismatch (Ven:${ot} vs Mill:${millwareOt})`;
                             }
                         }
+                    }
+
+                    if (shouldInclude) {
+                        // --- FALLBACK LOGIC FOR ZERO HOURS ---
+                        // Exactly match AttendanceMatrix.jsx display logic
+                        // If status is Hadir/Partial In but Regular Hours is 0, infer from Day of Week
+                        let finalRegularHours = day.regularHours || 0;
+                        const statusUpper = (day.status || '').toUpperCase();
+                        const isAnnualLeave = day.isAnnualLeave || ['CT', 'CUTI', 'I', 'IZIN', 'S', 'SAKIT', 'SD'].some(s => statusUpper.startsWith(s));
+
+                        // Check for Hadir, Partial In, or Annual Leave types
+                        if (finalRegularHours === 0 && (statusUpper === 'HADIR' || statusUpper === 'PARTIAL IN' || isAnnualLeave)) {
+                            const dateObj = new Date(dateStr);
+                            const dayNum = dateObj.getDay(); // 0 = Sunday
+
+                            // Logic: Mon-Fri = 7, Sat = 5, Sun = 0
+                            if (dayNum !== 0) {
+                                finalRegularHours = (dayNum === 6) ? 5 : 7;
+                                reason += ` (Auto-fixed 0h -> ${finalRegularHours}h)`;
+                            }
+                        }
+
+                        // Update the day object with fixed hours
+                        const fixedDay = { ...day, regularHours: finalRegularHours };
+
+                        // VALIDATION LOGGING
+                        addLog('info', `   • [${dateStr}] ${reason} -> Reg:${finalRegularHours}h, OT:${day.overtimeHours}h`);
+                        filteredAttendance[new Date(dateStr).getDate()] = fixedDay;
+                        hasMismatch = true;
                     }
                 });
 
@@ -75,10 +124,12 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
             modeLog = ` (Filtered: ${employeesToProcess.length} employees with mismatches)`;
 
             if (employeesToProcess.length === 0) {
-                addLog('info', 'No mismatched records found to sync.');
+                addLog('info', '✅ All selected records are already synced! Nothing to do.');
                 setStatus('completed');
                 return;
             }
+        } else {
+            if (!filterSynced) addLog('info', '⚠️ Syncing ALL selected dates (Filter Disabled)');
         }
 
         addLog('info', `Starting automation for ${employeesToProcess.length} employees (${month}/${year})${modeLog}`);
@@ -138,6 +189,16 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
         setLogs(prev => [...prev, { type, message, time: new Date().toLocaleTimeString() }]);
     };
 
+    const handleStop = async () => {
+        try {
+            await fetch('/api/automation/stop', { method: 'POST' });
+            addLog('info', '🛑 Stopping automation process...');
+            setStatus('stopped');
+        } catch (e) {
+            addLog('error', 'Failed to stop process');
+        }
+    };
+
     return (
         <Dialog open={open} onClose={status === 'running' ? undefined : onClose} maxWidth="md" fullWidth PaperProps={{ sx: { minHeight: '60vh', bgcolor: '#1e1e1e', color: '#e0e0e0' } }}>
             <DialogTitle sx={{ borderBottom: '1px solid #333', display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -181,6 +242,19 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                             label={<Typography variant="body2" sx={{ color: onlyOvertime ? '#fb8c00' : '#888' }}>Only Overtime</Typography>}
                             sx={{ ml: 2 }}
                         />
+                        {comparisonData && (
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={filterSynced}
+                                        onChange={(e) => setFilterSynced(e.target.checked)}
+                                        color="error"
+                                    />
+                                }
+                                label={<Typography variant="body2" sx={{ color: filterSynced ? '#f44336' : '#888', fontWeight: filterSynced ? 'bold' : 'normal' }}>Filter Synced Matches</Typography>}
+                                sx={{ ml: 2 }}
+                            />
+                        )}
                     </Box>
 
                     {status === 'running' && <LinearProgress color="success" sx={{ mt: 1 }} />}
@@ -198,6 +272,11 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
             </DialogContent >
             <DialogActions sx={{ borderTop: '1px solid #333', p: 2 }}>
                 <Button onClick={onClose} disabled={status === 'running'} sx={{ color: '#aaa' }}>Close</Button>
+                {status === 'running' && (
+                    <Button variant="contained" color="error" startIcon={<StopIcon />} onClick={handleStop}>
+                        Stop
+                    </Button>
+                )}
                 {status !== 'running' && (
                     <Button variant="contained" color="success" startIcon={status === 'idle' ? <PlayIcon /> : <RefreshIcon />} onClick={handleRun}>
                         {status === 'idle' ? 'Run' : 'Rerun'}

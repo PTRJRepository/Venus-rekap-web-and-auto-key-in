@@ -78,6 +78,8 @@ const AttendancePage = () => {
     const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
     const [isAutomationOpen, setIsAutomationOpen] = useState(false);
     const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+    const [comparisonData, setComparisonData] = useState(null);
+    const [compareMode, setCompareMode] = useState('off');
 
     const months = getMonths();
     const years = getYears();
@@ -128,6 +130,27 @@ const AttendancePage = () => {
                 )
             );
         }
+    };
+
+    const handleComparisonComplete = (data) => {
+        const map = {};
+        if (data && data.results) {
+            data.results.forEach(r => {
+                const key = `${r.ptrjId}_${r.date}`;
+                // If not_synced, we don't put it in map (or put null) so !map[key] works
+                // If synced/mismatch, we put details
+                if (r.syncStatus !== 'not_synced' && r.details) {
+                    map[key] = {
+                        hours: r.details.millwareHours,
+                        normal: r.details.millwareNormal,
+                        ot: r.details.millwareOT
+                    };
+                }
+            });
+        }
+        setComparisonData(map);
+        if (compareMode === 'off') setCompareMode('presence');
+        // Don't close dialog automatically, let user review results
     };
 
     return (
@@ -269,21 +292,34 @@ const AttendancePage = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
                         {/* Compare Button - Always show when data exists */}
                         {attendanceData.length > 0 && (
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                color="info"
-                                startIcon={<CompareIcon />}
-                                onClick={() => setIsComparisonOpen(true)}
-                                sx={{
-                                    textTransform: 'none',
-                                    fontWeight: 600,
-                                    fontSize: '0.8rem',
-                                    mr: 1
-                                }}
-                            >
-                                Compare
-                            </Button>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Button
+                                    variant={compareMode !== 'off' ? "contained" : "outlined"}
+                                    size="small"
+                                    color="info"
+                                    startIcon={<CompareIcon />}
+                                    onClick={() => setIsComparisonOpen(true)}
+                                    sx={{
+                                        textTransform: 'none',
+                                        fontWeight: 600,
+                                        fontSize: '0.8rem'
+                                    }}
+                                >
+                                    Compare
+                                </Button>
+                                {comparisonData && compareMode !== 'off' && (
+                                    <Select
+                                        size="small"
+                                        value={compareMode}
+                                        onChange={(e) => setCompareMode(e.target.value)}
+                                        sx={{ height: 32, fontSize: '0.8rem', bgcolor: 'white' }}
+                                    >
+                                        <MenuItem value="presence">Presence</MenuItem>
+                                        <MenuItem value="overtime">Overtime</MenuItem>
+                                        <MenuItem value="off">Off</MenuItem>
+                                    </Select>
+                                )}
+                            </Box>
                         )}
 
                         {/* Sync Button - Shows when employees ARE selected */}
@@ -432,6 +468,8 @@ const AttendancePage = () => {
                             onDataUpdate={handleDataUpdate}
                             selectedIds={selectedEmployeeIds}
                             onToggleSelect={setSelectedEmployeeIds}
+                            compareMode={compareMode}
+                            comparisonData={comparisonData}
                         />
                     </Box>
                 )}
@@ -444,6 +482,8 @@ const AttendancePage = () => {
                 selectedEmployees={attendanceData.filter(e => selectedEmployeeIds.includes(e.id))}
                 month={selectedMonth}
                 year={selectedYear}
+                compareMode={compareMode}
+                comparisonData={comparisonData}
             />
 
             {/* Comparison Dialog */}
@@ -456,9 +496,12 @@ const AttendancePage = () => {
                 }
                 month={selectedMonth}
                 year={selectedYear}
+                onComparisonComplete={handleComparisonComplete}
             />
         </Box>
     );
 };
 
 export default AttendancePage;
+
+

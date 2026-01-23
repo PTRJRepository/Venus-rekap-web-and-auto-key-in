@@ -438,6 +438,54 @@ const actions = {
     },
 
     /**
+     * Check element state (disabled, value, etc.) and save to context
+     */
+    checkElementState: async (page, params, context) => {
+        const { selector, index, saveTo } = params;
+        console.log(`🔍 Checking state of: ${selector}${index !== undefined ? `[${index}]` : ''}`);
+
+        try {
+            // Wait briefly for element (optional)
+            try {
+                await page.waitForFunction((sel, idx) => {
+                    const els = document.querySelectorAll(sel);
+                    const visibleEls = Array.from(els).filter(el => el.offsetParent !== null);
+                    return visibleEls.length > (idx || 0);
+                }, { timeout: 2000 }, selector, index || 0);
+            } catch (e) { }
+
+            const state = await page.evaluate((sel, idx) => {
+                const els = document.querySelectorAll(sel);
+                const visibleEls = Array.from(els).filter(el => el.offsetParent !== null); // Filter visible only
+                const el = visibleEls[idx || 0];
+
+                if (!el) return { exists: false };
+
+                return {
+                    exists: true,
+                    disabled: el.disabled || el.classList.contains('aspNetDisabled') || el.getAttribute('aria-disabled') === 'true' || el.hasAttribute('disabled'),
+                    readonly: el.readOnly || el.hasAttribute('readonly'),
+                    value: el.value || '',
+                    text: el.textContent || ''
+                };
+            }, selector, index);
+
+            console.log(`  📊 State: ${JSON.stringify(state)}`);
+
+            if (saveTo) {
+                context[saveTo] = state;
+            }
+
+            // Allow storing specific property directly if requested (e.g. saveTo="isTaskDisabled", listProperty="disabled")
+            // But usually context[saveTo].disabled is enough.
+
+        } catch (e) {
+            console.error(`  ⚠️ Error checking state: ${e.message}`);
+            if (saveTo) context[saveTo] = { exists: false, error: e.message };
+        }
+    },
+
+    /**
      * Validasi apakah element memiliki text (untuk memastikan data berhasil diinput)
      */
     validateText: async (page, params) => {
@@ -498,14 +546,36 @@ const actions = {
         const TASK_REGISTER_URL = 'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx';
         const failedItems = [];
 
+        // RESUME LOGIC
+        const loopId = `${itemsPath}`; // Unique identifier for this loop
+        let lastSuccessIndex = -1;
+
+        // Try to get resume state if available
+        if (engine && engine.recoveryManager) {
+            lastSuccessIndex = engine.recoveryManager.getLoopState(loopId);
+            if (lastSuccessIndex >= 0) {
+                console.log(`⏩ RESUME: Skipping ${lastSuccessIndex + 1} previously completed items.`);
+            }
+        }
+
         console.log(`\n🔁 Loop forEach: ${items.length} items dari "${itemsPath}"`);
         console.log(`   Variable name: "${itemName}"`);
         console.log(`   Steps: ${steps.length} actions\n`);
 
         for (let i = 0; i < items.length; i++) {
+            // Check if we should skip this item (Resume feature)
+            if (i <= lastSuccessIndex) {
+                continue;
+            }
+
             const item = items[i];
             const itemLabel = item.EmployeeName || item.PTRJEmployeeID || `Item ${i + 1}`;
             console.log(`\n  ┌─ Iteration ${i + 1}/${items.length}: ${itemLabel} ─────`);
+
+            // Mark as STARTED to handle crash recovery (skip this item if we crash)
+            if (engine && engine.recoveryManager) {
+                engine.recoveryManager.saveLoopProgress(loopId, i, 'STARTED');
+            }
 
             // Buat context baru dengan item saat ini
             const loopContext = {
@@ -519,6 +589,12 @@ const actions = {
             try {
                 // Execute steps dengan context baru
                 await engine.executeSteps(steps, loopContext, 2);
+
+                // Save progress AFTER successful iteration
+                if (engine && engine.recoveryManager) {
+                    engine.recoveryManager.saveLoopState(loopId, i);
+                }
+
                 console.log(`  └─────────────────────────\n`);
             } catch (error) {
                 // ═══ ERROR RECOVERY ═══
@@ -676,9 +752,9 @@ const actions = {
         if (typeof condition === 'string') {
             // CHECK: Is this an expression or a simple variable?
             // If it contains operators, treat as expression
-            if (condition.includes(' === ') || condition.includes(' !== ') || condition.includes(' == ') || condition.includes(' != ') || 
+            if (condition.includes(' === ') || condition.includes(' !== ') || condition.includes(' == ') || condition.includes(' != ') ||
                 condition.includes(' || ') || condition.includes(' && ') || condition.includes(' > ') || condition.includes(' < ')) {
-                
+
                 try {
                     // Evaluate expression using context variables
                     const fn = new Function('context', `with(context) { return ${condition}; }`);

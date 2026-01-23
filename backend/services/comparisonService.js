@@ -114,10 +114,17 @@ const compareWithTaskReg = async (venusData, startDate, endDate) => {
 
             if (millwareRecords && millwareRecords.length > 0) {
                 // Record found in Millware
-                const totalHours = millwareRecords.reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
-                const venusHours = (day.regularHours || 0) + (day.overtimeHours || 0);
+                const normalHours = millwareRecords.filter(r => r.OT === 0).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
+                const otHours = millwareRecords.filter(r => r.OT === 1).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
+                const totalHours = normalHours + otHours;
 
-                if (Math.abs(totalHours - venusHours) < 0.1) {
+                const venusRegular = (day.regularHours || 0);
+                const venusOt = (day.overtimeHours || 0);
+                const venusTotal = venusRegular + venusOt;
+
+                // Sync logic: match total hours (simplest for general status)
+                // But frontend can use granular data for specific modes
+                if (Math.abs(totalHours - venusTotal) < 0.1) {
                     status = 'synced';
                     synced++;
                 } else {
@@ -127,7 +134,9 @@ const compareWithTaskReg = async (venusData, startDate, endDate) => {
 
                 details = {
                     millwareHours: totalHours,
-                    venusHours: venusHours,
+                    millwareNormal: normalHours,
+                    millwareOT: otHours,
+                    venusHours: venusTotal,
                     records: millwareRecords.length
                 };
             } else {

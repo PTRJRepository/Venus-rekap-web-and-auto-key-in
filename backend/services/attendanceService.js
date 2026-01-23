@@ -411,6 +411,8 @@ const fetchAttendanceData = async (month, year) => {
                 status = leave.type;
                 display = leave.type;
                 cssClass = `leave-${leave.type.toLowerCase()}`;
+                // Set regular hours for leave (Sat=5, Others=7) so automation knows what to input
+                regularHours = isSat ? WORK_HOURS.SHORT : WORK_HOURS.NORMAL;
             }
             // Priority 4: No Record - Auto-Hadir for OFF/Holiday, ALFA for working days
             else {
@@ -441,6 +443,12 @@ const fetchAttendanceData = async (month, year) => {
                     display = 'ALFA';
                     cssClass = 'hours-alfa';
                 }
+            }
+
+            // FINAL CONSISTENCY CHECK (Sync with Frontend Logic)
+            // If status is Hadir/Partial In/Out but regularHours is 0, default to standard working hours.
+            if ((status === 'Hadir' || status === 'Partial In' || status === 'Partial Out') && regularHours <= 0 && !isSun) {
+                regularHours = isSat ? WORK_HOURS.SHORT : WORK_HOURS.NORMAL;
             }
 
             empData.attendance[dayNum] = {
@@ -722,6 +730,12 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                 status = 'ALFA';
                 display = 'ALFA';
                 cssClass = 'hours-alfa';
+            }
+
+            // FINAL CONSISTENCY CHECK (Sync with Frontend Logic)
+            // If status is Hadir/Partial In/Out but regularHours is 0, default to standard working hours.
+            if ((status === 'Hadir' || status === 'Partial In' || status === 'Partial Out') && regularHours <= 0 && !isSun) {
+                regularHours = isSat ? WORK_HOURS.SHORT : WORK_HOURS.NORMAL;
             }
 
             empData.attendance[dayNum] = {

@@ -276,19 +276,22 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                                             const ot = d.overtimeHours || 0;
                                             cellContent = ot > 0 ? <span style={{ color: '#c2410c', fontWeight: 700 }}>{ot}</span> : '-';
                                         } else if (viewMode === 'detail') {
-                                            // Calculate regular hours based on day: Friday/Saturday = 5h, others = 7h
+                                            // WORK_HOURS Constants (Must match backend)
+                                            const WORK_HOURS = { NORMAL: 7, SHORT: 5 };
+                                            
+                                            // Calculate regular hours based on day: Saturday = 5h, others = 7h
                                             const date = new Date(d.date);
-                                            const dayOfWeek = date.getDay(); // 0=Sunday, 5=Friday, 6=Saturday
-                                            const isFridayOrSat = dayOfWeek === 5 || dayOfWeek === 6;
+                                            const dayOfWeek = date.getDay(); // 0=Sunday, 6=Saturday
+                                            const isShortDay = dayOfWeek === 6;
 
                                             // If Hadir or Partial In, use calculated hours; otherwise use 0
                                             let reg = 0;
-                                            if (d.status === 'Hadir' || d.status === 'Partial In') {
-                                                reg = d.regularHours > 0 ? d.regularHours : (isFridayOrSat ? 5 : 7);
+                                            if (['Hadir', 'Partial In', 'Partial Out'].includes(d.status)) {
+                                                reg = d.regularHours > 0 ? d.regularHours : (dayOfWeek === 0 ? 0 : (isShortDay ? WORK_HOURS.SHORT : WORK_HOURS.NORMAL));
                                             }
                                             const ot = d.overtimeHours || 0;
 
-                                            if (d.status === 'Hadir' || d.status === 'Partial In') {
+                                            if (['Hadir', 'Partial In', 'Partial Out'].includes(d.status)) {
                                                 cellContent = <span>{reg}{ot > 0 ? <span style={{ color: '#c2410c' }}>+{ot}</span> : ''}</span>;
                                             } else {
                                                 cellContent = st.label; // Show status label for non-hadir

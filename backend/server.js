@@ -666,7 +666,7 @@ app.get('/api/comparison/summary', async (req, res) => {
 // --- Automation Routes ---
 
 app.post('/api/automation/run', async (req, res) => {
-    const { employees, month, year, startDate, endDate, onlyOvertime } = req.body;
+    const { employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly } = req.body;
     if (!employees || !Array.isArray(employees)) {
         return res.status(400).json({ error: 'Invalid data format. Expected { employees: [] }' });
     }
@@ -675,9 +675,10 @@ app.post('/api/automation/run', async (req, res) => {
         console.log(`[Automation] Request to run for ${employees.length} employees (${month}/${year})`);
         if (startDate && endDate) console.log(`[Automation] Date Filter: ${startDate} to ${endDate}`);
         if (onlyOvertime) console.log(`[Automation] Mode: ONLY OVERTIME`);
+        if (syncMismatchesOnly) console.log(`[Automation] Mode: SYNC MISMATCHES ONLY`);
 
         // Save data to current_data.json (fixed filename)
-        saveAutomationData({ employees, month, year, startDate, endDate, onlyOvertime });
+        await saveAutomationData({ employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly });
         console.log(`[Automation] Data saved to current_data.json`);
 
         // Start process (uses current_data.json automatically)
@@ -742,6 +743,15 @@ app.post('/api/automation/run', async (req, res) => {
         if (!res.headersSent) {
             res.status(500).json({ error: error.message });
         }
+    }
+});
+
+app.post('/api/automation/stop', (req, res) => {
+    try {
+        const stopped = stopAutomationProcess();
+        res.json({ success: true, stopped });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 

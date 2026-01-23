@@ -9,7 +9,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import WarningIcon from '@mui/icons-material/Warning';
 
-const ComparisonDialog = ({ open, onClose, selectedEmployees, month, year }) => {
+const ComparisonDialog = ({ open, onClose, selectedEmployees, month, year, onComparisonComplete }) => {
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
     const [error, setError] = useState(null);
@@ -39,6 +39,9 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees, month, year }) => 
             const data = await response.json();
             if (data.success) {
                 setResults(data);
+                if (onComparisonComplete) {
+                    onComparisonComplete(data, startDate, endDate);
+                }
             } else {
                 setError(data.error || 'Comparison failed');
             }

@@ -1,53 +1,49 @@
 /**
- * Optimized Parallel Automation Runner - N ENGINES
+ * Optimized Parallel Automation Runner - N ENGINES (Resilient Version)
  * Menjalankan N engine automation secara paralel dengan employee partitioning.
  * 
- * OPTIMIZATIONS:
+ * FEATURES:
  * - Configurable N instances (AUTOMATION_INSTANCES in .env)
- * - Employee-based partitioning only (date-based causes conflicts)
- * - Staggered start (ENGINE_START_DELAY ms between each)
- * - Separate Chrome user data directories (no profile lock)
- * - Cleanup stale browsers before starting
+ * - Employee-based partitioning
+ * - Staggered start
+ * - Separate Chrome user data directories
+ * - RESILIENCE: Watchdog process monitors heartbeats and restarts stuck/crashed instances
  * 
  * Usage: node parallel-runner.js [data-file]
  */
 
-const AutomationEngine = require('./engine');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { fork, execSync } = require('child_process');
 
 // Default data file
 const DEFAULT_DATA_FILE = path.join(__dirname, 'testing_data', 'current_data.json');
 const dataFilePath = process.argv[2] || DEFAULT_DATA_FILE;
 
-// Configurable settings from environment (set in backend/.env)
+// Configurable settings
 const AUTOMATION_INSTANCES = parseInt(process.env.AUTOMATION_INSTANCES || '2');
 const ENGINE_START_DELAY = parseInt(process.env.ENGINE_START_DELAY || '2000');
+const HEARTBEAT_TIMEOUT = 60000; // 60 seconds (1 minute) max silence
+const MAX_RESTARTS = 10; // Prevent infinite restart loops
 const TEMPLATE_NAME = 'attendance-input-loop';
+
+// Directory Setup
+const LOGS_DIR = path.join(__dirname, 'logs');
+if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
 
 console.log(`📂 Using data file: ${dataFilePath}`);
 console.log(`⚙️  Configuration: ${AUTOMATION_INSTANCES} instance(s), ${ENGINE_START_DELAY}ms delay`);
+console.log(`❤️  Watchdog: ${HEARTBEAT_TIMEOUT / 1000}s heartbeat timeout`);
 
-/**
- * Cleanup stale Chrome processes that use our automation profiles
- * This prevents ghost browsers from previous runs
- */
+// --- UTILS ---
+
 const cleanupStaleBrowsers = () => {
     try {
-        // On Windows, check for Chrome processes using our profile directory
-        const chromeDataPath = path.join(__dirname, 'chrome_data').replace(/\\/g, '\\\\');
-
-        // Try to find and kill Chrome processes (Windows)
         if (process.platform === 'win32') {
             console.log('🧹 Checking for stale browser processes...');
-            // Use taskkill to kill Chrome processes that might be using our profile
-            // This is a best-effort cleanup - ignore errors
             try {
                 execSync(`taskkill /F /IM chrome.exe /FI "WINDOWTITLE eq automation*" 2>nul`, { stdio: 'ignore' });
-            } catch (e) {
-                // No matching processes - that's fine
-            }
+            } catch (e) { }
         }
         console.log('   ✓ Cleanup complete');
     } catch (error) {
@@ -55,9 +51,24 @@ const cleanupStaleBrowsers = () => {
     }
 };
 
-/**
- * Get engine options for a specific engine ID
- */
+const cleanupEngineProfile = (engineId) => {
+    try {
+        const profileDir = path.join(__dirname, 'chrome_data', `engine_${engineId}`);
+        const lockFile = path.join(profileDir, 'SingletonLock');
+        const lockSocket = path.join(profileDir, 'SingletonSocket'); // Linux/Mac
+
+        if (fs.existsSync(lockFile)) {
+            console.log(`🧹 [Manager] Removing stale lock file for Engine ${engineId}`);
+            try { fs.unlinkSync(lockFile); } catch (e) { }
+        }
+        if (fs.existsSync(lockSocket)) {
+            try { fs.unlinkSync(lockSocket); } catch (e) { }
+        }
+    } catch (e) {
+        // Ignore errors if profile doesn't exist yet
+    }
+};
+
 const getEngineOptions = (engineId) => ({
     headless: process.env.HEADLESS === 'true',
     slowMo: parseInt(process.env.SLOW_MO || '0'),
@@ -67,72 +78,38 @@ const getEngineOptions = (engineId) => ({
     userDataDir: path.join(__dirname, 'chrome_data', `engine_${engineId}`)
 });
 
-/**
- * Load data from file
- */
 const loadData = (filePath) => {
     const fullPath = path.isAbsolute(filePath) ? filePath : path.join(__dirname, filePath);
-    if (!fs.existsSync(fullPath)) {
-        throw new Error(`Data file "${filePath}" tidak ditemukan.`);
-    }
+    if (!fs.existsSync(fullPath)) throw new Error(`Data file "${filePath}" tidak ditemukan.`);
     return JSON.parse(fs.readFileSync(fullPath, 'utf8'));
 };
 
-/**
- * Load base template
- */
 const loadBaseTemplate = () => {
     const templatePath = path.join(__dirname, 'templates', `${TEMPLATE_NAME}.json`);
-    if (!fs.existsSync(templatePath)) {
-        throw new Error(`Template "${TEMPLATE_NAME}" tidak ditemukan.`);
-    }
+    if (!fs.existsSync(templatePath)) throw new Error(`Template "${TEMPLATE_NAME}" tidak ditemukan.`);
     return JSON.parse(fs.readFileSync(templatePath, 'utf8'));
 };
 
-/**
- * Partition employees into N chunks
- * Each chunk contains a subset of employees for one engine to process
- */
 const partitionEmployees = (employees, numPartitions) => {
     const partitions = [];
-    for (let i = 0; i < numPartitions; i++) {
-        partitions.push([]);
-    }
-
-    // Distribute employees round-robin to ensure even distribution
-    employees.forEach((emp, index) => {
-        partitions[index % numPartitions].push(emp);
-    });
-
+    for (let i = 0; i < numPartitions; i++) partitions.push([]);
+    employees.forEach((emp, index) => partitions[index % numPartitions].push(emp));
     return partitions;
 };
 
-/**
- * Count attendance records
- */
 const countAttendanceRecords = (employees) => {
-    return employees.reduce((total, emp) => {
-        return total + Object.keys(emp.Attendance || {}).length;
-    }, 0);
+    return employees.reduce((total, emp) => total + Object.keys(emp.Attendance || {}).length, 0);
 };
 
-/**
- * Create engine template with specific employees
- */
 const createEngineTemplate = (baseTemplate, data, employees, engineId) => {
     const templatesDir = path.join(__dirname, 'templates');
     const dataDir = path.join(__dirname, 'testing_data');
-
-    // Ensure directories exist
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
     const partitionedData = { ...data, data: employees };
-
-    // Write temporary data file
     const tempDataPath = path.join(dataDir, `_temp_engine_${engineId}.json`);
     fs.writeFileSync(tempDataPath, JSON.stringify(partitionedData, null, 2));
 
-    // Write temporary template file
     const engineTemplate = { ...baseTemplate };
     engineTemplate.name = `${baseTemplate.name} - Engine ${engineId}`;
     engineTemplate.dataFile = `testing_data/_temp_engine_${engineId}.json`;
@@ -148,144 +125,192 @@ const createEngineTemplate = (baseTemplate, data, employees, engineId) => {
     };
 };
 
-/**
- * Ensure Chrome user data directories exist for N engines
- */
 const ensureChromeDataDirs = (numEngines) => {
     const chromeDataDir = path.join(__dirname, 'chrome_data');
-    if (!fs.existsSync(chromeDataDir)) {
-        fs.mkdirSync(chromeDataDir, { recursive: true });
-    }
+    if (!fs.existsSync(chromeDataDir)) fs.mkdirSync(chromeDataDir, { recursive: true });
     for (let i = 1; i <= numEngines; i++) {
         const engineDir = path.join(chromeDataDir, `engine_${i}`);
-        if (!fs.existsSync(engineDir)) {
-            fs.mkdirSync(engineDir, { recursive: true });
-        }
+        if (!fs.existsSync(engineDir)) fs.mkdirSync(engineDir, { recursive: true });
     }
 };
 
-/**
- * Cleanup temporary files
- */
 const cleanupTempFiles = (numEngines) => {
     const templatesDir = path.join(__dirname, 'templates');
     const dataDir = path.join(__dirname, 'testing_data');
-
     for (let i = 1; i <= numEngines; i++) {
         const tempTemplate = path.join(templatesDir, `_temp_engine_${i}.json`);
         const tempData = path.join(dataDir, `_temp_engine_${i}.json`);
-
         if (fs.existsSync(tempTemplate)) fs.unlinkSync(tempTemplate);
         if (fs.existsSync(tempData)) fs.unlinkSync(tempData);
     }
 };
 
-/**
- * Run a single engine
- */
-const runEngine = async (engineId, templateName, options) => {
-    const prefix = `[Engine ${engineId}]`;
-    const engine = new AutomationEngine(options);
+// --- WATCHDOG & WORKER MANAGEMENT ---
 
-    try {
-        console.log(`${prefix} 🚀 Starting...`);
-        const startTime = Date.now();
+const startWorker = (engineConfig, workerState) => {
+    const { engineId, templateName, options } = engineConfig;
 
-        await engine.runTemplate(templateName);
+    // Create worker config file
+    const configPath = path.join(LOGS_DIR, `worker_config_${engineId}.json`);
+    fs.writeFileSync(configPath, JSON.stringify({ engineId, templateName, options }, null, 2));
 
-        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`${prefix} ✅ Completed in ${duration}s!`);
-        return { engineId, success: true, engine, duration };
-    } catch (error) {
-        console.error(`${prefix} ❌ Error:`, error.message);
-        return { engineId, success: false, error: error.message, engine };
-    }
+    // Reset heartbeat
+    const heartbeatFile = path.join(LOGS_DIR, `heartbeat_engine_${engineId}.json`);
+    if (fs.existsSync(heartbeatFile)) fs.unlinkSync(heartbeatFile);
+
+    // CLEANUP STALE LOCKS BEFORE STARTING
+    cleanupEngineProfile(engineId);
+
+    console.log(`🚀 [Manager] Starting Engine ${engineId}... (Attempt ${workerState.restarts + 1})`);
+
+    // Spawn process
+    const child = fork(path.join(__dirname, 'worker.js'), [configPath], {
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc']
+    });
+
+    // Pipe output to console with prefix
+    child.stdout.on('data', d => process.stdout.write(`[E${engineId}] ${d}`));
+    child.stderr.on('data', d => process.stderr.write(`[E${engineId} ERR] ${d}`));
+
+    workerState.process = child;
+    workerState.status = 'running';
+    workerState.startTime = Date.now();
+    workerState.lastHeartbeat = Date.now();
+
+    // Handle Exit
+    child.on('exit', (code, signal) => {
+        if (workerState.status === 'completed') return; // Already marked complete
+
+        console.log(`⚠️ [Manager] Engine ${engineId} exited with code ${code}`);
+        workerState.process = null;
+
+        if (code === 0) {
+            workerState.status = 'completed';
+            console.log(`✅ [Manager] Engine ${engineId} finished successfully.`);
+        } else {
+            workerState.status = 'crashed';
+            // It will be restarted by the watchdog loop
+        }
+    });
+
+    return child;
 };
 
-/**
- * Run all engines in parallel with staggered start
- */
-const runEnginesParallel = async (engines) => {
-    const promises = [];
+const runWatchdog = async (engines) => {
+    // Initialize workers state
+    const workers = engines.map(cfg => ({
+        config: cfg,
+        process: null,
+        status: 'pending',
+        restarts: 0,
+        startTime: 0,
+        lastHeartbeat: 0
+    }));
 
-    for (let i = 0; i < engines.length; i++) {
-        const { engineId, templateName, options, summary } = engines[i];
-
+    // Start all workers (staggered)
+    for (let i = 0; i < workers.length; i++) {
         if (i > 0 && ENGINE_START_DELAY > 0) {
-            console.log(`⏳ Staggered start: waiting ${ENGINE_START_DELAY / 1000}s before Engine ${engineId}...`);
             await new Promise(r => setTimeout(r, ENGINE_START_DELAY));
         }
-
-        console.log(`[Engine ${engineId}] 📊 ${summary.employeeCount} employees, ${summary.attendanceCount} records`);
-        console.log(`[Engine ${engineId}] 👥 ${summary.employeeNames.slice(0, 2).join(', ')}${summary.employeeNames.length > 2 ? '...' : ''}`);
-
-        promises.push(runEngine(engineId, templateName, options));
+        startWorker(workers[i].config, workers[i]);
     }
 
-    return Promise.all(promises);
+    // Monitoring Loop
+    console.log(`
+👀 [Watchdog] Monitoring ${workers.length} engines...
+`);
+
+    const checkInterval = 5000;
+    let allDone = false;
+
+    while (!allDone) {
+        allDone = true; // Assume all are done until proven otherwise
+        const now = Date.now();
+
+        for (const w of workers) {
+            if (w.status === 'completed') continue;
+
+            allDone = false; // Found one not done
+
+            // Check if crashed/pending (needs restart)
+            if (w.status === 'crashed' || w.status === 'stuck') {
+                if (w.restarts < MAX_RESTARTS) {
+                    console.log(`🔄 [Watchdog] Restarting Engine ${w.config.engineId}...`);
+                    w.restarts++;
+                    startWorker(w.config, w);
+                } else {
+                    console.error(`❌ [Watchdog] Engine ${w.config.engineId} failed too many times (${w.restarts}). Giving up.`);
+                    w.status = 'failed_permanently';
+                }
+                continue;
+            }
+
+            // Check Heartbeat (if running)
+            if (w.status === 'running') {
+                const heartbeatFile = path.join(LOGS_DIR, `heartbeat_engine_${w.config.engineId}.json`);
+                try {
+                    if (fs.existsSync(heartbeatFile)) {
+                        const hb = JSON.parse(fs.readFileSync(heartbeatFile, 'utf8'));
+                        w.lastHeartbeat = hb.timestamp;
+                    }
+                } catch (e) { /* Ignore errors reading heartbeat */ }
+
+                const silenceDuration = now - w.lastHeartbeat;
+                if (silenceDuration > HEARTBEAT_TIMEOUT) {
+                    console.error(`⚠️ [Watchdog] Engine ${w.config.engineId} STUCK! (No heartbeat for ${Math.round(silenceDuration / 1000)}s)`);
+
+                    // Kill process forcefully
+                    if (w.process) {
+                        try { w.process.kill('SIGKILL'); } catch (e) { w.process.kill(); } // Fallback to default kill
+                        w.process = null;
+                    }
+                    w.status = 'stuck';
+                    // Will be picked up by restart logic in next iteration
+                }
+            }
+        }
+
+        if (!allDone) {
+            await new Promise(r => setTimeout(r, checkInterval));
+        }
+    }
+
+    return workers;
 };
 
-/**
- * Main execution
- */
+// --- MAIN ---
+
 (async () => {
     console.log('\n' + '═'.repeat(60));
-    console.log(`  🚀 PARALLEL AUTOMATION RUNNER`);
-    console.log(`  ⚙️  Configured: ${AUTOMATION_INSTANCES} instance(s)`);
-    console.log('  👥 Partition by EMPLOYEES');
+    console.log(`  🚀 PARALLEL AUTOMATION RUNNER (RESILIENT)`);
     console.log('═'.repeat(60) + '\n');
 
     try {
-        // 0. Cleanup any stale browser processes from previous runs
         cleanupStaleBrowsers();
 
-        // 1. Load data
         const data = loadData(dataFilePath);
         const allEmployees = data.data || [];
-        const totalAttendance = countAttendanceRecords(allEmployees);
 
-        console.log(`📊 Total Employees: ${allEmployees.length}`);
-        console.log(`📅 Total Attendance Records: ${totalAttendance}`);
+        if (allEmployees.length === 0) throw new Error('Data tidak memiliki employees.');
 
-        if (allEmployees.length === 0) {
-            throw new Error('Data tidak memiliki employees.');
-        }
-
-        // 2. Load base template
-        console.log(`📝 Loading template: ${TEMPLATE_NAME}`);
         const baseTemplate = loadBaseTemplate();
-
-        // 3. Determine actual number of engines (can't have more engines than employees)
-        // IMPORTANT: We can only run as many engines as we have employees
         const actualInstances = Math.min(AUTOMATION_INSTANCES, allEmployees.length);
 
-        console.log(`\n🔢 Instance Calculation:`);
-        console.log(`   - Configured instances: ${AUTOMATION_INSTANCES}`);
-        console.log(`   - Available employees: ${allEmployees.length}`);
-        console.log(`   - Will launch: ${actualInstances} browser(s)`);
-
-        if (actualInstances < AUTOMATION_INSTANCES) {
-            console.log(`   ⚠️  Reduced from ${AUTOMATION_INSTANCES} to ${actualInstances} (not enough employees)`);
-        }
-
-        // 4. ONLY create Chrome dirs for engines we will actually use
         ensureChromeDataDirs(actualInstances);
 
-        // 5. Partition employees and create engine configs
         const partitions = partitionEmployees(allEmployees, actualInstances);
         const engines = [];
 
-        console.log(`\n📋 ${actualInstances === 1 ? 'SINGLE' : 'PARALLEL'} MODE: ${actualInstances} engine(s)...`);
+        console.log(`
+📋 Preparing ${actualInstances} engine(s)...
+`);
 
         for (let i = 0; i < actualInstances; i++) {
             const engineId = i + 1;
             const employees = partitions[i];
-
-            if (employees.length === 0) continue; // Skip empty partitions
+            if (employees.length === 0) continue; // Skip if partition is empty
 
             const info = createEngineTemplate(baseTemplate, data, employees, engineId);
-            console.log(`   Engine ${engineId}: ${info.employeeCount} employees, ${info.attendanceCount} records`);
-
             engines.push({
                 engineId,
                 templateName: info.templateName,
@@ -294,57 +319,44 @@ const runEnginesParallel = async (engines) => {
             });
         }
 
-        // Validate: engines count should match what we expect
-        if (engines.length !== actualInstances) {
-            console.log(`\n⚠️  WARNING: Expected ${actualInstances} engines but created ${engines.length} (some partitions may be empty)`);
-        }
-
-        console.log(`\n✅ Created ${engines.length} engine(s) for ${allEmployees.length} employees`);
-
-        // 6. Run engines
-        console.log('\n' + '─'.repeat(60));
-        console.log(`🏃 Starting ${engines.length} browser(s)...`);
-        console.log('   (Only browsers with employees will launch)')
-        console.log('─'.repeat(60) + '\n');
-
+        // Run with Watchdog
         const startTime = Date.now();
-        const results = await runEnginesParallel(engines);
+        const results = await runWatchdog(engines);
         const totalDuration = ((Date.now() - startTime) / 1000).toFixed(1);
 
-        // 7. Summary
+        // Summary
         console.log('\n' + '═'.repeat(60));
         console.log('  📊 EXECUTION SUMMARY');
         console.log('═'.repeat(60));
 
-        results.forEach(r => {
-            const status = r.success ? '✅ SUCCESS' : '❌ FAILED';
-            const duration = r.duration ? ` (${r.duration}s)` : '';
-            console.log(`  Engine ${r.engineId}: ${status}${duration}`);
-            if (!r.success) {
-                console.log(`    Error: ${r.error}`);
-            }
+        results.forEach(w => {
+            const statusIcon = w.status === 'completed' ? '✅' : '❌';
+            console.log(`  Engine ${w.config.engineId}: ${statusIcon} ${w.status.toUpperCase()} (Restarts: ${w.restarts})`);
         });
 
-        const allSuccess = results.every(r => r.success);
-        console.log(`\n  ⏱️  Total Time: ${totalDuration}s`);
-        console.log(allSuccess ? '  ✅ ALL ENGINES COMPLETED!' : '  ⚠️  Some engines failed.');
-        console.log('═'.repeat(60) + '\n');
+        const allSuccess = results.every(w => w.status === 'completed');
+        console.log(`
+  ⏱️  Total Time: ${totalDuration}s`);
 
-        // 8. Handle exit
         if (process.env.AUTO_CLOSE === 'true') {
-            console.log('🔒 Closing browsers...');
-            for (const r of results) {
-                if (r.engine?.closeBrowser) await r.engine.closeBrowser();
-            }
             process.exit(allSuccess ? 0 : 1);
         } else {
-            console.log('⏰ Browsers tetap terbuka. Tekan Ctrl+C untuk menutup.\n');
-            await new Promise(() => { });
+            console.log('⏰ Process finished. Press Ctrl+C to exit.');
         }
 
     } catch (error) {
         console.error('\n💥 Fatal Error:', error.message);
-        cleanupTempFiles(AUTOMATION_INSTANCES);
+        cleanupStaleBrowsers();
         process.exit(1);
     }
 })();
+
+// --- GRACEFUL SHUTDOWN ---
+const handleExit = () => {
+    console.log('\n🛑 Received termination signal. Cleaning up...');
+    cleanupStaleBrowsers();
+    process.exit(0);
+};
+
+process.on('SIGINT', handleExit);
+process.on('SIGTERM', handleExit);

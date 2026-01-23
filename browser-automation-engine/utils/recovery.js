@@ -165,17 +165,30 @@ class RecoveryManager {
     }
 
     /**
-     * Save loop state (e.g. current employee index)
+     * Save loop progress with status
      */
-    saveLoopState(loopId, index, extraData = {}) {
+    saveLoopProgress(loopId, index, status) {
         const state = this.loadState() || {};
         state.loops = state.loops || {};
-        state.loops[loopId] = { index, timestamp: new Date().toISOString(), ...extraData };
+        state.loops[loopId] = { 
+            index, 
+            status, 
+            timestamp: new Date().toISOString() 
+        };
         this.saveState(state);
     }
 
     /**
+     * Save loop state (Legacy wrapper, assumes COMPLETED)
+     */
+    saveLoopState(loopId, index, extraData = {}) {
+        this.saveLoopProgress(loopId, index, 'COMPLETED');
+    }
+
+    /**
      * Get saved loop index
+     * Returns the last index that was either COMPLETED or STARTED (if crashed).
+     * This ensures that if we crashed on index X, we resume at X+1 (skipping X).
      */
     getLoopState(loopId) {
         const state = this.loadState();
@@ -186,27 +199,39 @@ class RecoveryManager {
     }
 
     /**
-     * Save current execution state
+     * Save current execution state using Atomic Write (to prevent corruption)
      */
     saveState(data) {
         try {
-            fs.writeFileSync(this.stateFile, JSON.stringify({
+            const tempFile = `${this.stateFile}.tmp`;
+            const content = JSON.stringify({
                 timestamp: new Date().toISOString(),
                 ...data
-            }, null, 2));
+            }, null, 2);
+            
+            // Write to temp file first
+            fs.writeFileSync(tempFile, content);
+            
+            // Atomic rename (replaces target file instantly)
+            fs.renameSync(tempFile, this.stateFile);
         } catch (e) {
             console.error('[Recovery] Failed to save state:', e.message);
         }
     }
 
     /**
-     * Load last execution state
+     * Load last execution state with corruption protection
      */
     loadState() {
         if (fs.existsSync(this.stateFile)) {
             try {
                 return JSON.parse(fs.readFileSync(this.stateFile, 'utf8'));
             } catch (e) {
+                console.error(`[Recovery] State file corrupt for Engine ${this.engineId}, resetting state. Error: ${e.message}`);
+                // Backup corrupt file for analysis
+                try {
+                    fs.copyFileSync(this.stateFile, `${this.stateFile}.corrupt`);
+                } catch (err) {}
                 return null;
             }
         }
