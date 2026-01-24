@@ -568,6 +568,34 @@ const actions = {
                 continue;
             }
 
+            // --- OPTIMIZATION 1: BROWSER RECYCLING ---
+            // Restart browser setiap 20 item untuk mencegah Memory Leak (Chrome melambat seiring waktu)
+            // Hanya restart jika bukan item pertama dan engine tersedia
+            if (i > 0 && i % 20 === 0 && engine) {
+                console.log(`\n♻️  MEMORY OPTIMIZATION: Recycling Browser (Item ${i})...`);
+                try {
+                    await engine.closeBrowser();
+                    await new Promise(r => setTimeout(r, 2000)); // Cool down
+                    await engine.launch();
+                    console.log(`✅  Browser Refreshed!`);
+
+                    // Navigate back to base URL if needed (biasanya template handle navigasi, tapi kita pastikan aman)
+                    // Note: Karena kita me-restart, konteks halaman hilang. 
+                    // Kita asumsikan langkah awal di 'steps' akan melakukan navigasi atau pengecekan yang benar.
+                    // Jika steps mengasumsikan halaman sudah terbuka, kita perlu navigasi manual ke Task Register.
+                    const TASK_REGISTER_URL = 'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx';
+                    await engine.page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded' });
+
+                } catch (recycleError) {
+                    console.error(`⚠️ Gagal recycle browser: ${recycleError.message}. Melanjutkan...`);
+                }
+            }
+
+            // --- OPTIMIZATION 2: JITTER (LOAD BALANCING) ---
+            // Tambahkan delay acak (500ms - 2000ms) agar engine tidak "menyerang" server bersamaan
+            const jitter = Math.floor(Math.random() * 1500) + 500;
+            await new Promise(r => setTimeout(r, jitter));
+
             const item = items[i];
             const itemLabel = item.EmployeeName || item.PTRJEmployeeID || `Item ${i + 1}`;
             console.log(`\n  ┌─ Iteration ${i + 1}/${items.length}: ${itemLabel} ─────`);
@@ -771,6 +799,7 @@ const actions = {
                 result = !!value &&
                     value !== 'null' &&
                     value !== 'undefined' &&
+                    value !== 'false' &&  // CRITICAL FIX: string 'false' (from JSON) should be falsy!
                     value !== '0' &&
                     value !== 'ALFA' &&
                     value !== 'ALPHA' &&

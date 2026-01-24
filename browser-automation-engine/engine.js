@@ -314,6 +314,11 @@ class AutomationEngine {
             if (template.dataFile) {
                 const loadedData = this.loadData(template.dataFile);
                 initialContext = { ...initialContext, data: loadedData };
+                
+                // Expose metadata to root context for easier access
+                if (loadedData.metadata) {
+                    initialContext.metadata = loadedData.metadata;
+                }
             }
 
             console.log('================================================');

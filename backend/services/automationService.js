@@ -51,8 +51,8 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
                     isHoliday: data.isHoliday || false,
                     holidayName: data.holidayName || null,
                     isSunday: data.isSunday || false,
-                    // Leave type info for automation
-                    isAnnualLeave: data.isAnnualLeave || false,
+                    // Leave type info for automation - explicitly set to false if not true
+                    isAnnualLeave: data.isAnnualLeave === true,
                     leaveTaskCode: data.leaveTaskCode || null,
                     leaveDescription: data.leaveDescription || null
                 };
@@ -97,11 +97,11 @@ const saveAutomationData = async (data) => {
     // --- FILTER: Sync Mismatches Only ---
     if (syncMismatchesOnly) {
         console.log(`[Automation] 🔍 Filtering for MISMATCHES ONLY (${firstDay} to ${endDay})...`);
-        
+
         // Use comparison service to check status
         const comparison = await compareWithTaskReg(transformedData, firstDay, endDay);
         const resultsMap = {};
-        
+
         // Index results by EmployeeID + Date
         comparison.results.forEach(res => {
             const key = `${res.employeeId}_${res.date}`;

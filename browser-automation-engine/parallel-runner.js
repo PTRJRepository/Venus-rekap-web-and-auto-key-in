@@ -22,7 +22,7 @@ const dataFilePath = process.argv[2] || DEFAULT_DATA_FILE;
 
 // Configurable settings
 const AUTOMATION_INSTANCES = parseInt(process.env.AUTOMATION_INSTANCES || '2');
-const ENGINE_START_DELAY = parseInt(process.env.ENGINE_START_DELAY || '2000');
+const ENGINE_START_DELAY = parseInt(process.env.ENGINE_START_DELAY || '5000');
 const HEARTBEAT_TIMEOUT = 60000; // 60 seconds (1 minute) max silence
 const MAX_RESTARTS = 10; // Prevent infinite restart loops
 const TEMPLATE_NAME = 'attendance-input-loop';
