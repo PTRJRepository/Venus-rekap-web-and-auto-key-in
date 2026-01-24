@@ -219,8 +219,8 @@
                                                             "comment": "═══ CHECK IF EMPLOYEE INPUT SUCCEEDED ═══",
                                                             "action": "checkEmployeeInputSuccess",
                                                             "params": {
-                                                                "successSelector": "#MainContent_ddlShift",
-                                                                "timeout": 5000
+                                                                "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
+                                                                "timeout": 2000
                                                             }
                                                         },
                                                         {
@@ -426,8 +426,8 @@
                                                                         "comment": "═══ CHECK IF EMPLOYEE INPUT SUCCEEDED ═══",
                                                                         "action": "checkEmployeeInputSuccess",
                                                                         "params": {
-                                                                            "successSelector": "#MainContent_ddlShift",
-                                                                            "timeout": 5000
+                                                                            "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
+                                                                            "timeout": 2000
                                                                         }
                                                                     },
                                                                     {
