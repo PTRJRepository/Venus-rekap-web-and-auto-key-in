@@ -276,6 +276,11 @@
                               }
                             },
                             {
+                              "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
+                              "action": "checkPageAndNavigate",
+                              "params": {}
+                            },
+                            {
                               "action": "waitForReady",
                               "params": {
                                 "selector": ".ui-autocomplete-input.CBOBox",
@@ -543,6 +548,11 @@
                                           }
                                         },
                                         {
+                                          "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
+                                          "action": "checkPageAndNavigate",
+                                          "params": {}
+                                        },
+                                        {
                                           "action": "waitForReady",
                                           "params": {
                                             "selector": ".ui-autocomplete-input.CBOBox",
@@ -606,6 +616,52 @@
                                           "action": "log",
                                           "params": {
                                             "message": "    → Processing OVERTIME ONLY: ${attendance.overtimeHours}h"
+                                          }
+                                        },
+                                        {
+                                          "action": "formatDate",
+                                          "params": {
+                                            "date": "${attendance.date}",
+                                            "saveTo": "formattedDateOT"
+                                          }
+                                        },
+                                        {
+                                          "action": "typeInput",
+                                          "params": {
+                                            "selector": "#MainContent_txtTrxDate",
+                                            "value": "${formattedDateOT}"
+                                          }
+                                        },
+                                        {
+                                          "action": "wait",
+                                          "params": {
+                                            "duration": 500,
+                                            "comment": "Wait for autocomplete dropdown"
+                                          }
+                                        },
+                                        {
+                                          "action": "pressKey",
+                                          "params": {
+                                            "key": "Enter",
+                                            "comment": "Confirm autocomplete selection"
+                                          }
+                                        },
+                                        {
+                                          "action": "wait",
+                                          "params": {
+                                            "duration": 500
+                                          }
+                                        },
+                                        {
+                                          "action": "retryInputWithValidation",
+                                          "comment": "Input Employee with Validation Retry - ensures employee is properly selected (Overtime Mode)",
+                                          "params": {
+                                            "selector": ".ui-autocomplete-input.CBOBox",
+                                            "index": 0,
+                                            "value": "${employee.PTRJEmployeeID}",
+                                            "validationSelector": "#MainContent_ddlEmployee_RFV",
+                                            "maxRetries": 5,
+                                            "formReentryFields": []
                                           }
                                         },
                                         {
@@ -752,6 +808,11 @@
                                             "selector": "#MainContent_btnAdd",
                                             "timeout": 15000
                                           }
+                                        },
+                                        {
+                                          "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
+                                          "action": "checkPageAndNavigate",
+                                          "params": {}
                                         },
                                         {
                                           "action": "waitForReady",
@@ -1047,6 +1108,11 @@
                                       "selector": "#MainContent_btnAdd",
                                       "timeout": 15000
                                     }
+                                  },
+                                  {
+                                    "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
+                                    "action": "checkPageAndNavigate",
+                                    "params": {}
                                   },
                                   {
                                     "action": "waitForReady",

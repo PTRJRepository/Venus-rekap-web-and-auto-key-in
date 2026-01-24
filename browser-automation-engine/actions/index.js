@@ -833,6 +833,65 @@ const actions = {
             console.log(`   Value:`, params.value);
         }
     },
+
+    /**
+     * checkPageAndNavigate - Detect current page and navigate to detail page if stuck on list
+     * This ensures the automation doesn't get stuck on frmPrTrxTaskRegisterList.aspx
+     * after clicking Add button
+     */
+    checkPageAndNavigate: async (page, params, context, engine) => {
+        const currentUrl = page.url();
+        console.log(`📍 Current URL: ${currentUrl}`);
+
+        // If we're on the List page, click New to go to Detail page
+        if (currentUrl.includes('frmPrTrxTaskRegisterList.aspx')) {
+            console.log(`🔄 On List page - clicking New button to navigate to Detail page...`);
+            try {
+                // Wait for and click the New button
+                await page.waitForSelector('#MainContent_btnNew', { timeout: 10000 });
+                await page.click('#MainContent_btnNew');
+
+                // Wait for navigation to complete
+                await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
+
+                // Additional wait to ensure form is ready
+                await new Promise(r => setTimeout(r, 1500));
+
+                console.log(`✅ Successfully navigated to Detail page`);
+            } catch (error) {
+                console.error(`❌ Failed to navigate from List to Detail page:`, error.message);
+                throw error;
+            }
+        } else if (currentUrl.includes('frmPrTrxTaskRegisterDet.aspx')) {
+            console.log(`✅ Already on Detail page - continuing with next entry...`);
+        } else {
+            console.log(`⚠️ Unknown page detected: ${currentUrl}`);
+        }
+    },
+
+    /**
+     * checkEmployeeInputSuccess - Check if employee input succeeded
+     * Verifies that the employee dropdown selection worked by checking if expected form elements appear
+     * Sets context.employeeInputFailed flag for conditional processing
+     * params.successSelector: selector to check for (default: #MainContent_ddlShift)
+     * params.timeout: how long to wait for success indicator (default: 3000ms)
+     */
+    checkEmployeeInputSuccess: async (page, params, context, engine) => {
+        const { successSelector = '#MainContent_ddlShift', timeout = 3000 } = params;
+
+        try {
+            await page.waitForSelector(successSelector, { timeout });
+            console.log(`✅ Employee input successful - ${successSelector} found`);
+            context.employeeInputFailed = false;
+            return true;
+        } catch (error) {
+            console.log(`⚠️ Employee input likely failed - ${successSelector} not found within ${timeout}ms`);
+            console.log(`🔄 Will skip remaining form steps for this employee...`);
+            context.employeeInputFailed = true;
+            return false;
+        }
+    },
+
     /**
      * Retry input logic if validation element appears
      * Useful for Millware's fragile autocomplete

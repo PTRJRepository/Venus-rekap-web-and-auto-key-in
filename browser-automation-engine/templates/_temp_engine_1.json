@@ -276,6 +276,11 @@
                               }
                             },
                             {
+                              "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
+                              "action": "checkPageAndNavigate",
+                              "params": {}
+                            },
+                            {
                               "action": "waitForReady",
                               "params": {
                                 "selector": ".ui-autocomplete-input.CBOBox",
@@ -543,6 +548,11 @@
                                           }
                                         },
                                         {
+                                          "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
+                                          "action": "checkPageAndNavigate",
+                                          "params": {}
+                                        },
+                                        {
                                           "action": "waitForReady",
                                           "params": {
                                             "selector": ".ui-autocomplete-input.CBOBox",
@@ -798,6 +808,11 @@
                                             "selector": "#MainContent_btnAdd",
                                             "timeout": 15000
                                           }
+                                        },
+                                        {
+                                          "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
+                                          "action": "checkPageAndNavigate",
+                                          "params": {}
                                         },
                                         {
                                           "action": "waitForReady",
@@ -1093,6 +1108,11 @@
                                       "selector": "#MainContent_btnAdd",
                                       "timeout": 15000
                                     }
+                                  },
+                                  {
+                                    "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
+                                    "action": "checkPageAndNavigate",
+                                    "params": {}
                                   },
                                   {
                                     "action": "waitForReady",
