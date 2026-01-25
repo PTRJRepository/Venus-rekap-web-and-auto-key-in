@@ -67,6 +67,14 @@
         "itemName": "employee",
         "steps": [
           {
+            "comment": "Reset flag failure at start of employee loop",
+            "action": "setVariable",
+            "params": {
+              "variable": "metadata.employeeInputFailed",
+              "value": false
+            }
+          },
+          {
             "comment": "═══ RECOVERY: Check if stuck on list page ═══",
             "action": "checkPageAndNavigate",
             "params": {}
@@ -99,7 +107,7 @@
                   "comment": "Input REGULAR jika hadir (bukan ALFA) dan bukan overtime saja",
                   "action": "if",
                   "params": {
-                    "condition": "attendance.status",
+                    "condition": "!metadata.employeeInputFailed && attendance.status",
                     "thenSteps": [
                       {
                         "action": "log",
@@ -151,7 +159,8 @@
                       {
                         "action": "wait",
                         "params": {
-                          "duration": 500
+                          "duration": 3000,
+                          "comment": "Wait for potential PostBack after date enter"
                         }
                       },
                       {
@@ -337,7 +346,7 @@
                         "comment": "═══ ONLY CONTINUE IF EMPLOYEE INPUT SUCCEEDED ═══",
                         "action": "if",
                         "params": {
-                          "condition": "!context.employeeInputFailed",
+                          "condition": "!metadata.employeeInputFailed",
                           "thenSteps": [
                             {
                               "action": "click",
@@ -640,52 +649,60 @@
                               }
                             },
                             {
-                              "action": "typeInput",
+                              "action": "if",
                               "params": {
-                                "selector": "#MainContent_txtHours",
-                                "value": "${attendance.overtimeHours}"
-                              }
-                            },
-                            {
-                              "action": "pressKey",
-                              "params": {
-                                "key": "Enter"
-                              }
-                            },
-                            {
-                              "action": "wait",
-                              "params": {
-                                "duration": 500
-                              }
-                            },
-                            {
-                              "comment": "═══ KLIK ADD BUTTON ═══",
-                              "action": "click",
-                              "params": {
-                                "selector": "#MainContent_btnAdd"
-                              }
-                            },
-                            {
-                              "action": "wait",
-                              "params": {
-                                "duration": 1500
-                              }
-                            },
-                            {
-                              "comment": "═══ VALIDASI: Cek apakah OT berhasil masuk ═══",
-                              "action": "validateText",
-                              "params": {
-                                "selector": "#MainContent_lblTotalOTHour",
-                                "minLength": 1,
-                                "throwOnFail": false
-                              }
-                            }
-                          ],
-                          "elseSteps": [
-                            {
-                              "action": "log",
-                              "params": {
-                                "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} (${employee.EmployeeName}) - employee input failed, cannot continue with overtime entry"
+                                "condition": "!metadata.employeeInputFailed",
+                                "thenSteps": [
+                                  {
+                                    "action": "typeInput",
+                                    "params": {
+                                      "selector": "#MainContent_txtHours",
+                                      "value": "${attendance.overtimeHours}"
+                                    }
+                                  },
+                                  {
+                                    "action": "pressKey",
+                                    "params": {
+                                      "key": "Enter"
+                                    }
+                                  },
+                                  {
+                                    "action": "wait",
+                                    "params": {
+                                      "duration": 500
+                                    }
+                                  },
+                                  {
+                                    "comment": "═══ KLIK ADD BUTTON ═══",
+                                    "action": "click",
+                                    "params": {
+                                      "selector": "#MainContent_btnAdd"
+                                    }
+                                  },
+                                  {
+                                    "action": "wait",
+                                    "params": {
+                                      "duration": 1500
+                                    }
+                                  },
+                                  {
+                                    "comment": "═══ VALIDASI: Cek apakah OT berhasil masuk ═══",
+                                    "action": "validateText",
+                                    "params": {
+                                      "selector": "#MainContent_lblTotalOTHour",
+                                      "minLength": 1,
+                                      "throwOnFail": false
+                                    }
+                                  }
+                                ],
+                                "elseSteps": [
+                                  {
+                                    "action": "log",
+                                    "params": {
+                                      "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} (${employee.EmployeeName}) - employee input failed, cannot continue with overtime entry"
+                                    }
+                                  }
+                                ]
                               }
                             }
                           ]
@@ -696,12 +713,15 @@
                 }
               ]
             }
-          },
-          {
-            "action": "log",
-            "params": {
-              "message": "✅ Selesai memproses semua data absensi"
-            }
           }
         ]
       }
+    },
+    {
+      "action": "log",
+      "params": {
+        "message": "✅ Selesai memproses semua data absensi"
+      }
+    }
+  ]
+}

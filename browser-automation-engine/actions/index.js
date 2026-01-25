@@ -80,6 +80,24 @@ const actions = {
     },
 
     /**
+     * Set a variable in the context (supports deep properties via dot notation)
+     * e.g., variable: "metadata.failed", value: true
+     */
+    setVariable: async (page, params, context) => {
+        const { variable, value } = params;
+        const keys = variable.split('.');
+        let target = context;
+        for (let i = 0; i < keys.length - 1; i++) {
+            if (target[keys[i]] === undefined || target[keys[i]] === null) {
+                target[keys[i]] = {};
+            }
+            target = target[keys[i]];
+        }
+        target[keys[keys.length - 1]] = value;
+        // console.log(`💾 Set variable: ${variable} = ${value}`);
+    },
+
+    /**
      * Assert that a specific element has focus before typing
      * Prevents typing into wrong elements in parallel execution
      */
@@ -731,6 +749,13 @@ const actions = {
 
         for (let i = 0; i < entries.length; i++) {
             const [key, value] = entries[i];
+
+            // ═══ EARLY EXIT: If employee input failed, skip remaining dates ═══
+            if (context.metadata && context.metadata.employeeInputFailed) {
+                console.log(`\n  ⏭️ SKIP DATE ${key}: Employee input failed, skipping to next employee`);
+                continue;
+            }
+
             console.log(`\n  ┌─ Property ${i + 1}/${entries.length}: ${key} ─────`);
 
             const loopContext = {
@@ -909,12 +934,14 @@ const actions = {
         try {
             await page.waitForSelector(successSelector, { timeout });
             console.log(`✅ Employee input successful - ${successSelector} found`);
-            context.employeeInputFailed = false;
+            if (!context.metadata) context.metadata = {};
+            context.metadata.employeeInputFailed = false;
             return true;
         } catch (error) {
             console.log(`⚠️ Employee input likely failed - ${successSelector} not found within ${timeout}ms`);
             console.log(`🔄 Will skip remaining form steps for this employee...`);
-            context.employeeInputFailed = true;
+            if (!context.metadata) context.metadata = {};
+            context.metadata.employeeInputFailed = true;
             return false;
         }
     },
@@ -1715,8 +1742,9 @@ const actions = {
             console.log(`\n⚠️ EMPLOYEE NOT FOUND IN SYSTEM: "${value}"`);
             console.log(`⏭️  Marking as failed and continuing (to allow skip logic)...\n`);
 
-            // Set flag in context so subsequent steps can check it
-            context.employeeInputFailed = true;
+            // Set flag in context so subsequent steps can check it (Use metadata for persistence in loop)
+            if (!context.metadata) context.metadata = {};
+            context.metadata.employeeInputFailed = true;
             return; // Don't throw, allow template to handle it via checkEmployeeInputSuccess
         }
 

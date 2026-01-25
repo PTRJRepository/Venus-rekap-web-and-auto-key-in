@@ -95,34 +95,69 @@ const saveAutomationData = async (data) => {
     const endDay = endDate || `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     // --- FILTER: Sync Mismatches Only ---
-    if (syncMismatchesOnly) {
+    // AUTOMATIC: When in "Overtime Only" mode, ALWAYS filter to avoid re-entering existing data
+    const shouldFilter = syncMismatchesOnly || onlyOvertime;
+
+    if (shouldFilter) {
         console.log(`[Automation] 🔍 Filtering for MISMATCHES ONLY (${firstDay} to ${endDay})...`);
+        if (onlyOvertime) {
+            console.log(`[Automation] 📌 Auto-filtering enabled: Overtime Only mode - will skip dates with existing OT.`);
+        }
 
-        // Use comparison service to check status
-        const comparison = await compareWithTaskReg(transformedData, firstDay, endDay, { onlyOvertime });
-        const resultsMap = {};
+        // === USE SAME METHOD AS FRONTEND: Query PR_TASKREGLN directly with OT=1 ===
+        const { queryTaskRegData } = require('./comparisonService');
 
-        // Index results by EmployeeID + Date
-        comparison.results.forEach(res => {
-            const key = `${res.employeeId}_${res.date}`;
-            resultsMap[key] = res.syncStatus;
+        // Get all PTRJ IDs from employees
+        const ptrjIds = employees
+            .filter(emp => emp.ptrjEmployeeID && emp.ptrjEmployeeID !== 'N/A')
+            .map(emp => emp.ptrjEmployeeID);
+
+        // Query Millware with OT=1 filter (same as frontend toggle)
+        const otRecords = await queryTaskRegData(firstDay, endDay, ptrjIds, 1); // OT=1
+
+        // Build lookup map (same as frontend): { "EmpCode_YYYY-MM-DD": true }
+        const existingOTMap = {};
+        otRecords.forEach(record => {
+            const dateStr = record.TrxDate ? record.TrxDate.substring(0, 10) : null;
+            if (dateStr && record.EmpCode) {
+                const key = `${record.EmpCode}_${dateStr}`;
+                existingOTMap[key] = true;
+            }
         });
 
+        console.log(`[Automation] Found ${otRecords.length} existing OT records in Millware`);
+        console.log(`[Automation] Sample existing OT keys: ${Object.keys(existingOTMap).slice(0, 5).join(', ')}`);
+
         // Filter employees and their attendance dates
+        let totalSkipped = 0;
+        let totalKept = 0;
+        let totalNoOT = 0;
+        let debugLog = [];
+
         transformedData = transformedData.map(emp => {
             const newAttendance = {};
             let hasMismatches = false;
 
             Object.entries(emp.Attendance || {}).forEach(([date, att]) => {
-                // Check sync status
-                const key = `${emp.EmployeeID}_${date}`;
-                const status = resultsMap[key];
+                // Check if OT already exists using same key format as frontend
+                const key = `${emp.PTRJEmployeeID}_${date}`;
+                const alreadyExists = existingOTMap[key];
+                const hasOT = att.overtimeHours && att.overtimeHours > 0;
 
-                // Keep ONLY if status is NOT 'synced' (meaning it is 'not_synced' or 'mismatch')
-                // AND ensure we ignore dates that weren't even in the comparison (e.g. ALFA)
-                if (status && status !== 'synced') {
+                // Debug first few
+                if (debugLog.length < 10) {
+                    debugLog.push(`${key}: OT=${att.overtimeHours || 0}, exists=${!!alreadyExists}`);
+                }
+
+                // Only keep if NOT already in Millware AND has OT hours
+                if (!alreadyExists && hasOT) {
                     newAttendance[date] = att;
                     hasMismatches = true;
+                    totalKept++;
+                } else if (alreadyExists) {
+                    totalSkipped++;
+                } else if (!hasOT) {
+                    totalNoOT++;
                 }
             });
 
@@ -133,8 +168,11 @@ const saveAutomationData = async (data) => {
             return null;
         }).filter(emp => emp !== null);
 
+        console.log(`[Automation] 🔍 Debug samples: ${debugLog.join(' | ')}`);
+        console.log(`[Automation] ✅ Filter complete: ${totalKept} to process, ${totalSkipped} synced, ${totalNoOT} no-OT (excluded).`);
         console.log(`[Automation] 📉 Filtered down to ${transformedData.length} employees with mismatches.`);
     }
+
 
     const payload = {
         metadata: {

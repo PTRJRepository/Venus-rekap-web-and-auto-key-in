@@ -679,7 +679,8 @@
                                                                                 {
                                                                                     "action": "wait",
                                                                                     "params": {
-                                                                                        "duration": 500
+                                                                                        "duration": 5000,
+                                                                                        "comment": "Wait for ASP.NET date postback to complete"
                                                                                     }
                                                                                 },
                                                                                 {

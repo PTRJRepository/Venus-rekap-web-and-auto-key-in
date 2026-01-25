@@ -92,6 +92,13 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
         millwareMap[key].push(row);
     });
 
+    // DEBUG: Show sample keys from millwareMap
+    const sampleKeys = Object.keys(millwareMap).slice(0, 5);
+    console.log(`[Compare] Millware map has ${Object.keys(millwareMap).length} unique date+employee keys`);
+    if (sampleKeys.length > 0) {
+        console.log(`[Compare] Sample keys: ${sampleKeys.join(', ')}`);
+    }
+
     // Compare each Venus record
     const results = [];
     let synced = 0, notSynced = 0, mismatch = 0;
@@ -128,10 +135,12 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                 // Sync logic
                 let isSynced = false;
                 if (onlyOvertime) {
-                    // In Overtime Only mode, we ONLY compare OT hours
-                    // If mismatch in normal hours, we don't care.
-                    // Tolerance 0.1 for float comparison
-                    isSynced = Math.abs(otHours - venusOt) < 0.1;
+                    // In Overtime Only mode, if Millware already has OT, we consider it synced (skip).
+                    // We only want to input if Millware has NO OT (0) but Venus HAS OT.
+                    isSynced = otHours > 0.01;
+                    if (isSynced) {
+                        console.log(`[Compare] ✓ SYNCED: ${ptrjId} @ ${dateStr} - Millware OT: ${otHours}h, Venus OT: ${venusOt}h`);
+                    }
                 } else {
                     // Match total hours (simplest for general status)
                     isSynced = Math.abs(totalHours - venusTotal) < 0.1;
