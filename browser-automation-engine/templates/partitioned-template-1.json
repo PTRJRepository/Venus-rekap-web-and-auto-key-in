@@ -471,35 +471,15 @@
                         }
                       },
                       {
-                        "action": "typeInput",
+                        "action": "retryInputWithValidation",
+                        "comment": "Input Employee with Validation Retry - ensures employee is properly selected (Overtime)",
                         "params": {
                           "selector": ".ui-autocomplete-input.CBOBox",
-                          "value": "${employee.PTRJEmployeeID}"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 1000,
-                          "comment": "Wait for employee dropdown"
-                        }
-                      },
-                      {
-                        "action": "pressKey",
-                        "params": {
-                          "key": "ArrowDown"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 300
-                        }
-                      },
-                      {
-                        "action": "pressKey",
-                        "params": {
-                          "key": "Enter"
+                          "index": 0,
+                          "value": "${employee.PTRJEmployeeID}",
+                          "validationSelector": "#MainContent_ddlEmployee_RFV",
+                          "maxRetries": 5,
+                          "formReentryFields": []
                         }
                       },
                       {
@@ -543,67 +523,74 @@
                         }
                       },
                       {
-                        "comment": "Input Task Code (Part 1)",
-                        "action": "typeInput",
+                        "action": "retryInputWithValidation",
+                        "comment": "Input Task Code with Validation Retry (Overtime)",
                         "params": {
                           "selector": ".ui-autocomplete-input.CBOBox",
                           "index": 1,
-                          "value": "${chargeJobPart1Clean}"
+                          "value": "${chargeJobPart1Clean}",
+                          "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                          "maxRetries": 5,
+                          "formReentryFields": [
+                            {
+                              "selector": ".ui-autocomplete-input.CBOBox",
+                              "index": 0,
+                              "value": "${employee.PTRJEmployeeID}"
+                            }
+                          ]
                         }
                       },
                       {
-                        "action": "wait",
-                        "params": {
-                          "duration": 1000,
-                          "comment": "Wait for autocomplete/next field"
-                        }
-                      },
-                      {
-                        "action": "pressKey",
-                        "params": {
-                          "key": "Enter"
-                        }
-                      },
-                      {
-                        "comment": "Input Equipment/Resource (Part 2)",
-                        "action": "typeInput",
+                        "action": "retryInputWithValidation",
+                        "comment": "Input Part 2 with Validation Retry (Overtime)",
                         "params": {
                           "selector": ".ui-autocomplete-input.CBOBox",
                           "index": 2,
-                          "value": "${chargeJobPart2}"
+                          "value": "${chargeJobPart2}",
+                          "validationSelector": "#MainContent_ddlAccountCode_RFV",
+                          "maxRetries": 5,
+                          "expectedFieldCount": "${expectedFieldCount}",
+                          "formReentryFields": [
+                            {
+                              "selector": ".ui-autocomplete-input.CBOBox",
+                              "index": 0,
+                              "value": "${employee.PTRJEmployeeID}"
+                            },
+                            {
+                              "selector": ".ui-autocomplete-input.CBOBox",
+                              "index": 1,
+                              "value": "${chargeJobPart1Clean}"
+                            }
+                          ]
                         }
                       },
                       {
-                        "action": "wait",
-                        "params": {
-                          "duration": 1000
-                        }
-                      },
-                      {
-                        "action": "pressKey",
-                        "params": {
-                          "key": "Enter"
-                        }
-                      },
-                      {
-                        "comment": "Input Cost Center (Part 3)",
-                        "action": "typeInput",
+                        "action": "retryInputWithValidation",
+                        "comment": "Input Part 3 with Validation Retry (Overtime)",
                         "params": {
                           "selector": ".ui-autocomplete-input.CBOBox",
                           "index": 3,
-                          "value": "${chargeJobPart3}"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 1000
-                        }
-                      },
-                      {
-                        "action": "pressKey",
-                        "params": {
-                          "key": "Enter"
+                          "value": "${chargeJobPart3}",
+                          "validationSelector": "#MainContent_ddlSubBlock_RFV",
+                          "maxRetries": 5,
+                          "expectedFieldCount": "${expectedFieldCount}",
+                          "formReentryFields": [
+                            {
+                              "selector": ".ui-autocomplete-input.CBOBox",
+                              "index": 0,
+                              "value": "${employee.PTRJEmployeeID}"
+                            },
+                            {
+                              "selector": ".ui-autocomplete-input.CBOBox",
+                              "index": 1,
+                              "value": "${chargeJobPart1Clean}"
+                            },
+                            {
+                              "selector": ".ui-autocomplete-input.CBOBox",
+                              "index": 2,
+                              "value": "${chargeJobPart2}"
+                            }
+                          ]
                         }
                       },
                       {
