@@ -65,7 +65,9 @@ const queryTaskRegData = async (startDate, endDate, empCodes = null, otFilter = 
  * @param {string} endDate - End date YYYY-MM-DD
  * @returns {Object} Comparison results with sync status for each record
  */
-const compareWithTaskReg = async (venusData, startDate, endDate) => {
+const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) => {
+    const { onlyOvertime = false } = options;
+
     // Get PTRJ IDs from Venus data
     const ptrjIds = venusData
         .filter(emp => emp.ptrjEmployeeID && emp.ptrjEmployeeID !== 'N/A')
@@ -76,6 +78,7 @@ const compareWithTaskReg = async (venusData, startDate, endDate) => {
     }
 
     // Query Millware data
+    // Pass otFilter if we want strictly OT data? No, query all so we can debug/analyze.
     const millwareData = await queryTaskRegData(startDate, endDate, ptrjIds);
 
     // Build lookup map: key = "EmpCode_YYYY-MM-DD"
@@ -122,9 +125,19 @@ const compareWithTaskReg = async (venusData, startDate, endDate) => {
                 const venusOt = (day.overtimeHours || 0);
                 const venusTotal = venusRegular + venusOt;
 
-                // Sync logic: match total hours (simplest for general status)
-                // But frontend can use granular data for specific modes
-                if (Math.abs(totalHours - venusTotal) < 0.1) {
+                // Sync logic
+                let isSynced = false;
+                if (onlyOvertime) {
+                    // In Overtime Only mode, we ONLY compare OT hours
+                    // If mismatch in normal hours, we don't care.
+                    // Tolerance 0.1 for float comparison
+                    isSynced = Math.abs(otHours - venusOt) < 0.1;
+                } else {
+                    // Match total hours (simplest for general status)
+                    isSynced = Math.abs(totalHours - venusTotal) < 0.1;
+                }
+
+                if (isSynced) {
                     status = 'synced';
                     synced++;
                 } else {
@@ -137,6 +150,8 @@ const compareWithTaskReg = async (venusData, startDate, endDate) => {
                     millwareNormal: normalHours,
                     millwareOT: otHours,
                     venusHours: venusTotal,
+                    venusNormal: venusRegular,
+                    venusOT: venusOt,
                     records: millwareRecords.length
                 };
             } else {

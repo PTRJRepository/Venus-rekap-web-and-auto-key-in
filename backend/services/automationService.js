@@ -99,7 +99,7 @@ const saveAutomationData = async (data) => {
         console.log(`[Automation] 🔍 Filtering for MISMATCHES ONLY (${firstDay} to ${endDay})...`);
 
         // Use comparison service to check status
-        const comparison = await compareWithTaskReg(transformedData, firstDay, endDay);
+        const comparison = await compareWithTaskReg(transformedData, firstDay, endDay, { onlyOvertime });
         const resultsMap = {};
 
         // Index results by EmployeeID + Date
