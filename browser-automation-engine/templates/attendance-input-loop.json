@@ -51,20 +51,13 @@
         {
             "action": "navigate",
             "params": {
-                "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx"
+                "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
             }
         },
         {
             "action": "wait",
             "params": {
-                "duration": 200
-            }
-        },
-        {
-            "action": "click",
-            "params": {
-                "selector": "#MainContent_btnNew",
-                "timeout": 15000
+                "duration": 2000
             }
         },
         {
@@ -618,20 +611,7 @@
                                                                                             {
                                                                                                 "action": "navigate",
                                                                                                 "params": {
-                                                                                                    "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx"
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "action": "waitForElement",
-                                                                                                "params": {
-                                                                                                    "selector": "#MainContent_btnNew",
-                                                                                                    "timeout": 15000
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "action": "click",
-                                                                                                "params": {
-                                                                                                    "selector": "#MainContent_btnNew"
+                                                                                                    "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
                                                                                                 }
                                                                                             },
                                                                                             {

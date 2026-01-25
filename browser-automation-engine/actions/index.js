@@ -835,35 +835,21 @@ const actions = {
     },
 
     /**
-     * checkPageAndNavigate - Detect current page and navigate to detail page if stuck on list
-     * This ensures the automation doesn't get stuck on frmPrTrxTaskRegisterList.aspx
-     * after clicking Add button
+     * checkPageAndNavigate - Stay on detail page for input (no more list page detours!)
+     * This ensures the automation stays on the detail page after clicking Add button
+     * and doesn't navigate to the list page anymore
      */
     checkPageAndNavigate: async (page, params, context, engine) => {
         const currentUrl = page.url();
         console.log(`📍 Current URL: ${currentUrl}`);
 
-        // If we're on the List page, click New to go to Detail page
+        // If we're on the List page (which shouldn't happen now), log and stay on detail
         if (currentUrl.includes('frmPrTrxTaskRegisterList.aspx')) {
-            console.log(`🔄 On List page - clicking New button to navigate to Detail page...`);
-            try {
-                // Wait for and click the New button
-                await page.waitForSelector('#MainContent_btnNew', { timeout: 10000 });
-                await page.click('#MainContent_btnNew');
-
-                // Wait for navigation to complete
-                await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
-
-                // Additional wait to ensure form is ready
-                await new Promise(r => setTimeout(r, 1500));
-
-                console.log(`✅ Successfully navigated to Detail page`);
-            } catch (error) {
-                console.error(`❌ Failed to navigate from List to Detail page:`, error.message);
-                throw error;
-            }
+            console.log(`⚠️ On List page - this should not happen anymore!`);
+            // Instead of navigating to detail, we'll just log and continue
+            // This indicates the automation is working correctly if we don't see this message
         } else if (currentUrl.includes('frmPrTrxTaskRegisterDet.aspx')) {
-            console.log(`✅ Already on Detail page - continuing with next entry...`);
+            console.log(`✅ Already on Detail page - staying here for continuous input...`);
         } else {
             console.log(`⚠️ Unknown page detected: ${currentUrl}`);
         }
@@ -1785,14 +1771,15 @@ const actions = {
             console.log(`⚠️ Form not ready - ${requiredSelector} missing`);
 
             if (onFailure === 'refreshAndNavigate') {
-                console.log(`🔄 Recovery: Navigate to list and click New...`);
+                console.log(`🔄 Recovery: Staying on detail page and refreshing...`);
                 try {
-                    await page.goto('http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx');
-                    await page.waitForSelector('#MainContent_btnNew', { timeout: 10000 });
-                    await page.click('#MainContent_btnNew');
-                    await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
+                    // Navigate DIRECTLY to detail page (never go to list page)
+                    console.log(`  → Navigating directly to detail page...`);
+                    await page.goto('http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx');
+                    await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => { });
                     await new Promise(r => setTimeout(r, 2000));
-                    console.log(`✅ Form refreshed`);
+
+                    console.log(`✅ Now on detail page - form should be ready`);
                     context.formNotReady = false;
                     return true;
                 } catch (recoveryError) {

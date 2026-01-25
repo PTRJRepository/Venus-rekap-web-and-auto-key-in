@@ -22,14 +22,13 @@ module.exports = {
             console.log(`⚠️ Form not ready - ${requiredSelector} not found within ${timeout}ms`);
 
             if (onFailure === 'refreshAndNavigate') {
-                console.log(`🔄 Recovery: Navigate to list page and click New button...`);
+                console.log(`🔄 Recovery: Staying on detail page and refreshing...`);
                 try {
-                    await page.goto('http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx');
-                    await page.waitForSelector('#MainContent_btnNew', { timeout: 10000 });
-                    await page.click('#MainContent_btnNew');
-                    await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
+                    // Navigate directly to detail page instead of going to list page
+                    await page.goto('http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx');
+                    await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => { });
                     await new Promise(r => setTimeout(r, 2000));
-                    console.log(`✅ Form refreshed and ready`);
+                    console.log(`✅ Form refreshed and ready on detail page`);
                     context.formNotReady = false;
                     return true;
                 } catch (recoveryError) {
