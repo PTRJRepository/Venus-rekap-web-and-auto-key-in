@@ -632,23 +632,35 @@ const actions = {
                 failedItems.push({ label: itemLabel, error: error.message });
 
                 try {
-                    // Navigate back to task register page
-                    await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                    // ═══ SMART RECOVERY ═══
+                    const currentUrl = page.url();
+                    console.log(`  🔄 RECOVERY: Current URL is ${currentUrl}`);
 
-                    // Wait for page to be ready
-                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 15000 });
-
-                    // Click "New" button to start fresh
-                    try {
+                    if (currentUrl.includes('frmPrTrxTaskRegisterDet.aspx')) {
+                        console.log(`  🔄 RECOVERY: On Input/Detail Page. Reloading...`);
+                        await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
+                    } else if (currentUrl.includes('frmPrTrxTaskRegisterList.aspx')) {
+                        console.log(`  🔄 RECOVERY: On List Page. Clicking "New" to return to input...`);
+                        try {
+                            await page.waitForSelector('#MainContent_btnNew', { visible: true, timeout: 5000 });
+                            await page.click('#MainContent_btnNew');
+                            await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
+                        } catch (navError) {
+                            console.log(`  ⚠️ Failed to click New on List page: ${navError.message}. Force navigating...`);
+                            await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded' });
+                            await page.waitForSelector('#MainContent_btnNew', { visible: true });
+                            await page.click('#MainContent_btnNew');
+                        }
+                    } else {
+                        console.log(`  🔄 RECOVERY: On unknown page. Navigating to List...`);
+                        await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                        await page.waitForSelector('#MainContent_btnNew', { visible: true });
                         await page.click('#MainContent_btnNew');
-                        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
-                    } catch (navError) {
-                        await new Promise(r => setTimeout(r, 2000));
                     }
 
-                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 10000 });
+                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 15000 });
 
-                    console.log(`  ✅ RECOVERY: Page refreshed. Continuing to next employee...`);
+                    console.log(`  ✅ RECOVERY: Ready to continue.`);
                     console.log(`  └─────────────────────────\n`);
                 } catch (recoveryError) {
                     console.error(`  ❌ RECOVERY FAILED: ${recoveryError.message}`);
@@ -723,25 +735,35 @@ const actions = {
                 failedItems.push({ key, error: error.message });
 
                 try {
-                    // Navigate back to task register page
-                    await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                    // ═══ SMART RECOVERY ═══
+                    const currentUrl = page.url();
+                    console.log(`  🔄 RECOVERY: Current URL is ${currentUrl}`);
 
-                    // Wait for page to be ready
-                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 15000 });
-
-                    // Click "New" button to start fresh
-                    try {
+                    if (currentUrl.includes('frmPrTrxTaskRegisterDet.aspx')) {
+                        console.log(`  🔄 RECOVERY: On Input/Detail Page. Reloading...`);
+                        await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
+                    } else if (currentUrl.includes('frmPrTrxTaskRegisterList.aspx')) {
+                        console.log(`  🔄 RECOVERY: On List Page. Clicking "New" to return to input...`);
+                        try {
+                            await page.waitForSelector('#MainContent_btnNew', { visible: true, timeout: 5000 });
+                            await page.click('#MainContent_btnNew');
+                            await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
+                        } catch (navError) {
+                            console.log(`  ⚠️ Failed to click New on List page: ${navError.message}. Force navigating...`);
+                            await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded' });
+                            await page.waitForSelector('#MainContent_btnNew', { visible: true });
+                            await page.click('#MainContent_btnNew');
+                        }
+                    } else {
+                        console.log(`  🔄 RECOVERY: On unknown page. Navigating to List...`);
+                        await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                        await page.waitForSelector('#MainContent_btnNew', { visible: true });
                         await page.click('#MainContent_btnNew');
-                        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
-                    } catch (navError) {
-                        // If navigation doesn't happen, just wait for form
-                        await new Promise(r => setTimeout(r, 2000));
                     }
 
-                    // Wait for form to be ready
-                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 10000 });
+                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 15000 });
 
-                    console.log(`  ✅ RECOVERY: Page refreshed. Continuing to next item...`);
+                    console.log(`  ✅ RECOVERY: Ready to continue.`);
                     console.log(`  └─────────────────────────\n`);
                 } catch (recoveryError) {
                     console.error(`  ❌ RECOVERY FAILED: ${recoveryError.message}`);
