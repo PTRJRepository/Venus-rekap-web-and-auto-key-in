@@ -17,6 +17,8 @@ class AutomationEngine {
         this.userDataDir = options.userDataDir || null; // Separate Chrome profile for parallel execution
         this.recoveryManager = new RecoveryManager(this.engineId);
         this.heartbeatInterval = null;
+        this.browserDisconnected = false; // Track disconnect state
+        this.lastDisconnectReason = null; // Track why disconnect occurred
     }
 
     /**
@@ -194,6 +196,28 @@ class AutomationEngine {
         this.browser = await puppeteer.launch(launchOptions);
         this.page = await this.browser.newPage();
 
+        // ═══ CONNECTION MONITORING ═══
+        this.browser.on('disconnected', () => {
+            console.error(`❌ [E${this.engineId}] Browser disconnected!`);
+            this.handleDisconnect('browser_disconnected');
+        });
+
+        this.page.on('error', (error) => {
+            console.error(`❌ [E${this.engineId}] Page crashed:`, error.message);
+            this.handleDisconnect('page_crash');
+        });
+
+        this.page.on('close', () => {
+            console.warn(`⚠️ [E${this.engineId}] Page closed unexpectedly`);
+            this.handleDisconnect('page_closed');
+        });
+
+        // Increase default timeouts for better stability
+        this.page.setDefaultTimeout(60000); // 60s instead of 30s
+        this.page.setDefaultNavigationTimeout(60000);
+        console.log(`  ⏱️  Default timeout set to 60s`);
+        // ═══ END CONNECTION MONITORING ═══
+
         // Set user agent agar tidak terdeteksi sebagai bot
         await this.page.setUserAgent(
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -314,7 +338,7 @@ class AutomationEngine {
             if (template.dataFile) {
                 const loadedData = this.loadData(template.dataFile);
                 initialContext = { ...initialContext, data: loadedData };
-                
+
                 // Expose metadata to root context for easier access
                 if (loadedData.metadata) {
                     initialContext.metadata = loadedData.metadata;
@@ -364,6 +388,19 @@ class AutomationEngine {
 
         for (let i = 0; i < steps.length; i++) {
             const step = steps[i];
+
+            // ═══ CHECK CONNECTION HEALTH BEFORE CRITICAL ACTIONS ═══
+            const criticalActions = ['typeInput', 'click', 'select', 'waitForElement', 'retryInputWithValidation'];
+            if (this.page && criticalActions.includes(step.action)) {
+                const isAlive = await this.isConnectionAlive();
+                if (!isAlive) {
+                    const errorMsg = `Browser connection lost before step ${i + 1} (${step.action})`;
+                    console.error(`${prefix}❌ ${errorMsg}`);
+                    console.error(`${prefix}   Last disconnect reason: ${this.lastDisconnectReason || 'unknown'}`);
+                    throw new Error(errorMsg);
+                }
+            }
+            // ═══ END CONNECTION CHECK ═══
 
             // Substitute variables di params
             const substitutedParams = this.substituteParams(step.params, context);
@@ -415,6 +452,49 @@ class AutomationEngine {
             if (i < steps.length - 1 && step.action !== 'forEach') {
                 await new Promise(r => setTimeout(r, 300));
             }
+        }
+    }
+
+    /**
+     * Handle browser disconnect event
+     */
+    handleDisconnect(reason) {
+        console.error(`🔴 [E${this.engineId}] DISCONNECT: ${reason}`);
+        this.browserDisconnected = true;
+        this.lastDisconnectReason = reason;
+
+        // Stop heartbeat to indicate problem
+        this.stopHeartbeat();
+
+        // Save state for potential recovery
+        this.recoveryManager.saveState({
+            status: 'DISCONNECTED',
+            reason,
+            timestamp: Date.now()
+        });
+    }
+
+    /**
+     * Check if browser connection is still alive
+     */
+    async isConnectionAlive() {
+        try {
+            if (!this.browser || !this.browser.isConnected()) {
+                console.log(`⚠️ [E${this.engineId}] Browser not connected`);
+                return false;
+            }
+
+            if (!this.page) {
+                console.log(`⚠️ [E${this.engineId}] Page not available`);
+                return false;
+            }
+
+            // Quick health check: simple evaluate
+            await this.page.evaluate(() => true);
+            return true;
+        } catch (error) {
+            console.log(`⚠️ [E${this.engineId}] Connection check failed:`, error.message);
+            return false;
         }
     }
 

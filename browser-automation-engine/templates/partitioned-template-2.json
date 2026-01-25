@@ -80,6 +80,11 @@
         "itemName": "employee",
         "steps": [
           {
+            "comment": "═══ RECOVERY: Check if stuck on list page ═══",
+            "action": "checkPageAndNavigate",
+            "params": {}
+          },
+          {
             "action": "log",
             "params": {
               "message": "Processing Employee: ${employee.EmployeeName} (${employee.PTRJEmployeeID})"
@@ -92,6 +97,11 @@
               "keyName": "date",
               "valueName": "attendance",
               "steps": [
+                {
+                  "comment": "═══ RECOVERY: Periodic page check ═══",
+                  "action": "checkPageAndNavigate",
+                  "params": {}
+                },
                 {
                   "action": "log",
                   "params": {

@@ -1761,6 +1761,51 @@ const actions = {
             return false;
         }
     },
+
+    /**
+     * RECOVERY: checkFormReady - Check if form is ready for input
+     * Verifies required form elements exist before continuing
+     * params.requiredSelector: selector to check for (default: #MainContent_txtTrxDate)
+     * params.timeout: how long to wait (default: 5000ms)
+     * params.onFailure: 'skip', 'refreshAndNavigate', or 'log'
+     */
+    checkFormReady: async (page, params, context, engine) => {
+        const {
+            requiredSelector = '#MainContent_txtTrxDate',
+            timeout = 5000,
+            onFailure = 'skip'
+        } = params;
+
+        try {
+            await page.waitForSelector(requiredSelector, { timeout });
+            console.log(`✅ Form ready - ${requiredSelector} found`);
+            context.formNotReady = false;
+            return true;
+        } catch (error) {
+            console.log(`⚠️ Form not ready - ${requiredSelector} missing`);
+
+            if (onFailure === 'refreshAndNavigate') {
+                console.log(`🔄 Recovery: Navigate to list and click New...`);
+                try {
+                    await page.goto('http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx');
+                    await page.waitForSelector('#MainContent_btnNew', { timeout: 10000 });
+                    await page.click('#MainContent_btnNew');
+                    await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
+                    await new Promise(r => setTimeout(r, 2000));
+                    console.log(`✅ Form refreshed`);
+                    context.formNotReady = false;
+                    return true;
+                } catch (recoveryError) {
+                    console.log(`❌ Recovery failed:`, recoveryError.message);
+                    context.formNotReady = true;
+                    return false;
+                }
+            }
+
+            context.formNotReady = true;
+            return false;
+        }
+    },
 };
 
 module.exports = actions;
