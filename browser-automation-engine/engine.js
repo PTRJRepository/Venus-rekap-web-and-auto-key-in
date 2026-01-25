@@ -56,6 +56,79 @@ class AutomationEngine {
     }
 
     /**
+     * Start browser keepalive mechanism
+     * Prevents browser disconnection during long operations by periodically evaluating page state
+     */
+    startBrowserKeepalive() {
+        if (this.keepaliveInterval) {
+            clearInterval(this.keepaliveInterval);
+        }
+
+        this.keepaliveInterval = setInterval(async () => {
+            if (this.page && !this.browserDisconnected) {
+                try {
+                    // Simple evaluation to keep connection alive
+                    await this.page.evaluate(() => Date.now());
+                } catch (e) {
+                    // Connection may be lost, mark as disconnected
+                    if (!this.browserDisconnected) {
+                        console.log(`⚠️ [${this.engineId}] Keepalive failed: ${e.message}`);
+                    }
+                }
+            }
+        }, 5000); // Every 5 seconds
+
+        console.log(`💓 [${this.engineId}] Browser keepalive started (5s interval)`);
+    }
+
+    /**
+     * Stop browser keepalive
+     */
+    stopBrowserKeepalive() {
+        if (this.keepaliveInterval) {
+            clearInterval(this.keepaliveInterval);
+            this.keepaliveInterval = null;
+            console.log(`💔 [${this.engineId}] Browser keepalive stopped`);
+        }
+    }
+
+    /**
+     * Attempt to reconnect browser after disconnection
+     * @returns {boolean} true if reconnection succeeded
+     */
+    async reconnectBrowser() {
+        if (!this.browserDisconnected) return true;
+
+        console.log(`🔌 [${this.engineId}] Attempting to reconnect browser...`);
+
+        try {
+            // Close existing browser if still exists
+            if (this.browser) {
+                await this.browser.close().catch(() => { });
+            }
+
+            // Re-launch browser
+            await this.launch();
+
+            // Navigate back to the form detail page
+            await this.page.goto(
+                'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx',
+                { waitUntil: 'domcontentloaded', timeout: 30000 }
+            );
+
+            // Wait for form to be ready
+            await this.page.waitForSelector('.ui-autocomplete-input.CBOBox', { timeout: 15000 });
+
+            this.browserDisconnected = false;
+            console.log(`✅ [${this.engineId}] Browser reconnected successfully`);
+            return true;
+        } catch (error) {
+            console.log(`❌ [${this.engineId}] Reconnection failed: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
      * Script to show visual overlay and block input with Gatekeeper logic
      */
     static INPUT_BLOCKING_SCRIPT = `
@@ -229,6 +302,12 @@ class AutomationEngine {
                 await this.enableInputBlocking();
             });
         }
+
+        // Start browser keepalive to prevent disconnections
+        this.startBrowserKeepalive();
+
+        // Start heartbeat
+        this.startHeartbeat();
     }
 
     /**

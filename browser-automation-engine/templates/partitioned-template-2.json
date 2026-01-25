@@ -319,170 +319,6 @@
                         }
                       },
                       {
-                        "action": "click",
-                        "params": {
-                          "selector": "#MainContent_rblOT_1",
-                          "comment": "Pilih Overtime"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 500
-                        }
-                      },
-                      {
-                        "action": "parseChargeJob",
-                        "params": {
-                          "chargeJob": "${employee.ChargeJob}"
-                        }
-                      },
-                      {
-                        "action": "retryInputWithValidation",
-                        "comment": "Input Task Code with Validation Retry",
-                        "params": {
-                          "selector": ".ui-autocomplete-input.CBOBox",
-                          "index": 1,
-                          "value": "${chargeJobPart1Clean}",
-                          "validationSelector": "#MainContent_ddlTaskCode_RFV",
-                          "maxRetries": 5
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 3000,
-                          "comment": "Wait for page update after Task Code selection"
-                        }
-                      },
-                      {
-                        "action": "retryInputWithValidation",
-                        "comment": "Input Part 2 with Validation Retry",
-                        "params": {
-                          "selector": ".ui-autocomplete-input.CBOBox",
-                          "index": 2,
-                          "value": "${chargeJobPart2}",
-                          "validationSelector": "#MainContent_ddlAccountCode_RFV",
-                          "maxRetries": 5
-                        }
-                      },
-                      {
-                        "action": "retryInputWithValidation",
-                        "comment": "Input Part 3 with Validation Retry",
-                        "params": {
-                          "selector": ".ui-autocomplete-input.CBOBox",
-                          "index": 3,
-                          "value": "${chargeJobPart3}",
-                          "validationSelector": "#MainContent_ddlSubBlock_RFV",
-                          "maxRetries": 5
-                        }
-                      },
-                      {
-                        "action": "typeInput",
-                        "params": {
-                          "selector": "#MainContent_txtHours",
-                          "value": "${attendance.overtimeHours}"
-                        }
-                      },
-                      {
-                        "action": "pressKey",
-                        "params": {
-                          "key": "Enter"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 500
-                        }
-                      },
-                      {
-                        "comment": "═══ KLIK ADD BUTTON ═══",
-                        "action": "wait",
-                        "params": {
-                          "duration": 500
-                        }
-                      },
-                      {
-                        "action": "click",
-                        "params": {
-                          "selector": "#MainContent_btnAdd"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 2000
-                        }
-                      }
-                    ]
-                  }
-                },
-                {
-                  "comment": "Input OVERTIME jika ada (overtimeHours > 0)",
-                  "action": "if",
-                  "params": {
-                    "condition": "attendance.overtimeHours",
-                    "thenSteps": [
-                      {
-                        "action": "log",
-                        "params": {
-                          "message": "    → Input OVERTIME hours: ${attendance.overtimeHours}"
-                        }
-                      },
-                      {
-                        "action": "formatDate",
-                        "params": {
-                          "date": "${attendance.date}",
-                          "saveTo": "formattedDateOT"
-                        }
-                      },
-                      {
-                        "action": "typeInput",
-                        "params": {
-                          "selector": "#MainContent_txtTrxDate",
-                          "value": "${formattedDateOT}"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 500,
-                          "comment": "Wait for autocomplete dropdown"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 200
-                        }
-                      },
-                      {
-                        "action": "pressKey",
-                        "params": {
-                          "key": "Enter",
-                          "comment": "Confirm autocomplete selection"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 500
-                        }
-                      },
-                      {
-                        "action": "retryInputWithValidation",
-                        "comment": "Input Employee with Validation Retry - ensures employee is properly selected (Overtime)",
-                        "params": {
-                          "selector": ".ui-autocomplete-input.CBOBox",
-                          "index": 0,
-                          "value": "${employee.PTRJEmployeeID}",
-                          "validationSelector": "#MainContent_ddlEmployee_RFV",
-                          "maxRetries": 5,
-                          "formReentryFields": []
-                        }
-                      },
-                      {
                         "action": "wait",
                         "params": {
                           "duration": 2000,
@@ -490,148 +326,369 @@
                         }
                       },
                       {
-                        "action": "waitForElement",
+                        "comment": "═══ CHECK IF EMPLOYEE INPUT SUCCEEDED ═══",
+                        "action": "checkEmployeeInputSuccess",
                         "params": {
-                          "selector": "#MainContent_ddlShift",
-                          "timeout": 10000,
-                          "comment": "Wait for Shift dropdown to appear"
+                          "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
+                          "timeout": 2000
                         }
                       },
                       {
-                        "action": "wait",
+                        "comment": "═══ ONLY CONTINUE IF EMPLOYEE INPUT SUCCEEDED ═══",
+                        "action": "if",
                         "params": {
-                          "duration": 500
-                        }
-                      },
-                      {
-                        "action": "click",
-                        "params": {
-                          "selector": "#MainContent_rblOT_1",
-                          "comment": "Pilih Overtime"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 500
-                        }
-                      },
-                      {
-                        "action": "parseChargeJob",
-                        "params": {
-                          "chargeJob": "${employee.ChargeJob}"
-                        }
-                      },
-                      {
-                        "action": "retryInputWithValidation",
-                        "comment": "Input Task Code with Validation Retry (Overtime)",
-                        "params": {
-                          "selector": ".ui-autocomplete-input.CBOBox",
-                          "index": 1,
-                          "value": "${chargeJobPart1Clean}",
-                          "validationSelector": "#MainContent_ddlTaskCode_RFV",
-                          "maxRetries": 5,
-                          "formReentryFields": [
+                          "condition": "!context.employeeInputFailed",
+                          "thenSteps": [
                             {
-                              "selector": ".ui-autocomplete-input.CBOBox",
-                              "index": 0,
-                              "value": "${employee.PTRJEmployeeID}"
+                              "action": "click",
+                              "params": {
+                                "selector": "#MainContent_rblOT_1",
+                                "comment": "Pilih Overtime"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 500
+                              }
+                            },
+                            {
+                              "action": "parseChargeJob",
+                              "params": {
+                                "chargeJob": "${employee.ChargeJob}"
+                              }
+                            },
+                            {
+                              "action": "retryInputWithValidation",
+                              "comment": "Input Task Code with Validation Retry",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "index": 1,
+                                "value": "${chargeJobPart1Clean}",
+                                "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                                "maxRetries": 5
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 3000,
+                                "comment": "Wait for page update after Task Code selection"
+                              }
+                            },
+                            {
+                              "action": "retryInputWithValidation",
+                              "comment": "Input Part 2 with Validation Retry",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "index": 2,
+                                "value": "${chargeJobPart2}",
+                                "validationSelector": "#MainContent_ddlAccountCode_RFV",
+                                "maxRetries": 5
+                              }
+                            },
+                            {
+                              "action": "retryInputWithValidation",
+                              "comment": "Input Part 3 with Validation Retry",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "index": 3,
+                                "value": "${chargeJobPart3}",
+                                "validationSelector": "#MainContent_ddlSubBlock_RFV",
+                                "maxRetries": 5,
+                                "expectedFieldCount": "${expectedFieldCount}"
+                              }
+                            },
+                            {
+                              "action": "typeInput",
+                              "params": {
+                                "selector": "#MainContent_txtHours",
+                                "value": "${attendance.overtimeHours}"
+                              }
+                            },
+                            {
+                              "action": "pressKey",
+                              "params": {
+                                "key": "Enter"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 500
+                              }
+                            },
+                            {
+                              "comment": "═══ KLIK ADD BUTTON ═══",
+                              "action": "wait",
+                              "params": {
+                                "duration": 500
+                              }
+                            },
+                            {
+                              "action": "click",
+                              "params": {
+                                "selector": "#MainContent_btnAdd"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 2000
+                              }
+                            }
+                          ],
+                          "elseSteps": [
+                            {
+                              "action": "log",
+                              "params": {
+                                "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} (${employee.EmployeeName}) - employee input failed, cannot continue with overtime entry"
+                              }
                             }
                           ]
                         }
                       },
                       {
-                        "action": "retryInputWithValidation",
-                        "comment": "Input Part 2 with Validation Retry (Overtime)",
+                        "comment": "Input OVERTIME jika ada (overtimeHours > 0)",
+                        "action": "if",
                         "params": {
-                          "selector": ".ui-autocomplete-input.CBOBox",
-                          "index": 2,
-                          "value": "${chargeJobPart2}",
-                          "validationSelector": "#MainContent_ddlAccountCode_RFV",
-                          "maxRetries": 5,
-                          "expectedFieldCount": "${expectedFieldCount}",
-                          "formReentryFields": [
+                          "condition": "attendance.overtimeHours",
+                          "thenSteps": [
                             {
-                              "selector": ".ui-autocomplete-input.CBOBox",
-                              "index": 0,
-                              "value": "${employee.PTRJEmployeeID}"
+                              "action": "log",
+                              "params": {
+                                "message": "    → Input OVERTIME hours: ${attendance.overtimeHours}"
+                              }
                             },
                             {
-                              "selector": ".ui-autocomplete-input.CBOBox",
-                              "index": 1,
-                              "value": "${chargeJobPart1Clean}"
+                              "action": "formatDate",
+                              "params": {
+                                "date": "${attendance.date}",
+                                "saveTo": "formattedDateOT"
+                              }
+                            },
+                            {
+                              "action": "typeInput",
+                              "params": {
+                                "selector": "#MainContent_txtTrxDate",
+                                "value": "${formattedDateOT}"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 500,
+                                "comment": "Wait for autocomplete dropdown"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 200
+                              }
+                            },
+                            {
+                              "action": "pressKey",
+                              "params": {
+                                "key": "Enter",
+                                "comment": "Confirm autocomplete selection"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 500
+                              }
+                            },
+                            {
+                              "action": "retryInputWithValidation",
+                              "comment": "Input Employee with Validation Retry - ensures employee is properly selected (Overtime)",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "index": 0,
+                                "value": "${employee.PTRJEmployeeID}",
+                                "validationSelector": "#MainContent_ddlEmployee_RFV",
+                                "maxRetries": 5,
+                                "formReentryFields": []
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 2000,
+                                "comment": "Wait for page reload after employee selection"
+                              }
+                            },
+                            {
+                              "action": "waitForElement",
+                              "params": {
+                                "selector": "#MainContent_ddlShift",
+                                "timeout": 10000,
+                                "comment": "Wait for Shift dropdown to appear"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 500
+                              }
+                            },
+                            {
+                              "action": "click",
+                              "params": {
+                                "selector": "#MainContent_rblOT_1",
+                                "comment": "Pilih Overtime"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 5000,
+                                "comment": "Extended wait for overtime radio postback"
+                              }
+                            },
+                            {
+                              "action": "parseChargeJob",
+                              "params": {
+                                "chargeJob": "${employee.ChargeJob}"
+                              }
+                            },
+                            {
+                              "action": "retryInputWithValidation",
+                              "comment": "Input Task Code with Validation Retry (Overtime)",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "index": 1,
+                                "value": "${chargeJobPart1Clean}",
+                                "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                                "maxRetries": 5,
+                                "formReentryFields": [
+                                  {
+                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                    "index": 0,
+                                    "value": "${employee.PTRJEmployeeID}"
+                                  },
+                                  {
+                                    "action": "clickRadioButton",
+                                    "selector": "#MainContent_rblOT_1",
+                                    "waitAfter": 5000
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "action": "retryInputWithValidation",
+                              "comment": "Input Part 2 with Validation Retry (Overtime)",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "index": 2,
+                                "value": "${chargeJobPart2}",
+                                "validationSelector": "#MainContent_ddlAccountCode_RFV",
+                                "maxRetries": 5,
+                                "expectedFieldCount": "${expectedFieldCount}",
+                                "formReentryFields": [
+                                  {
+                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                    "index": 0,
+                                    "value": "${employee.PTRJEmployeeID}"
+                                  },
+                                  {
+                                    "action": "clickRadioButton",
+                                    "selector": "#MainContent_rblOT_1",
+                                    "waitAfter": 5000
+                                  },
+                                  {
+                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                    "index": 1,
+                                    "value": "${chargeJobPart1Clean}"
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "action": "retryInputWithValidation",
+                              "comment": "Input Part 3 with Validation Retry (Overtime)",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "index": 3,
+                                "value": "${chargeJobPart3}",
+                                "validationSelector": "#MainContent_ddlSubBlock_RFV",
+                                "maxRetries": 5,
+                                "expectedFieldCount": "${expectedFieldCount}",
+                                "formReentryFields": [
+                                  {
+                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                    "index": 0,
+                                    "value": "${employee.PTRJEmployeeID}"
+                                  },
+                                  {
+                                    "action": "clickRadioButton",
+                                    "selector": "#MainContent_rblOT_1",
+                                    "waitAfter": 5000
+                                  },
+                                  {
+                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                    "index": 1,
+                                    "value": "${chargeJobPart1Clean}"
+                                  },
+                                  {
+                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                    "index": 2,
+                                    "value": "${chargeJobPart2}"
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "action": "typeInput",
+                              "params": {
+                                "selector": "#MainContent_txtHours",
+                                "value": "${attendance.overtimeHours}"
+                              }
+                            },
+                            {
+                              "action": "pressKey",
+                              "params": {
+                                "key": "Enter"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 500
+                              }
+                            },
+                            {
+                              "comment": "═══ KLIK ADD BUTTON ═══",
+                              "action": "click",
+                              "params": {
+                                "selector": "#MainContent_btnAdd"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 1500
+                              }
+                            },
+                            {
+                              "comment": "═══ VALIDASI: Cek apakah OT berhasil masuk ═══",
+                              "action": "validateText",
+                              "params": {
+                                "selector": "#MainContent_lblTotalOTHour",
+                                "minLength": 1,
+                                "throwOnFail": false
+                              }
+                            }
+                          ],
+                          "elseSteps": [
+                            {
+                              "action": "log",
+                              "params": {
+                                "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} (${employee.EmployeeName}) - employee input failed, cannot continue with overtime entry"
+                              }
                             }
                           ]
-                        }
-                      },
-                      {
-                        "action": "retryInputWithValidation",
-                        "comment": "Input Part 3 with Validation Retry (Overtime)",
-                        "params": {
-                          "selector": ".ui-autocomplete-input.CBOBox",
-                          "index": 3,
-                          "value": "${chargeJobPart3}",
-                          "validationSelector": "#MainContent_ddlSubBlock_RFV",
-                          "maxRetries": 5,
-                          "expectedFieldCount": "${expectedFieldCount}",
-                          "formReentryFields": [
-                            {
-                              "selector": ".ui-autocomplete-input.CBOBox",
-                              "index": 0,
-                              "value": "${employee.PTRJEmployeeID}"
-                            },
-                            {
-                              "selector": ".ui-autocomplete-input.CBOBox",
-                              "index": 1,
-                              "value": "${chargeJobPart1Clean}"
-                            },
-                            {
-                              "selector": ".ui-autocomplete-input.CBOBox",
-                              "index": 2,
-                              "value": "${chargeJobPart2}"
-                            }
-                          ]
-                        }
-                      },
-                      {
-                        "action": "typeInput",
-                        "params": {
-                          "selector": "#MainContent_txtHours",
-                          "value": "${attendance.overtimeHours}"
-                        }
-                      },
-                      {
-                        "action": "pressKey",
-                        "params": {
-                          "key": "Enter"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 500
-                        }
-                      },
-                      {
-                        "comment": "═══ KLIK ADD BUTTON ═══",
-                        "action": "click",
-                        "params": {
-                          "selector": "#MainContent_btnAdd"
-                        }
-                      },
-                      {
-                        "action": "wait",
-                        "params": {
-                          "duration": 1500
-                        }
-                      },
-                      {
-                        "comment": "═══ VALIDASI: Cek apakah OT berhasil masuk ═══",
-                        "action": "validateText",
-                        "params": {
-                          "selector": "#MainContent_lblTotalOTHour",
-                          "minLength": 1,
-                          "throwOnFail": false
                         }
                       }
                     ]
@@ -639,15 +696,12 @@
                 }
               ]
             }
+          },
+          {
+            "action": "log",
+            "params": {
+              "message": "✅ Selesai memproses semua data absensi"
+            }
           }
         ]
       }
-    },
-    {
-      "action": "log",
-      "params": {
-        "message": "✅ Selesai memproses semua data absensi"
-      }
-    }
-  ]
-}

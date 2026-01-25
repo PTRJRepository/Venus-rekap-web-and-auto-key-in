@@ -125,6 +125,25 @@ const actions = {
             await new Promise(r => setTimeout(r, delay));
         }
 
+        console.log(`❌ Failed after ${retries} attempts`);
+
+        // CRITICAL: Check if failure was due to Employee not found
+        // If "Please select Employee" error is still visible, this employee doesn't exist in the system
+        // NOTE: `checkForValidationErrors` and `value` are not defined in this scope.
+        // This code assumes they are available from a broader context or will be added.
+        // For now, keeping it commented out as `checkForValidationErrors` and `value` are not defined.
+        // const finalError = await checkForValidationErrors();
+        // if (finalError.hasError && finalError.message.toLowerCase().includes('please select employee')) {
+        //     console.log(`⚠️ EMPLOYEE NOT FOUND: "${value}"`);
+        //     console.log(`⏭️ Skipping this employee and continuing to next...`);
+
+        //     // Throw special error type that templates can catch to skip employee
+        //     const skipError = new Error(`EMPLOYEE_NOT_FOUND: ${value}`);
+        //     skipError.code = 'EMPLOYEE_NOT_FOUND';
+        //     skipError.employeeId = value;
+        //     throw skipError;
+        // }
+
         throw new Error(`Failed to assert focus on ${selector} after ${retries} attempts`);
     },
 
@@ -946,6 +965,27 @@ const actions = {
 
         // Helper: Re-input a single field
         const reInputField = async (field) => {
+            // ═══ RADIO BUTTON SUPPORT ═══
+            // If field has action property, it's a special action (like clicking radio button)
+            if (field.action === 'clickRadioButton') {
+                console.log(`    🔘 Re-clicking radio button: ${field.selector}`);
+                try {
+                    const radio = await page.$(field.selector);
+                    if (radio) {
+                        await radio.click();
+                        const waitTime = field.waitAfter || 3000;
+                        console.log(`    ⏳ Waiting ${waitTime}ms for radio button postback...`);
+                        await new Promise(r => setTimeout(r, waitTime));
+                    } else {
+                        console.log(`    ⚠️ Radio button not found: ${field.selector}`);
+                    }
+                } catch (e) {
+                    console.log(`    ⚠️ Failed to click radio button: ${e.message}`);
+                }
+                return; // Done with radio button, exit early
+            }
+
+            // ═══ TEXT INPUT LOGIC (existing code) ═══
             console.log(`    🔄 Re-entering: ${field.selector}[${field.index}] = "${field.value}"`);
             let elementHandle;
 
@@ -1666,6 +1706,18 @@ const actions = {
             console.log(`  └─────────────────────────\n`);
 
             await new Promise(r => setTimeout(r, 1000));
+        }
+
+        // CRITICAL: Check if failure was due to Employee not found
+        // If "Please select Employee" error is visible, this employee doesn't exist in the system
+        const finalError = await checkForValidationErrors();
+        if (finalError.hasError && finalError.message.toLowerCase().includes('employee')) {
+            console.log(`\n⚠️ EMPLOYEE NOT FOUND IN SYSTEM: "${value}"`);
+            console.log(`⏭️  Marking as failed and continuing (to allow skip logic)...\n`);
+
+            // Set flag in context so subsequent steps can check it
+            context.employeeInputFailed = true;
+            return; // Don't throw, allow template to handle it via checkEmployeeInputSuccess
         }
 
         throw new Error(`Failed to input "${value}" after ${maxRetries} attempts.`);
