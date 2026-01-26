@@ -98,13 +98,22 @@ const saveAutomationData = async (data) => {
     // AUTOMATIC: When in "Overtime Only" mode, ALWAYS filter to avoid re-entering existing data
     const shouldFilter = syncMismatchesOnly || onlyOvertime;
 
+    console.log(`[Automation] 🔧 Filter Settings: syncMismatchesOnly=${syncMismatchesOnly}, onlyOvertime=${onlyOvertime}, shouldFilter=${shouldFilter}`);
+
+    // DEBUG: Check if POM00241 is in the data BEFORE filtering
+    const debugEmp = transformedData.find(e => e.PTRJEmployeeID === 'POM00241');
+    if (debugEmp) {
+        console.log(`[DEBUG] POM00241 found in data BEFORE filter:`);
+        console.log(`  Dates: ${Object.keys(debugEmp.Attendance || {}).join(', ')}`);
+    }
+
     if (shouldFilter) {
         console.log(`[Automation] 🔍 Filtering for MISMATCHES ONLY (${firstDay} to ${endDay})...`);
         if (onlyOvertime) {
             console.log(`[Automation] 📌 Auto-filtering enabled: Overtime Only mode - will skip dates with existing OT.`);
         }
 
-        // === USE SAME METHOD AS FRONTEND: Query PR_TASKREGLN directly with OT=1 ===
+        // === Query PR_TASKREGLN with correct OT filter based on mode ===
         const { queryTaskRegData } = require('./comparisonService');
 
         // Get all PTRJ IDs from employees
@@ -112,51 +121,82 @@ const saveAutomationData = async (data) => {
             .filter(emp => emp.ptrjEmployeeID && emp.ptrjEmployeeID !== 'N/A')
             .map(emp => emp.ptrjEmployeeID);
 
-        // Query Millware with OT=1 filter (same as frontend toggle)
-        const otRecords = await queryTaskRegData(firstDay, endDay, ptrjIds, 1); // OT=1
+        // Query Millware with correct OT filter:
+        // - onlyOvertime = true  -> query OT=1 records (overtime)
+        // - onlyOvertime = false -> query OT=0 records (normal hours)
+        const otFilter = onlyOvertime ? 1 : 0;
+        const modeDesc = onlyOvertime ? 'Overtime (OT=1)' : 'Normal Hours (OT=0)';
+        console.log(`[Automation] Querying existing ${modeDesc} records from Millware...`);
 
-        // Build lookup map (same as frontend): { "EmpCode_YYYY-MM-DD": true }
-        const existingOTMap = {};
-        otRecords.forEach(record => {
+        const existingRecords = await queryTaskRegData(firstDay, endDay, ptrjIds, otFilter);
+
+        // Build lookup map: { "EmpCode_YYYY-MM-DD": true }
+        const existingMap = {};
+        existingRecords.forEach(record => {
             const dateStr = record.TrxDate ? record.TrxDate.substring(0, 10) : null;
             if (dateStr && record.EmpCode) {
                 const key = `${record.EmpCode}_${dateStr}`;
-                existingOTMap[key] = true;
+                existingMap[key] = true;
             }
         });
 
-        console.log(`[Automation] Found ${otRecords.length} existing OT records in Millware`);
-        console.log(`[Automation] Sample existing OT keys: ${Object.keys(existingOTMap).slice(0, 5).join(', ')}`);
+        console.log(`[Automation] Found ${existingRecords.length} existing ${modeDesc} records in Millware`);
+        console.log(`[Automation] Sample existing keys: ${Object.keys(existingMap).slice(0, 5).join(', ')}`);
 
         // Filter employees and their attendance dates
         let totalSkipped = 0;
         let totalKept = 0;
         let totalNoOT = 0;
         let debugLog = [];
+        let skippedSamples = [];
+        let keptSamples = [];
 
         transformedData = transformedData.map(emp => {
             const newAttendance = {};
             let hasMismatches = false;
 
             Object.entries(emp.Attendance || {}).forEach(([date, att]) => {
-                // Check if OT already exists using same key format as frontend
+                // Check if already exists using same key format as frontend
                 const key = `${emp.PTRJEmployeeID}_${date}`;
-                const alreadyExists = existingOTMap[key];
+                const alreadyExists = existingMap[key];
                 const hasOT = att.overtimeHours && att.overtimeHours > 0;
+
+                // DEBUG: Specific employee tracking
+                if (emp.PTRJEmployeeID === 'POM00241' && date.includes('2026-01-04')) {
+                    console.log(`[DEBUG] POM00241 on ${date}:`);
+                    console.log(`  Key: ${key}`);
+                    console.log(`  Exists in Millware: ${!!alreadyExists}`);
+                    console.log(`  ExistingMap keys sample: ${Object.keys(existingMap).filter(k => k.includes('POM00241')).slice(0, 5).join(', ')}`);
+                }
 
                 // Debug first few
                 if (debugLog.length < 10) {
                     debugLog.push(`${key}: OT=${att.overtimeHours || 0}, exists=${!!alreadyExists}`);
                 }
 
-                // Only keep if NOT already in Millware AND has OT hours
-                if (!alreadyExists && hasOT) {
+                // Only keep if NOT already in Millware
+                // If in Overtime Only mode: MUST have OT
+                // If in Normal mode: Keep everything that isn't synced (including Sundays/Regular days)
+                const passesModeFilter = onlyOvertime ? hasOT : true;
+
+                if (!alreadyExists && passesModeFilter) {
                     newAttendance[date] = att;
                     hasMismatches = true;
                     totalKept++;
+
+                    // Collect samples
+                    if (keptSamples.length < 5) {
+                        keptSamples.push(`${key} (R:${att.regularHours || 0}, OT:${att.overtimeHours || 0})`);
+                    }
                 } else if (alreadyExists) {
                     totalSkipped++;
-                } else if (!hasOT) {
+
+                    // Collect samples
+                    if (skippedSamples.length < 5) {
+                        skippedSamples.push(`${key} (SYNCED)`);
+                    }
+                } else if (onlyOvertime && !hasOT) {
+                    // Only count as "No OT" exclusion if we are actually filtering for OT
                     totalNoOT++;
                 }
             });
@@ -169,26 +209,54 @@ const saveAutomationData = async (data) => {
         }).filter(emp => emp !== null);
 
         console.log(`[Automation] 🔍 Debug samples: ${debugLog.join(' | ')}`);
+        console.log(`[Automation] ✅ KEPT (new/mismatch): ${keptSamples.join(' | ')}`);
+        console.log(`[Automation] ⏭️  SKIPPED (synced): ${skippedSamples.join(' | ')}`);
         console.log(`[Automation] ✅ Filter complete: ${totalKept} to process, ${totalSkipped} synced, ${totalNoOT} no-OT (excluded).`);
         console.log(`[Automation] 📉 Filtered down to ${transformedData.length} employees with mismatches.`);
     }
 
-
-    const payload = {
-        metadata: {
-            export_date: new Date().toISOString(),
-            period_start: firstDay,
-            period_end: endDay,
-            total_employees: transformedData.length,
-            source: 'web_interface',
-            onlyOvertime: onlyOvertime,
-            syncMismatchesOnly: syncMismatchesOnly
-        },
-        data: transformedData
+    const exportDate = new Date().toISOString();
+    const commonMetadata = {
+        export_date: exportDate,
+        period_start: firstDay,
+        period_end: endDay,
+        source: 'web_interface',
+        onlyOvertime: onlyOvertime,
+        syncMismatchesOnly: syncMismatchesOnly
     };
 
+    // 1. Save FULL data for reference/backup
+    const fullPayload = {
+        metadata: { ...commonMetadata, total_employees: transformedData.length },
+        data: transformedData
+    };
+    fs.writeFileSync(filePath, JSON.stringify(fullPayload, null, 2));
     console.log(`[Automation] Saving ${transformedData.length} employees${onlyOvertime ? ' (ONLY OVERTIME mode)' : ''}`);
-    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));
+
+    // 2. Partition data for parallel engines
+    const numInstances = parseInt(process.env.AUTOMATION_INSTANCES || '2');
+    console.log(`[Automation] Partitioning data for ${numInstances} instances...`);
+
+    const chunks = Array.from({ length: numInstances }, () => []);
+    transformedData.forEach((emp, index) => {
+        chunks[index % numInstances].push(emp);
+    });
+
+    chunks.forEach((chunk, index) => {
+        const instanceId = index + 1;
+        const chunkPayload = {
+            metadata: {
+                ...commonMetadata,
+                instanceId,
+                total_employees: chunk.length
+            },
+            data: chunk
+        };
+        const chunkPath = path.join(DATA_DIR, `current_data_engine_${instanceId}.json`);
+        fs.writeFileSync(chunkPath, JSON.stringify(chunkPayload, null, 2));
+        console.log(`[Automation]   → Instance ${instanceId}: ${chunk.length} employees saved to current_data_engine_${instanceId}.json`);
+    });
+
     return filePath;
 };
 

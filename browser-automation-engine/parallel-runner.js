@@ -148,11 +148,11 @@ const cleanupTempFiles = (numEngines) => {
 // --- WATCHDOG & WORKER MANAGEMENT ---
 
 const startWorker = (engineConfig, workerState) => {
-    const { engineId, templateName, options } = engineConfig;
+    const { engineId, templateName, options, dataFile } = engineConfig;
 
     // Create worker config file
     const configPath = path.join(LOGS_DIR, `worker_config_${engineId}.json`);
-    fs.writeFileSync(configPath, JSON.stringify({ engineId, templateName, options }, null, 2));
+    fs.writeFileSync(configPath, JSON.stringify({ engineId, templateName, options, dataFile }, null, 2));
 
     // Reset heartbeat
     const heartbeatFile = path.join(LOGS_DIR, `heartbeat_engine_${engineId}.json`);
@@ -288,35 +288,47 @@ const runWatchdog = async (engines) => {
     try {
         cleanupStaleBrowsers();
 
-        const data = loadData(dataFilePath);
-        const allEmployees = data.data || [];
+        cleanupStaleBrowsers();
 
-        if (allEmployees.length === 0) throw new Error('Data tidak memiliki employees.');
+        const actualInstances = AUTOMATION_INSTANCES; // Use configured instances directly
 
-        const baseTemplate = loadBaseTemplate();
-        const actualInstances = Math.min(AUTOMATION_INSTANCES, allEmployees.length);
+        // We assume automationService has already partitioned the data into current_data_engine_X.json
 
         ensureChromeDataDirs(actualInstances);
 
-        const partitions = partitionEmployees(allEmployees, actualInstances);
         const engines = [];
 
         console.log(`
-📋 Preparing ${actualInstances} engine(s)...
+📋 Preparing ${actualInstances} engine(s) using Factory Pattern...
 `);
 
-        for (let i = 0; i < actualInstances; i++) {
-            const engineId = i + 1;
-            const employees = partitions[i];
-            if (employees.length === 0) continue; // Skip if partition is empty
+        for (let i = 1; i <= actualInstances; i++) {
+            const engineId = i;
+            const dataFileRelative = path.join('testing_data', `current_data_engine_${engineId}.json`);
+            const dataFileAbsolute = path.join(__dirname, dataFileRelative);
 
-            const info = createEngineTemplate(baseTemplate, data, employees, engineId);
+            if (!fs.existsSync(dataFileAbsolute)) {
+                console.log(`⚠️ Data file for Engine ${engineId} not found: ${dataFileRelative} (Skipping)`);
+                continue;
+            }
+
+            // Read data to get summary info
+            const engineData = JSON.parse(fs.readFileSync(dataFileAbsolute, 'utf8'));
+            const count = engineData.metadata.total_employees;
+
+            console.log(`   [Engine ${engineId}] Assigned ${count} employees from ${dataFileRelative}`);
+
             engines.push({
                 engineId,
-                templateName: info.templateName,
-                options: getEngineOptions(engineId),
-                summary: info
+                templateName: TEMPLATE_NAME, // Single master template
+                dataFile: dataFileRelative,  // Specific data file
+                options: getEngineOptions(engineId)
+                // summary: info // not needed anymore logic-wise, just logs
             });
+        }
+
+        if (engines.length === 0) {
+            throw new Error('No engines were prepared. Check if data files exist.');
         }
 
         // Run with Watchdog

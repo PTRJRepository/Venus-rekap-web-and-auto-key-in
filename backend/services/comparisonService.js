@@ -48,8 +48,16 @@ const queryTaskRegData = async (startDate, endDate, empCodes = null, otFilter = 
 
         const otDesc = otFilter === 0 ? '(Normal)' : otFilter === 1 ? '(Overtime)' : '(All)';
         console.log(`[Comparison] Querying PR_TASKREGLN ${otDesc}: ${startDate} to ${endDate}`);
+        console.log(`[Comparison] 📜 SQL Query:\n${sql}`);
+
         const result = await executeQuery(sql);
         console.log(`[Comparison] Found ${result.length} records in PR_TASKREGLN ${otDesc}`);
+
+        // Show sample records
+        if (result.length > 0) {
+            const samples = result.slice(0, 5).map(r => `${r.EmpCode}_${r.TrxDate?.substring(0, 10)} (OT=${r.OT})`);
+            console.log(`[Comparison] Sample records: ${samples.join(', ')}`);
+        }
 
         return result;
     } catch (error) {

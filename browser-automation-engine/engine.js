@@ -413,8 +413,8 @@ class AutomationEngine {
             await this.launch();
             const template = this.loadTemplate(templateName);
 
-            // Load data file jika dispesifikasi di template
-            if (template.dataFile) {
+            // Load data file jika dispesifikasi di template DAN belum ada di context
+            if (template.dataFile && !initialContext.data) {
                 const loadedData = this.loadData(template.dataFile);
                 initialContext = { ...initialContext, data: loadedData };
 
@@ -422,6 +422,9 @@ class AutomationEngine {
                 if (loadedData.metadata) {
                     initialContext.metadata = loadedData.metadata;
                 }
+            } else if (initialContext.data && initialContext.data.metadata) {
+                // Also expose metadata if data was passed via context
+                initialContext.metadata = initialContext.data.metadata;
             }
 
             console.log('================================================');
