@@ -37,6 +37,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
         if (compareMode && compareMode !== 'off' && comparisonData && filterSynced) {
             addLog('info', `🔍 STRICT FILTERING: Keeping only ${compareMode.toUpperCase()} Mismatches/Missing...`);
 
+
             employeesToProcess = selectedEmployees.map(emp => {
                 const ptrjId = emp.ptrjEmployeeID;
                 if (!ptrjId || ptrjId === 'N/A') return null;
@@ -57,17 +58,50 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                     let shouldInclude = false;
                     let reason = "";
 
+                    // DEBUG: Explicit Log for Sick/Partial days
+                    const statusUpper = (day.status || '').toUpperCase();
+                    if (statusUpper.includes('PARTIAL') || statusUpper.includes('SAKIT') || day.isSickLeave) {
+                        addLog('info', `DEBUG CHECK [${dateStr}]: Status=${statusUpper}, InDB=${!!millwareRecord}, DBHours=${millwareRecord?.hours}, VenusReg=${day.regularHours}`);
+                        if (millwareRecord) {
+                            console.log(`[Frontend Debug] ${dateStr} Millware Record:`, millwareRecord);
+                        }
+                    }
+
                     // Filter Logic based on Compare Mode
                     if (compareMode === 'presence') {
-                        // Include if Hadir AND (Not in Millware OR Mismatch)
-                        if (day.status === 'Hadir') {
+                        // Include if Hadir/Partial OR Leave Type AND (Not in Millware OR Mismatch)
+                        const isWorkingStatus = ['HADIR', 'PARTIAL IN', 'PARTIAL OUT'].includes(statusUpper);
+                        // Check for common leave prefixes (S=Sakit, I=Izin, C=Cuti, etc.) or specific codes
+                        const isLeaveStatus = ['SAKIT', 'IZIN', 'CUTI', 'ALPHA', 'I', 'S', 'C', 'CT', 'P', 'SD'].some(s => statusUpper.startsWith(s)) || day.isAnnualLeave || day.isSickLeave;
+
+                        if (isWorkingStatus || isLeaveStatus) {
                             if (!millwareRecord) {
                                 shouldInclude = true;
-                                reason = "Checking-in (Missing in Millware)";
+                                reason = `${day.status} (Missing in Millware)`;
                             } else {
-                                // Strictly exclude if record exists
-                                shouldInclude = false;
+                                // Record exists, check for Hour Mismatch (Strict Sync)
+                                // Since we are in 'presence' mode (OT=0), millwareRecord.hours is Normal Hours.
+                                const venusReg = day.regularHours || 0;
+                                const millReg = millwareRecord.hours || 0;
+
+                                const hoursMismatch = Math.abs(venusReg - millReg) > 0.1;
+                                // Force include Leave/Sick or Partial to ensure Task Code verification
+                                const forceCheck = isLeaveStatus || statusUpper.includes('PARTIAL');
+
+                                if (hoursMismatch || forceCheck) {
+                                    shouldInclude = true;
+                                    reason = hoursMismatch 
+                                        ? `Mismatch: Venus(${venusReg}h) vs Mill(${millReg}h)` 
+                                        : `Force Check: ${day.status} (Ensure Task Code)`;
+                                    addLog('info', `DEBUG INCLUDE [${dateStr}]: ${reason}`);
+                                } else {
+                                    shouldInclude = false;
+                                    addLog('info', `DEBUG SKIP [${dateStr}]: Hours Match (${venusReg}h) & No Force Flag.`);
+                                }
                             }
+                        } else {
+                            // If not working or leave status, log why skipped (optional verbose)
+                            // addLog('info', `DEBUG SKIP [${dateStr}]: Status '${statusUpper}' not target.`);
                         }
                     } else if (compareMode === 'overtime') {
                         // Keep if OT > 0 AND (Not in Millware OR Mismatch)
@@ -146,7 +180,8 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                     year,
                     startDate,
                     endDate,
-                    onlyOvertime
+                    onlyOvertime,
+                    syncMismatchesOnly: filterSynced
                 })
             });
 

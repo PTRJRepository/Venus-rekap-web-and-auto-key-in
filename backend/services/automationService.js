@@ -53,6 +53,7 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
                     isSunday: data.isSunday || false,
                     // Leave type info for automation - explicitly set to false if not true
                     isAnnualLeave: data.isAnnualLeave === true,
+                    isSickLeave: data.isSickLeave === true,
                     leaveTaskCode: data.leaveTaskCode || null,
                     leaveDescription: data.leaveDescription || null
                 };
@@ -172,7 +173,7 @@ const saveAutomationData = async (data) => {
             const dateStr = record.TrxDate ? record.TrxDate.substring(0, 10) : null;
             if (dateStr && record.EmpCode) {
                 const key = `${record.EmpCode}_${dateStr}`;
-                existingOTMap[key] = true;
+                existingOTMap[key] = record;
             }
         });
 
@@ -192,16 +193,30 @@ const saveAutomationData = async (data) => {
             Object.entries(emp.Attendance || {}).forEach(([date, att]) => {
                 // Check if OT already exists using same key format as frontend
                 const key = `${emp.PTRJEmployeeID}_${date}`;
-                const alreadyExists = existingOTMap[key];
+                const millwareRecord = existingOTMap[key];
+                const alreadyExists = !!millwareRecord;
                 const hasOT = att.overtimeHours && att.overtimeHours > 0;
 
                 // Debug first few
                 if (debugLog.length < 10) {
-                    debugLog.push(`${key}: OT=${att.overtimeHours || 0}, exists=${!!alreadyExists}`);
+                    debugLog.push(`${key}: OT=${att.overtimeHours || 0}, exists=${alreadyExists}`);
                 }
 
-                // Only keep if NOT already in Millware AND has OT hours
+                let shouldKeep = false;
                 if (!alreadyExists && hasOT) {
+                    shouldKeep = true;
+                } else if (alreadyExists) {
+                    // Check for hour mismatch
+                    const venusOT = att.overtimeHours || 0;
+                    const millOT = millwareRecord.Hours || millwareRecord.OT || 0; // Check DB field names
+
+                    if (Math.abs(venusOT - millOT) > 0.1) {
+                        shouldKeep = true; // KEEP (Mismatch)
+                        if (debugLog.length < 20) debugLog.push(`[${key}] Mismatch Kept: V=${venusOT} vs M=${millOT}`);
+                    }
+                }
+
+                if (shouldKeep) {
                     newAttendance[date] = att;
                     hasMismatches = true;
                     totalKept++;

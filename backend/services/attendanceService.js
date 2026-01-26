@@ -23,7 +23,7 @@ const ANNUAL_LEAVE_TASK_CODE = '(GA9130) PERSONNEL ANNUAL LEAVE';
 
 // Leave types that should use task code "(GA9130) SICK LEAVE" (or similar)
 const SICK_LEAVE_TYPES = ['SAKIT', 'SICK', 'HAID', 'MENSTRUAL'];
-const SICK_LEAVE_TASK_CODE = '(GA9130) SICK LEAVE'; // Assuming this standard
+const SICK_LEAVE_TASK_CODE = '(GA9127) (AL) PERSONNEL SICK LEAVE'; // Corrected from dropdown
 
 // Cache for leave type descriptions
 let leaveTypeCache = null;
@@ -481,11 +481,11 @@ const fetchAttendanceData = async (month, year) => {
                 isHoliday: isHol,
                 holidayName: holidayName,
                 isSunday: isSun,
-                // Leave type info for automation - only set if leave is actually applied (no attendance record)
-                isAnnualLeave: (!att && !absence && leave?.isAnnualLeave) || false,
-                isSickLeave: (!att && !absence && leave?.isSickLeave) || false,
-                leaveTaskCode: (!att && !absence && leave?.leaveTaskCode) || null,
-                leaveDescription: (!att && !absence && leave?.desc) || null
+                // Leave type info for automation - allow Partial Leave (attendance + leave)
+                isAnnualLeave: (!absence && leave?.isAnnualLeave) || false,
+                isSickLeave: (!absence && leave?.isSickLeave) || false,
+                leaveTaskCode: (!absence && leave?.leaveTaskCode) || null,
+                leaveDescription: (!absence && leave?.desc) || null
             };
         });
 

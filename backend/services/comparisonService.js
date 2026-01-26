@@ -136,12 +136,17 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
 
                 // Sync logic
                 let isSynced = false;
+                let regularMatch = false;
+                let otMatch = false;
+
                 if (onlyOvertime) {
                     // In Overtime Only mode, if Millware already has OT, we consider it synced (skip).
                     // We only want to input if Millware has NO OT (0) but Venus HAS OT.
                     isSynced = otHours > 0.01;
+                    otMatch = isSynced;
+                    regularMatch = true; // Ignore regular match in OT mode
                     if (isSynced) {
-                        console.log(`[Compare] ✓ SYNCED: ${ptrjId} @ ${dateStr} - Millware OT: ${otHours}h, Venus OT: ${venusOt}h`);
+                        console.log(`[Compare] ✓ SYNCED: ${ptrjId} @ ${dateStr} - Millware OT: ${otHours}h, Venus OT: ${venusOtHours}h`);
                     }
                 } else {
                     // Match total hours (simplest for general status)
@@ -159,7 +164,7 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                     // OR if we strictly want to enforce record creation even for 0h.
                     // For Sunday cases, we normally want a record (0h) to exist.
                     // If no record exists, it's NOT a match.
-                    const regularMatch = hasNormalRecord && Math.abs(normalHours - venusRegular) < 0.1;
+                    regularMatch = hasNormalRecord && Math.abs(normalHours - venusRegular) < 0.1;
 
                     // DEBUG: Explicitly log why we matched or missed
                     // DEBUG: Explicitly log why we matched or missed
@@ -178,7 +183,7 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                     // But to be safe, if we have 0 OT in Venus and NO record in DB, that's a match/ok.
                     // If we have 0 OT in Venus and Record exists with 0 OT, also match.
                     // The only case to FLAG is if Venus > 0 and NO record or Diff value.
-                    const otMatch = (venusOt > 0.01)
+                    otMatch = (venusOt > 0.01)
                         ? (hasOtRecord && Math.abs(otHours - venusOt) < 0.1)
                         : (Math.abs(otHours - venusOt) < 0.1); // If 0 target, 0 found (even if no record) is OK.
 
