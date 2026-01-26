@@ -276,14 +276,14 @@ const actions = {
             if (foundSingleOption) {
                 console.log("  ⌨️  Selecting single option with ArrowDown + Enter...");
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 300)); // Increased delay for stability
+                await new Promise(r => setTimeout(r, 800)); // Increased delay for stability
                 await page.keyboard.press('Enter');
             } else {
                 // Fallback: If we finished typing and never found a single option (or 0 options),
                 // we try to select the first one anyway if available.
                 console.log(`  ⚠️  Finished typing without isolating single option. Selecting first available.`);
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 300)); // Increased delay for stability
+                await new Promise(r => setTimeout(r, 800)); // Increased delay for stability
                 await page.keyboard.press('Enter');
             }
 
@@ -1392,7 +1392,7 @@ const actions = {
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             console.log(`  ┌─ Attempt ${attempt}/${maxRetries} ─────`);
-            
+
             // Ensure page is stable (no navigation/postback in progress)
             await _waitForPageStable(page, 2000);
 
@@ -1528,26 +1528,35 @@ const actions = {
                 elementHandle = await page.$(selector);
             }
 
-            // 2. Ensure proper focus and clear input using JavaScript (more reliable)
-            console.log(`  🔍 Focusing and clearing element...`);
+            // 2. Ensure proper focus and clear input using AGGRESSIVE JavaScript + Keyboard
+            console.log(`  🔍 Focusing and clearing element (Aggressive Mode)...`);
 
             try {
-                // Click to focus (may fail if stale, that's ok)
+                // Focus
                 await elementHandle.click();
                 await new Promise(r => setTimeout(r, 200));
-            } catch (e) {
-                // Element stale, get fresh one
-                elementHandle = await getFreshElement(selector, index);
-                if (elementHandle) await elementHandle.click();
-                await new Promise(r => setTimeout(r, 200));
-            }
 
-            // Use page.keyboard and JavaScript for clearing (more reliable)
-            await page.keyboard.down('Control');
-            await page.keyboard.press('a');
-            await page.keyboard.up('Control');
-            await page.keyboard.press('Delete');
-            await new Promise(r => setTimeout(r, 200));
+                // METHOD 1: JS Direct Clear (The Nuclear Option)
+                await page.evaluate((el) => {
+                    el.value = '';
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }, elementHandle);
+
+                // METHOD 2: Keyboard Clear (Double Tap)
+                await page.keyboard.down('Control');
+                await page.keyboard.press('a');
+                await page.keyboard.up('Control');
+                await page.keyboard.press('Delete');
+
+                await new Promise(r => setTimeout(r, 200));
+            } catch (e) {
+                // Element stale? Get fresh one and retry just the click
+                try {
+                    elementHandle = await getFreshElement(selector, index);
+                    if (elementHandle) await elementHandle.click();
+                } catch (retryE) { }
+            }
 
             // 3. Smart Incremental Typing with Autocomplete Triggering
             console.log("  ⌨️ Smart Typing...");
@@ -1708,43 +1717,45 @@ const actions = {
             } catch (e) { }
             await new Promise(r => setTimeout(r, 200));
 
-            let selectionSuccess = false;
-            if (dropdownCheck.visible) {
-                console.log("  🖱️ Attempting to click dropdown option directly...");
-                // Try clicking the first item directly via JS
-                selectionSuccess = await safeEvaluate(() => {
-                    const lists = document.querySelectorAll('ul.ui-autocomplete');
-                    for (const list of lists) {
-                        if (list.style.display !== 'none' && list.offsetParent !== null) {
-                            const item = list.querySelector('li.ui-menu-item');
-                            if (item) {
-                                // jQuery UI often puts the click listener on the inner DIV or A tag
-                                const target = item.querySelector('div, a') || item;
+            // 4. Confirm Selection (Prioritize Keyboard for Event Reliability)
+            console.log("  🖱️ Confirming selection...");
 
-                                // Simulate full mouse event sequence including mouseover
-                                target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view: window }));
-                                target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-                                target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
-                                target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-                                return true;
+            let selectionSuccess = false;
+
+            // OPTION: Use JS Click if explicitly requested, otherwise default to Keyboard
+            // Keyboard is safer for ASP.NET PostBacks because it triggers 'change' events naturally
+            if (params.useJsClick) {
+                if (dropdownCheck.visible) {
+                    console.log("  🖱️ Attempting to click dropdown option directly (JS Mode)...");
+                    selectionSuccess = await safeEvaluate(() => {
+                        const lists = document.querySelectorAll('ul.ui-autocomplete');
+                        for (const list of lists) {
+                            if (list.style.display !== 'none' && list.offsetParent !== null) {
+                                const item = list.querySelector('li.ui-menu-item');
+                                if (item) {
+                                    const target = item.querySelector('div, a') || item;
+                                    target.click();
+                                    return true;
+                                }
                             }
                         }
-                    }
-                    return false;
-                });
+                        return false;
+                    });
+                }
             }
 
             if (selectionSuccess) {
                 console.log("  ✅ Clicked dropdown option successfully");
             } else {
-                console.log("  ⌨️  Click failed/unavailable. Using ArrowDown + Enter...");
+                console.log("  ⌨️  Using Keyboard Selection (ArrowDown + Enter) for reliability...");
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 300));
+                await new Promise(r => setTimeout(r, 500));
                 await page.keyboard.press('Enter');
             }
 
-            // 5. Wait for potential error or success
-            await new Promise(r => setTimeout(r, 2000));
+            // 5. Wait for potential error or success (Increased for ASP.NET PostBack)
+            console.log("  ⏳ Waiting 5s for potential PostBack/Validation...");
+            await new Promise(r => setTimeout(r, 5000));
 
             // 6. Check validation - now using comprehensive check
             const postCheck = await checkForValidationErrors();
@@ -1777,7 +1788,24 @@ const actions = {
                 console.log(`  📋 Field value: "${fieldValue.value}"`);
             }
 
-            if (!postCheck.hasError && !hasSpecificError) {
+            // LOGIC CHANGE: Prioritize specific validation over global "Please..." check
+            let isSuccess = false;
+            if (validationSelector) {
+                // If specific selector is provided, we only fail if THAT selector is visible or field is empty
+                if (!hasSpecificError && fieldValue.hasValue) {
+                    isSuccess = true;
+                    if (postCheck.hasError) {
+                        console.log(`  ⚠️ Ignoring global validation error ("${postCheck.message}") because specific validator is clean.`);
+                    }
+                }
+            } else {
+                // Fallback to global check if no specific selector provided
+                if (!postCheck.hasError && fieldValue.hasValue) {
+                    isSuccess = true;
+                }
+            }
+
+            if (isSuccess) {
                 console.log(`  ✅ Input Success`);
                 console.log(`  └─────────────────────────\n`);
                 return; // Success!
@@ -1878,33 +1906,59 @@ const actions = {
     },
 
     /**
-     * Click and wait for navigation in a single atomic action
-     * Combines click + waitForNavigation for ASP.NET postback buttons
+     * Click and wait for navigation in a single atomic action (Robust Version 2.0)
+     * Combines click + waitForNavigation with retries and JS fallback
      * params.selector: button selector to click
      * params.timeout: max time to wait for navigation (default 15000ms)
      */
     clickAndWaitForReload: async (page, params) => {
         const { selector, timeout = 15000 } = params;
 
-        console.log(`🖱️ Clicking ${selector} and waiting for page reload...`);
+        console.log(`🖱️ Clicking ${selector} and waiting for page reload (Robust Mode 2.0)...`);
 
         try {
-            // Start navigation wait BEFORE clicking (important for race condition)
+            // 1. Ensure element is visible
+            await waitForElement(page, selector, timeout);
+
+            // 2. Setup navigation promise (the long wait)
             const navigationPromise = page.waitForNavigation({
                 waitUntil: 'domcontentloaded',
                 timeout: timeout
             });
 
-            // Click the button
-            await page.click(selector);
+            // 3. Try JS Click (Force) - Most reliable for ASP.NET
+            console.log(`  👉 Attempt 1: JS Force Click`);
+            await page.evaluate((sel) => {
+                const el = document.querySelector(sel);
+                if (el) {
+                    el.scrollIntoView({ block: 'center', inline: 'center' }); // Ensure visibility
+                    el.click();
+                    // Dispatch events manually just in case
+                    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                    el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+                }
+            }, selector);
 
-            // Wait for navigation to complete
+            // 4. Wait for navigation
             await navigationPromise;
 
             console.log(`  ✅ Click + reload successful`);
             return true;
         } catch (e) {
             console.log(`  ⚠️ Click or navigation failed: ${e.message}`);
+
+            // Heuristic check
+            const isFresh = await page.evaluate(() => {
+                const inputs = document.querySelectorAll('.ui-autocomplete-input.CBOBox');
+                if (inputs.length > 0 && inputs[0].value === '') return true;
+                return false;
+            });
+
+            if (isFresh) {
+                console.log(`  ✅ Page seems to have reloaded (inputs are empty). Treating as success.`);
+                return true;
+            }
+
             return false;
         }
     },
