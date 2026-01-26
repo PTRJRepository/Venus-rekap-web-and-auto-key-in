@@ -357,6 +357,35 @@ const actions = {
     },
 
     /**
+     * Jalankan script JavaScript di halaman
+     */
+    executeJavascript: async (page, params, context) => {
+        const script = params.script;
+        const saveTo = params.saveTo;
+        if (!script) {
+            console.error(`⚠️ executeJavascript: Parameter 'script' required`);
+            return;
+        }
+
+        console.log(`🖥️  Executing JS: ${script.substring(0, 50)}...`);
+        try {
+            // Evaluasi script (bisa return value)
+            const result = await page.evaluate((scriptContent) => {
+                // Function wrapper agar bisa return
+                return new Function(scriptContent)();
+            }, script);
+
+            if (saveTo && context) {
+                context[saveTo] = result;
+                console.log(`  💾 Result saved to '${saveTo}':`, result);
+            }
+        } catch (err) {
+            console.error(`❌ JS Execution Error: ${err.message}`);
+            // Jangan throw error agar automation lanjut (kecuali kritikal?)
+        }
+    },
+
+    /**
      * Submit form (optional action)
      */
     submit: async (page, params) => {
@@ -461,7 +490,7 @@ const actions = {
             context.hasChargeJobPart2 = false;
         }
 
-        // Part 3: Cost Center - ONLY if it actually exists and has valid content
+        // Part 3: Cost Center
         if (parts.length > 2 && parts[2] && parts[2].length >= 2) {
             context.chargeJobPart3 = parts[2].trim();
             context.hasChargeJobPart3 = true;
@@ -471,7 +500,27 @@ const actions = {
             context.hasChargeJobPart3 = false;
         }
 
-        console.log(`  ✅ ChargeJob parsed - ${parts.length} parts (hasP2: ${context.hasChargeJobPart2}, hasP3: ${context.hasChargeJobPart3})`);
+        // Part 4
+        if (parts.length > 3 && parts[3] && parts[3].length >= 2) {
+            context.chargeJobPart4 = parts[3].trim();
+            context.hasChargeJobPart4 = true;
+            console.log(`  Part 4: "${context.chargeJobPart4}"`);
+        } else {
+            context.chargeJobPart4 = "";
+            context.hasChargeJobPart4 = false;
+        }
+
+        // Part 5
+        if (parts.length > 4 && parts[4] && parts[4].length >= 2) {
+            context.chargeJobPart5 = parts[4].trim();
+            context.hasChargeJobPart5 = true;
+            console.log(`  Part 5: "${context.chargeJobPart5}"`);
+        } else {
+            context.chargeJobPart5 = "";
+            context.hasChargeJobPart5 = false;
+        }
+
+        console.log(`  ✅ ChargeJob parsed - ${parts.length} parts (hasP2: ${context.hasChargeJobPart2}, hasP3: ${context.hasChargeJobPart3}, hasP4: ${context.hasChargeJobPart4}, hasP5: ${context.hasChargeJobPart5})`);
     },
 
     /**
