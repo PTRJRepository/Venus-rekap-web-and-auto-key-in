@@ -502,6 +502,7 @@ const actions = {
                     exists: true,
                     disabled: el.disabled || el.classList.contains('aspNetDisabled') || el.getAttribute('aria-disabled') === 'true' || el.hasAttribute('disabled'),
                     readonly: el.readOnly || el.hasAttribute('readonly'),
+                    checked: el.checked || el.getAttribute('checked') === 'checked' || el.getAttribute('checked') === 'true',
                     value: el.value || '',
                     text: el.textContent || ''
                 };
@@ -1851,7 +1852,16 @@ const actions = {
     },
 
     /**
-     * RECOVERY: checkFormReady - Check if form is ready for input
+     * Explicitly throw an error to trigger recovery
+     */
+    throwError: async (page, params) => {
+        const message = params.message || 'An error occurred';
+        console.error(`❌ Throwing Error: ${message}`);
+        throw new Error(message);
+    },
+
+    /**
+     * checkFormReady - Check if form is ready for input
      * Verifies required form elements exist before continuing
      * params.requiredSelector: selector to check for (default: #MainContent_txtTrxDate)
      * params.timeout: how long to wait (default: 5000ms)

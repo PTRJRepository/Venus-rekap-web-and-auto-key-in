@@ -317,10 +317,10 @@
                                                     ],
                                                     "elseSteps": [
                                                         {
-                                                            "comment": "Input REGULAR jika hadir (bukan annual leave) DAN bukan mode Only Overtime",
+                                                            "comment": "Input REGULAR jika hadir (bukan annual leave) DAN bukan mode Only Overtime DAN Regular belum matched",
                                                             "action": "if",
                                                             "params": {
-                                                                "condition": "attendance.status && !metadata.onlyOvertime",
+                                                                "condition": "attendance.status && !metadata.onlyOvertime && !attendance.skipRegular",
                                                                 "thenSteps": [
                                                                     {
                                                                         "action": "log",
@@ -444,160 +444,261 @@
                                                                                     }
                                                                                 },
                                                                                 {
+                                                                                    "comment": "═══ TRANSACTION TYPE CONTROL (NORMAL MODE) ═══",
                                                                                     "action": "checkElementState",
                                                                                     "params": {
-                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                        "index": 1,
-                                                                                        "saveTo": "taskCodeState"
+                                                                                        "selector": "#MainContent_rblOT_0",
+                                                                                        "saveTo": "normalRadioState"
                                                                                     }
                                                                                 },
                                                                                 {
-                                                                                    "comment": "SKIP Logic: If Task Code is disabled, data already exists",
                                                                                     "action": "if",
                                                                                     "params": {
-                                                                                        "condition": "!taskCodeState.disabled",
+                                                                                        "condition": "!normalRadioState.checked",
                                                                                         "thenSteps": [
-                                                                                            {
-                                                                                                "action": "parseChargeJob",
-                                                                                                "params": {
-                                                                                                    "chargeJob": "${employee.ChargeJob}"
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "action": "retryInputWithValidation",
-                                                                                                "comment": "Input Task Code with Validation Retry - re-enters Employee if validation fails",
-                                                                                                "params": {
-                                                                                                    "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                    "index": 1,
-                                                                                                    "value": "${chargeJobPart1Clean}",
-                                                                                                    "validationSelector": "#MainContent_ddlTaskCode_RFV",
-                                                                                                    "maxRetries": 5,
-                                                                                                    "formReentryFields": [
-                                                                                                        {
-                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                            "index": 0,
-                                                                                                            "value": "${employee.PTRJEmployeeID}"
-                                                                                                        }
-                                                                                                    ]
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "action": "wait",
-                                                                                                "params": {
-                                                                                                    "duration": 3000,
-                                                                                                    "comment": "Wait for page update after Task Code selection"
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "comment": "═══ CONDITIONAL: Input Part 2 only if exists ═══",
-                                                                                                "action": "if",
-                                                                                                "params": {
-                                                                                                    "condition": "hasChargeJobPart2",
-                                                                                                    "thenSteps": [
-                                                                                                        {
-                                                                                                            "action": "retryInputWithValidation",
-                                                                                                            "comment": "Input Part 2 with Validation Retry",
-                                                                                                            "params": {
-                                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                                "index": 2,
-                                                                                                                "value": "${chargeJobPart2}",
-                                                                                                                "validationSelector": "#MainContent_ddlAccountCode_RFV",
-                                                                                                                "maxRetries": 5,
-                                                                                                                "expectedFieldCount": "${expectedFieldCount}",
-                                                                                                                "formReentryFields": [
-                                                                                                                    {
-                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                                        "index": 0,
-                                                                                                                        "value": "${employee.PTRJEmployeeID}"
-                                                                                                                    },
-                                                                                                                    {
-                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                                        "index": 1,
-                                                                                                                        "value": "${chargeJobPart1Clean}"
-                                                                                                                    }
-                                                                                                                ]
-                                                                                                            }
-                                                                                                        }
-                                                                                                    ]
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "comment": "═══ CONDITIONAL: Input Part 3 only if exists ═══",
-                                                                                                "action": "if",
-                                                                                                "params": {
-                                                                                                    "condition": "hasChargeJobPart3",
-                                                                                                    "thenSteps": [
-                                                                                                        {
-                                                                                                            "action": "retryInputWithValidation",
-                                                                                                            "comment": "Input Part 3 with Validation Retry",
-                                                                                                            "params": {
-                                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                                "index": 3,
-                                                                                                                "value": "${chargeJobPart3}",
-                                                                                                                "validationSelector": "#MainContent_ddlSubBlock_RFV",
-                                                                                                                "maxRetries": 5,
-                                                                                                                "expectedFieldCount": "${expectedFieldCount}",
-                                                                                                                "formReentryFields": [
-                                                                                                                    {
-                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                                        "index": 0,
-                                                                                                                        "value": "${employee.PTRJEmployeeID}"
-                                                                                                                    },
-                                                                                                                    {
-                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                                        "index": 1,
-                                                                                                                        "value": "${chargeJobPart1Clean}"
-                                                                                                                    },
-                                                                                                                    {
-                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                                        "index": 2,
-                                                                                                                        "value": "${chargeJobPart2}"
-                                                                                                                    }
-                                                                                                                ]
-                                                                                                            }
-                                                                                                        }
-                                                                                                    ]
-                                                                                                }
-                                                                                            },
                                                                                             {
                                                                                                 "action": "log",
                                                                                                 "params": {
-                                                                                                    "message": "  Skipping Hour Input for Regular/Normal transaction as requested."
+                                                                                                    "message": "  ⚠️ Transaction Type is OVERTIME. Attempting to switch to NORMAL..."
                                                                                                 }
                                                                                             },
                                                                                             {
-                                                                                                "action": "pressKey",
+                                                                                                "action": "if",
                                                                                                 "params": {
-                                                                                                    "key": "Enter"
+                                                                                                    "condition": "normalRadioState.disabled",
+                                                                                                    "thenSteps": [
+                                                                                                        {
+                                                                                                            "action": "throwError",
+                                                                                                            "params": {
+                                                                                                                "message": "DATA_ALREADY_EXISTS: Normal transaction type is disabled"
+                                                                                                            }
+                                                                                                        }
+                                                                                                    ],
+                                                                                                    "elseSteps": [
+                                                                                                        {
+                                                                                                            "action": "click",
+                                                                                                            "params": {
+                                                                                                                "selector": "#MainContent_rblOT_0"
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "wait",
+                                                                                                            "params": {
+                                                                                                                "duration": 3000,
+                                                                                                                "comment": "Wait for postback after switching to Normal"
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "checkElementState",
+                                                                                                            "params": {
+                                                                                                                "selector": "#MainContent_rblOT_0",
+                                                                                                                "saveTo": "normalRadioStateRetry"
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "if",
+                                                                                                            "params": {
+                                                                                                                "condition": "!normalRadioStateRetry.checked",
+                                                                                                                "thenSteps": [
+                                                                                                                    {
+                                                                                                                        "action": "throwError",
+                                                                                                                        "params": {
+                                                                                                                            "message": "FAILED_TO_SWITCH: Could not switch to Normal transaction"
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                ]
+                                                                                                            }
+                                                                                                        }
+                                                                                                    ]
                                                                                                 }
-                                                                                            },
+                                                                                            }
+                                                                                        ]
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "comment": "Proceed with Task Code Input (Validation Passed)",
+                                                                                    "action": "if",
+                                                                                    "params": {
+                                                                                        "condition": "true",
+                                                                                        "thenSteps": [
                                                                                             {
-                                                                                                "comment": "═══ CLICK ADD AND WAIT FOR PAGE RELOAD ═══",
-                                                                                                "action": "clickAndWaitForReload",
-                                                                                                "params": {
-                                                                                                    "selector": "#MainContent_btnAdd",
-                                                                                                    "timeout": 15000
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
-                                                                                                "action": "checkPageAndNavigate",
-                                                                                                "params": {}
-                                                                                            },
-                                                                                            {
-                                                                                                "action": "waitForReady",
+                                                                                                "action": "checkElementState",
                                                                                                 "params": {
                                                                                                     "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                    "timeout": 10000
+                                                                                                    "index": 1,
+                                                                                                    "saveTo": "taskCodeState"
                                                                                                 }
                                                                                             },
                                                                                             {
-                                                                                                "comment": "═══ VALIDASI: Cek apakah data berhasil masuk ═══",
-                                                                                                "action": "validateText",
+                                                                                                "comment": "SKIP Logic: If Task Code is disabled, data already exists",
+                                                                                                "action": "if",
                                                                                                 "params": {
-                                                                                                    "selector": "#MainContent_lblTotalNormalHour",
-                                                                                                    "minLength": 1,
-                                                                                                    "throwOnFail": false
+                                                                                                    "condition": "!taskCodeState.disabled",
+                                                                                                    "thenSteps": [
+                                                                                                        {
+                                                                                                            "action": "parseChargeJob",
+                                                                                                            "params": {
+                                                                                                                "chargeJob": "${employee.ChargeJob}"
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "retryInputWithValidation",
+                                                                                                            "comment": "Input Task Code with Validation Retry - re-enters Employee if validation fails",
+                                                                                                            "params": {
+                                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                "index": 1,
+                                                                                                                "value": "${chargeJobPart1Clean}",
+                                                                                                                "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                                                                                                                "maxRetries": 5,
+                                                                                                                "formReentryFields": [
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 0,
+                                                                                                                        "value": "${employee.PTRJEmployeeID}"
+                                                                                                                    }
+                                                                                                                ]
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "wait",
+                                                                                                            "params": {
+                                                                                                                "duration": 3000,
+                                                                                                                "comment": "Wait for page update after Task Code selection"
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "comment": "═══ CONDITIONAL: Input Part 2 only if exists ═══",
+                                                                                                            "action": "if",
+                                                                                                            "params": {
+                                                                                                                "condition": "hasChargeJobPart2",
+                                                                                                                "thenSteps": [
+                                                                                                                    {
+                                                                                                                        "action": "retryInputWithValidation",
+                                                                                                                        "comment": "Input Part 2 with Validation Retry",
+                                                                                                                        "params": {
+                                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                            "index": 2,
+                                                                                                                            "value": "${chargeJobPart2}",
+                                                                                                                            "validationSelector": "#MainContent_ddlAccountCode_RFV",
+                                                                                                                            "maxRetries": 5,
+                                                                                                                            "expectedFieldCount": "${expectedFieldCount}",
+                                                                                                                            "formReentryFields": [
+                                                                                                                                {
+                                                                                                                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                                    "index": 0,
+                                                                                                                                    "value": "${employee.PTRJEmployeeID}"
+                                                                                                                                },
+                                                                                                                                {
+                                                                                                                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                                    "index": 1,
+                                                                                                                                    "value": "${chargeJobPart1Clean}"
+                                                                                                                                }
+                                                                                                                            ]
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                ]
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "comment": "═══ CONDITIONAL: Input Part 3 only if exists ═══",
+                                                                                                            "action": "if",
+                                                                                                            "params": {
+                                                                                                                "condition": "hasChargeJobPart3",
+                                                                                                                "thenSteps": [
+                                                                                                                    {
+                                                                                                                        "action": "retryInputWithValidation",
+                                                                                                                        "comment": "Input Part 3 with Validation Retry",
+                                                                                                                        "params": {
+                                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                            "index": 3,
+                                                                                                                            "value": "${chargeJobPart3}",
+                                                                                                                            "validationSelector": "#MainContent_ddlSubBlock_RFV",
+                                                                                                                            "maxRetries": 5,
+                                                                                                                            "expectedFieldCount": "${expectedFieldCount}",
+                                                                                                                            "formReentryFields": [
+                                                                                                                                {
+                                                                                                                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                                    "index": 0,
+                                                                                                                                    "value": "${employee.PTRJEmployeeID}"
+                                                                                                                                },
+                                                                                                                                {
+                                                                                                                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                                    "index": 1,
+                                                                                                                                    "value": "${chargeJobPart1Clean}"
+                                                                                                                                },
+                                                                                                                                {
+                                                                                                                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                                    "index": 2,
+                                                                                                                                    "value": "${chargeJobPart2}"
+                                                                                                                                }
+                                                                                                                            ]
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                ]
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "log",
+                                                                                                            "params": {
+                                                                                                                "message": "  Skipping Hour Input for Regular/Normal transaction as requested."
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "pressKey",
+                                                                                                            "params": {
+                                                                                                                "key": "Enter"
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "comment": "═══ CLICK ADD AND WAIT FOR PAGE RELOAD ═══",
+                                                                                                            "action": "clickAndWaitForReload",
+                                                                                                            "params": {
+                                                                                                                "selector": "#MainContent_btnAdd",
+                                                                                                                "timeout": 15000
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
+                                                                                                            "action": "checkPageAndNavigate",
+                                                                                                            "params": {}
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "waitForReady",
+                                                                                                            "params": {
+                                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                "timeout": 10000
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "comment": "═══ VALIDASI: Cek apakah data berhasil masuk ═══",
+                                                                                                            "action": "validateText",
+                                                                                                            "params": {
+                                                                                                                "selector": "#MainContent_lblTotalNormalHour",
+                                                                                                                "minLength": 1,
+                                                                                                                "throwOnFail": false
+                                                                                                            }
+                                                                                                        }
+                                                                                                    ],
+                                                                                                    "elseSteps": [
+                                                                                                        {
+                                                                                                            "action": "log",
+                                                                                                            "params": {
+                                                                                                                "message": "  ⚠️ SKIPPING: Transaction Type is DISABLED (Data already exists). Refreshing..."
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "navigate",
+                                                                                                            "params": {
+                                                                                                                "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "wait",
+                                                                                                            "params": {
+                                                                                                                "duration": 2000
+                                                                                                            }
+                                                                                                        }
+                                                                                                    ]
                                                                                                 }
                                                                                             }
                                                                                         ],
@@ -605,22 +706,16 @@
                                                                                             {
                                                                                                 "action": "log",
                                                                                                 "params": {
-                                                                                                    "message": "  ⚠️ SKIPPING: Transaction Type is DISABLED (Data already exists). Refreshing..."
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "action": "navigate",
-                                                                                                "params": {
-                                                                                                    "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "action": "wait",
-                                                                                                "params": {
-                                                                                                    "duration": 2000
+                                                                                                    "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} (${employee.EmployeeName}) - employee input failed, cannot continue with regular hours entry"
                                                                                                 }
                                                                                             }
                                                                                         ]
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "log",
+                                                                                    "params": {
+                                                                                        "message": "  ⚠️ SKIPPING: 'Normal' transaction type is DISABLED/LOCKED. Data likely exists."
                                                                                     }
                                                                                 }
                                                                             ],
@@ -628,7 +723,19 @@
                                                                                 {
                                                                                     "action": "log",
                                                                                     "params": {
-                                                                                        "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} (${employee.EmployeeName}) - employee input failed, cannot continue with regular hours entry"
+                                                                                        "message": "  ⚠️ SKIPPING: 'Normal' transaction type is DISABLED/LOCKED. Refreshing..."
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "navigate",
+                                                                                    "params": {
+                                                                                        "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "wait",
+                                                                                    "params": {
+                                                                                        "duration": 2000
                                                                                     }
                                                                                 }
                                                                             ]
@@ -637,10 +744,10 @@
                                                                 ],
                                                                 "elseSteps": [
                                                                     {
-                                                                        "comment": "Mode: OVERTIME ONLY - Check if this date has overtime hours before processing",
+                                                                        "comment": "Mode: OVERTIME ONLY - Process ONLY if in Overtime Mode AND has OT hours",
                                                                         "action": "if",
                                                                         "params": {
-                                                                            "condition": "attendance.overtimeHours && attendance.overtimeHours > 0",
+                                                                            "condition": "attendance.overtimeHours && attendance.overtimeHours > 0 && metadata.onlyOvertime && !attendance.skipOvertime",
                                                                             "thenSteps": [
                                                                                 {
                                                                                     "action": "log",
@@ -731,6 +838,7 @@
                                                                                                 }
                                                                                             },
                                                                                             {
+                                                                                                "comment": "═══ TRANSACTION TYPE CONTROL: Ensure 'Overtime' is selected ═══",
                                                                                                 "action": "click",
                                                                                                 "params": {
                                                                                                     "selector": "#MainContent_rblOT_1",
@@ -741,6 +849,294 @@
                                                                                                 "action": "wait",
                                                                                                 "params": {
                                                                                                     "duration": 5000,
+                                                                                                    "comment": "Wait for overtime radio postback"
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "action": "checkElementState",
+                                                                                                "params": {
+                                                                                                    "selector": "#MainContent_rblOT_1",
+                                                                                                    "saveTo": "otRadioState"
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "comment": "SKIP Logic: If Overtime Transaction Type is disabled (locked), data already exists.",
+                                                                                                "action": "if",
+                                                                                                "params": {
+                                                                                                    "condition": "!otRadioState.disabled",
+                                                                                                    "thenSteps": [
+                                                                                                        {
+                                                                                                            "action": "waitForReady",
+                                                                                                            "params": {
+                                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                "timeout": 15000
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "parseChargeJob",
+                                                                                                            "params": {
+                                                                                                                "chargeJob": "${employee.ChargeJob}"
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "retryInputWithValidation",
+                                                                                                            "comment": "Input Task Code with Validation Retry - re-enters Employee if validation fails",
+                                                                                                            "params": {
+                                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                "index": 1,
+                                                                                                                "value": "${chargeJobPart1Clean}",
+                                                                                                                "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                                                                                                                "maxRetries": 5,
+                                                                                                                "formReentryFields": [
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 0,
+                                                                                                                        "value": "${employee.PTRJEmployeeID}"
+                                                                                                                    }
+                                                                                                                ]
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "wait",
+                                                                                                            "params": {
+                                                                                                                "duration": 3000,
+                                                                                                                "comment": "Wait for page update after Task Code selection"
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "retryInputWithValidation",
+                                                                                                            "comment": "Input Part 2 with Validation Retry - re-enters Employee and Task Code if validation fails",
+                                                                                                            "params": {
+                                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                "index": 2,
+                                                                                                                "value": "${chargeJobPart2}",
+                                                                                                                "validationSelector": "#MainContent_ddlAccountCode_RFV",
+                                                                                                                "maxRetries": 5,
+                                                                                                                "formReentryFields": [
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 0,
+                                                                                                                        "value": "${employee.PTRJEmployeeID}"
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 1,
+                                                                                                                        "value": "${chargeJobPart1Clean}"
+                                                                                                                    }
+                                                                                                                ]
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "retryInputWithValidation",
+                                                                                                            "comment": "Input Part 3 with Validation Retry - re-enters previous fields if validation fails",
+                                                                                                            "params": {
+                                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                "index": 3,
+                                                                                                                "value": "${chargeJobPart3}",
+                                                                                                                "validationSelector": "#MainContent_ddlSubBlock_RFV",
+                                                                                                                "maxRetries": 5,
+                                                                                                                "expectedFieldCount": "${expectedFieldCount}",
+                                                                                                                "formReentryFields": [
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 0,
+                                                                                                                        "value": "${employee.PTRJEmployeeID}"
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 1,
+                                                                                                                        "value": "${chargeJobPart1Clean}"
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 2,
+                                                                                                                        "value": "${chargeJobPart2}"
+                                                                                                                    }
+                                                                                                                ]
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "if",
+                                                                                                            "params": {
+                                                                                                                "condition": "true",
+                                                                                                                "thenSteps": [
+                                                                                                                    {
+                                                                                                                        "action": "click",
+                                                                                                                        "params": {
+                                                                                                                            "selector": "#MainContent_rblOT_1",
+                                                                                                                            "comment": "Force re-click Overtime radio to ensure it is selected before typing hours"
+                                                                                                                        }
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "action": "wait",
+                                                                                                                        "params": {
+                                                                                                                            "duration": 3000,
+                                                                                                                            "comment": "Wait for postback after force-click"
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                ]
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "typeInput",
+                                                                                                            "params": {
+                                                                                                                "selector": "#MainContent_txtHours",
+                                                                                                                "value": "${attendance.overtimeHours}"
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "pressKey",
+                                                                                                            "params": {
+                                                                                                                "key": "Enter"
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "comment": "═══ CLICK ADD AND WAIT FOR PAGE RELOAD (OVERTIME) ═══",
+                                                                                                            "action": "clickAndWaitForReload",
+                                                                                                            "params": {
+                                                                                                                "selector": "#MainContent_btnAdd",
+                                                                                                                "timeout": 15000
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
+                                                                                                            "action": "checkPageAndNavigate",
+                                                                                                            "params": {}
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "waitForReady",
+                                                                                                            "params": {
+                                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                "timeout": 10000
+                                                                                                            }
+                                                                                                        }
+                                                                                                    ]
+                                                                                                }
+                                                                                            }
+                                                                                        ],
+                                                                                        "elseSteps": [
+                                                                                            {
+                                                                                                "action": "log",
+                                                                                                "params": {
+                                                                                                    "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} (${employee.EmployeeName}) - employee input failed, cannot continue with overtime entry"
+                                                                                                }
+                                                                                            }
+                                                                                        ]
+                                                                                    }
+                                                                                }
+                                                                            ]
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "comment": "Input OVERTIME jika ada (overtimeHours > 0) DAN Overtime belum matched",
+                                                                        "action": "if",
+                                                                        "params": {
+                                                                            "condition": "attendance.overtimeHours && !metadata.onlyOvertime && !attendance.skipOvertime",
+                                                                            "thenSteps": [
+                                                                                {
+                                                                                    "action": "log",
+                                                                                    "params": {
+                                                                                        "message": "    → Input OVERTIME hours: ${attendance.overtimeHours}"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "formatDate",
+                                                                                    "params": {
+                                                                                        "date": "${attendance.date}",
+                                                                                        "saveTo": "formattedDateOT"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "typeInput",
+                                                                                    "params": {
+                                                                                        "selector": "#MainContent_txtTrxDate",
+                                                                                        "value": "${formattedDateOT}"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "wait",
+                                                                                    "params": {
+                                                                                        "duration": 500,
+                                                                                        "comment": "Wait for autocomplete dropdown"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "wait",
+                                                                                    "params": {
+                                                                                        "duration": 200
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "pressKey",
+                                                                                    "params": {
+                                                                                        "key": "Enter",
+                                                                                        "comment": "Confirm autocomplete selection"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "wait",
+                                                                                    "params": {
+                                                                                        "duration": 500
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "retryInputWithValidation",
+                                                                                    "comment": "Input Employee with Validation Retry - ensures employee is properly selected (Overtime)",
+                                                                                    "params": {
+                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                        "index": 0,
+                                                                                        "value": "${employee.PTRJEmployeeID}",
+                                                                                        "validationSelector": "#MainContent_ddlEmployee_RFV",
+                                                                                        "maxRetries": 5,
+                                                                                        "formReentryFields": []
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "wait",
+                                                                                    "params": {
+                                                                                        "duration": 2000,
+                                                                                        "comment": "Wait for page reload after employee selection"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "comment": "═══ CHECK IF EMPLOYEE INPUT SUCCEEDED ═══",
+                                                                                    "action": "checkEmployeeInputSuccess",
+                                                                                    "params": {
+                                                                                        "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
+                                                                                        "timeout": 2000
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "comment": "═══ ONLY CONTINUE IF EMPLOYEE INPUT SUCCEEDED ═══",
+                                                                                    "action": "if",
+                                                                                    "params": {
+                                                                                        "condition": "!context.employeeInputFailed",
+                                                                                        "thenSteps": [
+                                                                                            {
+                                                                                                "action": "waitForElement",
+                                                                                                "params": {
+                                                                                                    "selector": "#MainContent_ddlShift",
+                                                                                                    "timeout": 10000,
+                                                                                                    "comment": "Wait for Shift dropdown to appear"
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "action": "wait",
+                                                                                                "params": {
+                                                                                                    "duration": 500
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "action": "click",
+                                                                                                "params": {
+                                                                                                    "selector": "#MainContent_rblOT_1",
+                                                                                                    "comment": "Pilih Overtime"
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "action": "wait",
+                                                                                                "params": {
+                                                                                                    "duration": 3000,
                                                                                                     "comment": "Wait for overtime radio postback"
                                                                                                 }
                                                                                             },
@@ -759,7 +1155,7 @@
                                                                                             },
                                                                                             {
                                                                                                 "action": "retryInputWithValidation",
-                                                                                                "comment": "Input Task Code with Validation Retry - re-enters Employee if validation fails",
+                                                                                                "comment": "Input Task Code with Validation Retry (Overtime)",
                                                                                                 "params": {
                                                                                                     "selector": ".ui-autocomplete-input.CBOBox",
                                                                                                     "index": 1,
@@ -778,79 +1174,121 @@
                                                                                             {
                                                                                                 "action": "wait",
                                                                                                 "params": {
+                                                                                                    "duration": 1000,
+                                                                                                    "comment": "Wait for autocomplete/next field"
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "action": "pressKey",
+                                                                                                "params": {
+                                                                                                    "key": "Enter"
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "action": "wait",
+                                                                                                "params": {
                                                                                                     "duration": 3000,
-                                                                                                    "comment": "Wait for page update after Task Code selection"
+                                                                                                    "comment": "Wait for ASP.NET postback to load Equipment dropdown"
                                                                                                 }
                                                                                             },
                                                                                             {
-                                                                                                "action": "retryInputWithValidation",
-                                                                                                "comment": "Input Part 2 with Validation Retry - re-enters Employee and Task Code if validation fails",
+                                                                                                "action": "waitForElement",
                                                                                                 "params": {
                                                                                                     "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                    "index": 2,
-                                                                                                    "value": "${chargeJobPart2}",
-                                                                                                    "validationSelector": "#MainContent_ddlAccountCode_RFV",
-                                                                                                    "maxRetries": 5,
-                                                                                                    "formReentryFields": [
-                                                                                                        {
-                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                            "index": 0,
-                                                                                                            "value": "${employee.PTRJEmployeeID}"
-                                                                                                        },
-                                                                                                        {
-                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                            "index": 1,
-                                                                                                            "value": "${chargeJobPart1Clean}"
-                                                                                                        }
-                                                                                                    ]
+                                                                                                    "timeout": 15000,
+                                                                                                    "comment": "Wait for Equipment dropdown to appear after postback"
                                                                                                 }
                                                                                             },
                                                                                             {
-                                                                                                "action": "retryInputWithValidation",
-                                                                                                "comment": "Input Part 3 with Validation Retry - re-enters previous fields if validation fails",
-                                                                                                "params": {
-                                                                                                    "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                    "index": 3,
-                                                                                                    "value": "${chargeJobPart3}",
-                                                                                                    "validationSelector": "#MainContent_ddlSubBlock_RFV",
-                                                                                                    "maxRetries": 5,
-                                                                                                    "expectedFieldCount": "${expectedFieldCount}",
-                                                                                                    "formReentryFields": [
-                                                                                                        {
-                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                            "index": 0,
-                                                                                                            "value": "${employee.PTRJEmployeeID}"
-                                                                                                        },
-                                                                                                        {
-                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                            "index": 1,
-                                                                                                            "value": "${chargeJobPart1Clean}"
-                                                                                                        },
-                                                                                                        {
-                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                            "index": 2,
-                                                                                                            "value": "${chargeJobPart2}"
-                                                                                                        }
-                                                                                                    ]
-                                                                                                }
-                                                                                            },
-                                                                                            {
+                                                                                                "comment": "═══ CONDITIONAL: Input Part 2 only if exists (Overtime) ═══",
                                                                                                 "action": "if",
                                                                                                 "params": {
-                                                                                                    "condition": "true",
+                                                                                                    "condition": "hasChargeJobPart2",
                                                                                                     "thenSteps": [
                                                                                                         {
-                                                                                                            "action": "click",
+                                                                                                            "action": "retryInputWithValidation",
+                                                                                                            "comment": "Input Part 2 with Validation Retry (Overtime)",
                                                                                                             "params": {
-                                                                                                                "selector": "#MainContent_rblOT_1",
-                                                                                                                "comment": "Force re-click Overtime radio to ensure it is selected before typing hours"
+                                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                "index": 2,
+                                                                                                                "value": "${chargeJobPart2}",
+                                                                                                                "validationSelector": "#MainContent_ddlAccountCode_RFV",
+                                                                                                                "maxRetries": 5,
+                                                                                                                "expectedFieldCount": "${expectedFieldCount}",
+                                                                                                                "formReentryFields": [
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 0,
+                                                                                                                        "value": "${employee.PTRJEmployeeID}"
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 1,
+                                                                                                                        "value": "${chargeJobPart1Clean}"
+                                                                                                                    }
+                                                                                                                ]
                                                                                                             }
                                                                                                         },
                                                                                                         {
                                                                                                             "action": "wait",
                                                                                                             "params": {
-                                                                                                                "duration": 3000,
-                                                                                                                "comment": "Wait for postback after force-click"
+                                                                                                                "duration": 1000
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "pressKey",
+                                                                                                            "params": {
+                                                                                                                "key": "Enter"
+                                                                                                            }
+                                                                                                        }
+                                                                                                    ]
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "comment": "═══ CONDITIONAL: Input Part 3 only if exists (Overtime) ═══",
+                                                                                                "action": "if",
+                                                                                                "params": {
+                                                                                                    "condition": "hasChargeJobPart3",
+                                                                                                    "thenSteps": [
+                                                                                                        {
+                                                                                                            "action": "retryInputWithValidation",
+                                                                                                            "comment": "Input Part 3 with Validation Retry (Overtime)",
+                                                                                                            "params": {
+                                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                "index": 3,
+                                                                                                                "value": "${chargeJobPart3}",
+                                                                                                                "validationSelector": "#MainContent_ddlSubBlock_RFV",
+                                                                                                                "maxRetries": 5,
+                                                                                                                "expectedFieldCount": "${expectedFieldCount}",
+                                                                                                                "formReentryFields": [
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 0,
+                                                                                                                        "value": "${employee.PTRJEmployeeID}"
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 1,
+                                                                                                                        "value": "${chargeJobPart1Clean}"
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                                                                                                        "index": 2,
+                                                                                                                        "value": "${chargeJobPart2}"
+                                                                                                                    }
+                                                                                                                ]
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "wait",
+                                                                                                            "params": {
+                                                                                                                "duration": 1000
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "pressKey",
+                                                                                                            "params": {
+                                                                                                                "key": "Enter"
                                                                                                             }
                                                                                                         }
                                                                                                     ]
@@ -888,331 +1326,43 @@
                                                                                                     "selector": ".ui-autocomplete-input.CBOBox",
                                                                                                     "timeout": 10000
                                                                                                 }
-                                                                                            }
-                                                                                        ]
-                                                                                    }
-                                                                                }
-                                                                            ],
-                                                                            "elseSteps": [
-                                                                                {
-                                                                                    "action": "log",
-                                                                                    "params": {
-                                                                                        "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} (${employee.EmployeeName}) - employee input failed, cannot continue with overtime entry"
-                                                                                    }
-                                                                                }
-                                                                            ]
-                                                                        }
-                                                                    }
-                                                                ]
-                                                            }
-                                                        },
-                                                        {
-                                                            "comment": "Input OVERTIME jika ada (overtimeHours > 0)",
-                                                            "action": "if",
-                                                            "params": {
-                                                                "condition": "attendance.overtimeHours && !metadata.onlyOvertime",
-                                                                "thenSteps": [
-                                                                    {
-                                                                        "action": "log",
-                                                                        "params": {
-                                                                            "message": "    → Input OVERTIME hours: ${attendance.overtimeHours}"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "action": "formatDate",
-                                                                        "params": {
-                                                                            "date": "${attendance.date}",
-                                                                            "saveTo": "formattedDateOT"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "action": "typeInput",
-                                                                        "params": {
-                                                                            "selector": "#MainContent_txtTrxDate",
-                                                                            "value": "${formattedDateOT}"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "action": "wait",
-                                                                        "params": {
-                                                                            "duration": 500,
-                                                                            "comment": "Wait for autocomplete dropdown"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "action": "wait",
-                                                                        "params": {
-                                                                            "duration": 200
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "action": "pressKey",
-                                                                        "params": {
-                                                                            "key": "Enter",
-                                                                            "comment": "Confirm autocomplete selection"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "action": "wait",
-                                                                        "params": {
-                                                                            "duration": 500
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "action": "retryInputWithValidation",
-                                                                        "comment": "Input Employee with Validation Retry - ensures employee is properly selected (Overtime)",
-                                                                        "params": {
-                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                            "index": 0,
-                                                                            "value": "${employee.PTRJEmployeeID}",
-                                                                            "validationSelector": "#MainContent_ddlEmployee_RFV",
-                                                                            "maxRetries": 5,
-                                                                            "formReentryFields": []
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "action": "wait",
-                                                                        "params": {
-                                                                            "duration": 2000,
-                                                                            "comment": "Wait for page reload after employee selection"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "comment": "═══ CHECK IF EMPLOYEE INPUT SUCCEEDED ═══",
-                                                                        "action": "checkEmployeeInputSuccess",
-                                                                        "params": {
-                                                                            "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
-                                                                            "timeout": 2000
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "comment": "═══ ONLY CONTINUE IF EMPLOYEE INPUT SUCCEEDED ═══",
-                                                                        "action": "if",
-                                                                        "params": {
-                                                                            "condition": "!context.employeeInputFailed",
-                                                                            "thenSteps": [
-                                                                                {
-                                                                                    "action": "waitForElement",
-                                                                                    "params": {
-                                                                                        "selector": "#MainContent_ddlShift",
-                                                                                        "timeout": 10000,
-                                                                                        "comment": "Wait for Shift dropdown to appear"
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "wait",
-                                                                                    "params": {
-                                                                                        "duration": 500
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "click",
-                                                                                    "params": {
-                                                                                        "selector": "#MainContent_rblOT_1",
-                                                                                        "comment": "Pilih Overtime"
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "wait",
-                                                                                    "params": {
-                                                                                        "duration": 3000,
-                                                                                        "comment": "Wait for overtime radio postback"
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "waitForReady",
-                                                                                    "params": {
-                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                        "timeout": 15000
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "parseChargeJob",
-                                                                                    "params": {
-                                                                                        "chargeJob": "${employee.ChargeJob}"
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "retryInputWithValidation",
-                                                                                    "comment": "Input Task Code with Validation Retry (Overtime)",
-                                                                                    "params": {
-                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                        "index": 1,
-                                                                                        "value": "${chargeJobPart1Clean}",
-                                                                                        "validationSelector": "#MainContent_ddlTaskCode_RFV",
-                                                                                        "maxRetries": 5,
-                                                                                        "formReentryFields": [
+                                                                                            },
                                                                                             {
-                                                                                                "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                "index": 0,
-                                                                                                "value": "${employee.PTRJEmployeeID}"
-                                                                                            }
-                                                                                        ]
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "wait",
-                                                                                    "params": {
-                                                                                        "duration": 1000,
-                                                                                        "comment": "Wait for autocomplete/next field"
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "pressKey",
-                                                                                    "params": {
-                                                                                        "key": "Enter"
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "wait",
-                                                                                    "params": {
-                                                                                        "duration": 3000,
-                                                                                        "comment": "Wait for ASP.NET postback to load Equipment dropdown"
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "waitForElement",
-                                                                                    "params": {
-                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                        "timeout": 15000,
-                                                                                        "comment": "Wait for Equipment dropdown to appear after postback"
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "comment": "═══ CONDITIONAL: Input Part 2 only if exists (Overtime) ═══",
-                                                                                    "action": "if",
-                                                                                    "params": {
-                                                                                        "condition": "hasChargeJobPart2",
-                                                                                        "thenSteps": [
-                                                                                            {
-                                                                                                "action": "retryInputWithValidation",
-                                                                                                "comment": "Input Part 2 with Validation Retry (Overtime)",
+                                                                                                "comment": "═══ VALIDASI: Cek apakah OT berhasil masuk ═══",
+                                                                                                "action": "validateText",
                                                                                                 "params": {
-                                                                                                    "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                    "index": 2,
-                                                                                                    "value": "${chargeJobPart2}",
-                                                                                                    "validationSelector": "#MainContent_ddlAccountCode_RFV",
-                                                                                                    "maxRetries": 5,
-                                                                                                    "expectedFieldCount": "${expectedFieldCount}",
-                                                                                                    "formReentryFields": [
-                                                                                                        {
-                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                            "index": 0,
-                                                                                                            "value": "${employee.PTRJEmployeeID}"
-                                                                                                        },
-                                                                                                        {
-                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                            "index": 1,
-                                                                                                            "value": "${chargeJobPart1Clean}"
-                                                                                                        }
-                                                                                                    ]
+                                                                                                    "selector": "#MainContent_lblTotalOTHour",
+                                                                                                    "minLength": 1,
+                                                                                                    "throwOnFail": false
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "action": "log",
+                                                                                                "params": {
+                                                                                                    "message": "  ⚠️ SKIPPING: 'Overtime' transaction type is DISABLED/LOCKED. Data likely exists."
+                                                                                                }
+                                                                                            }
+                                                                                        ],
+                                                                                        "elseSteps": [
+                                                                                            {
+                                                                                                "action": "log",
+                                                                                                "params": {
+                                                                                                    "message": "  ⚠️ SKIPPING: 'Overtime' transaction type is DISABLED/LOCKED. Data already exists."
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "action": "navigate",
+                                                                                                "params": {
+                                                                                                    "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
                                                                                                 }
                                                                                             },
                                                                                             {
                                                                                                 "action": "wait",
                                                                                                 "params": {
-                                                                                                    "duration": 1000
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "action": "pressKey",
-                                                                                                "params": {
-                                                                                                    "key": "Enter"
+                                                                                                    "duration": 2000
                                                                                                 }
                                                                                             }
                                                                                         ]
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "comment": "═══ CONDITIONAL: Input Part 3 only if exists (Overtime) ═══",
-                                                                                    "action": "if",
-                                                                                    "params": {
-                                                                                        "condition": "hasChargeJobPart3",
-                                                                                        "thenSteps": [
-                                                                                            {
-                                                                                                "action": "retryInputWithValidation",
-                                                                                                "comment": "Input Part 3 with Validation Retry (Overtime)",
-                                                                                                "params": {
-                                                                                                    "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                    "index": 3,
-                                                                                                    "value": "${chargeJobPart3}",
-                                                                                                    "validationSelector": "#MainContent_ddlSubBlock_RFV",
-                                                                                                    "maxRetries": 5,
-                                                                                                    "expectedFieldCount": "${expectedFieldCount}",
-                                                                                                    "formReentryFields": [
-                                                                                                        {
-                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                            "index": 0,
-                                                                                                            "value": "${employee.PTRJEmployeeID}"
-                                                                                                        },
-                                                                                                        {
-                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                            "index": 1,
-                                                                                                            "value": "${chargeJobPart1Clean}"
-                                                                                                        },
-                                                                                                        {
-                                                                                                            "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                                            "index": 2,
-                                                                                                            "value": "${chargeJobPart2}"
-                                                                                                        }
-                                                                                                    ]
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "action": "wait",
-                                                                                                "params": {
-                                                                                                    "duration": 1000
-                                                                                                }
-                                                                                            },
-                                                                                            {
-                                                                                                "action": "pressKey",
-                                                                                                "params": {
-                                                                                                    "key": "Enter"
-                                                                                                }
-                                                                                            }
-                                                                                        ]
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "typeInput",
-                                                                                    "params": {
-                                                                                        "selector": "#MainContent_txtHours",
-                                                                                        "value": "${attendance.overtimeHours}"
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "action": "pressKey",
-                                                                                    "params": {
-                                                                                        "key": "Enter"
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "comment": "═══ CLICK ADD AND WAIT FOR PAGE RELOAD (OVERTIME) ═══",
-                                                                                    "action": "clickAndWaitForReload",
-                                                                                    "params": {
-                                                                                        "selector": "#MainContent_btnAdd",
-                                                                                        "timeout": 15000
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "comment": "═══ CHECK PAGE AND AUTO-NAVIGATE IF STUCK ON LIST PAGE ═══",
-                                                                                    "action": "checkPageAndNavigate",
-                                                                                    "params": {}
-                                                                                },
-                                                                                {
-                                                                                    "action": "waitForReady",
-                                                                                    "params": {
-                                                                                        "selector": ".ui-autocomplete-input.CBOBox",
-                                                                                        "timeout": 10000
-                                                                                    }
-                                                                                },
-                                                                                {
-                                                                                    "comment": "═══ VALIDASI: Cek apakah OT berhasil masuk ═══",
-                                                                                    "action": "validateText",
-                                                                                    "params": {
-                                                                                        "selector": "#MainContent_lblTotalOTHour",
-                                                                                        "minLength": 1,
-                                                                                        "throwOnFail": false
                                                                                     }
                                                                                 }
                                                                             ],
@@ -1237,15 +1387,12 @@
                                 }
                             ]
                         }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "✅ Selesai memproses semua data absensi"
+                        }
                     }
                 ]
             }
-        },
-        {
-            "action": "log",
-            "params": {
-                "message": "✅ Selesai memproses semua data absensi"
-            }
-        }
-    ]
-}
