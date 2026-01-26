@@ -18,8 +18,12 @@ const WORK_HOURS = {
 // --- Leave Type Configuration ---
 // Leave types that should use task code "(GA9130) PERSONNEL ANNUAL LEAVE" in Millware
 // Excludes Sakit (Sick) and Haid (Menstrual) which have their own handling
-const ANNUAL_LEAVE_TYPES = ['CT', 'MELAHIRKAN', 'P1', 'P2', 'P3'];
+const ANNUAL_LEAVE_TYPES = ['CT', 'MELAHIRKAN', 'P1', 'P2', 'P3', 'ANNUAL LEAVE'];
 const ANNUAL_LEAVE_TASK_CODE = '(GA9130) PERSONNEL ANNUAL LEAVE';
+
+// Leave types that should use task code "(GA9130) SICK LEAVE" (or similar)
+const SICK_LEAVE_TYPES = ['SAKIT', 'SICK', 'HAID', 'MENSTRUAL'];
+const SICK_LEAVE_TASK_CODE = '(GA9130) SICK LEAVE'; // Assuming this standard
 
 // Cache for leave type descriptions
 let leaveTypeCache = null;
@@ -55,7 +59,14 @@ const fetchLeaveTypesFromDB = async () => {
 // --- Helper: Check if leave type is Annual Leave ---
 const isAnnualLeaveType = (leaveTypeCode) => {
     if (!leaveTypeCode) return false;
-    return ANNUAL_LEAVE_TYPES.includes(leaveTypeCode.toUpperCase());
+    // Also include explicit 'ANNUAL LEAVE' string if database uses it
+    return ANNUAL_LEAVE_TYPES.includes(leaveTypeCode.toUpperCase()) || leaveTypeCode.toUpperCase().includes('ANNUAL');
+};
+
+// --- Helper: Check if leave type is Sick Leave ---
+const isSickLeaveType = (leaveTypeCode) => {
+    if (!leaveTypeCode) return false;
+    return SICK_LEAVE_TYPES.includes(leaveTypeCode.toUpperCase()) || leaveTypeCode.toUpperCase().includes('SICK');
 };
 
 // const HOLIDAYS_PATH = ... // Removed
@@ -235,13 +246,19 @@ const fetchAttendanceData = async (month, year) => {
         const leaveTypeCode = row.LeaveTypeCode || '';
         const leaveTypeName = leaveTypesMap[leaveTypeCode]?.name || leaveTypeCode;
         const isAnnual = isAnnualLeaveType(leaveTypeCode);
+        const isSick = isSickLeaveType(leaveTypeCode);
+
+        let taskCode = null;
+        if (isAnnual) taskCode = ANNUAL_LEAVE_TASK_CODE;
+        else if (isSick) taskCode = SICK_LEAVE_TASK_CODE;
 
         dates.forEach(d => {
             leaveMap[`${row.EmployeeID}_${d}`] = {
                 type: leaveTypeCode,
                 desc: leaveTypeName,
                 isAnnualLeave: isAnnual,
-                leaveTaskCode: isAnnual ? ANNUAL_LEAVE_TASK_CODE : null
+                isSickLeave: isSick,
+                leaveTaskCode: taskCode
             };
         });
         if (idx === 0) console.log(`[DEBUG] First leave: RefDate=${refDate}, type=${leaveTypeCode}, isAnnual=${isAnnual}, expanded to ${dates.length} dates`);
@@ -466,6 +483,7 @@ const fetchAttendanceData = async (month, year) => {
                 isSunday: isSun,
                 // Leave type info for automation - only set if leave is actually applied (no attendance record)
                 isAnnualLeave: (!att && !absence && leave?.isAnnualLeave) || false,
+                isSickLeave: (!att && !absence && leave?.isSickLeave) || false,
                 leaveTaskCode: (!att && !absence && leave?.leaveTaskCode) || null,
                 leaveDescription: (!att && !absence && leave?.desc) || null
             };
@@ -593,13 +611,19 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
         const leaveTypeCode = row.LeaveTypeCode || '';
         const leaveTypeName = leaveTypesMap[leaveTypeCode]?.name || leaveTypeCode;
         const isAnnual = isAnnualLeaveType(leaveTypeCode);
+        const isSick = isSickLeaveType(leaveTypeCode);
+
+        let taskCode = null;
+        if (isAnnual) taskCode = ANNUAL_LEAVE_TASK_CODE;
+        else if (isSick) taskCode = SICK_LEAVE_TASK_CODE;
 
         dates.forEach(d => {
             leaveMap[`${row.EmployeeID}_${d}`] = {
                 type: leaveTypeCode,
                 desc: leaveTypeName,
                 isAnnualLeave: isAnnual,
-                leaveTaskCode: isAnnual ? ANNUAL_LEAVE_TASK_CODE : null
+                isSickLeave: isSick,
+                leaveTaskCode: taskCode
             };
         });
     });
@@ -753,6 +777,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                 isSunday: isSun,
                 // Leave type info for automation - only set if leave is actually applied (no overtime)
                 isAnnualLeave: (otHours === 0 && !absence && leave?.isAnnualLeave) || false,
+                isSickLeave: (otHours === 0 && !absence && leave?.isSickLeave) || false,
                 leaveTaskCode: (otHours === 0 && !absence && leave?.leaveTaskCode) || null,
                 leaveDescription: (otHours === 0 && !absence && leave?.desc) || null
             };
