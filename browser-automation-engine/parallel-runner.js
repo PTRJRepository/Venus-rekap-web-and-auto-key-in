@@ -85,9 +85,22 @@ const loadData = (filePath) => {
 };
 
 const loadBaseTemplate = () => {
-    const templatePath = path.join(__dirname, 'templates', `${TEMPLATE_NAME}.json`);
-    if (!fs.existsSync(templatePath)) throw new Error(`Template "${TEMPLATE_NAME}" tidak ditemukan.`);
-    return JSON.parse(fs.readFileSync(templatePath, 'utf8'));
+    // Try YAML first, then JSON
+    const yamlPath = path.join(__dirname, 'templates', `${TEMPLATE_NAME}.yaml`);
+    const ymlPath = path.join(__dirname, 'templates', `${TEMPLATE_NAME}.yml`);
+    const jsonPath = path.join(__dirname, 'templates', `${TEMPLATE_NAME}.json`);
+
+    if (fs.existsSync(yamlPath)) {
+        const yaml = require('js-yaml');
+        return yaml.load(fs.readFileSync(yamlPath, 'utf8'));
+    } else if (fs.existsSync(ymlPath)) {
+        const yaml = require('js-yaml');
+        return yaml.load(fs.readFileSync(ymlPath, 'utf8'));
+    } else if (fs.existsSync(jsonPath)) {
+        return JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    } else {
+        throw new Error(`Template "${TEMPLATE_NAME}" not found (.yaml, .yml, or .json)`);
+    }
 };
 
 const partitionEmployees = (employees, numPartitions) => {

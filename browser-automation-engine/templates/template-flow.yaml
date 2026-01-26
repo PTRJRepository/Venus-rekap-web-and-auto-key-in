@@ -1,0 +1,30 @@
+name: Millware Absensi Task Register
+description: Otomasi login dan navigasi ke menu Task Register - Millware
+steps:
+  - action: navigate
+    params:
+      url: http://millwarep3.rebinmas.com:8003/
+  - action: typeInput
+    params:
+      selector: '#txtUsername'
+      value: adm075
+  - action: typeInput
+    params:
+      selector: '#txtPassword'
+      value: adm075
+  - action: click
+    params:
+      selector: '#btnLogin'
+  - action: wait
+    params:
+      duration: 1000
+  - action: waitForElement
+    params:
+      selector: .PopupBoxLogin
+      timeout: 15000
+  - action: click
+    params:
+      selector: '#MainContent_btnOkay'
+  - action: navigate
+    params:
+      url: http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx

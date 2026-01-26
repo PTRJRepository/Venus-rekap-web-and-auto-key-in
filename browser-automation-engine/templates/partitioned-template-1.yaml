@@ -1,0 +1,486 @@
+name: Millware Attendance Input - Looping Example - Engine 1 (Even)
+description: Template untuk input absensi dengan looping data dari JSON
+dataFile: testing_data/partition_1.json
+steps:
+  - action: navigate
+    params:
+      url: http://millwarep3.rebinmas.com:8003/
+  - action: typeInput
+    params:
+      selector: '#txtUsername'
+      value: adm075
+  - action: typeInput
+    params:
+      selector: '#txtPassword'
+      value: adm075
+  - action: click
+    params:
+      selector: '#btnLogin'
+  - action: wait
+    params:
+      duration: 1000
+  - action: waitForElement
+    params:
+      selector: .PopupBoxLogin
+      timeout: 15000
+  - action: click
+    params:
+      selector: '#MainContent_btnOkay'
+  - action: navigate
+    params:
+      url: http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx
+  - action: wait
+    params:
+      duration: 2000
+  - action: forEach
+    params:
+      items: data.data
+      itemName: employee
+      steps:
+        - comment: Reset flag failure at start of employee loop
+          action: setVariable
+          params:
+            variable: metadata.employeeInputFailed
+            value: false
+        - comment: '═══ RECOVERY: Check if stuck on list page ═══'
+          action: checkPageAndNavigate
+          params: {}
+        - action: log
+          params:
+            message: 'Processing Employee: ${employee.EmployeeName} (${employee.PTRJEmployeeID})'
+        - action: forEachProperty
+          params:
+            object: employee.Attendance
+            keyName: date
+            valueName: attendance
+            steps:
+              - comment: '═══ RECOVERY: Periodic page check ═══'
+                action: checkPageAndNavigate
+                params: {}
+              - action: log
+                params:
+                  message: '  Date: ${date} | Status: ${attendance.status} | Regular: ${attendance.regularHours} | OT: ${attendance.overtimeHours}'
+              - comment: Input REGULAR jika hadir (bukan ALFA) dan bukan overtime saja
+                action: if
+                params:
+                  condition: '!metadata.employeeInputFailed && attendance.status'
+                  thenSteps:
+                    - action: log
+                      params:
+                        message: '    → Input REGULAR (status: ${attendance.status})'
+                    - action: formatDate
+                      params:
+                        date: ${attendance.date}
+                        saveTo: formattedDate
+                    - action: typeInput
+                      params:
+                        selector: '#MainContent_txtTrxDate'
+                        value: ${formattedDate}
+                    - action: wait
+                      params:
+                        duration: 500
+                        comment: Wait for autocomplete dropdown
+                    - action: pressKey
+                      params:
+                        key: ArrowDown
+                        comment: Select first autocomplete result
+                    - action: wait
+                      params:
+                        duration: 200
+                    - action: pressKey
+                      params:
+                        key: Enter
+                        comment: Confirm autocomplete selection
+                    - action: wait
+                      params:
+                        duration: 3000
+                        comment: Wait for potential PostBack after date enter
+                    - action: typeInput
+                      params:
+                        selector: .ui-autocomplete-input.CBOBox
+                        value: ${employee.PTRJEmployeeID}
+                    - action: wait
+                      params:
+                        duration: 1000
+                        comment: Wait for employee dropdown to appear
+                    - action: pressKey
+                      params:
+                        key: ArrowDown
+                        comment: Select first employee result
+                    - action: wait
+                      params:
+                        duration: 300
+                    - action: pressKey
+                      params:
+                        key: Enter
+                    - action: wait
+                      params:
+                        duration: 2000
+                        comment: Wait for page reload after employee selection
+                    - action: waitForElement
+                      params:
+                        selector: '#MainContent_ddlShift'
+                        timeout: 10000
+                        comment: Wait for Shift dropdown to appear
+                    - action: wait
+                      params:
+                        duration: 500
+                    - comment: ═══ VALIDATE TRANSACTION TYPE ═══
+                      action: checkTransactionType
+                      params:
+                        expectedType: normal
+                        saveTo: transactionTypeState
+                    - comment: '═══ CHECK IF NORMAL IS DISABLED (Data exists) ═══'
+                      action: if
+                      params:
+                        condition: 'transactionTypeState.normalDisabled'
+                        thenSteps:
+                          - action: log
+                            params:
+                              message: '  ⚠️ SKIP: Normal Transaction is DISABLED (Data already exists). Refreshing...'
+                          - action: navigate
+                            params:
+                              url: http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx
+                          - action: wait
+                            params:
+                              duration: 2000
+                        elseSteps:
+                          - comment: 'Ensure Normal is Selected'
+                            action: if
+                            params:
+                              condition: '!transactionTypeState.normalChecked'
+                              thenSteps:
+                                - action: click
+                                  params:
+                                    selector: '#MainContent_rblOT_0'
+                                - action: wait
+                                  params:
+                                    duration: 2000
+                          - action: parseChargeJob
+                            params:
+                              chargeJob: ${employee.ChargeJob}
+                          - action: retryInputWithValidation
+                            comment: Input Task Code with Validation Retry
+                            params:
+                              selector: .ui-autocomplete-input.CBOBox
+                              index: 1
+                              value: ${chargeJobPart1Clean}
+                              validationSelector: '#MainContent_ddlTaskCode_RFV'
+                              maxRetries: 5
+                          - action: wait
+                            params:
+                              duration: 3000
+                              comment: Wait for page update after Task Code selection
+                          - action: retryInputWithValidation
+                            comment: Input Part 2 with Validation Retry
+                            params:
+                              selector: .ui-autocomplete-input.CBOBox
+                              index: 2
+                              value: ${chargeJobPart2}
+                              validationSelector: '#MainContent_ddlAccountCode_RFV'
+                              maxRetries: 5
+                          - action: retryInputWithValidation
+                            comment: Input Part 3 with Validation Retry
+                            params:
+                              selector: .ui-autocomplete-input.CBOBox
+                              index: 3
+                              value: ${chargeJobPart3}
+                              validationSelector: '#MainContent_ddlSubBlock_RFV'
+                              maxRetries: 5
+                          - action: typeInput
+                            params:
+                              selector: '#MainContent_txtHours'
+                              value: '7.0'
+                          - action: pressKey
+                            params:
+                              key: Enter
+                          - action: wait
+                            params:
+                              duration: 500
+                          - comment: ═══ KLIK ADD BUTTON ═══
+                            action: click
+                            params:
+                              selector: '#MainContent_btnAdd'
+                          - action: wait
+                            params:
+                              duration: 1500
+                          - comment: '═══ VALIDASI: Cek apakah data berhasil masuk ═══'
+                            action: validateText
+                            params:
+                              selector: '#MainContent_lblTotalNormalHour'
+                              minLength: 1
+                              throwOnFail: false
+                  elseSteps:
+                    - action: wait
+                      params:
+                        duration: 2000
+                        comment: Wait for page reload after employee selection
+                    - action: waitForElement
+                      params:
+                        selector: '#MainContent_ddlShift'
+                        timeout: 10000
+                        comment: Wait for Shift dropdown to appear
+                    - action: wait
+                      params:
+                        duration: 500
+                    - action: wait
+                      params:
+                        duration: 2000
+                        comment: Wait for page reload after employee selection
+                    - comment: ═══ CHECK IF EMPLOYEE INPUT SUCCEEDED ═══
+                      action: checkEmployeeInputSuccess
+                      params:
+                        validationErrorSelector: '#MainContent_ddlEmployee_RFV'
+                        timeout: 2000
+                    - comment: ═══ ONLY CONTINUE IF EMPLOYEE INPUT SUCCEEDED ═══
+                      action: if
+                      params:
+                        condition: '!metadata.employeeInputFailed'
+                        thenSteps:
+                          - action: click
+                            params:
+                              selector: '#MainContent_rblOT_1'
+                              comment: Pilih Overtime
+                          - action: wait
+                            params:
+                              duration: 500
+                          - action: parseChargeJob
+                            params:
+                              chargeJob: ${employee.ChargeJob}
+                          - action: retryInputWithValidation
+                            comment: Input Task Code with Validation Retry
+                            params:
+                              selector: .ui-autocomplete-input.CBOBox
+                              index: 1
+                              value: ${chargeJobPart1Clean}
+                              validationSelector: '#MainContent_ddlTaskCode_RFV'
+                              maxRetries: 5
+                          - action: wait
+                            params:
+                              duration: 3000
+                              comment: Wait for page update after Task Code selection
+                          - action: retryInputWithValidation
+                            comment: Input Part 2 with Validation Retry
+                            params:
+                              selector: .ui-autocomplete-input.CBOBox
+                              index: 2
+                              value: ${chargeJobPart2}
+                              validationSelector: '#MainContent_ddlAccountCode_RFV'
+                              maxRetries: 5
+                          - action: retryInputWithValidation
+                            comment: Input Part 3 with Validation Retry
+                            params:
+                              selector: .ui-autocomplete-input.CBOBox
+                              index: 3
+                              value: ${chargeJobPart3}
+                              validationSelector: '#MainContent_ddlSubBlock_RFV'
+                              maxRetries: 5
+                              expectedFieldCount: ${expectedFieldCount}
+                          - action: typeInput
+                            params:
+                              selector: '#MainContent_txtHours'
+                              value: ${attendance.overtimeHours}
+                          - action: pressKey
+                            params:
+                              key: Enter
+                          - action: wait
+                            params:
+                              duration: 500
+                          - comment: ═══ KLIK ADD BUTTON ═══
+                            action: wait
+                            params:
+                              duration: 500
+                          - action: click
+                            params:
+                              selector: '#MainContent_btnAdd'
+                          - action: wait
+                            params:
+                              duration: 2000
+                        elseSteps:
+                          - action: log
+                            params:
+                              message: '    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} (${employee.EmployeeName}) - employee input failed, cannot continue with overtime entry'
+                          - action: navigate
+                            params:
+                              url: http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx
+                          - action: wait
+                            params:
+                              duration: 2000
+                    - comment: Input OVERTIME jika ada (overtimeHours > 0)
+                      action: if
+                      params:
+                        condition: attendance.overtimeHours
+                        thenSteps:
+                          - action: log
+                            params:
+                              message: '    → Input OVERTIME hours: ${attendance.overtimeHours}'
+                          - action: formatDate
+                            params:
+                              date: ${attendance.date}
+                              saveTo: formattedDateOT
+                          - action: typeInput
+                            params:
+                              selector: '#MainContent_txtTrxDate'
+                              value: ${formattedDateOT}
+                          - action: wait
+                            params:
+                              duration: 500
+                              comment: Wait for autocomplete dropdown
+                          - action: wait
+                            params:
+                              duration: 200
+                          - action: pressKey
+                            params:
+                              key: Enter
+                              comment: Confirm autocomplete selection
+                          - action: wait
+                            params:
+                              duration: 500
+                          - action: retryInputWithValidation
+                            comment: Input Employee with Validation Retry - ensures employee is properly selected (Overtime)
+                            params:
+                              selector: .ui-autocomplete-input.CBOBox
+                              index: 0
+                              value: ${employee.PTRJEmployeeID}
+                              validationSelector: '#MainContent_ddlEmployee_RFV'
+                              maxRetries: 5
+                              formReentryFields: []
+                          - action: wait
+                            params:
+                              duration: 2000
+                              comment: Wait for page reload after employee selection
+                          - action: waitForElement
+                            params:
+                              selector: '#MainContent_ddlShift'
+                              timeout: 10000
+                              comment: Wait for Shift dropdown to appear
+                          - action: wait
+                            params:
+                              duration: 500
+                          - comment: '═══ VALIDATE TRANSACTION TYPE (OT) ═══'
+                            action: checkTransactionType
+                            params:
+                              expectedType: overtime
+                              saveTo: transactionTypeState
+                          - comment: '═══ CHECK IF OVERTIME IS DISABLED (Data exists) ═══'
+                            action: if
+                            params:
+                              condition: 'transactionTypeState.overtimeDisabled'
+                              thenSteps:
+                                - action: log
+                                  params:
+                                    message: '  ⚠️ SKIP: Overtime Transaction is DISABLED (Data already exists). Refreshing...'
+                                - action: navigate
+                                  params:
+                                    url: http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx
+                                - action: wait
+                                  params:
+                                    duration: 2000
+                              elseSteps:
+                                - action: click
+                                  params:
+                                    selector: '#MainContent_rblOT_1'
+                                    comment: Pilih Overtime
+                                - action: wait
+                                  params:
+                                    duration: 5000
+                                    comment: Extended wait for overtime radio postback
+                                - action: parseChargeJob
+                            params:
+                              chargeJob: ${employee.ChargeJob}
+                          - action: retryInputWithValidation
+                            comment: Input Task Code with Validation Retry (Overtime)
+                            params:
+                              selector: .ui-autocomplete-input.CBOBox
+                              index: 1
+                              value: ${chargeJobPart1Clean}
+                              validationSelector: '#MainContent_ddlTaskCode_RFV'
+                              maxRetries: 5
+                              formReentryFields:
+                                - selector: .ui-autocomplete-input.CBOBox
+                                  index: 0
+                                  value: ${employee.PTRJEmployeeID}
+                                - action: clickRadioButton
+                                  selector: '#MainContent_rblOT_1'
+                                  waitAfter: 5000
+                          - action: retryInputWithValidation
+                            comment: Input Part 2 with Validation Retry (Overtime)
+                            params:
+                              selector: .ui-autocomplete-input.CBOBox
+                              index: 2
+                              value: ${chargeJobPart2}
+                              validationSelector: '#MainContent_ddlAccountCode_RFV'
+                              maxRetries: 5
+                              expectedFieldCount: ${expectedFieldCount}
+                              formReentryFields:
+                                - selector: .ui-autocomplete-input.CBOBox
+                                  index: 0
+                                  value: ${employee.PTRJEmployeeID}
+                                - action: clickRadioButton
+                                  selector: '#MainContent_rblOT_1'
+                                  waitAfter: 5000
+                                - selector: .ui-autocomplete-input.CBOBox
+                                  index: 1
+                                  value: ${chargeJobPart1Clean}
+                          - action: retryInputWithValidation
+                            comment: Input Part 3 with Validation Retry (Overtime)
+                            params:
+                              selector: .ui-autocomplete-input.CBOBox
+                              index: 3
+                              value: ${chargeJobPart3}
+                              validationSelector: '#MainContent_ddlSubBlock_RFV'
+                              maxRetries: 5
+                              expectedFieldCount: ${expectedFieldCount}
+                              formReentryFields:
+                                - selector: .ui-autocomplete-input.CBOBox
+                                  index: 0
+                                  value: ${employee.PTRJEmployeeID}
+                                - action: clickRadioButton
+                                  selector: '#MainContent_rblOT_1'
+                                  waitAfter: 5000
+                                - selector: .ui-autocomplete-input.CBOBox
+                                  index: 1
+                                  value: ${chargeJobPart1Clean}
+                                - selector: .ui-autocomplete-input.CBOBox
+                                  index: 2
+                                  value: ${chargeJobPart2}
+                          - action: if
+                            params:
+                              condition: '!metadata.employeeInputFailed'
+                              thenSteps:
+                                - action: typeInput
+                                  params:
+                                    selector: '#MainContent_txtHours'
+                                    value: ${attendance.overtimeHours}
+                                - action: pressKey
+                                  params:
+                                    key: Enter
+                                - action: wait
+                                  params:
+                                    duration: 500
+                                - comment: ═══ KLIK ADD BUTTON ═══
+                                  action: click
+                                  params:
+                                    selector: '#MainContent_btnAdd'
+                                - action: wait
+                                  params:
+                                    duration: 1500
+                                - comment: '═══ VALIDASI: Cek apakah OT berhasil masuk ═══'
+                                  action: validateText
+                                  params:
+                                    selector: '#MainContent_lblTotalOTHour'
+                                    minLength: 1
+                                    throwOnFail: false
+                                  elseSteps:
+                                  - action: log
+                                    params:
+                                      message: '    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} (${employee.EmployeeName}) - employee input failed, cannot continue with overtime entry'
+                                  - action: navigate
+                                    params:
+                                      url: http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx
+                                  - action: wait
+                                    params:
+                                      duration: 2000
+  - action: log
+    params:
+      message: ✅ Selesai memproses semua data absensi

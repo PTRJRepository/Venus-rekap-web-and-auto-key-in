@@ -311,18 +311,37 @@ class AutomationEngine {
     }
 
     /**
-     * Memuat dan memvalidasi template JSON
+     * Memuat dan memvalidasi template JSON atau YAML
      */
     loadTemplate(templateName) {
-        const templatePath = path.join(__dirname, 'templates', `${templateName}.json`);
+        // Try YAML first, then JSON
+        const yamlPath = path.join(__dirname, 'templates', `${templateName}.yaml`);
+        const ymlPath = path.join(__dirname, 'templates', `${templateName}.yml`);
+        const jsonPath = path.join(__dirname, 'templates', `${templateName}.json`);
 
-        if (!fs.existsSync(templatePath)) {
-            throw new Error(`Template "${templateName}" tidak ditemukan di folder templates.`);
+        let templatePath;
+        let template;
+
+        if (fs.existsSync(yamlPath)) {
+            templatePath = yamlPath;
+            const yaml = require('js-yaml');
+            const rawTemplate = fs.readFileSync(templatePath, 'utf8');
+            console.log(`📂 Loading YAML template from: ${templatePath}`);
+            template = yaml.load(rawTemplate);
+        } else if (fs.existsSync(ymlPath)) {
+            templatePath = ymlPath;
+            const yaml = require('js-yaml');
+            const rawTemplate = fs.readFileSync(templatePath, 'utf8');
+            console.log(`📂 Loading YAML template from: ${templatePath}`);
+            template = yaml.load(rawTemplate);
+        } else if (fs.existsSync(jsonPath)) {
+            templatePath = jsonPath;
+            const rawTemplate = fs.readFileSync(templatePath, 'utf8');
+            console.log(`📂 Loading JSON template from: ${templatePath}`);
+            template = JSON.parse(rawTemplate);
+        } else {
+            throw new Error(`Template "${templateName}" not found (.yaml, .yml, or .json)`);
         }
-
-        const rawTemplate = fs.readFileSync(templatePath, 'utf8');
-        console.log(`📂 Loading template from: ${templatePath}`);
-        const template = JSON.parse(rawTemplate);
 
         // Validasi struktur template
         if (!template.name || !template.steps || !Array.isArray(template.steps)) {

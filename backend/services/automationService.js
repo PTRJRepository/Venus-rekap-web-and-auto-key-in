@@ -95,13 +95,15 @@ const saveAutomationData = async (data) => {
     const endDay = endDate || `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     // --- FILTER: Sync Mismatches Only ---
-    // AUTOMATIC: When in "Overtime Only" mode, ALWAYS filter to avoid re-entering existing data
-    const shouldFilter = syncMismatchesOnly || onlyOvertime;
+    // FORCE FILTER: Always check against database to prevent duplicates.
+    // The user expects the agent to ONLY receive data that is missing.
+    const shouldFilter = true;
 
-    console.log(`[Automation] 🔧 Filter Settings: syncMismatchesOnly=${syncMismatchesOnly}, onlyOvertime=${onlyOvertime}, shouldFilter=${shouldFilter}`);
+    console.log(`[Automation] 🔧 Filter Settings: FORCE FILTER ENABLED (Safety Mode).`);
+    console.log(`[Automation] 📅 Period: ${month}/${year} (${firstDay} to ${endDay})`);
 
     // DEBUG: Check if POM00241 is in the data BEFORE filtering
-    const debugEmp = transformedData.find(e => e.PTRJEmployeeID === 'POM00241');
+    const debugEmp = transformedData.find(e => e.PTRJEmployeeID && e.PTRJEmployeeID.trim() === 'POM00241');
     if (debugEmp) {
         console.log(`[DEBUG] POM00241 found in data BEFORE filter:`);
         console.log(`  Dates: ${Object.keys(debugEmp.Attendance || {}).join(', ')}`);
@@ -122,21 +124,43 @@ const saveAutomationData = async (data) => {
             .map(emp => emp.ptrjEmployeeID);
 
         // Query Millware with correct OT filter:
-        // - onlyOvertime = true  -> query OT=1 records (overtime)
-        // - onlyOvertime = false -> query OT=0 records (normal hours)
-        const otFilter = onlyOvertime ? 1 : 0;
-        const modeDesc = onlyOvertime ? 'Overtime (OT=1)' : 'Normal Hours (OT=0)';
+        // ALWAYS query ALL records (otFilter = null) to ensure we have a complete picture
+        // This fixes the issue where Normal mode ignores existing OT records (e.g. on Sundays)
+        const otFilter = null; 
+        const modeDesc = 'ALL Records (OT=0 & OT=1)';
         console.log(`[Automation] Querying existing ${modeDesc} records from Millware...`);
 
         const existingRecords = await queryTaskRegData(firstDay, endDay, ptrjIds, otFilter);
 
-        // Build lookup map: { "EmpCode_YYYY-MM-DD": true }
+        // Build lookup map: { "EmpCode_YYYY-MM-DD": { normal: bool, overtime: bool } }
         const existingMap = {};
         existingRecords.forEach(record => {
-            const dateStr = record.TrxDate ? record.TrxDate.substring(0, 10) : null;
+            let dateStr = null;
+            if (record.TrxDate) {
+                if (typeof record.TrxDate === 'string') {
+                    dateStr = record.TrxDate.substring(0, 10);
+                } else if (record.TrxDate instanceof Date) {
+                    dateStr = record.TrxDate.toISOString().substring(0, 10);
+                }
+            }
+            
             if (dateStr && record.EmpCode) {
-                const key = `${record.EmpCode}_${dateStr}`;
-                existingMap[key] = true;
+                const cleanEmpCode = record.EmpCode.trim().toUpperCase();
+                const key = `${cleanEmpCode}_${dateStr}`;
+                
+                if (!existingMap[key]) {
+                    existingMap[key] = { normal: false, overtime: false };
+                }
+                
+                // Check OT column (bit/boolean)
+                // OT=1 or true -> Overtime
+                // OT=0 or false -> Normal
+                const isOT = record.OT === true || record.OT === 1;
+                if (isOT) {
+                    existingMap[key].overtime = true;
+                } else {
+                    existingMap[key].normal = true;
+                }
             }
         });
 
@@ -154,19 +178,42 @@ const saveAutomationData = async (data) => {
         transformedData = transformedData.map(emp => {
             const newAttendance = {};
             let hasMismatches = false;
+            
+            // Normalize ID for input
+            const inputPtrjId = emp.PTRJEmployeeID ? emp.PTRJEmployeeID.trim().toUpperCase() : '';
 
             Object.entries(emp.Attendance || {}).forEach(([date, att]) => {
                 // Check if already exists using same key format as frontend
-                const key = `${emp.PTRJEmployeeID}_${date}`;
-                const alreadyExists = existingMap[key];
+                const key = `${inputPtrjId}_${date}`;
+                const existing = existingMap[key];
+                
+                // Determine if we should skip based on mode and existing data
+                let alreadyExists = false;
+                
+                if (onlyOvertime) {
+                    // In Overtime Mode: Skip if OT record already exists
+                    alreadyExists = existing && existing.overtime;
+                } else {
+                    // In Normal Mode: Skip if Normal record already exists
+                    // CRITICAL FIX: Also skip if it is SUNDAY and OT record exists (assume Sunday is purely OT)
+                    const isSundayWrapped = att.isSunday || (att.dayName && att.dayName.toLowerCase() === 'minggu');
+                    if (existing) {
+                        if (existing.normal) {
+                            alreadyExists = true;
+                        } else if (isSundayWrapped && existing.overtime) {
+                            alreadyExists = true; // Skip Sunday if OT exists (even if no Normal)
+                        }
+                    }
+                }
+
                 const hasOT = att.overtimeHours && att.overtimeHours > 0;
 
                 // DEBUG: Specific employee tracking
-                if (emp.PTRJEmployeeID === 'POM00241' && date.includes('2026-01-04')) {
-                    console.log(`[DEBUG] POM00241 on ${date}:`);
-                    console.log(`  Key: ${key}`);
-                    console.log(`  Exists in Millware: ${!!alreadyExists}`);
-                    console.log(`  ExistingMap keys sample: ${Object.keys(existingMap).filter(k => k.includes('POM00241')).slice(0, 5).join(', ')}`);
+                if (inputPtrjId === 'POM00241') {
+                     console.log(`[DEBUG] POM00241 Check: "${key}"`);
+                     console.log(`   -> Existing in DB: ${existing ? JSON.stringify(existing) : 'None'}`);
+                     console.log(`   -> Mode: ${onlyOvertime ? 'OT' : 'Normal'}, isSunday: ${att.isSunday}`);
+                     console.log(`   -> Result: alreadyExists=${alreadyExists}`);
                 }
 
                 // Debug first few

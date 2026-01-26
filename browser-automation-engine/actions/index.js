@@ -523,6 +523,61 @@ const actions = {
     },
 
     /**
+     * Check which Transaction Type radio button is selected (Normal vs Overtime)
+     * If trying to input Normal but Overtime is selected → Data exists, SKIP
+     */
+    checkTransactionType: async (page, params, context) => {
+        const { expectedType, saveTo } = params; // expectedType: 'normal' or 'overtime'
+
+        console.log(`🔍 Checking Transaction Type (expecting: ${expectedType})...`);
+
+        try {
+            const result = await page.evaluate(() => {
+                const normalRadio = document.querySelector('#MainContent_rblOT_0');
+                const overtimeRadio = document.querySelector('#MainContent_rblOT_1');
+
+                if (!normalRadio || !overtimeRadio) {
+                    return { exists: false, error: 'Radio buttons not found' };
+                }
+
+                return {
+                    exists: true,
+                    normalChecked: normalRadio.checked,
+                    normalDisabled: normalRadio.disabled || normalRadio.classList.contains('aspNetDisabled'),
+                    overtimeChecked: overtimeRadio.checked,
+                    overtimeDisabled: overtimeRadio.disabled || overtimeRadio.classList.contains('aspNetDisabled'),
+                    selectedType: normalRadio.checked ? 'normal' : (overtimeRadio.checked ? 'overtime' : 'none')
+                };
+            });
+
+            console.log(`  📊 Transaction Type State:`);
+            console.log(`  Normal: checked=${result.normalChecked}, disabled=${result.normalDisabled}`);
+            console.log(`  Overtime: checked=${result.overtimeChecked}, disabled=${result.overtimeDisabled}`);
+            console.log(`  Selected: ${result.selectedType}`);
+
+            // Save to context
+            if (saveTo) {
+                context[saveTo] = result;
+            }
+
+            // Check if matches expected type
+            const matches = result.selectedType === expectedType;
+            context.transactionTypeMismatch = !matches;
+
+            if (!matches) {
+                console.log(`  ⚠️ MISMATCH: Expected ${expectedType}, but ${result.selectedType} is selected!`);
+                console.log(`  → This means data ALREADY EXISTS in Millware. Will SKIP.`);
+            } else {
+                console.log(`  ✅ Transaction Type matches expected: ${expectedType}`);
+            }
+
+        } catch (e) {
+            console.error(`  ⚠️ Error checking transaction type: ${e.message}`);
+            context.transactionTypeMismatch = false; // Continue on error
+        }
+    },
+
+    /**
      * Validasi apakah element memiliki text (untuk memastikan data berhasil diinput)
      */
     validateText: async (page, params) => {
@@ -1337,6 +1392,9 @@ const actions = {
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             console.log(`  ┌─ Attempt ${attempt}/${maxRetries} ─────`);
+            
+            // Ensure page is stable (no navigation/postback in progress)
+            await _waitForPageStable(page, 2000);
 
             // STRICT ENFORCEMENT: ALWAYS check and fill previous fields BEFORE attempting current input
             // This prevents skipping to next field when prior fields are empty
@@ -1415,15 +1473,16 @@ const actions = {
             }
 
             // optimization: Check if field already has a value (User requested to skip if filled)
-            try {
-                const currentStatus = await verifyInputValue(selector, index);
-                if (currentStatus.hasValue && currentStatus.value && currentStatus.value.trim().length > 0) {
-                    console.log(`  ⏭️  Field already filled with: "${currentStatus.value}". Skipping input.`);
-                    return true;
-                }
-            } catch (e) {
-                console.log(`  ⚠️ Failed to check existing value: ${e.message}. Proceeding with input.`);
-            }
+            // REMOVED: This optimization prevents updating fields in loop (e.g. Employee ID)
+            // try {
+            //     const currentStatus = await verifyInputValue(selector, index);
+            //     if (currentStatus.hasValue && currentStatus.value && currentStatus.value.trim().length > 0) {
+            //         console.log(`  ⏭️  Field already filled with: "${currentStatus.value}". Skipping input.`);
+            //         return true;
+            //     }
+            // } catch (e) {
+            //     console.log(`  ⚠️ Failed to check existing value: ${e.message}. Proceeding with input.`);
+            // }
 
             // 1. Find Element (Manual logic to support incremental typing)
             let elementHandle;
