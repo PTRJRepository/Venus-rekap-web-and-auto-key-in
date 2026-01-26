@@ -94,6 +94,57 @@ const saveAutomationData = async (data) => {
     const lastDay = new Date(year, month, 0).getDate();
     const endDay = endDate || `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
+    // --- INTEGRATE STATUS (MATCH/MISS) ---
+    console.log(`[Automation] 🔄 Calculating sync status (MATCH/MISS) for ${transformedData.length} employees...`);
+    try {
+        const comparison = await compareWithTaskReg(employees, firstDay, endDay, { onlyOvertime });
+
+        // Build a lookup map from comparison results: key = "ptrjId_date"
+        const statusMap = {};
+        comparison.results.forEach(res => {
+            const key = `${res.ptrjId}_${res.date}`;
+            statusMap[key] = {
+                status: res.status, // MATCH/MISS
+                syncStatus: res.syncStatus, // synced/mismatch/not_synced
+                details: res.details
+            };
+        });
+
+        // Inject status into transformedData
+        transformedData.forEach(emp => {
+            Object.entries(emp.Attendance || {}).forEach(([date, att]) => {
+                const key = `${emp.PTRJEmployeeID}_${date}`;
+                const compareInfo = statusMap[key];
+
+                if (compareInfo) {
+                    att.syncStatus = compareInfo.status; // MATCH or MISS
+                    att.syncDetail = compareInfo.syncStatus; // synced, mismatch, or not_synced
+                    att.millwareInfo = compareInfo.details;
+
+                    // Granular skipping logic
+                    // If detailed info exists, use it to determine if specific parts should be skipped
+                    if (att.millwareInfo) {
+                        att.skipRegular = att.millwareInfo.regularMatched === true;
+                        att.skipOvertime = att.millwareInfo.otMatched === true;
+                        // DEBUG LOG for user assurance
+                        if (att.skipRegular) {
+                            console.log(`  [DataPrepare] ⏭️  ${date}: Regular hours MATCHED in DB (${att.millwareInfo.millwareNormal}h). Setting skipRegular=true.`);
+                        }
+                    }
+                } else {
+                    att.syncStatus = 'MISS';
+                    att.syncDetail = 'not_synced';
+                    // If no comparison info (e.g. Millware down?), default to NOT skipping
+                    att.skipRegular = false;
+                    att.skipOvertime = false;
+                }
+            });
+        });
+        console.log(`[Automation] ✅ Sync status injected into current_data.json`);
+    } catch (err) {
+        console.error(`[Automation] ⚠️ Failed to inject sync status:`, err.message);
+    }
+
     // --- FILTER: Sync Mismatches Only ---
     // AUTOMATIC: When in "Overtime Only" mode, ALWAYS filter to avoid re-entering existing data
     const shouldFilter = syncMismatchesOnly || onlyOvertime;

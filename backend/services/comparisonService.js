@@ -85,7 +85,8 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
     const millwareMap = {};
     millwareData.forEach(row => {
         const dateStr = formatDateSQL(row.TrxDate);
-        const key = `${row.EmpCode}_${dateStr}`;
+        const code = row.EmpCode ? row.EmpCode.trim() : '';
+        const key = `${code}_${dateStr}`;
         if (!millwareMap[key]) {
             millwareMap[key] = [];
         }
@@ -124,8 +125,9 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
 
             if (millwareRecords && millwareRecords.length > 0) {
                 // Record found in Millware
-                const normalHours = millwareRecords.filter(r => r.OT === 0).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
-                const otHours = millwareRecords.filter(r => r.OT === 1).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
+                // Handle BIT/Boolean type from SQL: Use loose equality or Number()
+                const normalHours = millwareRecords.filter(r => r.OT == 0).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
+                const otHours = millwareRecords.filter(r => r.OT == 1).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
                 const totalHours = normalHours + otHours;
 
                 const venusRegular = (day.regularHours || 0);
@@ -143,7 +145,45 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                     }
                 } else {
                     // Match total hours (simplest for general status)
-                    isSynced = Math.abs(totalHours - venusTotal) < 0.1;
+                    // Strict Sync Logic: Require records to verify existence
+                    // DEBUG: Log records to understand what we found
+                    if (dateStr === '2026-01-11') {
+                        console.log(`[Compare DEBUG] ${ptrjId} @ ${dateStr}: Found ${millwareRecords.length} records in DB.`);
+                        millwareRecords.forEach(r => console.log(`   - OT: ${r.OT} (${typeof r.OT}), Hours: ${r.Hours}, Code: ${r.TaskCode}, Emp: ${r.EmpCode}`));
+                    }
+
+                    const hasNormalRecord = millwareRecords.some(r => r.OT == 0 || r.OT === false);
+                    const hasOtRecord = millwareRecords.some(r => r.OT == 1 || r.OT === true);
+
+                    // Regular match check: Must have record if we want to confirm match, 
+                    // OR if we strictly want to enforce record creation even for 0h.
+                    // For Sunday cases, we normally want a record (0h) to exist.
+                    // If no record exists, it's NOT a match.
+                    const regularMatch = hasNormalRecord && Math.abs(normalHours - venusRegular) < 0.1;
+
+                    // DEBUG: Explicitly log why we matched or missed
+                    // DEBUG: Explicitly log why we matched or missed
+                    const cleanStatus = day.status || '';
+                    if (dateStr === '2026-01-11' || cleanStatus.includes('Partial')) {
+                        console.log(`[Compare DEBUG] ${ptrjId} @ ${dateStr} [${cleanStatus}] Decision:`);
+                        console.log(`   - Normal Record Exists? ${hasNormalRecord}`);
+                        console.log(`   - Hours Match? ${Math.abs(normalHours - venusRegular) < 0.1} (DB: ${normalHours}, Venus: ${venusRegular})`);
+                        console.log(`   - REGULAR MATCH RESULT: ${regularMatch}`);
+                    }
+
+                    // Overtime match check
+
+                    // Overtime match check
+                    // If Venus has OT, we need OT record. If Venus 0 OT, we match if 0 OT in DB (or no record).
+                    // But to be safe, if we have 0 OT in Venus and NO record in DB, that's a match/ok.
+                    // If we have 0 OT in Venus and Record exists with 0 OT, also match.
+                    // The only case to FLAG is if Venus > 0 and NO record or Diff value.
+                    const otMatch = (venusOt > 0.01)
+                        ? (hasOtRecord && Math.abs(otHours - venusOt) < 0.1)
+                        : (Math.abs(otHours - venusOt) < 0.1); // If 0 target, 0 found (even if no record) is OK.
+
+                    // Combined sync status (Both must match to be synced/MATCH)
+                    isSynced = regularMatch && otMatch;
                 }
 
                 if (isSynced) {
@@ -161,11 +201,19 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                     venusHours: venusTotal,
                     venusNormal: venusRegular,
                     venusOT: venusOt,
-                    records: millwareRecords.length
+                    records: millwareRecords.length,
+                    regularMatched: regularMatch, // Use the computed strict variable
+                    otMatched: otMatch // Use the computed strict variable
                 };
             } else {
                 notSynced++;
             }
+
+            // Determine explicit MATCH/MISS status for frontend consistency
+            // Default to 'MISS' if not synced, otherwise 'MATCH'
+            // If Millware has no record but Venus does (and it's not ALFA), it's a MISS (not_synced)
+            // If Millware has record but values differ, it's a MISS (mismatch)
+            const matchStatus = (status === 'synced') ? 'MATCH' : 'MISS';
 
             results.push({
                 employeeId: emp.id,
@@ -176,6 +224,7 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                 venusRegularHours: day.regularHours || 0,
                 venusOvertimeHours: day.overtimeHours || 0,
                 syncStatus: status,
+                status: matchStatus, // Explicit MATCH/MISS field
                 details: details
             });
         });
@@ -184,6 +233,23 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
     return {
         results,
         summary: { synced, notSynced, mismatch, total: synced + notSynced + mismatch }
+    };
+};
+
+/**
+ * Get only MISS data (mismatches or missing records)
+ */
+const getMissData = async (venusData, startDate, endDate, options = {}) => {
+    const comparison = await compareWithTaskReg(venusData, startDate, endDate, options);
+    // Filter results where status is 'MISS'
+    const missResults = comparison.results.filter(item => item.status === 'MISS');
+
+    return {
+        results: missResults,
+        summary: {
+            total_miss: missResults.length,
+            total_checked: comparison.results.length
+        }
     };
 };
 
@@ -221,5 +287,6 @@ const formatDateSQL = (date) => {
 module.exports = {
     queryTaskRegData,
     compareWithTaskReg,
+    getMissData,
     getSyncSummaryByEmployee
 };

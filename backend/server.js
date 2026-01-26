@@ -11,7 +11,7 @@ const { getPTRJMapping, matchPTRJEmployeeId } = require('./services/mappingServi
 const exportService = require('./services/exportService');
 const { updateEmployee, getAllEmployees, upsertEmployee } = require('./services/employeeMillService');
 const { saveAutomationData, startAutomationProcess } = require('./services/automationService');
-const { queryTaskRegData, compareWithTaskReg, getSyncSummaryByEmployee } = require('./services/comparisonService');
+const { queryTaskRegData, compareWithTaskReg, getMissData, getSyncSummaryByEmployee } = require('./services/comparisonService');
 
 require('dotenv').config();
 
@@ -640,6 +640,29 @@ app.post('/api/comparison/compare', async (req, res) => {
         });
     } catch (error) {
         console.error('Error comparing data:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get ONLY 'MISS' data (mismatches or missing records)
+app.post('/api/comparison/miss', async (req, res) => {
+    try {
+        const { employees, startDate, endDate, options } = req.body;
+
+        if (!employees || !Array.isArray(employees) || !startDate || !endDate) {
+            return res.status(400).json({ success: false, error: 'employees array, startDate, endDate required' });
+        }
+
+        console.log(`[Comparison] Fetching MISS data for ${employees.length} employees (${startDate} to ${endDate})`);
+        const result = await getMissData(employees, startDate, endDate, options);
+
+        res.json({
+            success: true,
+            ...result,
+            period: { start: startDate, end: endDate }
+        });
+    } catch (error) {
+        console.error('Error fetching MISS data:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
