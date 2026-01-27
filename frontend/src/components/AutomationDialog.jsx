@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Box, LinearProgress, Switch, FormControlLabel } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Box, LinearProgress, Switch, FormControlLabel, Radio, RadioGroup, FormControl, FormLabel } from '@mui/material';
 import PlayIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import StopIcon from '@mui/icons-material/Stop';
@@ -11,18 +11,29 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
     const [status, setStatus] = useState('idle');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [onlyOvertime, setOnlyOvertime] = useState(false);
+    const [onlyOvertime, setOnlyOvertime] = useState(false); // Legacy state for backend flag
     const [filterSynced, setFilterSynced] = useState(true);
+    const [targetMode, setTargetMode] = useState('all'); // all, regular, overtime
     const logEndRef = useRef(null);
 
-    // Auto-set Overtime Mode if Compare Mode is Overtime
+    // Auto-set Target Mode based on prop
     useEffect(() => {
-        if (open && compareMode === 'overtime') {
-            setOnlyOvertime(true);
-        } else if (open) {
-            setOnlyOvertime(false);
+        if (open) {
+            if (compareMode === 'overtime') {
+                setTargetMode('overtime');
+                setOnlyOvertime(true);
+            } else {
+                setTargetMode('all'); // Default to all (mismatches)
+                setOnlyOvertime(false);
+            }
         }
     }, [open, compareMode]);
+
+    // Sync onlyOvertime flag when targetMode changes
+    useEffect(() => {
+        if (targetMode === 'overtime') setOnlyOvertime(true);
+        else setOnlyOvertime(false);
+    }, [targetMode]);
 
     // Auto-Refresh when completed
     useEffect(() => {
@@ -41,7 +52,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
             return { filtered: selectedEmployees, modeLog: (!filterSynced ? ' (Filter Disabled)' : '') };
         }
 
-        if (!isExport) addLog('info', `🔍 STRICT FILTERING: Keeping only ${compareMode.toUpperCase()} Mismatches/Missing...`);
+        if (!isExport) addLog('info', `🔍 STRICT FILTERING: Keeping only ${targetMode.toUpperCase()} Mismatches...`);
 
         const employeesToProcess = selectedEmployees.map(emp => {
             const ptrjId = emp.ptrjEmployeeID;
@@ -65,58 +76,44 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
 
                 const statusUpper = (day.status || '').toUpperCase();
 
-                // Filter Logic based on Compare Mode
-                if (compareMode === 'presence') {
-                    const isWorkingStatus = ['HADIR', 'PARTIAL IN', 'PARTIAL OUT'].includes(statusUpper);
-                    const isLeaveStatus = ['SAKIT', 'IZIN', 'CUTI', 'ALPHA', 'I', 'S', 'C', 'CT', 'P', 'SD'].some(s => statusUpper.startsWith(s)) || day.isAnnualLeave || day.isSickLeave;
-
-                    if (isWorkingStatus || isLeaveStatus) {
-                        if (!millwareRecord) {
-                            shouldInclude = true;
-                            reason = `${day.status} (Missing in Millware)`;
-                        } else {
-                            // Record exists, check for Hour Mismatch (Strict Sync)
-                            const venusReg = day.regularHours || 0;
-                            const millReg = millwareRecord.hours || 0;
-                            const hoursMismatch = Math.abs(venusReg - millReg) > 0.1;
-
-                            // Smart Task Code Check
-                            let taskCodeMismatch = false;
-                            if (millwareRecord) {
-                                const tc = (millwareRecord.TaskCode || millwareRecord.taskCode || '').toUpperCase();
-                                if (day.isSickLeave) {
-                                    if (!tc.includes('GA9127') && !tc.includes('SICK')) taskCodeMismatch = true;
-                                } else if (day.isAnnualLeave) {
-                                    if (!tc.includes('GA9130') && !tc.includes('ANNUAL')) taskCodeMismatch = true;
-                                }
-                            }
-
-                            if (hoursMismatch || taskCodeMismatch) {
-                                shouldInclude = true;
-                                reason = hoursMismatch
-                                    ? `Mismatch: Venus(${venusReg}h) vs Mill(${millReg}h)`
-                                    : `Task Code Mismatch: Venus(Leave) vs Mill(${millwareRecord?.TaskCode || '?'})`;
-                                if (!isExport) addLog('info', `DEBUG INCLUDE [${dateStr}]: ${reason}`);
-                            } else {
-                                shouldInclude = false;
-                                if (!isExport) addLog('info', `DEBUG SKIP [${dateStr}]: Synced (Hours & Task Code match).`);
-                            }
-                        }
-                    }
-                } else if (compareMode === 'overtime') {
-                    const ot = day.overtimeHours || 0;
-                    if (ot > 0) {
-                        const millwareOt = (millwareRecord && millwareRecord.ot !== undefined) ? millwareRecord.ot : (millwareRecord ? millwareRecord.hours : 0);
-
-                        if (!millwareRecord) {
-                            shouldInclude = true;
-                            reason = `OT ${ot}h Missing in backend`;
-                        } else if (Math.abs(millwareOt - ot) >= 0.1) {
-                            shouldInclude = true;
-                            reason = `OT Mismatch (Ven:${ot} vs Mill:${millwareOt})`;
-                        }
-                    }
+                // Start with TRUE if MISS (unless excluded below)
+                // Use Backend Flags
+                if (!millwareRecord) {
+                    shouldInclude = true;
+                    reason = `Missing in Millware`;
+                } else if (millwareRecord.status === 'MISS') {
+                    shouldInclude = true;
+                    reason = `Mismatch detected`;
                 }
+
+                // --- REFINE SELECTION BASED ON TARGET MODE ---
+                if (shouldInclude && millwareRecord) {
+                    // 1. Regular Only Mode: Exclude if Regular IS Matched
+                    if (targetMode === 'regular') {
+                        if (millwareRecord.regularMatched === true) {
+                            shouldInclude = false; // Skip if regular is fine
+                        } else {
+                            reason = `Regular Hours Mismatch (${day.regularHours} vs ${millwareRecord.normal || 0})`;
+                        }
+                    }
+                    // 2. Overtime Only Mode: Exclude if OT IS Matched
+                    else if (targetMode === 'overtime') {
+                        if (millwareRecord.otMatched === true) {
+                            shouldInclude = false;
+                        } else {
+                            reason = `Overtime Mismatch (${day.overtimeHours} vs ${millwareRecord.ot || 0})`;
+                        }
+                    }
+                    // 3. All: Include if ANY mismatch (default behavior)
+                }
+
+                // Extra check for "Overtime Only" mode from prop (legacy compatibility)
+                if (compareMode === 'overtime' && targetMode !== 'overtime') {
+                    // If visual mode is QT, but user selected 'Regular', force skip OT matched?
+                    // Actually, if compareMode is OT, we usually only care about OT.
+                    // But user explicit selection overrides.
+                }
+
 
                 if (shouldInclude) {
                     // --- FALLBACK LOGIC FOR ZERO HOURS ---
@@ -144,7 +141,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
             return { ...emp, attendance: filteredAttendance };
         }).filter(Boolean);
 
-        return { filtered: employeesToProcess, modeLog: ` (Filtered: ${employeesToProcess.length} employees with mismatches)` };
+        return { filtered: employeesToProcess, modeLog: ` (Filtered: ${employeesToProcess.length} employees with ${targetMode} mismatches)` };
     };
 
     const handleExportMiss = async () => {
@@ -166,7 +163,10 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                     employees: employeesToProcess,
                     startDate: startDate || `${year}-${String(month).padStart(2, '0')}-01`, // Default to full month if empty
                     endDate: endDate || `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`,
-                    options: { onlyOvertime }
+                    options: {
+                        onlyOvertime: targetMode === 'overtime',
+                        syncRegularOnly: targetMode === 'regular'
+                    }
                 })
             });
 
@@ -204,7 +204,8 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
 
         addLog('info', `Starting automation for ${employeesToProcess.length} employees (${month}/${year})${modeLog}`);
         if (startDate && endDate) addLog('info', `Date Filter: ${startDate} to ${endDate}`);
-        if (onlyOvertime) addLog('info', `Mode: Only Overtime (skipping regular attendance)`);
+        if (targetMode === 'overtime') addLog('info', `Mode: Only Overtime (skipping regular attendance)`);
+        if (targetMode === 'regular') addLog('info', `Mode: Only Regular (skipping matched regular hours)`);
 
         try {
             const response = await fetch('/api/automation/run', {
@@ -216,8 +217,9 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                     year,
                     startDate,
                     endDate,
-                    onlyOvertime,
-                    syncMismatchesOnly: filterSynced
+                    onlyOvertime: targetMode === 'overtime',
+                    syncMismatchesOnly: filterSynced,
+                    syncRegularOnly: targetMode === 'regular'
                 })
             });
 
@@ -283,7 +285,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                 <Box sx={{ p: 2, bgcolor: '#252526', borderBottom: '1px solid #333' }}>
                     <Typography variant="body2" sx={{ color: '#aaa', mb: 1 }}>Target: <strong>{selectedEmployees.length} Karyawan</strong> | Periode: <strong>{month}/{year}</strong></Typography>
 
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1, flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <label style={{ fontSize: '0.75rem', color: '#888' }}>Start Date</label>
                             <input
@@ -302,17 +304,33 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                                 style={{ background: '#333', border: '1px solid #555', color: 'white', padding: '4px', borderRadius: '4px' }}
                             />
                         </div>
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={onlyOvertime}
-                                    onChange={(e) => setOnlyOvertime(e.target.checked)}
-                                    color="warning"
+
+                        {/* Target Mode Selector */}
+                        <FormControl component="fieldset" sx={{ ml: 2, border: '1px solid #444', borderRadius: 1, px: 1, py: 0.5 }}>
+                            <FormLabel component="legend" sx={{ fontSize: '0.7rem', color: '#AAA' }}>Filter Mode</FormLabel>
+                            <RadioGroup
+                                row
+                                value={targetMode}
+                                onChange={(e) => setTargetMode(e.target.value)}
+                            >
+                                <FormControlLabel
+                                    value="all"
+                                    control={<Radio size="small" sx={{ color: '#aaa', '&.Mui-checked': { color: '#90caf9' } }} />}
+                                    label={<Typography variant="caption" sx={{ color: '#ddd' }}>All Mismatches</Typography>}
                                 />
-                            }
-                            label={<Typography variant="body2" sx={{ color: onlyOvertime ? '#fb8c00' : '#888' }}>Only Overtime</Typography>}
-                            sx={{ ml: 2 }}
-                        />
+                                <FormControlLabel
+                                    value="regular"
+                                    control={<Radio size="small" sx={{ color: '#aaa', '&.Mui-checked': { color: '#ce93d8' } }} />}
+                                    label={<Typography variant="caption" sx={{ color: '#ddd' }}>Regular Only</Typography>}
+                                />
+                                <FormControlLabel
+                                    value="overtime"
+                                    control={<Radio size="small" sx={{ color: '#aaa', '&.Mui-checked': { color: '#ffcc80' } }} />}
+                                    label={<Typography variant="caption" sx={{ color: '#ddd' }}>Overtime Only</Typography>}
+                                />
+                            </RadioGroup>
+                        </FormControl>
+
                         {comparisonData && (
                             <FormControlLabel
                                 control={
@@ -320,10 +338,11 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                                         checked={filterSynced}
                                         onChange={(e) => setFilterSynced(e.target.checked)}
                                         color="error"
+                                        size="small"
                                     />
                                 }
-                                label={<Typography variant="body2" sx={{ color: filterSynced ? '#f44336' : '#888', fontWeight: filterSynced ? 'bold' : 'normal' }}>Filter Synced Matches</Typography>}
-                                sx={{ ml: 2 }}
+                                label={<Typography variant="caption" sx={{ color: filterSynced ? '#f44336' : '#888', fontWeight: filterSynced ? 'bold' : 'normal' }}>Filter Synced</Typography>}
+                                sx={{ ml: 1 }}
                             />
                         )}
                     </Box>

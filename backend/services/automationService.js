@@ -38,10 +38,17 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
                 if (startDate && date < startDate) return;
                 if (endDate && date > endDate) return;
 
+                const status = data.status || '';
+                const isPartialIn = status === 'Partial In';
+
+                // Force isAnnualLeave to false if status is 'Partial In'
+                // This ensures we use the regular Charge Job.
+                const isAnnualLeave = isPartialIn ? false : (data.isAnnualLeave === true);
+
                 attendanceByDate[date] = {
                     date,
                     dayName: data.dayName || '',
-                    status: data.status || '',
+                    status: status,
                     display: data.display || '',
                     class: data.class || '',
                     checkIn: data.checkIn || null,
@@ -51,11 +58,12 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
                     isHoliday: data.isHoliday || false,
                     holidayName: data.holidayName || null,
                     isSunday: data.isSunday || false,
-                    // Leave type info for automation - explicitly set to false if not true
-                    isAnnualLeave: data.isAnnualLeave === true,
+                    // Leave type info for automation
+                    isAnnualLeave: isAnnualLeave,
                     isSickLeave: data.isSickLeave === true,
-                    leaveTaskCode: data.leaveTaskCode || null,
-                    leaveDescription: data.leaveDescription || null
+                    // Clear leave codes if we forced isAnnualLeave to false (i.e. Partial In)
+                    leaveTaskCode: isAnnualLeave ? (data.leaveTaskCode || null) : null,
+                    leaveDescription: isAnnualLeave ? (data.leaveDescription || null) : null
                 };
             });
         }
@@ -86,6 +94,7 @@ const saveAutomationData = async (data) => {
     const endDate = data.endDate || null;
     const onlyOvertime = data.onlyOvertime || false;
     const syncMismatchesOnly = data.syncMismatchesOnly || false;
+    const syncRegularOnly = data.syncRegularOnly || false;
 
     // Transform to engine format with filtering
     let transformedData = transformEmployeeData(employees, month, year, startDate, endDate);
@@ -147,95 +156,58 @@ const saveAutomationData = async (data) => {
     }
 
     // --- FILTER: Sync Mismatches Only ---
-    // AUTOMATIC: When in "Overtime Only" mode, ALWAYS filter to avoid re-entering existing data
-    const shouldFilter = syncMismatchesOnly || onlyOvertime;
+    // If enabled, we filter out employees/days that are already SYNCED (based on backend logic)
+    const shouldFilter = syncMismatchesOnly || onlyOvertime || syncRegularOnly;
 
     if (shouldFilter) {
-        console.log(`[Automation] 🔍 Filtering for MISMATCHES ONLY (${firstDay} to ${endDay})...`);
-        if (onlyOvertime) {
-            console.log(`[Automation] 📌 Auto-filtering enabled: Overtime Only mode - will skip dates with existing OT.`);
-        }
+        console.log(`[Automation] 🔍 Filtering for MISMATCHES ONLY (Using Comparison Results)...`);
+        if (syncRegularOnly) console.log(`[Automation] 📌 Filter Mode: REGULAR ONLY (Skipping matched regular hours)`);
 
-        // === USE SAME METHOD AS FRONTEND: Query PR_TASKREGLN directly with OT=1 ===
-        const { queryTaskRegData } = require('./comparisonService');
-
-        // Get all PTRJ IDs from employees
-        const ptrjIds = employees
-            .filter(emp => emp.ptrjEmployeeID && emp.ptrjEmployeeID !== 'N/A')
-            .map(emp => emp.ptrjEmployeeID);
-
-        // Query Millware with OT=1 filter (same as frontend toggle)
-        const otRecords = await queryTaskRegData(firstDay, endDay, ptrjIds, 1); // OT=1
-
-        // Build lookup map (same as frontend): { "EmpCode_YYYY-MM-DD": true }
-        const existingOTMap = {};
-        otRecords.forEach(record => {
-            const dateStr = record.TrxDate ? record.TrxDate.substring(0, 10) : null;
-            if (dateStr && record.EmpCode) {
-                const key = `${record.EmpCode}_${dateStr}`;
-                existingOTMap[key] = record;
-            }
-        });
-
-        console.log(`[Automation] Found ${otRecords.length} existing OT records in Millware`);
-        console.log(`[Automation] Sample existing OT keys: ${Object.keys(existingOTMap).slice(0, 5).join(', ')}`);
-
-        // Filter employees and their attendance dates
-        let totalSkipped = 0;
-        let totalKept = 0;
-        let totalNoOT = 0;
-        let debugLog = [];
-
+        // Filter employees: Keep only those who have at least one 'MISS' day
         transformedData = transformedData.map(emp => {
             const newAttendance = {};
-            let hasMismatches = false;
+            let hasMismatch = false;
+            let keptDays = 0;
 
             Object.entries(emp.Attendance || {}).forEach(([date, att]) => {
-                // Check if OT already exists using same key format as frontend
-                const key = `${emp.PTRJEmployeeID}_${date}`;
-                const millwareRecord = existingOTMap[key];
-                const alreadyExists = !!millwareRecord;
-                const hasOT = att.overtimeHours && att.overtimeHours > 0;
+                // Logic: Keep if status is 'MISS'
+                // If 'MATCH' or 'synced', we skip it.
+                // However, the template has 'skipRegular' logic, so we technically COULD keep everything
+                // and let the template skip. BUT to reduce JSON size and processing time,
+                // we'll remove the days that don't need any action.
 
-                // Debug first few
-                if (debugLog.length < 10) {
-                    debugLog.push(`${key}: OT=${att.overtimeHours || 0}, exists=${alreadyExists}`);
-                }
-
-                let shouldKeep = false;
-                if (!alreadyExists && hasOT) {
-                    shouldKeep = true;
-                } else if (alreadyExists) {
-                    // Check for hour mismatch
-                    const venusOT = att.overtimeHours || 0;
-                    const millOT = millwareRecord.Hours || millwareRecord.OT || 0; // Check DB field names
-
-                    if (Math.abs(venusOT - millOT) > 0.1) {
-                        shouldKeep = true; // KEEP (Mismatch)
-                        if (debugLog.length < 20) debugLog.push(`[${key}] Mismatch Kept: V=${venusOT} vs M=${millOT}`);
+                // Exception: In Overtime Only mode, if OT is matched, we skip.
+                if (onlyOvertime) {
+                    if (att.skipOvertime !== true) {
+                        newAttendance[date] = att;
+                        hasMismatch = true;
+                        keptDays++;
                     }
                 }
-
-                if (shouldKeep) {
-                    newAttendance[date] = att;
-                    hasMismatches = true;
-                    totalKept++;
-                } else if (alreadyExists) {
-                    totalSkipped++;
-                } else if (!hasOT) {
-                    totalNoOT++;
+                // Exception: In Regular Only mode, if Regular is matched, we skip.
+                else if (syncRegularOnly) {
+                    if (att.skipRegular !== true) {
+                        newAttendance[date] = att;
+                        hasMismatch = true;
+                        keptDays++;
+                    }
+                }
+                else {
+                    // Standard Mode: Keep if syncStatus is MISS
+                    if (att.syncStatus === 'MISS') {
+                        newAttendance[date] = att;
+                        hasMismatch = true;
+                        keptDays++;
+                    }
                 }
             });
 
-            // Return employee with filtered attendance (or null if no mismatches)
-            if (hasMismatches) {
+            if (hasMismatch) {
                 return { ...emp, Attendance: newAttendance };
             }
             return null;
-        }).filter(emp => emp !== null);
+        }).filter(Boolean);
 
-        console.log(`[Automation] 🔍 Debug samples: ${debugLog.join(' | ')}`);
-        console.log(`[Automation] ✅ Filter complete: ${totalKept} to process, ${totalSkipped} synced, ${totalNoOT} no-OT (excluded).`);
         console.log(`[Automation] 📉 Filtered down to ${transformedData.length} employees with mismatches.`);
     }
 
@@ -248,7 +220,8 @@ const saveAutomationData = async (data) => {
             total_employees: transformedData.length,
             source: 'web_interface',
             onlyOvertime: onlyOvertime,
-            syncMismatchesOnly: syncMismatchesOnly
+            syncMismatchesOnly: syncMismatchesOnly,
+            syncRegularOnly: syncRegularOnly
         },
         data: transformedData
     };

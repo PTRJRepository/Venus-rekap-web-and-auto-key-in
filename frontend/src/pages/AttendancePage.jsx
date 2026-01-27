@@ -180,7 +180,10 @@ const AttendancePage = () => {
                             hours: r.details.millwareHours,
                             normal: r.details.millwareNormal,
                             ot: r.details.millwareOT,
-                            TaskCode: r.details.millwareTaskCode || r.millwareTaskCode // Capture TaskCode
+                            TaskCode: r.details.millwareTaskCode || r.millwareTaskCode, // Capture TaskCode
+                            status: r.status,
+                            regularMatched: r.details.regularMatched,
+                            otMatched: r.details.otMatched
                         };
                     }
                 }
@@ -521,7 +524,7 @@ const AttendancePage = () => {
                 month={selectedMonth}
                 year={selectedYear}
                 compareMode={compareMode}
-                compareMode={compareMode}
+
                 comparisonData={comparisonData}
                 onRefresh={performComparison}
             />
