@@ -22,18 +22,32 @@ const dataFilePath = process.argv[2] || DEFAULT_DATA_FILE;
 
 // Configurable settings
 const AUTOMATION_INSTANCES = parseInt(process.env.AUTOMATION_INSTANCES || '2');
-const ENGINE_START_DELAY = parseInt(process.env.ENGINE_START_DELAY || '5000');
+// Smart Stagger: If instances > 5, increase delay to prevent CPU choke.
+// If explicitly set in env, use that. Otherwise, calculate.
+let defaultDelay = 5000;
+if (AUTOMATION_INSTANCES > 10) defaultDelay = 8000; // Slower start for many instances
+if (AUTOMATION_INSTANCES <= 5) defaultDelay = 3000; // Faster start for few
+
+const ENGINE_START_DELAY = parseInt(process.env.ENGINE_START_DELAY || defaultDelay.toString());
 const HEARTBEAT_TIMEOUT = 60000; // 60 seconds (1 minute) max silence
 const MAX_RESTARTS = 10; // Prevent infinite restart loops
 const TEMPLATE_NAME = 'attendance-input-loop';
+
+// Increase listeners to prevent MaxListenersExceededWarning
+// (Each worker attaches listeners to process)
+process.setMaxListeners(AUTOMATION_INSTANCES + 20);
 
 // Directory Setup
 const LOGS_DIR = path.join(__dirname, 'logs');
 if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
 
 console.log(`📂 Using data file: ${dataFilePath}`);
-console.log(`⚙️  Configuration: ${AUTOMATION_INSTANCES} instance(s), ${ENGINE_START_DELAY}ms delay`);
+console.log(`⚙️  Configuration: ${AUTOMATION_INSTANCES} instance(s), ${ENGINE_START_DELAY}ms stagger delay`);
 console.log(`❤️  Watchdog: ${HEARTBEAT_TIMEOUT / 1000}s heartbeat timeout`);
+if (AUTOMATION_INSTANCES > 10) {
+    console.log(`⚠️  HIGH CONCURRENCY WARNING: You are running ${AUTOMATION_INSTANCES} instances.`);
+    console.log(`    Recommendation: Ensure 'HEADLESS=true' in .env to prevent memory exhaustion.`);
+}
 
 // --- UTILS ---
 

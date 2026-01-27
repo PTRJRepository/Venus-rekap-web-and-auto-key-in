@@ -256,7 +256,9 @@ class AutomationEngine {
                 '--disable-backgrounding-occluded-windows',
                 '--disable-breakpad',
                 '--disable-component-extensions-with-background-pages',
-                '--disable-features=TranslateUI,BlinkGenPropertyTrees'
+                '--disable-features=TranslateUI,BlinkGenPropertyTrees,SitePerProcess', // SitePerProcess saves memory but reduces isolation
+                '--disable-ipc-flooding-protection',
+                '--disable-renderer-backgrounding'
             ]
         };
 
