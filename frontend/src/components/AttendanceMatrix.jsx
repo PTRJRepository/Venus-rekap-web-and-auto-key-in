@@ -145,6 +145,7 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                         <TableRow>
                             <TableCell padding="checkbox" sx={{ position: 'sticky', left: 0, zIndex: 111, bgcolor: '#f9fafb', width: 40 }}><Checkbox indeterminate={selectedIds.length > 0 && selectedIds.length < safeData.length} checked={safeData.length > 0 && selectedIds.length === safeData.length} onChange={handleSelectAll} size="small" /></TableCell>
                             <TableCell sx={{ position: 'sticky', left: 40, zIndex: 111, bgcolor: '#f9fafb', width: 200, fontWeight: 700, fontSize: '0.7rem', boxShadow: '2px 0 5px rgba(0,0,0,0.08)' }}><PersonIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />NAMA</TableCell>
+                            <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#f9fafb', width: 90, fontWeight: 700, fontSize: '0.7rem' }}>VENUS ID</TableCell>
                             <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#f9fafb', width: 100, fontWeight: 700, fontSize: '0.7rem' }}>PTRJ ID</TableCell>
 
                             {/* Single Charge Job Column */}
@@ -207,6 +208,7 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                                             {isEditing && <Box sx={{ ml: 'auto', display: 'flex' }}><IconButton size="small" color="success" onClick={(e) => { e.stopPropagation(); handleSaveEdit(emp); }} disabled={saving}><SaveIcon fontSize="small" /></IconButton><IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleCancelEdit(); }}><CloseIcon fontSize="small" /></IconButton></Box>}
                                         </Box>
                                     </TableCell>
+                                    <TableCell sx={{ fontSize: '0.75rem', color: '#4b5563' }} onClick={(e) => isEditing && e.stopPropagation()}>{emp.id}</TableCell>
                                     <TableCell onClick={(e) => isEditing && e.stopPropagation()}>{isEditing ? <TextField size="small" value={editValues.ptrjEmployeeID} onChange={(e) => setEditValues(p => ({ ...p, ptrjEmployeeID: e.target.value }))} sx={{ width: '100%', '& input': { py: 0.5, fontSize: '0.75rem' } }} /> : (emp.ptrjEmployeeID || '-')}</TableCell>
 
                                     {/* Single Charge Job Cell - show as-is without splitting */}
@@ -278,7 +280,7 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                                         } else if (viewMode === 'detail') {
                                             // WORK_HOURS Constants (Must match backend)
                                             const WORK_HOURS = { NORMAL: 7, SHORT: 5 };
-                                            
+
                                             // Calculate regular hours based on day: Saturday = 5h, others = 7h
                                             const date = new Date(d.date);
                                             const dayOfWeek = date.getDay(); // 0=Sunday, 6=Saturday
