@@ -208,7 +208,7 @@ const fetchAttendanceData = async (month, year) => {
     });
 
     // LEFT JOIN: Start with Weekly employees, get mapping from extend_db_ptrj if available
-    const employees = weeklyEmployeeIds.map(we => {
+    let employees = weeklyEmployeeIds.map(we => {
         const millData = millMap[we.EmployeeID];
         return {
             venus_employee_id: we.EmployeeID,
@@ -217,6 +217,14 @@ const fetchAttendanceData = async (month, year) => {
             charge_job: millData?.charge_job || null
         };
     });
+
+    // FILTER: Exclude "STAFF" from the list completely
+    const initialCount = employees.length;
+    employees = employees.filter(emp => {
+        const job = (emp.charge_job || '').toUpperCase();
+        return !job.includes('STAFF');
+    });
+    console.log(`[FILTER] Removed ${initialCount - employees.length} STAFF employees. Remaining: ${employees.length}`);
 
     console.log(`[DEBUG] Final employee list: ${employees.length} (with ${employees.filter(e => e.ptrj_employee_id).length} having PTRJ mapping)`);
 
@@ -697,7 +705,15 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
 
     console.log(`[OVERTIME-ONLY] Active employees: ${activeEmployeeIds.size}`);
 
-    const activeEmployees = employees.filter(emp => activeEmployeeIds.has(emp.venus_employee_id));
+    let activeEmployees = employees.filter(emp => activeEmployeeIds.has(emp.venus_employee_id));
+
+    // FILTER: Exclude "STAFF"
+    const initialCount = activeEmployees.length;
+    activeEmployees = activeEmployees.filter(emp => {
+        const job = (emp.charge_job || '').toUpperCase();
+        return !job.includes('STAFF');
+    });
+    console.log(`[OVERTIME-ONLY] [FILTER] Removed ${initialCount - activeEmployees.length} STAFF employees.`);
 
     // Build grid
     const daysInMonth = eachDayOfInterval({
