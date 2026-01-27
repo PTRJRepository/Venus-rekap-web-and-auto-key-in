@@ -365,12 +365,45 @@ const fetchAttendanceData = async (month, year) => {
             // Priority 1: Attendance Record (HR_T_TAMachine_Summary) - Reality
             // If attendance exists (even partial), it takes precedence over everything else
             if (att) {
-                // Calculate Hours
-                if (att.TACheckIn && att.TACheckOut) {
-                    const start = new Date(att.TACheckIn);
-                    const end = new Date(att.TACheckOut);
+                // Helper to parse time string/date
+                const parseTimeSafe = (timeVal, dateBase) => {
+                    if (!timeVal) return null;
+                    // Case 1: Already a Date or Full ISO string
+                    // Note: new Date("18:46") is invalid in Node, so it skips to Case 2 if it's a simple time string
+                    const d = new Date(timeVal);
+                    if (!isNaN(d.getTime())) return d;
+
+                    // Case 2: Time string "HH:mm" or "HH:mm:ss" - Combine with dateBase
+                    if (typeof timeVal === 'string' && timeVal.includes(':')) {
+                        const cleanTime = timeVal.trim();
+                        // Assuming cleanTime is "HH:mm[:ss]"
+                        // Use dateBase (yyyy-MM-dd) + T + cleanTime
+                        const combined = `${dateBase}T${cleanTime}`;
+                        const d2 = new Date(combined);
+                        if (!isNaN(d2.getTime())) return d2;
+                    }
+                    return null;
+                };
+
+                const start = parseTimeSafe(att.TACheckIn, dateStr);
+                // For checkout, we need to handle Cross Day logic if implicit
+                // But usually we just trust the value if it's a full date. 
+                // If it's a time string, we might need cross-day check logic if end < start
+                let end = parseTimeSafe(att.TACheckOut, dateStr);
+
+                // If end < start and it's a time-string scenario, add 1 day to end (Basic cross-day handling)
+                // But usually DB has full datetime. If string "06:01", likely means next day.
+                if (start && end && end < start) {
+                    end = addDays(end, 1);
+                }
+
+                checkIn = start ? format(start, 'HH:mm') : null;
+                checkOut = end ? format(end, 'HH:mm') : null;
+
+                // Calculate Hours safely
+                if (start && end) {
                     let diffHrs = (end - start) / (1000 * 60 * 60);
-                    if (diffHrs < 0) diffHrs += 24; // Cross day fix
+                    // diffHrs should be positive now due to cross-day check above
 
                     // Business Logic Caps
                     if (isSat) {
@@ -392,22 +425,35 @@ const fetchAttendanceData = async (month, year) => {
                     }
 
                 } else {
-                    // Incomplete attendance record
+                    // Incomplete attendance record (Missing CheckIn or CheckOut)
                     if (isSat) regularHours = WORK_HOURS.SHORT;
                     else regularHours = WORK_HOURS.NORMAL;
 
+                    // LOGIC CHANGE: Trust Overtime
+                    // If employee has valid overtime approved, they were definitely present.
+                    // Override "Partial" status to "Hadir".
                     if (otHours > 0) {
-                        display = `⚠ +${otHours.toFixed(1)}h`; // Warning + overtime
-                    } else {
-                        display = '⚠'; // Warning for incomplete
-                    }
+                        status = 'Hadir';
+                        // Visual: Checkmark + overtime (Normal Overtime look)
+                        display = `✓ +${otHours.toFixed(1)}h`;
+                        cssClass = 'hours-normal-overtime';
 
-                    if (att.TACheckIn && !att.TACheckOut) {
-                        status = 'Partial In';
-                        cssClass = 'hours-partial-check-in-only';
+                        // Note: regularHours is already set above to Normal/Short
                     } else {
-                        status = 'Partial Out';
-                        cssClass = 'hours-partial-check-out-only';
+                        // Truly incomplete and no overtime to back it up
+                        if (att.TACheckIn && !att.TACheckOut) {
+                            status = 'Partial In';
+                            cssClass = 'hours-partial-check-in-only';
+                            display = '⚠';
+                        } else if (!att.TACheckIn && att.TACheckOut) {
+                            status = 'Partial Out';
+                            cssClass = 'hours-partial-check-out-only';
+                            display = '⚠';
+                        } else {
+                            // Should not happen if att exists, but fallback
+                            status = 'Hadir'; // Default 
+                            display = '⚠'; // Warn
+                        }
                     }
                 }
             }
