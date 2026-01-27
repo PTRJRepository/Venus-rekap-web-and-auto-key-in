@@ -26,7 +26,7 @@
                         "comment": "Skip ALFA dan N/A",
                         "action": "if",
                         "params": {
-                            "condition": "attendance.status === 'ALFA' || attendance.status === 'N/A'",
+                            "condition": "(attendance.status || '').toUpperCase() === 'ALFA' || attendance.status === 'N/A'",
                             "thenSteps": [
                                 {
                                     "action": "log",
