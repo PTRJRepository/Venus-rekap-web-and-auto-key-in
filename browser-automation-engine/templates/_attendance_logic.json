@@ -19,7 +19,7 @@
                         "comment": "Skip ALFA (tidak ada data) dan N/A (data belum tersedia). Annual Leave akan diproses terpisah.",
                         "action": "log",
                         "params": {
-                            "message": "  → Checking: status=${attendance.status}, isAnnualLeave=${attendance.isAnnualLeave}"
+                            "message": "  \u2192 Checking: status=${attendance.status}, isAnnualLeave=${attendance.isAnnualLeave}"
                         }
                     },
                     {
@@ -31,7 +31,7 @@
                                 {
                                     "action": "log",
                                     "params": {
-                                        "message": "    ⏭️ SKIP: ${attendance.status} - no data in database"
+                                        "message": "    \u23ed\ufe0f SKIP: ${attendance.status} - no data in database"
                                     }
                                 }
                             ],
@@ -45,7 +45,7 @@
                                             {
                                                 "action": "log",
                                                 "params": {
-                                                    "message": "    → Input ANNUAL LEAVE: ${attendance.status} (${attendance.leaveDescription})"
+                                                    "message": "    \u2192 Input ANNUAL LEAVE: ${attendance.status} (${attendance.leaveDescription})"
                                                 }
                                             },
                                             {
@@ -214,7 +214,7 @@
                                                         {
                                                             "action": "log",
                                                             "params": {
-                                                                "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} failed"
+                                                                "message": "    \u23ed\ufe0f SKIP: Employee ${employee.PTRJEmployeeID} failed"
                                                             }
                                                         }
                                                     ]
@@ -231,7 +231,7 @@
                                                         {
                                                             "action": "log",
                                                             "params": {
-                                                                "message": "    → Input SICK LEAVE: ${attendance.status} (${attendance.leaveDescription})"
+                                                                "message": "    \u2192 Input SICK LEAVE: ${attendance.status} (${attendance.leaveDescription})"
                                                             }
                                                         },
                                                         {
@@ -400,7 +400,7 @@
                                                                     {
                                                                         "action": "log",
                                                                         "params": {
-                                                                            "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} failed"
+                                                                            "message": "    \u23ed\ufe0f SKIP: Employee ${employee.PTRJEmployeeID} failed"
                                                                         }
                                                                     }
                                                                 ]
@@ -418,13 +418,13 @@
                                                         {
                                                             "action": "log",
                                                             "params": {
-                                                                "message": "    → Input REGULAR (status: ${attendance.status})"
+                                                                "message": "    \u2192 Input REGULAR (status: ${attendance.status})"
                                                             }
                                                         },
                                                         {
                                                             "action": "log",
                                                             "params": {
-                                                                "message": "    ⏳ Waiting for form to be ready..."
+                                                                "message": "    \u23f3 Waiting for form to be ready..."
                                                             }
                                                         },
                                                         {
@@ -510,7 +510,7 @@
                                                                         }
                                                                     },
                                                                     {
-                                                                        "comment": "═══ TRANSACTION TYPE CONTROL: Ensure 'Normal' is selected ═══",
+                                                                        "comment": "\u2550\u2550\u2550 TRANSACTION TYPE CONTROL: Ensure 'Normal' is selected \u2550\u2550\u2550",
                                                                         "action": "click",
                                                                         "params": {
                                                                             "selector": "#MainContent_rblOT_0"
@@ -532,7 +532,7 @@
                                                                     {
                                                                         "action": "log",
                                                                         "params": {
-                                                                            "message": "  📊 Normal Radio State: Exists=${normalRadioState.exists}, Disabled=${normalRadioState.disabled}, Checked=${normalRadioState.checked}, Value=${normalRadioState.value}"
+                                                                            "message": "  \ud83d\udcca Normal Radio State: Exists=${normalRadioState.exists}, Disabled=${normalRadioState.disabled}, Checked=${normalRadioState.checked}, Value=${normalRadioState.value}"
                                                                         }
                                                                     },
                                                                     {
@@ -727,10 +727,44 @@
                                                                                                 }
                                                                                             },
                                                                                             {
-                                                                                                "action": "clickAndWaitForReload",
+                                                                                                "comment": "\ud83d\udee1\ufe0f VALIDATION: Strict Transaction Type Check (Regular=Regular)",
+                                                                                                "action": "checkElementState",
                                                                                                 "params": {
-                                                                                                    "selector": "#MainContent_btnAdd",
-                                                                                                    "timeout": 15000
+                                                                                                    "selector": "#MainContent_rblOT_0",
+                                                                                                    "saveTo": "valRegState"
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "action": "if",
+                                                                                                "params": {
+                                                                                                    "condition": "valRegState.checked === true",
+                                                                                                    "thenSteps": [
+                                                                                                        {
+                                                                                                            "action": "clickAndWaitForReload",
+                                                                                                            "params": {
+                                                                                                                "selector": "#MainContent_btnAdd",
+                                                                                                                "timeout": 15000
+                                                                                                            }
+                                                                                                        }
+                                                                                                    ],
+                                                                                                    "elseSteps": [
+                                                                                                        {
+                                                                                                            "action": "log",
+                                                                                                            "params": {
+                                                                                                                "message": "\ud83d\uded1 CRITICAL ERROR: Attempted to add Regular Hours but Transaction Type is NOT Regular! Aborting entry."
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "reloadPage",
+                                                                                                            "params": {}
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "wait",
+                                                                                                            "params": {
+                                                                                                                "duration": 5000
+                                                                                                            }
+                                                                                                        }
+                                                                                                    ]
                                                                                                 }
                                                                                             },
                                                                                             {
@@ -757,7 +791,7 @@
                                                                                             {
                                                                                                 "action": "log",
                                                                                                 "params": {
-                                                                                                    "message": "  ⚠️ SKIPPING Task Code: Field is DISABLED (Data likely exists)."
+                                                                                                    "message": "  \u26a0\ufe0f SKIPPING Task Code: Field is DISABLED (Data likely exists)."
                                                                                                 }
                                                                                             },
                                                                                             {
@@ -780,7 +814,7 @@
                                                                                 {
                                                                                     "action": "log",
                                                                                     "params": {
-                                                                                        "message": "  ⚠️ SKIPPING Normal: Transaction Type 'Normal' is DISABLED/LOCKED. Data likely already exists or is locked."
+                                                                                        "message": "  \u26a0\ufe0f SKIPPING Normal: Transaction Type 'Normal' is DISABLED/LOCKED. Data likely already exists or is locked."
                                                                                     }
                                                                                 },
                                                                                 {
@@ -804,7 +838,7 @@
                                                                     {
                                                                         "action": "log",
                                                                         "params": {
-                                                                            "message": "    ⏭️ SKIP: Employee failed"
+                                                                            "message": "    \u23ed\ufe0f SKIP: Employee failed"
                                                                         }
                                                                     }
                                                                 ]
@@ -821,7 +855,7 @@
                                                                     {
                                                                         "action": "log",
                                                                         "params": {
-                                                                            "message": "    → Processing OVERTIME ONLY: ${attendance.overtimeHours}h"
+                                                                            "message": "    \u2192 Processing OVERTIME ONLY: ${attendance.overtimeHours}h"
                                                                         }
                                                                     },
                                                                     {
@@ -899,7 +933,7 @@
                                                                                     }
                                                                                 },
                                                                                 {
-                                                                                    "comment": "═══ TRANSACTION TYPE CONTROL: Ensure 'Overtime' is selected ═══",
+                                                                                    "comment": "\u2550\u2550\u2550 TRANSACTION TYPE CONTROL: Ensure 'Overtime' is selected \u2550\u2550\u2550",
                                                                                     "action": "click",
                                                                                     "params": {
                                                                                         "selector": "#MainContent_rblOT_0"
@@ -927,7 +961,7 @@
                                                                                 {
                                                                                     "action": "log",
                                                                                     "params": {
-                                                                                        "message": "  📊 Overtime Radio State: Exists=${otRadioState.exists}, Disabled=${otRadioState.disabled}, Checked=${otRadioState.checked}"
+                                                                                        "message": "  \ud83d\udcca Overtime Radio State: Exists=${otRadioState.exists}, Disabled=${otRadioState.disabled}, Checked=${otRadioState.checked}"
                                                                                     }
                                                                                 },
                                                                                 {
@@ -1073,10 +1107,44 @@
                                                                                                 }
                                                                                             },
                                                                                             {
-                                                                                                "action": "clickAndWaitForReload",
+                                                                                                "comment": "\ud83d\udee1\ufe0f VALIDATION: Strict Transaction Type Check (Overtime=Overtime)",
+                                                                                                "action": "checkElementState",
                                                                                                 "params": {
-                                                                                                    "selector": "#MainContent_btnAdd",
-                                                                                                    "timeout": 15000
+                                                                                                    "selector": "#MainContent_rblOT_1",
+                                                                                                    "saveTo": "valOtState"
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "action": "if",
+                                                                                                "params": {
+                                                                                                    "condition": "valOtState.checked === true",
+                                                                                                    "thenSteps": [
+                                                                                                        {
+                                                                                                            "action": "clickAndWaitForReload",
+                                                                                                            "params": {
+                                                                                                                "selector": "#MainContent_btnAdd",
+                                                                                                                "timeout": 15000
+                                                                                                            }
+                                                                                                        }
+                                                                                                    ],
+                                                                                                    "elseSteps": [
+                                                                                                        {
+                                                                                                            "action": "log",
+                                                                                                            "params": {
+                                                                                                                "message": "\ud83d\uded1 CRITICAL ERROR: Attempted to add Overtime Hours but Transaction Type is NOT Overtime! Aborting entry."
+                                                                                                            }
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "reloadPage",
+                                                                                                            "params": {}
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "action": "wait",
+                                                                                                            "params": {
+                                                                                                                "duration": 5000
+                                                                                                            }
+                                                                                                        }
+                                                                                                    ]
                                                                                                 }
                                                                                             },
                                                                                             {
@@ -1103,7 +1171,7 @@
                                                                                             {
                                                                                                 "action": "log",
                                                                                                 "params": {
-                                                                                                    "message": "  ⚠️ SKIPPING Overtime: Transaction Type 'Overtime' is DISABLED/LOCKED."
+                                                                                                    "message": "  \u26a0\ufe0f SKIPPING Overtime: Transaction Type 'Overtime' is DISABLED/LOCKED."
                                                                                                 }
                                                                                             },
                                                                                             {
@@ -1126,7 +1194,7 @@
                                                                                 {
                                                                                     "action": "log",
                                                                                     "params": {
-                                                                                        "message": "    ⏭️ SKIP: Employee failed"
+                                                                                        "message": "    \u23ed\ufe0f SKIP: Employee failed"
                                                                                     }
                                                                                 }
                                                                             ]
