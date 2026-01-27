@@ -139,6 +139,35 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                 let regularMatch = false;
                 let otMatch = false;
 
+                // --- SMART EXISTENCE CHECK (LOOSE SYNC V2) ---
+                // Goal: Prevent Loops (don't input if exists) but Fill Gaps (input if missing).
+
+                // 1. Check if we NEED to input data (Venus has data)
+                const needRegular = venusRegular > 0; // Standard shift or manual input
+                const needOT = venusOt > 0;
+
+                // 2. Check if data ALREADY EXISTS in Millware
+                // Use tolerance for hours to catch 'almost zero' or floating point issues
+                // But mainly we assume if a record exists for that type, it's "Synced" (to prevent double input)
+                const hasRegularRecord = millwareRecords.some(r => r.OT == 0 || r.OT == false);
+                const hasOTRecord = millwareRecords.some(r => r.OT == 1 || r.OT == true);
+
+                // 3. Determine Sync Status
+                // Synced if: (We don't need it) OR (We need it AND distinct record exists)
+                const regularSynced = !needRegular || hasRegularRecord;
+                const otSynced = !needOT || hasOTRecord;
+
+                // Special Case: Sunday/Holiday (Venus might have 0h Regular, but Millware has OT-code as Normal?)
+                // If Venus says 0 Regular, we consider Regular synced (nothing to input).
+
+                isSynced = regularSynced && otSynced;
+
+                // Set match flags for UI feedback (green checkmarks)
+                regularMatch = regularSynced;
+                otMatch = otSynced;
+
+                // (Legacy Strict Logic commented out for reference)
+                /*
                 if (onlyOvertime) {
                     // In Overtime Only mode, if Millware already has OT, we consider it synced (skip).
                     // We only want to input if Millware has NO OT (0) but Venus HAS OT.
@@ -146,24 +175,6 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                     otMatch = isSynced;
                     regularMatch = true; // Ignore regular match in OT mode
                     if (isSynced) {
-                        console.log(`[Compare] ✓ SYNCED: ${ptrjId} @ ${dateStr} - Millware OT: ${otHours}h, Venus OT: ${venusOtHours}h`);
-                    }
-                } else {
-                    // Match total hours (simplest for general status)
-                    // Strict Sync Logic: Require records to verify existence
-                    // DEBUG: Log records to understand what we found
-                    if (dateStr === '2026-01-11') {
-                        console.log(`[Compare DEBUG] ${ptrjId} @ ${dateStr}: Found ${millwareRecords.length} records in DB.`);
-                        millwareRecords.forEach(r => console.log(`   - OT: ${r.OT} (${typeof r.OT}), Hours: ${r.Hours}, Code: ${r.TaskCode}, Emp: ${r.EmpCode}`));
-                    }
-
-                    const hasNormalRecord = millwareRecords.some(r => r.OT == 0 || r.OT === false);
-                    const hasOtRecord = millwareRecords.some(r => r.OT == 1 || r.OT === true);
-
-                    // Regular match check: Must have record if we want to confirm match, 
-                    // OR if we strictly want to enforce record creation even for 0h.
-                    // For Sunday cases, we normally want a record (0h) to exist.
-                    // If no record exists, it's NOT a match.
                     regularMatch = hasNormalRecord && Math.abs(normalHours - venusRegular) < 0.1;
 
                     // DEBUG: Explicitly log why we matched or missed
@@ -187,9 +198,22 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                         ? (hasOtRecord && Math.abs(otHours - venusOt) < 0.1)
                         : (Math.abs(otHours - venusOt) < 0.1); // If 0 target, 0 found (even if no record) is OK.
 
-                    // Combined sync status (Both must match to be synced/MATCH)
-                    isSynced = regularMatch && otMatch;
+                    // Task Code Check for Leaves
+                    let taskCodeMatch = true;
+                    if (day.isSickLeave) {
+                         // Check for GA9127 (Sick)
+                         taskCodeMatch = millwareRecords.some(r => r.TaskCode && (r.TaskCode.includes('GA9127') || r.TaskCode.includes('SICK')));
+                         if (!taskCodeMatch) console.log(`[Compare] ⚠️ Task Code Mismatch for ${ptrjId} @ ${dateStr}: Expected SICK, found ${millwareRecords.map(r => r.TaskCode).join(', ')}`);
+                    } else if (day.isAnnualLeave) {
+                         // Check for GA9130 (Annual)
+                         taskCodeMatch = millwareRecords.some(r => r.TaskCode && (r.TaskCode.includes('GA9130') || r.TaskCode.includes('ANNUAL')));
+                         if (!taskCodeMatch) console.log(`[Compare] ⚠️ Task Code Mismatch for ${ptrjId} @ ${dateStr}: Expected ANNUAL, found ${millwareRecords.map(r => r.TaskCode).join(', ')}`);
+                    }
+
+                    // Combined sync status (All must match to be synced/MATCH)
+                    isSynced = regularMatch && otMatch && taskCodeMatch;
                 }
+                */
 
                 if (isSynced) {
                     status = 'synced';

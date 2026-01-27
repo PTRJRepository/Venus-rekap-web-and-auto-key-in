@@ -132,6 +132,41 @@ const AttendancePage = () => {
         }
     };
 
+    const performComparison = async () => {
+        if (!attendanceData.length) return;
+
+        // Default to current selected month range if not specified
+        // We assume comparison uses same period as selected
+        const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+        const start = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+        const end = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+        // Filter employees if selection exists
+        const employeesToCompare = selectedEmployeeIds.length > 0
+            ? attendanceData.filter(e => selectedEmployeeIds.includes(e.id))
+            : attendanceData;
+
+        try {
+            const response = await fetch('/api/comparison/compare', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    employees: employeesToCompare,
+                    startDate: start,
+                    endDate: end
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                handleComparisonComplete(data);
+                return data;
+            }
+        } catch (e) {
+            console.error("Auto-Comparison failed:", e);
+        }
+    };
+
     const handleComparisonComplete = (data) => {
         const map = {};
         if (data && data.results) {
@@ -139,12 +174,15 @@ const AttendancePage = () => {
                 const key = `${r.ptrjId}_${r.date}`;
                 // If not_synced, we don't put it in map (or put null) so !map[key] works
                 // If synced/mismatch, we put details
-                if (r.syncStatus !== 'not_synced' && r.details) {
-                    map[key] = {
-                        hours: r.details.millwareHours,
-                        normal: r.details.millwareNormal,
-                        ot: r.details.millwareOT
-                    };
+                if (r.syncStatus !== 'not_synced') { // Include ALL Millware records (even matched ones) to know they exist
+                    if (r.details) {
+                        map[key] = {
+                            hours: r.details.millwareHours,
+                            normal: r.details.millwareNormal,
+                            ot: r.details.millwareOT,
+                            TaskCode: r.details.millwareTaskCode || r.millwareTaskCode // Capture TaskCode
+                        };
+                    }
                 }
             });
         }
@@ -483,7 +521,9 @@ const AttendancePage = () => {
                 month={selectedMonth}
                 year={selectedYear}
                 compareMode={compareMode}
+                compareMode={compareMode}
                 comparisonData={comparisonData}
+                onRefresh={performComparison}
             />
 
             {/* Comparison Dialog */}

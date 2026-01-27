@@ -1,0 +1,4 @@
+EmployeeID,Name,PTRJ_ID,Date,Venus_Status,Venus_Regular,Venus_OT,Sync_Status,Millware_Records_Count,Millware_Total_Hours
+PTRJ.241000025,"Asqalany",POM00140,2026-01-05,Sick,7,0,MISS,0,0
+PTRJ.241000025,"Asqalany",POM00140,2026-01-06,Partial In,7,5,MISS,1,5
+PTRJ.241000025,"Asqalany",POM00140,2026-01-19,Partial In,7,0,MISS,0,0

@@ -1,0 +1,72 @@
+{
+    "meta": {
+        "name": "Debug Radio Buttons",
+        "description": "Logs all radio button IDs and Values to find the correct selector for Normal/Overtime",
+        "version": "1.0"
+    },
+    "actions": [
+        {
+            "action": "navigate",
+            "params": {
+                "url": "http://millwarep3.rebinmas.com:8003/"
+            }
+        },
+        {
+            "action": "typeInput",
+            "params": {
+                "selector": "#txtUsername",
+                "value": "adm075"
+            }
+        },
+        {
+            "action": "typeInput",
+            "params": {
+                "selector": "#txtPassword",
+                "value": "adm075"
+            }
+        },
+        {
+            "action": "click",
+            "params": {
+                "selector": "#btnLogin"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 2000
+            }
+        },
+        {
+            "action": "click",
+            "params": {
+                "selector": "#MainContent_btnOkay"
+            }
+        },
+        {
+            "action": "navigate",
+            "params": {
+                "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 3000
+            }
+        },
+        {
+            "action": "executeJavascript",
+            "params": {
+                "script": "const radios = Array.from(document.querySelectorAll('input[type=\"radio\"]')); const info = radios.map(r => ({ id: r.id, value: r.value, checked: r.checked, parentText: r.parentElement.innerText.trim() })); return info;",
+                "saveTo": "radioInfo"
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "🔍 RADIO BUTTON REPORT:\n${JSON.stringify(radioInfo, null, 2)}"
+            }
+        }
+    ]
+}

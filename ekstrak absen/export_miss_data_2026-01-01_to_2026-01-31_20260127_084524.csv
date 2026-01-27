@@ -1,0 +1,5 @@
+EmployeeID,Name,PTRJ_ID,Date,Venus_Status,Venus_Regular,Venus_OT,Sync_Status,Millware_Records_Count,Millware_Total_Hours
+PTRJ.241000029,"Azrul Khan",POM00165,2026-01-02,Partial In,7,5.5,MISS,0,0
+PTRJ.241000029,"Azrul Khan",POM00165,2026-01-13,CT,7,0,MISS,0,0
+PTRJ.241000029,"Azrul Khan",POM00165,2026-01-14,Partial In,7,0,MISS,0,0
+PTRJ.241000029,"Azrul Khan",POM00165,2026-01-17,Partial In,5,0,MISS,0,0

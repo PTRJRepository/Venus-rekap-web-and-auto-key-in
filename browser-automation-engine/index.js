@@ -1,4 +1,6 @@
 const AutomationEngine = require('./engine');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../backend/.env') });
 
 // Ambil nama template dari argumen command line
 // Contoh penggunaan: node index.js template-flow

@@ -339,6 +339,39 @@ app.post('/api/export', async (req, res) => {
     }
 });
 
+app.post('/api/export/miss-data', async (req, res) => {
+    try {
+        const { employees, startDate, endDate, options } = req.body;
+
+        if (!employees || !Array.isArray(employees) || !startDate || !endDate) {
+            return res.status(400).json({ success: false, error: 'employees array, startDate, endDate required' });
+        }
+
+        const result = await exportService.exportMissDataToCSV(employees, startDate, endDate, options);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        console.error("Export Miss Data error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/export/download/:filename', (req, res) => {
+    const filename = req.params.filename;
+    // Security check: prevent directory traversal
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+        return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    const EXPORT_DIR = path.resolve(__dirname, '../ekstrak absen');
+    const filePath = path.join(EXPORT_DIR, filename);
+
+    if (fs.existsSync(filePath)) {
+        res.download(filePath, filename);
+    } else {
+        res.status(404).json({ error: 'File not found' });
+    }
+});
+
 // --- Staging Routes (Replicating web_app.py) ---
 
 app.get('/api/staging/data', async (req, res) => {

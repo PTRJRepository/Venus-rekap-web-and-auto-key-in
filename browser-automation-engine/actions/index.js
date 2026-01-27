@@ -80,6 +80,107 @@ const actions = {
     },
 
     /**
+     * Include another template logic (sub-routine)
+     */
+    include: async (page, params, context, engine) => {
+        const templateName = params.template;
+        console.log(`📂 Including template: ${templateName}`);
+        const template = engine.loadTemplate(templateName);
+        // Execute steps in the SAME context
+        await engine.executeSteps(template.steps, context, 1);
+    },
+
+    /**
+     * Reload the current page
+     */
+    reloadPage: async (page) => {
+        console.log("🔄 Reloading page...");
+        await page.reload({ waitUntil: 'domcontentloaded' });
+    },
+
+    /**
+     * Verify Sync Status with DB and flag retries
+     */
+    verifyEmployeeSync: async (page, params, context, engine) => {
+        const employee = context.employee;
+        if (!employee || !employee.PTRJEmployeeID) {
+            console.log("⚠️ Verification skipped: No employee in context");
+            context.retryNeeded = false;
+            return;
+        }
+
+        console.log(`🔍 Verifying Sync Status for ${employee.PTRJEmployeeID}...`);
+
+        try {
+            // Dynamic import to avoid load issues
+            const comparisonService = require('../../backend/services/comparisonService');
+
+            // Calculate date range
+            let startDate, endDate;
+            if (context.data && context.data.metadata && context.data.metadata.period_start) {
+                startDate = context.data.metadata.period_start;
+                endDate = context.data.metadata.period_end;
+            } else {
+                const dates = Object.keys(employee.Attendance || {}).sort();
+                if (dates.length > 0) {
+                    startDate = dates[0];
+                    endDate = dates[dates.length - 1];
+                } else {
+                    // Fallback
+                    const now = new Date();
+                    startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+                    endDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
+                }
+            }
+
+            // Run comparison
+            const venusData = [employee];
+            const result = await comparisonService.compareWithTaskReg(venusData, startDate, endDate, {
+                onlyOvertime: context.metadata?.onlyOvertime || false
+            });
+
+            // Filter results for this employee
+            const employeeResults = result.results.filter(r => r.ptrjId === employee.PTRJEmployeeID);
+            
+            let hasMismatches = false;
+            let missingDates = [];
+
+            employeeResults.forEach(res => {
+                const date = res.date;
+                const att = employee.Attendance[date];
+                if (att) {
+                    // Force update status in context
+                    // If MISS, we set flags to ensure retry works
+                    if (res.status === 'MISS') {
+                        hasMismatches = true;
+                        missingDates.push(date);
+                        
+                        // CRITICAL: Reset flags so automation doesn't skip it again
+                        att.skipRegular = false; 
+                        att.skipOvertime = false;
+                        att.syncStatus = 'MISS';
+                        
+                        // We rely on the automation logic (check normal radio) to detect if input is actually needed
+                        // But setting skipRegular=false ensures the IF block is entered.
+                    }
+                }
+            });
+
+            if (hasMismatches) {
+                console.log(`❌ Mismatches found for ${employee.PTRJEmployeeID} on dates: ${missingDates.join(', ')}`);
+                context.retryNeeded = true;
+            } else {
+                console.log(`✅ Verification Passed: All dates synced for ${employee.PTRJEmployeeID}`);
+                context.retryNeeded = false;
+            }
+
+        } catch (error) {
+            console.error(`⚠️ Verification failed: ${error.message}`);
+            context.retryNeeded = false; // Don't retry on error to avoid loops
+        }
+    },
+
+    /**
      * Set a variable in the context (supports deep properties via dot notation)
      * e.g., variable: "metadata.failed", value: true
      */

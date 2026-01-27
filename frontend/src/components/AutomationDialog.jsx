@@ -4,8 +4,9 @@ import PlayIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import StopIcon from '@mui/icons-material/Stop';
 import RobotIcon from '@mui/icons-material/SmartToy';
+import DownloadIcon from '@mui/icons-material/Download';
 
-const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compareMode, comparisonData }) => {
+const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compareMode, comparisonData, onRefresh }) => {
     const [logs, setLogs] = useState([]);
     const [status, setStatus] = useState('idle');
     const [startDate, setStartDate] = useState('');
@@ -23,147 +24,182 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
         }
     }, [open, compareMode]);
 
+    // Auto-Refresh when completed
+    useEffect(() => {
+        if (status === 'completed' && onRefresh) {
+            addLog('info', '🔄 Auto-Refreshing Comparison Data...');
+            onRefresh();
+        }
+    }, [status, onRefresh]);
+
     useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs]);
+
+    // FILTER LOGIC
+    const filterEmployees = (isExport = false) => {
+        // Only filter if compareMode is active AND filterSynced is TRUE
+        if (!compareMode || compareMode === 'off' || !comparisonData || !filterSynced) {
+            return { filtered: selectedEmployees, modeLog: (!filterSynced ? ' (Filter Disabled)' : '') };
+        }
+
+        if (!isExport) addLog('info', `🔍 STRICT FILTERING: Keeping only ${compareMode.toUpperCase()} Mismatches/Missing...`);
+
+        const employeesToProcess = selectedEmployees.map(emp => {
+            const ptrjId = emp.ptrjEmployeeID;
+            if (!ptrjId || ptrjId === 'N/A') return null;
+
+            // Clone attendance map to filter it
+            const filteredAttendance = {};
+            let hasMismatch = false;
+
+            Object.values(emp.attendance || {}).forEach(day => {
+                const dateStr = day.date;
+                const key = `${ptrjId}_${dateStr}`;
+                const millwareRecord = comparisonData[key];
+
+                // Date range filter (if applied)
+                if (startDate && dateStr < startDate) return;
+                if (endDate && dateStr > endDate) return;
+
+                let shouldInclude = false;
+                let reason = "";
+
+                const statusUpper = (day.status || '').toUpperCase();
+
+                // Filter Logic based on Compare Mode
+                if (compareMode === 'presence') {
+                    const isWorkingStatus = ['HADIR', 'PARTIAL IN', 'PARTIAL OUT'].includes(statusUpper);
+                    const isLeaveStatus = ['SAKIT', 'IZIN', 'CUTI', 'ALPHA', 'I', 'S', 'C', 'CT', 'P', 'SD'].some(s => statusUpper.startsWith(s)) || day.isAnnualLeave || day.isSickLeave;
+
+                    if (isWorkingStatus || isLeaveStatus) {
+                        if (!millwareRecord) {
+                            shouldInclude = true;
+                            reason = `${day.status} (Missing in Millware)`;
+                        } else {
+                            // Record exists, check for Hour Mismatch (Strict Sync)
+                            const venusReg = day.regularHours || 0;
+                            const millReg = millwareRecord.hours || 0;
+                            const hoursMismatch = Math.abs(venusReg - millReg) > 0.1;
+
+                            // Smart Task Code Check
+                            let taskCodeMismatch = false;
+                            if (millwareRecord) {
+                                const tc = (millwareRecord.TaskCode || millwareRecord.taskCode || '').toUpperCase();
+                                if (day.isSickLeave) {
+                                    if (!tc.includes('GA9127') && !tc.includes('SICK')) taskCodeMismatch = true;
+                                } else if (day.isAnnualLeave) {
+                                    if (!tc.includes('GA9130') && !tc.includes('ANNUAL')) taskCodeMismatch = true;
+                                }
+                            }
+
+                            if (hoursMismatch || taskCodeMismatch) {
+                                shouldInclude = true;
+                                reason = hoursMismatch
+                                    ? `Mismatch: Venus(${venusReg}h) vs Mill(${millReg}h)`
+                                    : `Task Code Mismatch: Venus(Leave) vs Mill(${millwareRecord?.TaskCode || '?'})`;
+                                if (!isExport) addLog('info', `DEBUG INCLUDE [${dateStr}]: ${reason}`);
+                            } else {
+                                shouldInclude = false;
+                                if (!isExport) addLog('info', `DEBUG SKIP [${dateStr}]: Synced (Hours & Task Code match).`);
+                            }
+                        }
+                    }
+                } else if (compareMode === 'overtime') {
+                    const ot = day.overtimeHours || 0;
+                    if (ot > 0) {
+                        const millwareOt = (millwareRecord && millwareRecord.ot !== undefined) ? millwareRecord.ot : (millwareRecord ? millwareRecord.hours : 0);
+
+                        if (!millwareRecord) {
+                            shouldInclude = true;
+                            reason = `OT ${ot}h Missing in backend`;
+                        } else if (Math.abs(millwareOt - ot) >= 0.1) {
+                            shouldInclude = true;
+                            reason = `OT Mismatch (Ven:${ot} vs Mill:${millwareOt})`;
+                        }
+                    }
+                }
+
+                if (shouldInclude) {
+                    // --- FALLBACK LOGIC FOR ZERO HOURS ---
+                    let finalRegularHours = day.regularHours || 0;
+                    const isAnnualLeave = day.isAnnualLeave || ['CT', 'CUTI', 'I', 'IZIN', 'S', 'SAKIT', 'SD'].some(s => statusUpper.startsWith(s));
+
+                    if (finalRegularHours === 0 && (statusUpper === 'HADIR' || statusUpper === 'PARTIAL IN' || isAnnualLeave)) {
+                        const dateObj = new Date(dateStr);
+                        const dayNum = dateObj.getDay();
+                        if (dayNum !== 0) {
+                            finalRegularHours = (dayNum === 6) ? 5 : 7;
+                            reason += ` (Auto-fixed 0h -> ${finalRegularHours}h)`;
+                        }
+                    }
+
+                    const fixedDay = { ...day, regularHours: finalRegularHours };
+                    if (!isExport) addLog('info', `   • [${dateStr}] ${reason} -> Reg:${finalRegularHours}h, OT:${day.overtimeHours}h`);
+
+                    filteredAttendance[new Date(dateStr).getDate()] = fixedDay;
+                    hasMismatch = true;
+                }
+            });
+
+            if (!hasMismatch) return null;
+            return { ...emp, attendance: filteredAttendance };
+        }).filter(Boolean);
+
+        return { filtered: employeesToProcess, modeLog: ` (Filtered: ${employeesToProcess.length} employees with mismatches)` };
+    };
+
+    const handleExportMiss = async () => {
+        addLog('info', '📤 Preparing to Export Miss Only Data...');
+        const { filtered: employeesToProcess } = filterEmployees(true);
+
+        if (employeesToProcess.length === 0) {
+            addLog('info', '✅ No filtered data to export!');
+            return;
+        }
+
+        addLog('info', `Sending ${employeesToProcess.length} records to export service...`);
+
+        try {
+            const response = await fetch('/api/export/miss-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    employees: employeesToProcess,
+                    startDate: startDate || `${year}-${String(month).padStart(2, '0')}-01`, // Default to full month if empty
+                    endDate: endDate || `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`,
+                    options: { onlyOvertime }
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                addLog('error', `Export failed: ${err.error}`);
+                return;
+            }
+
+            const data = await response.json();
+            if (data.success && data.data && data.data.filename) {
+                addLog('info', `✅ Export generated: ${data.data.filename}`);
+                // Trigger Download
+                window.open(`/api/export/download/${data.data.filename}`, '_blank');
+            } else {
+                addLog('error', 'Export response invalid');
+            }
+
+        } catch (e) {
+            addLog('error', `Export error: ${e.message}`);
+        }
+    };
 
     const handleRun = async () => {
         setLogs([]);
         setStatus('running');
 
-        // --- SMART SYNC FILTERING ---
-        let employeesToProcess = selectedEmployees;
-        let modeLog = "";
+        const { filtered: employeesToProcess, modeLog } = filterEmployees(false);
 
-        // Only filter if compareMode is active AND filterSynced is TRUE
-        if (compareMode && compareMode !== 'off' && comparisonData && filterSynced) {
-            addLog('info', `🔍 STRICT FILTERING: Keeping only ${compareMode.toUpperCase()} Mismatches/Missing...`);
-
-
-            employeesToProcess = selectedEmployees.map(emp => {
-                const ptrjId = emp.ptrjEmployeeID;
-                if (!ptrjId || ptrjId === 'N/A') return null;
-
-                // Clone attendance map to filter it
-                const filteredAttendance = {};
-                let hasMismatch = false;
-
-                Object.values(emp.attendance || {}).forEach(day => {
-                    const dateStr = day.date;
-                    const key = `${ptrjId}_${dateStr}`;
-                    const millwareRecord = comparisonData[key];
-
-                    // Date range filter (if applied)
-                    if (startDate && dateStr < startDate) return;
-                    if (endDate && dateStr > endDate) return;
-
-                    let shouldInclude = false;
-                    let reason = "";
-
-                    // DEBUG: Explicit Log for Sick/Partial days
-                    const statusUpper = (day.status || '').toUpperCase();
-                    if (statusUpper.includes('PARTIAL') || statusUpper.includes('SAKIT') || day.isSickLeave) {
-                        addLog('info', `DEBUG CHECK [${dateStr}]: Status=${statusUpper}, InDB=${!!millwareRecord}, DBHours=${millwareRecord?.hours}, VenusReg=${day.regularHours}`);
-                        if (millwareRecord) {
-                            console.log(`[Frontend Debug] ${dateStr} Millware Record:`, millwareRecord);
-                        }
-                    }
-
-                    // Filter Logic based on Compare Mode
-                    if (compareMode === 'presence') {
-                        // Include if Hadir/Partial OR Leave Type AND (Not in Millware OR Mismatch)
-                        const isWorkingStatus = ['HADIR', 'PARTIAL IN', 'PARTIAL OUT'].includes(statusUpper);
-                        // Check for common leave prefixes (S=Sakit, I=Izin, C=Cuti, etc.) or specific codes
-                        const isLeaveStatus = ['SAKIT', 'IZIN', 'CUTI', 'ALPHA', 'I', 'S', 'C', 'CT', 'P', 'SD'].some(s => statusUpper.startsWith(s)) || day.isAnnualLeave || day.isSickLeave;
-
-                        if (isWorkingStatus || isLeaveStatus) {
-                            if (!millwareRecord) {
-                                shouldInclude = true;
-                                reason = `${day.status} (Missing in Millware)`;
-                            } else {
-                                // Record exists, check for Hour Mismatch (Strict Sync)
-                                // Since we are in 'presence' mode (OT=0), millwareRecord.hours is Normal Hours.
-                                const venusReg = day.regularHours || 0;
-                                const millReg = millwareRecord.hours || 0;
-
-                                const hoursMismatch = Math.abs(venusReg - millReg) > 0.1;
-                                // Force include Leave/Sick or Partial to ensure Task Code verification
-                                const forceCheck = isLeaveStatus || statusUpper.includes('PARTIAL');
-
-                                if (hoursMismatch || forceCheck) {
-                                    shouldInclude = true;
-                                    reason = hoursMismatch 
-                                        ? `Mismatch: Venus(${venusReg}h) vs Mill(${millReg}h)` 
-                                        : `Force Check: ${day.status} (Ensure Task Code)`;
-                                    addLog('info', `DEBUG INCLUDE [${dateStr}]: ${reason}`);
-                                } else {
-                                    shouldInclude = false;
-                                    addLog('info', `DEBUG SKIP [${dateStr}]: Hours Match (${venusReg}h) & No Force Flag.`);
-                                }
-                            }
-                        } else {
-                            // If not working or leave status, log why skipped (optional verbose)
-                            // addLog('info', `DEBUG SKIP [${dateStr}]: Status '${statusUpper}' not target.`);
-                        }
-                    } else if (compareMode === 'overtime') {
-                        // Keep if OT > 0 AND (Not in Millware OR Mismatch)
-                        const ot = day.overtimeHours || 0;
-                        if (ot > 0) {
-                            const millwareOt = (millwareRecord && millwareRecord.ot !== undefined) ? millwareRecord.ot : (millwareRecord ? millwareRecord.hours : 0);
-
-                            if (!millwareRecord) {
-                                shouldInclude = true;
-                                reason = `OT ${ot}h Missing in backend`;
-                            } else if (Math.abs(millwareOt - ot) >= 0.1) {
-                                shouldInclude = true;
-                                reason = `OT Mismatch (Ven:${ot} vs Mill:${millwareOt})`;
-                            }
-                        }
-                    }
-
-                    if (shouldInclude) {
-                        // --- FALLBACK LOGIC FOR ZERO HOURS ---
-                        // Exactly match AttendanceMatrix.jsx display logic
-                        // If status is Hadir/Partial In but Regular Hours is 0, infer from Day of Week
-                        let finalRegularHours = day.regularHours || 0;
-                        const statusUpper = (day.status || '').toUpperCase();
-                        const isAnnualLeave = day.isAnnualLeave || ['CT', 'CUTI', 'I', 'IZIN', 'S', 'SAKIT', 'SD'].some(s => statusUpper.startsWith(s));
-
-                        // Check for Hadir, Partial In, or Annual Leave types
-                        if (finalRegularHours === 0 && (statusUpper === 'HADIR' || statusUpper === 'PARTIAL IN' || isAnnualLeave)) {
-                            const dateObj = new Date(dateStr);
-                            const dayNum = dateObj.getDay(); // 0 = Sunday
-
-                            // Logic: Mon-Fri = 7, Sat = 5, Sun = 0
-                            if (dayNum !== 0) {
-                                finalRegularHours = (dayNum === 6) ? 5 : 7;
-                                reason += ` (Auto-fixed 0h -> ${finalRegularHours}h)`;
-                            }
-                        }
-
-                        // Update the day object with fixed hours
-                        const fixedDay = { ...day, regularHours: finalRegularHours };
-
-                        // VALIDATION LOGGING
-                        addLog('info', `   • [${dateStr}] ${reason} -> Reg:${finalRegularHours}h, OT:${day.overtimeHours}h`);
-                        filteredAttendance[new Date(dateStr).getDate()] = fixedDay;
-                        hasMismatch = true;
-                    }
-                });
-
-                if (!hasMismatch) return null;
-
-                // Return employee with filtered attendance
-                return { ...emp, attendance: filteredAttendance };
-            }).filter(Boolean);
-
-            modeLog = ` (Filtered: ${employeesToProcess.length} employees with mismatches)`;
-
-            if (employeesToProcess.length === 0) {
-                addLog('info', '✅ All selected records are already synced! Nothing to do.');
-                setStatus('completed');
-                return;
-            }
-        } else {
-            if (!filterSynced) addLog('info', '⚠️ Syncing ALL selected dates (Filter Disabled)');
+        if (employeesToProcess.length === 0 && filterSynced) {
+            addLog('info', '✅ All selected records are already synced! Nothing to do.');
+            setStatus('completed');
+            return;
         }
 
         addLog('info', `Starting automation for ${employeesToProcess.length} employees (${month}/${year})${modeLog}`);
@@ -306,7 +342,21 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                 </Box>
             </DialogContent >
             <DialogActions sx={{ borderTop: '1px solid #333', p: 2 }}>
-                <Button onClick={onClose} disabled={status === 'running'} sx={{ color: '#aaa' }}>Close</Button>
+                <Button onClick={onClose} disabled={status === 'running'} sx={{ color: '#aaa', mr: 'auto' }}>Close</Button>
+
+                {status !== 'running' && (
+                    <Button
+                        variant="outlined"
+                        color="primary"
+                        startIcon={<DownloadIcon />}
+                        onClick={handleExportMiss}
+                        disabled={!comparisonData || !filterSynced}
+                        sx={{ mr: 1 }}
+                    >
+                        Export Miss Only
+                    </Button>
+                )}
+
                 {status === 'running' && (
                     <Button variant="contained" color="error" startIcon={<StopIcon />} onClick={handleStop}>
                         Stop

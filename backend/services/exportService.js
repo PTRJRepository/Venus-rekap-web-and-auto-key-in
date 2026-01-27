@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { executeQuery } = require('./gateway');
 const { fetchAttendanceData } = require('./attendanceService');
+const { getMissData } = require('./comparisonService');
 const { format } = require('date-fns');
 
 // Path to export directory (D:\...\Refactor_web_Rekap_Absen\ekstrak absen)
@@ -21,7 +22,7 @@ const getActiveEmployees = async (startDate, endDate) => {
     console.log(`[ExportService] Fetching active employees from ${startDate} to ${endDate}`);
     // We can check the main tables.
     // To be efficient, we can union the IDs from all relevant tables within the date range.
-    
+
     const sql = `
         SELECT DISTINCT EmployeeID 
         FROM (
@@ -38,7 +39,7 @@ const getActiveEmployees = async (startDate, endDate) => {
     try {
         const activeIdsResult = await executeQuery(sql);
         console.log(`[ExportService] Found ${activeIdsResult.length} active employee IDs.`);
-        
+
         if (!activeIdsResult || activeIdsResult.length === 0) {
             return [];
         }
@@ -83,11 +84,11 @@ const exportToJSON = async (startDate, endDate, employeeIds) => {
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     // Generate list of (month, year) pairs
     let current = new Date(start.getFullYear(), start.getMonth(), 1);
     const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
-    
+
     const monthsToFetch = [];
     while (current <= endMonth) {
         monthsToFetch.push({ month: current.getMonth() + 1, year: current.getFullYear() });
@@ -100,7 +101,7 @@ const exportToJSON = async (startDate, endDate, employeeIds) => {
     for (const period of monthsToFetch) {
         console.log(`Fetching data for export: ${period.month}/${period.year}`);
         const monthData = await fetchAttendanceData(period.month, period.year);
-        
+
         // Filter and process
         const processed = monthData
             .filter(emp => employeeIds.includes(emp.id)) // Filter employees
@@ -121,11 +122,11 @@ const exportToJSON = async (startDate, endDate, employeeIds) => {
                     Attendance: filteredAttendance
                 };
             });
-        
+
         // Merge into allData (careful with duplicates if employee exists in multiple months - well, the structure is per-employee)
         // Actually, we want a list of employees, and each employee has a list of days.
         // If we fetch multiple months, we need to merge the 'Attendance' object for the same employee.
-        
+
         processed.forEach(p => {
             let existing = allData.find(e => e.EmployeeID === p.EmployeeID);
             if (!existing) {
@@ -155,15 +156,85 @@ const exportToJSON = async (startDate, endDate, employeeIds) => {
     };
 
     fs.writeFileSync(filePath, JSON.stringify(finalOutput, null, 2), 'utf-8');
-    
-    return { 
-        filename, 
-        path: filePath, 
-        count: allData.length 
+
+    return {
+        filename,
+        path: filePath,
+        count: allData.length
+    };
+};
+
+/**
+ * Export MISS (mismatch) data to CSV
+ */
+const exportMissDataToCSV = async (employees, startDate, endDate, options = {}) => {
+    ensureExportDir();
+
+    console.log(`[ExportService] Exporting MISS data for ${employees.length} employees (${startDate} to ${endDate})`);
+
+    // 1. Get the data using the logic from comparisonService
+    // This ensures consistency with what the automation engine sees.
+    const { results } = await getMissData(employees, startDate, endDate, options);
+
+    if (!results || results.length === 0) {
+        return { count: 0, message: "No mismatched data found." };
+    }
+
+    // 2. Define CSV Headers
+    const headers = [
+        "EmployeeID",
+        "Name",
+        "PTRJ_ID",
+        "Date",
+        "Venus_Status",
+        "Venus_Regular",
+        "Venus_OT",
+        "Sync_Status", // mismatch, not_synced (MISS)
+        "Millware_Records_Count",
+        "Millware_Total_Hours"
+    ];
+
+    // 3. Convert Data to CSV Rows
+    const rows = results.map(row => {
+        // Handle potential null/undefined details
+        const details = row.details || {};
+
+        return [
+            row.employeeId,
+            `"${row.employeeName}"`, // Quote name to handle commas
+            row.ptrjId,
+            row.date,
+            row.venusStatus,
+            row.venusRegularHours,
+            row.venusOvertimeHours,
+            row.status, // MATCH or MISS (but getMissData only returns bad ones mostly, wait comparisonService logic)
+            // Actually getMissData returns results with 'status' field being MATCH/MISS
+            // and 'syncStatus' being 'synced'/'mismatch'/'not_synced'
+
+            details.records || 0,
+            details.millwareHours || 0
+        ].join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+
+    // 4. Write File
+    const timestamp = format(new Date(), 'yyyyMMdd_HHmmss');
+    const filename = `export_miss_data_${startDate}_to_${endDate}_${timestamp}.csv`;
+    const filePath = path.join(EXPORT_DIR, filename);
+
+    fs.writeFileSync(filePath, csvContent, 'utf-8');
+    console.log(`[ExportService] Wrote CSV to ${filePath}`);
+
+    return {
+        filename,
+        path: filePath,
+        count: results.length
     };
 };
 
 module.exports = {
     getActiveEmployees,
-    exportToJSON
+    exportToJSON,
+    exportMissDataToCSV
 };
