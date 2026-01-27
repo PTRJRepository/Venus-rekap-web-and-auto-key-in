@@ -1,0 +1,18 @@
+{
+  "date": "2026-01-06",
+  "dayName": "Sel",
+  "status": "Hadir",
+  "display": "✓ +3.5h",
+  "class": "hours-normal-overtime",
+  "checkIn": null,
+  "checkOut": null,
+  "regularHours": null,
+  "overtimeHours": 3.5,
+  "isHoliday": false,
+  "holidayName": null,
+  "isSunday": false,
+  "isAnnualLeave": false,
+  "isSickLeave": false,
+  "leaveTaskCode": null,
+  "leaveDescription": null
+}

@@ -1,0 +1,35 @@
+{
+  "success": true,
+  "query": {
+    "employee_id": "PTRJ.241000129",
+    "date": "2026-01-05"
+  },
+  "data": {
+    "attendance": [
+      {
+        "BusCode": "PTRJ",
+        "UserDeviceID": 149,
+        "UserDeviceName": "SYAHRIL",
+        "EmployeeID": "PTRJ.241000129",
+        "TADate": "2026-01-05T00:00:00.000Z",
+        "TACheckIn": "18:49",
+        "TACheckOut": "",
+        "Shift": "PROSES _SHIFT1",
+        "IsCrossDay": false
+      }
+    ],
+    "leave": [],
+    "absence": [],
+    "weeklyEmployee": [
+      {
+        "EmployeeID": "PTRJ.241000129"
+      }
+    ]
+  },
+  "summary": {
+    "attendanceCount": 1,
+    "leaveCount": 0,
+    "absenceCount": 0,
+    "inWeeklyTable": true
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "date": "2026-01-05",
+  "dayName": "Sen",
+  "status": "Partial In",
+  "display": "⚠ +5.0h",
+  "class": "hours-partial-check-in-only",
+  "checkIn": "18:49",
+  "checkOut": null,
+  "regularHours": 7,
+  "overtimeHours": 5,
+  "isHoliday": false,
+  "holidayName": null,
+  "isSunday": false,
+  "isAnnualLeave": false,
+  "isSickLeave": false,
+  "leaveTaskCode": null,
+  "leaveDescription": null
+}

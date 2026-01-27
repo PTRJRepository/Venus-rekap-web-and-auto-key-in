@@ -41,9 +41,17 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
                 const status = data.status || '';
                 const isPartialIn = status === 'Partial In';
 
-                // Force isAnnualLeave to false if status is 'Partial In'
-                // This ensures we use the regular Charge Job.
-                const isAnnualLeave = isPartialIn ? false : (data.isAnnualLeave === true);
+                // Robust Sick Leave Detection
+                const SICK_LEAVE_TYPES_LIST = ['SAKIT', 'SICK', 'HAID', 'MENSTRUAL', 'MENSTRUAL LEAVE', 'P2', 'P3'];
+                let isSickLeave = data.isSickLeave === true;
+
+                if (status && SICK_LEAVE_TYPES_LIST.includes(status.toUpperCase())) {
+                    isSickLeave = true;
+                }
+
+                // Force isAnnualLeave to false if status is 'Partial In' OR 'Sick Leave'
+                // This ensures we use the correct Charge Job (Partial In) or Sick Leave Task Code.
+                const isAnnualLeave = (isPartialIn || isSickLeave) ? false : (data.isAnnualLeave === true);
 
                 attendanceByDate[date] = {
                     date,
@@ -60,8 +68,8 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
                     isSunday: data.isSunday || false,
                     // Leave type info for automation
                     isAnnualLeave: isAnnualLeave,
-                    isSickLeave: data.isSickLeave === true,
-                    // Clear leave codes if we forced isAnnualLeave to false (i.e. Partial In)
+                    isSickLeave: isSickLeave,
+                    // Clear leave codes if we forced isAnnualLeave to false (Partial In or Sick)
                     leaveTaskCode: isAnnualLeave ? (data.leaveTaskCode || null) : null,
                     leaveDescription: isAnnualLeave ? (data.leaveDescription || null) : null
                 };

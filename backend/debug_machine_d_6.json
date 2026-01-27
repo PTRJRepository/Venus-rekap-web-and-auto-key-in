@@ -1,0 +1,13 @@
+[
+  {
+    "BusCode": "PTRJ",
+    "DeviceID": "4",
+    "UserDeviceID": 149,
+    "UserDeviceName": "SYAHRIL",
+    "EmployeeId": "PTRJ.241000129",
+    "Type": "IN",
+    "TADate": "2026-01-06T00:00:00.000Z",
+    "TATime": "18:46:49",
+    "Shift": "PROSES _SHIFT1"
+  }
+]

@@ -18,11 +18,11 @@ const WORK_HOURS = {
 // --- Leave Type Configuration ---
 // Leave types that should use task code "(GA9130) PERSONNEL ANNUAL LEAVE" in Millware
 // Excludes Sakit (Sick) and Haid (Menstrual) which have their own handling
-const ANNUAL_LEAVE_TYPES = ['CT', 'MELAHIRKAN', 'P1', 'P2', 'P3', 'ANNUAL LEAVE'];
+const ANNUAL_LEAVE_TYPES = ['CT', 'MELAHIRKAN', 'P1', 'ANNUAL LEAVE'];
 const ANNUAL_LEAVE_TASK_CODE = '(GA9130) PERSONNEL ANNUAL LEAVE';
 
 // Leave types that should use task code "(GA9130) SICK LEAVE" (or similar)
-const SICK_LEAVE_TYPES = ['SAKIT', 'SICK', 'HAID', 'MENSTRUAL'];
+const SICK_LEAVE_TYPES = ['SAKIT', 'SICK', 'HAID', 'MENSTRUAL', 'MENSTRUAL LEAVE', 'P2', 'P3'];
 const SICK_LEAVE_TASK_CODE = '(GA9127) (AL) PERSONNEL SICK LEAVE'; // Corrected from dropdown
 
 // Cache for leave type descriptions
