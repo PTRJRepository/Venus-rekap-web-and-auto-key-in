@@ -483,6 +483,22 @@ class AutomationEngine {
             }
             // ═══ END CONNECTION CHECK ═══
 
+            // ═══ GLOBAL ERROR PAGE DETECTION (Session Timeout) ═══
+            // User Request: If "ACCESS_CONTROLLER_ERR" appears, restart from Login.
+            if (this.page) {
+                const currentUrl = this.page.url();
+                if (currentUrl.includes('ACCESS_CONTROLLER_ERR') ||
+                    currentUrl.includes('frmErrorMessage.aspx')) {
+
+                    const errorMsg = '🛑 SESSION EXPIRED / DATABASE ERROR detected! Triggering auto-restart to re-login.';
+                    console.error(`${prefix}${errorMsg}`);
+
+                    // Forcefully throw an error that signals the watchdog to restart this worker
+                    throw new Error('SESSION_EXPIRED_AUTO_RESTART');
+                }
+            }
+            // ═══ END ERROR CHECK ═══
+
             // Substitute variables di params
             const substitutedParams = this.substituteParams(step.params, context);
 
