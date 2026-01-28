@@ -141,7 +141,7 @@ const actions = {
 
             // Filter results for this employee
             const employeeResults = result.results.filter(r => r.ptrjId === employee.PTRJEmployeeID);
-            
+
             let hasMismatches = false;
             let missingDates = [];
 
@@ -154,14 +154,22 @@ const actions = {
                     if (res.status === 'MISS') {
                         hasMismatches = true;
                         missingDates.push(date);
-                        
-                        // CRITICAL: Reset flags so automation doesn't skip it again
-                        att.skipRegular = false; 
-                        att.skipOvertime = false;
+
+                        // CRITICAL: Intelligently set skip flags based on what is ALREADY matched
+                        // If regular is matched, we SKIP it (skipRegular = true)
+                        // If ot is matched, we SKIP it (skipOvertime = true)
+                        const details = res.details || {};
+
+                        // If details.regularMatched is TRUE, then we SKIP regular (true). 
+                        // If FALSE (mismatch/missing), we DO NOT SKIP (false).
+                        att.skipRegular = details.regularMatched === true;
+
+                        // If details.otMatched is TRUE, then we SKIP overtime (true).
+                        att.skipOvertime = details.otMatched === true;
+
                         att.syncStatus = 'MISS';
-                        
-                        // We rely on the automation logic (check normal radio) to detect if input is actually needed
-                        // But setting skipRegular=false ensures the IF block is entered.
+
+                        console.log(`     [${date}] Mismatch: RegularMatched=${details.regularMatched} (Skip=${att.skipRegular}), OTMatched=${details.otMatched} (Skip=${att.skipOvertime})`);
                     }
                 }
             });

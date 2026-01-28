@@ -182,8 +182,8 @@ const AttendancePage = () => {
                             ot: r.details.millwareOT,
                             TaskCode: r.details.millwareTaskCode || r.millwareTaskCode, // Capture TaskCode
                             status: r.status,
-                            regularMatched: r.details.regularMatched,
-                            otMatched: r.details.otMatched
+                            regularMatched: r.details.regularMatched === true,
+                            otMatched: r.details.otMatched === true
                         };
                     }
                 }

@@ -118,125 +118,131 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
             if (dateStr < startDate || dateStr > endDate) return;
 
             const key = `${ptrjId}_${dateStr}`;
-            const millwareRecords = millwareMap[key];
 
             let status = 'not_synced';
             let details = null;
 
-            if (millwareRecords && millwareRecords.length > 0) {
-                // Record found in Millware
-                // Handle BIT/Boolean type from SQL: Use loose equality or Number()
-                const normalHours = millwareRecords.filter(r => r.OT == 0).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
-                const otHours = millwareRecords.filter(r => r.OT == 1).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
-                const totalHours = normalHours + otHours;
+            // Default values if no record found
+            let millwareRecords = millwareMap[key] || [];
 
-                const venusRegular = (day.regularHours || 0);
-                const venusOt = (day.overtimeHours || 0);
-                const venusTotal = venusRegular + venusOt;
+            // Record found in Millware (or defaulted to empty array)
+            // Handle BIT/Boolean type from SQL: Use loose equality or Number()
+            const normalHours = millwareRecords.filter(r => r.OT == 0).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
+            const otHours = millwareRecords.filter(r => r.OT == 1).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
+            const totalHours = normalHours + otHours;
 
-                // Sync logic
-                let isSynced = false;
-                let regularMatch = false;
-                let otMatch = false;
+            const venusRegular = (day.regularHours || 0);
+            const venusOt = (day.overtimeHours || 0);
+            const venusTotal = venusRegular + venusOt;
 
-                // --- SMART EXISTENCE CHECK (LOOSE SYNC V2) ---
-                // Goal: Prevent Loops (don't input if exists) but Fill Gaps (input if missing).
+            // Sync logic
+            let isSynced = false;
+            let regularMatch = false;
+            let otMatch = false;
 
-                // 1. Check if we NEED to input data (Venus has data)
-                const needRegular = venusRegular > 0; // Standard shift or manual input
-                const needOT = venusOt > 0;
+            // --- SMART EXISTENCE CHECK (LOOSE SYNC V2) ---
 
-                // 2. Check if data ALREADY EXISTS in Millware
-                // Use tolerance for hours to catch 'almost zero' or floating point issues
-                // But mainly we assume if a record exists for that type, it's "Synced" (to prevent double input)
-                const hasRegularRecord = millwareRecords.some(r => r.OT == 0 || r.OT == false);
-                const hasOTRecord = millwareRecords.some(r => r.OT == 1 || r.OT == true);
+            // 1. Check if we NEED to input data (Venus has data)
+            const needRegular = venusRegular > 0; // Standard shift or manual input
+            const needOT = venusOt > 0;
 
-                // 3. Determine Sync Status
-                // Synced if: (We don't need it) OR (We need it AND distinct record exists)
-                const regularSynced = !needRegular || hasRegularRecord;
-                const otSynced = !needOT || hasOTRecord;
+            // 2. Check if data ALREADY EXISTS in Millware
+            // Use tolerance for hours to catch 'almost zero' or floating point issues
+            // But mainly we assume if a record exists for that type, it's "Synced" (to prevent double input)
+            const hasRegularRecord = millwareRecords.some(r => r.OT == 0 || r.OT == false);
+            const hasOTRecord = millwareRecords.some(r => r.OT == 1 || r.OT == true);
 
-                // Special Case: Sunday/Holiday (Venus might have 0h Regular, but Millware has OT-code as Normal?)
-                // If Venus says 0 Regular, we consider Regular synced (nothing to input).
+            // 3. Determine Sync Status
+            // Synced if: (We don't need it) OR (We need it AND distinct record exists)
+            let regularSynced = !needRegular || hasRegularRecord;
+            let otSynced = !needOT || hasOTRecord;
 
-                isSynced = regularSynced && otSynced;
-
-                // Set match flags for UI feedback (green checkmarks)
-                regularMatch = regularSynced;
-                otMatch = otSynced;
-
-                // (Legacy Strict Logic commented out for reference)
-                /*
-                if (onlyOvertime) {
-                    // In Overtime Only mode, if Millware already has OT, we consider it synced (skip).
-                    // We only want to input if Millware has NO OT (0) but Venus HAS OT.
-                    isSynced = otHours > 0.01;
-                    otMatch = isSynced;
-                    regularMatch = true; // Ignore regular match in OT mode
-                    if (isSynced) {
-                    regularMatch = hasNormalRecord && Math.abs(normalHours - venusRegular) < 0.1;
-
-                    // DEBUG: Explicitly log why we matched or missed
-                    // DEBUG: Explicitly log why we matched or missed
-                    const cleanStatus = day.status || '';
-                    if (dateStr === '2026-01-11' || cleanStatus.includes('Partial')) {
-                        console.log(`[Compare DEBUG] ${ptrjId} @ ${dateStr} [${cleanStatus}] Decision:`);
-                        console.log(`   - Normal Record Exists? ${hasNormalRecord}`);
-                        console.log(`   - Hours Match? ${Math.abs(normalHours - venusRegular) < 0.1} (DB: ${normalHours}, Venus: ${venusRegular})`);
-                        console.log(`   - REGULAR MATCH RESULT: ${regularMatch}`);
-                    }
-
-                    // Overtime match check
-
-                    // Overtime match check
-                    // If Venus has OT, we need OT record. If Venus 0 OT, we match if 0 OT in DB (or no record).
-                    // But to be safe, if we have 0 OT in Venus and NO record in DB, that's a match/ok.
-                    // If we have 0 OT in Venus and Record exists with 0 OT, also match.
-                    // The only case to FLAG is if Venus > 0 and NO record or Diff value.
-                    otMatch = (venusOt > 0.01)
-                        ? (hasOtRecord && Math.abs(otHours - venusOt) < 0.1)
-                        : (Math.abs(otHours - venusOt) < 0.1); // If 0 target, 0 found (even if no record) is OK.
-
-                    // Task Code Check for Leaves
-                    let taskCodeMatch = true;
-                    if (day.isSickLeave) {
-                         // Check for GA9127 (Sick)
-                         taskCodeMatch = millwareRecords.some(r => r.TaskCode && (r.TaskCode.includes('GA9127') || r.TaskCode.includes('SICK')));
-                         if (!taskCodeMatch) console.log(`[Compare] ⚠️ Task Code Mismatch for ${ptrjId} @ ${dateStr}: Expected SICK, found ${millwareRecords.map(r => r.TaskCode).join(', ')}`);
-                    } else if (day.isAnnualLeave) {
-                         // Check for GA9130 (Annual)
-                         taskCodeMatch = millwareRecords.some(r => r.TaskCode && (r.TaskCode.includes('GA9130') || r.TaskCode.includes('ANNUAL')));
-                         if (!taskCodeMatch) console.log(`[Compare] ⚠️ Task Code Mismatch for ${ptrjId} @ ${dateStr}: Expected ANNUAL, found ${millwareRecords.map(r => r.TaskCode).join(', ')}`);
-                    }
-
-                    // Combined sync status (All must match to be synced/MATCH)
-                    isSynced = regularMatch && otMatch && taskCodeMatch;
-                }
-                */
-
-                if (isSynced) {
-                    status = 'synced';
-                    synced++;
-                } else {
-                    status = 'mismatch';
-                    mismatch++;
-                }
-
-                details = {
-                    millwareHours: totalHours,
-                    millwareNormal: normalHours,
-                    millwareOT: otHours,
-                    venusHours: venusTotal,
-                    venusNormal: venusRegular,
-                    venusOT: venusOt,
-                    records: millwareRecords.length,
-                    regularMatched: regularMatch, // Use the computed strict variable
-                    otMatched: otMatch // Use the computed strict variable
-                };
-            } else {
-                notSynced++;
+            // --- MODE FILTERING ---
+            if (options.onlyOvertime) {
+                regularSynced = true; // Ignore regular mismatch in OT Only mode
             }
+            if (options.syncRegularOnly) {
+                otSynced = true; // Ignore OT mismatch in Regular Only mode
+            }
+
+            // Special Case: Sunday/Holiday (Venus might have 0h Regular, but Millware has OT-code as Normal?)
+            // If Venus says 0 Regular, we consider Regular synced (nothing to input).
+
+            isSynced = regularSynced && otSynced;
+
+            // Set match flags for UI feedback (green checkmarks)
+            // Note: We keep the TRUE match status for UI visualization even if filtered out
+            regularMatch = regularSynced;
+            otMatch = otSynced;
+
+            // (Legacy Strict Logic commented out for reference)
+            /*
+            if (onlyOvertime) {
+                // In Overtime Only mode, if Millware already has OT, we consider it synced (skip).
+                // We only want to input if Millware has NO OT (0) but Venus HAS OT.
+                isSynced = otHours > 0.01;
+                otMatch = isSynced;
+                regularMatch = true; // Ignore regular match in OT mode
+                if (isSynced) {
+                regularMatch = hasNormalRecord && Math.abs(normalHours - venusRegular) < 0.1;
+
+                // DEBUG: Explicitly log why we matched or missed
+                // DEBUG: Explicitly log why we matched or missed
+                const cleanStatus = day.status || '';
+                if (dateStr === '2026-01-11' || cleanStatus.includes('Partial')) {
+                    console.log(`[Compare DEBUG] ${ptrjId} @ ${dateStr} [${cleanStatus}] Decision:`);
+                    console.log(`   - Normal Record Exists? ${hasNormalRecord}`);
+                    console.log(`   - Hours Match? ${Math.abs(normalHours - venusRegular) < 0.1} (DB: ${normalHours}, Venus: ${venusRegular})`);
+                    console.log(`   - REGULAR MATCH RESULT: ${regularMatch}`);
+                }
+
+                // Overtime match check
+
+                // Overtime match check
+                // If Venus has OT, we need OT record. If Venus 0 OT, we match if 0 OT in DB (or no record).
+                // But to be safe, if we have 0 OT in Venus and NO record in DB, that's a match/ok.
+                // If we have 0 OT in Venus and Record exists with 0 OT, also match.
+                // The only case to FLAG is if Venus > 0 and NO record or Diff value.
+                otMatch = (venusOt > 0.01)
+                    ? (hasOtRecord && Math.abs(otHours - venusOt) < 0.1)
+                    : (Math.abs(otHours - venusOt) < 0.1); // If 0 target, 0 found (even if no record) is OK.
+
+                // Task Code Check for Leaves
+                let taskCodeMatch = true;
+                if (day.isSickLeave) {
+                     // Check for GA9127 (Sick)
+                     taskCodeMatch = millwareRecords.some(r => r.TaskCode && (r.TaskCode.includes('GA9127') || r.TaskCode.includes('SICK')));
+                     if (!taskCodeMatch) console.log(`[Compare] ⚠️ Task Code Mismatch for ${ptrjId} @ ${dateStr}: Expected SICK, found ${millwareRecords.map(r => r.TaskCode).join(', ')}`);
+                } else if (day.isAnnualLeave) {
+                     // Check for GA9130 (Annual)
+                     taskCodeMatch = millwareRecords.some(r => r.TaskCode && (r.TaskCode.includes('GA9130') || r.TaskCode.includes('ANNUAL')));
+                     if (!taskCodeMatch) console.log(`[Compare] ⚠️ Task Code Mismatch for ${ptrjId} @ ${dateStr}: Expected ANNUAL, found ${millwareRecords.map(r => r.TaskCode).join(', ')}`);
+                }
+
+                // Combined sync status (All must match to be synced/MATCH)
+                isSynced = regularMatch && otMatch && taskCodeMatch;
+            }
+            */
+
+            if (isSynced) {
+                status = 'synced';
+                synced++;
+            } else {
+                status = 'mismatch';
+                mismatch++;
+            }
+
+            details = {
+                millwareHours: totalHours,
+                millwareNormal: normalHours,
+                millwareOT: otHours,
+                venusHours: venusTotal,
+                venusNormal: venusRegular,
+                venusOT: venusOt,
+                records: millwareRecords.length,
+                regularMatched: regularMatch, // Use the computed strict variable
+                otMatched: otMatch // Use the computed strict variable
+            };
 
             // Determine explicit MATCH/MISS status for frontend consistency
             // Default to 'MISS' if not synced, otherwise 'MATCH'

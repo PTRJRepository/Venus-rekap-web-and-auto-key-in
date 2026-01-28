@@ -91,18 +91,9 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                 if (shouldInclude) {
                     // --- Target: REGULAR ---
                     if (targetMode === 'regular') {
-                        if (millwareRecord) {
-                            // Check match status
-                            if (millwareRecord.regularMatched === true) {
-                                shouldInclude = false;
-                            }
-                            // STRICT REQUIREMENT: "Beda jam jangan dinput" (Don't input if hours differ)
-                            // If record exists and has Normal hours > 0, it's an Update/Mismatch, not a Missing.
-                            else if ((millwareRecord.normal || 0) > 0) {
-                                shouldInclude = false;
-                            }
-                        }
-                        else if (!millwareRecord && (day.regularHours || 0) === 0) {
+                        if (millwareRecord && millwareRecord.regularMatched === true) {
+                            shouldInclude = false; // Matched in Millware
+                        } else if (!millwareRecord && (day.regularHours || 0) === 0) {
                             shouldInclude = false; // Missing but Venus 0 Regular => Not a mismatch
                         } else {
                             if (millwareRecord) reason = `Regular Hours Mismatch (${day.regularHours} vs ${millwareRecord.normal || 0})`;
@@ -110,18 +101,9 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                     }
                     // --- Target: OVERTIME ---
                     else if (targetMode === 'overtime') {
-                        if (millwareRecord) {
-                            if (millwareRecord.otMatched === true) {
-                                shouldInclude = false;
-                            }
-                            // STRICT REQUIREMENT: "Beda jam jangan dinput"
-                            // If record exists and has OT hours > 0, it's an Update/Mismatch, so SKIP.
-                            // We only want to input if Millware has NO OT (0).
-                            else if ((millwareRecord.ot || 0) > 0) {
-                                shouldInclude = false;
-                            }
-                        }
-                        else if (!millwareRecord && (day.overtimeHours || 0) === 0) {
+                        if (millwareRecord && millwareRecord.otMatched === true) {
+                            shouldInclude = false; // Matched in Millware
+                        } else if (!millwareRecord && (day.overtimeHours || 0) === 0) {
                             shouldInclude = false; // Missing but Venus 0 OT => Not a mismatch
                         } else {
                             if (millwareRecord) reason = `Overtime Mismatch (${day.overtimeHours} vs ${millwareRecord.ot || 0})`;

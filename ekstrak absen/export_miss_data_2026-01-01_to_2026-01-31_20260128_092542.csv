@@ -1,0 +1,4 @@
+EmployeeID,Name,PTRJ_ID,Date,Venus_Status,Venus_Regular,Venus_OT,Sync_Status,Millware_Records_Count,Millware_Total_Hours
+PTRJ.241000023,"Aryat Dhimi Octovan",POM00253,2026-01-02,Hadir,7,6,MISS,1,7
+PTRJ.241000023,"Aryat Dhimi Octovan",POM00253,2026-01-11,Hadir,7,16,MISS,1,7
+PTRJ.241000023,"Aryat Dhimi Octovan",POM00253,2026-01-17,Hadir,5,5.5,MISS,1,5
