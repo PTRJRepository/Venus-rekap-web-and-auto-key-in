@@ -164,9 +164,6 @@ const FlowEditor: React.FC = () => {
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
     const socketRef = useRef<Socket | null>(null);
     const clipboardRef = useRef<Node | null>(null);
-    
-    // FIX: Add ref for tracking last recorded event to prevent duplicates
-    const lastRecordedEventRef = useRef<{ type: string; selector?: string; url?: string; timestamp: number } | null>(null);
 
     const [state, setState] = useState<FlowEditorState>({
         flowName: 'Untitled Flow',
@@ -205,26 +202,6 @@ const FlowEditor: React.FC = () => {
         socketRef.current.on('recording:event', (event: any) => {
             // Ignore explicit waitForElement events from backend to avoid duplicates
             if (event.type === 'waitForElement') return;
-            
-            // FIX: Duplicate detection - skip if same event within 500ms
-            const now = Date.now();
-            const lastEvent = lastRecordedEventRef.current;
-            if (lastEvent && 
-                lastEvent.type === event.type &&
-                lastEvent.selector === event.selector &&
-                lastEvent.url === event.url &&
-                (now - lastEvent.timestamp) < 500) {
-                console.log('[FlowEditor] Skipping duplicate event:', event.type, event.selector);
-                return;
-            }
-            
-            // Update last recorded event
-            lastRecordedEventRef.current = {
-                type: event.type,
-                selector: event.selector,
-                url: event.url,
-                timestamp: now
-            };
 
             addLog('info', `🎥 Recorded: ${event.type} ${event.url || event.selector || ''}`);
 

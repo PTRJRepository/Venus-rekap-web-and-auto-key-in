@@ -1,36 +1,7 @@
 export const RECORDER_SCRIPT = `
 (function() {
-  // FIX: Prevent double activation and cleanup on navigation
-  if (window.veniceRecorderActive) {
-    console.log('[Recorder] Already active, skipping...');
-    return;
-  }
+  if (window.veniceRecorderActive) return;
   window.veniceRecorderActive = true;
-
-  // Store listeners for cleanup
-  if (!window.veniceListeners) {
-    window.veniceListeners = [];
-  }
-
-  // Helper: Add tracked listener
-  function addTrackedListener(target, event, handler, useCapture) {
-    target.addEventListener(event, handler, useCapture);
-    window.veniceListeners.push({ target, event, handler, useCapture });
-  }
-
-  // Cleanup function
-  window.veniceCleanupRecorder = function() {
-    if (window.veniceListeners) {
-      window.veniceListeners.forEach(function(l) {
-        try {
-          l.target.removeEventListener(l.event, l.handler, l.useCapture);
-        } catch(e) {}
-      });
-      window.veniceListeners = [];
-    }
-    window.veniceRecorderActive = false;
-    console.log('[Recorder] Cleaned up');
-  };
 
   console.log('🎥 Venice Recorder Active');
 
@@ -62,7 +33,7 @@ export const RECORDER_SCRIPT = `
   function getElementLabel(el) {
     // Try to find a label or some descriptive text nearby
     if (el.id) {
-        const label = document.querySelector('label[for="' + el.id + '"]');
+        const label = document.querySelector(\`label[for="\${el.id}"]\`);
         if (label) return label.innerText.trim();
     }
     
@@ -93,90 +64,41 @@ export const RECORDER_SCRIPT = `
     // 1. data-testid (most reliable for automation)
     if (el.hasAttribute('data-testid')) {
       const val = el.getAttribute('data-testid');
-      return '[data-testid="' + val + '"]';  
+      return \`[data-testid="\${val}"]\`;
     }
     
-    // 2. ID - handle ASP.NET auto IDs by extracting meaningful part
-    if (el.id) {
-      // Skip completely random/generated IDs
-      if (!el.id.includes('random') && !el.id.match(/\\d{8,}/)) {
-        // For ASP.NET IDs (ctl00_), try to extract meaningful part
-        if (el.id.match(/^ctl00_/)) {
-          const parts = el.id.split('_');
-          // Find the last meaningful part (not numeric)
-          for (let i = parts.length - 1; i >= 0; i--) {
-            if (parts[i] && !parts[i].match(/^\\d+$/) && parts[i].length > 2) {
-              // Try ends-with selector
-              try {
-                const endsWithSelector = '[id$="_' + parts[i] + '"]';
-                if (document.querySelectorAll(endsWithSelector).length === 1) {
-                  return endsWithSelector;
-                }
-              } catch(e) {}
-            }
-          }
-        } else {
-          const safeId = el.id.replace(/:/g, '\\\\:');
-          return '#' + safeId;
-        }
-      }
+    // 2. ID (but skip random/generated IDs and ASP.NET auto-generated IDs)
+    if (el.id && !el.id.includes('random') && !el.id.match(/\d{5,}/) && !el.id.match(/^ctl00/)) {
+        const safeId = el.id.replace(/:/g, '\\:');
+        return '#' + safeId;
     }
     
-    // 3. Name attribute for form elements
-    if (el.name && !el.name.match(/^ctl00/)) {
-      try {
-        if (document.querySelectorAll('[name="' + el.name + '"]').length === 1) {
-          return '[name="' + el.name + '"]';  
-        }
-      } catch(e) {}
-    }
-    
-    // 4. Attributes (placeholder, aria-label, role) - only if unique
-    const attrs = ['placeholder', 'aria-label', 'role'];
-    for (let i = 0; i < attrs.length; i++) {
-      const attr = attrs[i];
+    // 3. Attributes (name, placeholder, aria-label, role) - only if unique
+    const attrs = ['name', 'placeholder', 'aria-label', 'data-testid', 'role'];
+    for (const attr of attrs) {
       if (el.hasAttribute(attr)) {
         const val = el.getAttribute(attr);
         if (val && val.length > 0 && !val.match(/^ctl00/)) {
             // Check if unique
             try {
-                if (document.querySelectorAll('[' + attr + '="' + val + '"]').length === 1) {
-                    return '[' + attr + '="' + val + '"]';  
+                if (document.querySelectorAll(\`[\${attr}="\${val}"]\`).length === 1) {
+                    return \`[\${attr}="\${val}"]\`;
                 }
             } catch(e) {}
         }
       }
     }
     
-    // 5. Text content for buttons/links
-    if ((el.tagName === 'BUTTON' || el.tagName === 'A') && el.innerText) {
-      const text = el.innerText.trim();
-      if (text && text.length > 0 && text.length < 50) {
-        // Use contains selector
-        try {
-          const textSelector = el.tagName.toLowerCase() + ':contains("' + text + '")';
-          // Check uniqueness with text content
-          const similar = Array.from(document.querySelectorAll(el.tagName.toLowerCase()))
-            .filter(function(x) { return x.innerText && x.innerText.trim() === text; });
-          if (similar.length === 1) {
-            // Return a data- attribute approach for text
-            return el.tagName.toLowerCase();
-          }
-        } catch(e) {}
-      }
-    }
-    
-    // 6. Unique Class - be more selective, filter out framework classes
+    // 4. Unique Class - be more selective, filter out framework classes
     if (el.className && typeof el.className === 'string' && el.className.split(' ').length > 0) {
-        const classes = el.className.split(' ').filter(function(c) { 
-            return c.trim().length > 0 && 
+        const classes = el.className.split(' ').filter(c => 
+            c.trim().length > 0 && 
             !c.includes('hover') && 
             !c.includes('active') &&
             !c.includes('Mui') &&
-            !c.match(/^css-/);
-        });
-        for(let i = 0; i < classes.length; i++) {
-            const cls = classes[i];
+            !c.match(/^css-/)
+        );
+        for(const cls of classes) {
             try {
                 if(document.querySelectorAll('.' + cls).length === 1) {
                     return '.' + cls;
@@ -185,7 +107,7 @@ export const RECORDER_SCRIPT = `
         }
     }
 
-    // 7. Recursive Path with nth-child for precision
+    // 5. Recursive Path with nth-child for precision
     let path = [];
     let current = el;
     while (current && current !== document.body) {
@@ -195,7 +117,7 @@ export const RECORDER_SCRIPT = `
       while (sibling = sibling.previousElementSibling) {
         if (sibling.tagName.toLowerCase() === tagName) nth++;
       }
-      path.unshift(tagName + (nth > 1 ? ':nth-of-type(' + nth + ')' : ''));
+      path.unshift(tagName + (nth > 1 ? \`:nth-of-type(\${nth})\` : ''));
       current = current.parentElement;
     }
     return path.join(' > ');
@@ -204,7 +126,7 @@ export const RECORDER_SCRIPT = `
   // EVENT LISTENERS //
 
   // Click
-  addTrackedListener(document, 'click', function(e) {
+  document.addEventListener('click', (e) => {
     if(!e.isTrusted) return; 
     const el = e.target.closest('button, a, input, [role="button"]') || e.target;
     const selector = getSelector(el);
@@ -225,12 +147,12 @@ export const RECORDER_SCRIPT = `
   // IMPORTANT: Radio buttons and checkboxes should NOT trigger type recording
   // They are handled exclusively by click event
   let inputTimeout;
-  addTrackedListener(document, 'input', function(e) {
+  document.addEventListener('input', (e) => {
     if(!e.isTrusted) return;
     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
 
     // Skip radio buttons and checkboxes - they only use click, not type
-    const inputType = e.target.type && e.target.type.toLowerCase();
+    const inputType = e.target.type?.toLowerCase();
     if (inputType === 'radio' || inputType === 'checkbox') return;
     
     // FIX: Check for duplicate before recording
@@ -238,7 +160,7 @@ export const RECORDER_SCRIPT = `
     if (!shouldRecord('type', selector)) return;
     
     clearTimeout(inputTimeout);
-    inputTimeout = setTimeout(function() {
+    inputTimeout = setTimeout(() => {
         const label = getElementLabel(e.target);
 
         window.venice_record({
@@ -248,11 +170,11 @@ export const RECORDER_SCRIPT = `
           value: e.target.value,
           timestamp: Date.now()
         });
-    }, 500); // FIX: Reduced debounce time for faster recording
+    }, 800); // FIX: Reduced debounce time for faster recording
   }, true);
 
   // Change (for selects, checkboxes) - ONLY for SELECT, not checkboxes/radios which are handled by click
-  addTrackedListener(document, 'change', function(e) {
+  document.addEventListener('change', (e) => {
     if(!e.isTrusted) return;
     // Only record SELECT change, checkboxes and radios are handled by click event
     if (e.target.tagName === 'SELECT') {

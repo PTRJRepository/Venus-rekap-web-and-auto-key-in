@@ -149,7 +149,7 @@ export class AutomationEngine {
     private async takeScreenshot(name: string): Promise<string> {
         if (!this.page) return '';
         const filename = `error_${name}_${Date.now()}.png`;
-        const filepath = path.resolve(process.cwd(), 'screenshots', filename);
+        const filepath = path.resolve(process.cwd(), 'screenshots', filename); // Ensure screenshots dir exists
         try {
             await this.page.screenshot({ path: filepath });
             return filepath;
@@ -161,7 +161,7 @@ export class AutomationEngine {
     // --- RECORDING ---
 
     // Helper: Try HTTPS first, fall back to HTTP for SSL errors - with retry logic
-    private async tryNavigate(url: string, maxRetries = 5): Promise<void> {
+    private async tryNavigate(url: string, maxRetries = 3): Promise<void> {
         if (!this.page) throw new Error('Page not initialized');
 
         const isHttps = url.startsWith('https://');
@@ -228,14 +228,9 @@ export class AutomationEngine {
 
         this.onLog('🔴 Recording started', 'warn');
 
-        // FIX: Wait for browser to be fully ready before any operations (increased to 5s)
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // FIX: Wait for browser to be fully ready before any operations
+        await new Promise(resolve => setTimeout(resolve, 2000));
         console.log('[Engine] Browser ready, setting up recorder...');
-
-        // FIX: Verify page is still valid after wait
-        if (this.page.isClosed()) {
-            throw new Error('Browser page closed unexpectedly');
-        }
 
         // Step 1: Expose the recording function BEFORE injecting script
         await this.page.exposeFunction('venice_record', (event: any) => {
@@ -250,6 +245,7 @@ export class AutomationEngine {
 
         // Step 3: Also inject for the current page (if already loaded)
         await this.page.evaluate(RECORDER_SCRIPT).catch(() => {
+            // Page might not be ready yet, that's OK - script will run on new document
             console.log('[Engine] Script injection deferred (page not ready)');
         });
         console.log('[Engine] Recorder script injected');
@@ -300,17 +296,9 @@ export class AutomationEngine {
         await this.tryNavigate(url);
         console.log('[Engine] Navigation complete');
 
-        // FIX: Wait for page to be fully loaded and stable
-        try {
-            await this.page.waitForFunction(() => document.readyState === 'complete', { timeout: 30000 });
-            console.log('[Engine] Page readyState is complete');
-        } catch (e) {
-            console.warn('[Engine] Page readyState timeout, continuing...');
-        }
-
         // Step 5: Re-inject script after navigation to ensure it's active
         // Wait a bit for the page to settle
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         await this.page.evaluate(RECORDER_SCRIPT);
         console.log('[Engine] Recorder script re-injected after navigation');
 
@@ -322,31 +310,12 @@ export class AutomationEngine {
         if (!isActive) {
             this.onLog('⚠️ Recorder may not be active properly', 'warn');
             console.error('[Engine] Recorder verification failed!');
-            // Try one more time to inject
-            await this.page.evaluate(RECORDER_SCRIPT);
-            const retryActive = await this.page.evaluate(() => {
-                return typeof (window as any).venice_record === 'function' &&
-                       (window as any).veniceRecorderActive === true;
-            });
-            if (retryActive) {
-                this.onLog('✅ Recorder active after retry', 'success');
-            }
         } else {
             console.log('[Engine] Recorder verified active');
         }
     }
 
     async stopRecording() {
-        // FIX: Cleanup recorder listeners
-        if (this.page) {
-            try {
-                await this.page.evaluate(() => {
-                    if ((window as any).veniceCleanupRecorder) {
-                        (window as any).veniceCleanupRecorder();
-                    }
-                });
-            } catch (e) {}
-        }
         this.onLog('⏹️ Recording stopped', 'warn');
     }
 
@@ -497,6 +466,10 @@ export class AutomationEngine {
         // This gives the page time to breathe between recorded steps
         await new Promise(r => setTimeout(r, 1000));
 
+        // ── FLOW CONTROL ── (Special handling required, wrapping in try/catch)
+        // Note: Flow control nodes (if, forEach) are containers/routers. 
+        // We log their entry, but their success depends on their internal logic.
+
         try {
             if (actionType === 'forEach') {
                 await this.handleForEach(node, allNodes, adj);
@@ -556,6 +529,8 @@ export class AutomationEngine {
     }
 
     // ── forEach handler ──
+    // The node has params: { items: "data.data", itemName: "employee", subFlowNodes: [...], subFlowEdges: [...] }
+    // OR the sub-flow is linked via edges to child nodes (graph-based approach)
     private async handleForEach(node: any, allNodes: any[], adj: Map<string, string[]>) {
         const resolved = this.resolveVars(node.data.params);
         const itemsPath = resolved.items || '';
@@ -626,6 +601,8 @@ export class AutomationEngine {
     }
 
     // ── Conditional handler ──
+    // The node has params: { condition: "..." }
+    // Two outgoing edges: first = then, second = else
     private async handleConditional(node: any, allNodes: any[], adj: Map<string, string[]>) {
         const resolved = this.resolveVars(node.data.params);
         const condition = resolved.condition || '';
@@ -678,9 +655,9 @@ export class AutomationEngine {
 
         if (typeof params !== 'object') {
             if (typeof params === 'string') {
-                return params.replace(/\\$\\{([^}]+)\\}/g, (_, varPath: string) => {
+                return params.replace(/\$\{([^}]+)\}/g, (_, varPath: string) => {
                     const resolved = this.resolveDeepVar(varPath.trim());
-                    return resolved !== undefined ? String(resolved) : `\\${${varPath}}`;
+                    return resolved !== undefined ? String(resolved) : `\${${varPath}}`;
                 });
             }
             return params;
