@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude plugin marketplace add:*)",
+      "Bash(claude plugin install:*)",
+      "Bash(claude skill:*)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(ls:*)",
+      "Bash(dir:*)",
+      "Bash(python:*)",
+      "Bash(echo:*)",
+      "Bash(npm run build)",
+      "Bash(cd:*)",
+      "Bash(test:*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

@@ -1,0 +1,197 @@
+{
+    "name": "Input Flow - Simple",
+    "description": "Template sederhana untuk input absensi dengan filter reguler/overtime miss",
+    "dataFile": "testing_data/test_simple.json",
+    "steps": [
+        {
+            "comment": "═══ LOGIN & NAVIGATE ═══",
+            "action": "include",
+            "params": {
+                "template": "template-flow"
+            }
+        },
+        {
+            "comment": "═══ LOOP EMPLOYEES ═══",
+            "action": "forEach",
+            "params": {
+                "items": "data.data",
+                "itemName": "employee",
+                "steps": [
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "👤 Processing: ${employee.EmployeeName} (${employee.PTRJEmployeeID})"
+                        }
+                    },
+                    {
+                        "comment": "═══ LOOP ATTENDANCE DATES ═══",
+                        "action": "forEachProperty",
+                        "params": {
+                            "object": "employee.Attendance",
+                            "keyName": "date",
+                            "valueName": "attendance",
+                            "steps": [
+                                {
+                                    "action": "log",
+                                    "params": {
+                                        "message": "  📅 ${date} | Status: ${attendance.status} | Reg: ${attendance.regularHours}h | OT: ${attendance.overtimeHours}h"
+                                    }
+                                },
+                                {
+                                    "comment": "═══ SKIP: ALFA dan N/A ═══",
+                                    "action": "if",
+                                    "params": {
+                                        "condition": "(attendance.status || '').toUpperCase() === 'ALFA' || attendance.status === 'N/A'",
+                                        "thenSteps": [
+                                            {
+                                                "action": "log",
+                                                "params": {
+                                                    "message": "    ⏭️ SKIP: ${attendance.status}"
+                                                }
+                                            }
+                                        ],
+                                        "elseSteps": [
+                                            {
+                                                "comment": "═══ ANNUAL LEAVE ═══",
+                                                "action": "if",
+                                                "params": {
+                                                    "condition": "attendance.isAnnualLeave === true && !attendance.checkIn",
+                                                    "thenSteps": [
+                                                        {
+                                                            "action": "include",
+                                                            "params": {
+                                                                "template": "_leave_input",
+                                                                "params": {
+                                                                    "leaveType": "annual"
+                                                                }
+                                                            }
+                                                        }
+                                                    ],
+                                                    "elseSteps": [
+                                                        {
+                                                            "comment": "═══ SICK LEAVE ═══",
+                                                            "action": "if",
+                                                            "params": {
+                                                                "condition": "attendance.isSickLeave === true && !attendance.checkIn",
+                                                                "thenSteps": [
+                                                                    {
+                                                                        "action": "include",
+                                                                        "params": {
+                                                                            "template": "_leave_input",
+                                                                            "params": {
+                                                                                "leaveType": "sick"
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                ],
+                                                                "elseSteps": [
+                                                                    {
+                                                                        "comment": "═══ REGULAR HOURS (jika miss & ada jam) ═══",
+                                                                        "action": "if",
+                                                                        "params": {
+                                                                            "condition": "attendance.regularHours && attendance.regularHours > 0 && !attendance.skipRegular",
+                                                                            "thenSteps": [
+                                                                                {
+                                                                                    "action": "include",
+                                                                                    "params": {
+                                                                                        "template": "_core_input",
+                                                                                        "params": {
+                                                                                            "inputMode": "reguler"
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            ]
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "comment": "═══ OVERTIME HOURS (jika miss & ada jam & regular sudah ada) ═══",
+                                                                        "action": "if",
+                                                                        "params": {
+                                                                            "condition": "attendance.overtimeHours && attendance.overtimeHours > 0 && !attendance.skipOvertime",
+                                                                            "thenSteps": [
+                                                                                {
+                                                                                    "comment": "═══ CHECK: Regular data exists ═══",
+                                                                                    "action": "checkRegularDataExists",
+                                                                                    "params": {
+                                                                                        "date": "${attendance.date}",
+                                                                                        "employeeId": "${employee.PTRJEmployeeID}"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "action": "if",
+                                                                                    "params": {
+                                                                                        "condition": "attendance.canProcessOvertime",
+                                                                                        "thenSteps": [
+                                                                                            {
+                                                                                                "action": "include",
+                                                                                                "params": {
+                                                                                                    "template": "_core_input",
+                                                                                                    "params": {
+                                                                                                        "inputMode": "overtime"
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        ],
+                                                                                        "elseSteps": [
+                                                                                            {
+                                                                                                "action": "log",
+                                                                                                "params": {
+                                                                                                    "message": "    ⏭️ SKIP OT: Regular data belum ada"
+                                                                                                }
+                                                                                            }
+                                                                                        ]
+                                                                                    }
+                                                                                }
+                                                                            ]
+                                                                        }
+                                                                    }
+                                                                ]
+                                                            }
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "comment": "═══ VERIFY EMPLOYEE SYNC ═══",
+                        "action": "verifyEmployeeSync",
+                        "params": {}
+                    },
+                    {
+                        "action": "if",
+                        "params": {
+                            "condition": "context.employeeFailed === true",
+                            "thenSteps": [
+                                {
+                                    "action": "log",
+                                    "params": {
+                                        "message": "⚠️ ${employee.EmployeeName}: Some transfers FAILED"
+                                    }
+                                }
+                            ],
+                            "elseSteps": [
+                                {
+                                    "action": "log",
+                                    "params": {
+                                        "message": "✅ ${employee.EmployeeName}: All transfers SUCCESSFUL"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "✅ Selesai memproses semua data absensi"
+            }
+        }
+    ]
+}

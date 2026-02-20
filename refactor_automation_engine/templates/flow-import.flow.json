@@ -1,0 +1,167 @@
+{
+  "id": "flow-import",
+  "name": "Flow Import",
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "actionNode",
+      "position": {
+        "x": 300,
+        "y": 50
+      },
+      "data": {
+        "label": "Start",
+        "actionType": "start",
+        "params": {}
+      },
+      "measured": {
+        "width": 180,
+        "height": 42
+      }
+    },
+    {
+      "id": "navigate-1",
+      "type": "actionNode",
+      "position": {
+        "x": 300,
+        "y": 150
+      },
+      "data": {
+        "label": "Navigate to Millware",
+        "actionType": "navigate",
+        "params": {
+          "url": "http://millwarep3.rebinmas.com:8003/"
+        }
+      },
+      "measured": {
+        "width": 200,
+        "height": 60
+      }
+    },
+    {
+      "id": "f39778ab-10dc-4984-b9ea-a8bc7a7a7a1e",
+      "type": "actionNode",
+      "position": {
+        "x": 300,
+        "y": 250
+      },
+      "data": {
+        "label": "Wait for Username",
+        "actionType": "waitForElement",
+        "params": {
+          "selector": "#txtUsername",
+          "timeout": 10000
+        },
+        "executionStatus": "idle"
+      },
+      "measured": {
+        "width": 180,
+        "height": 80
+      }
+    },
+    {
+      "id": "41c737d3-8581-4771-bdb8-ba5ef2d9e378",
+      "type": "actionNode",
+      "position": {
+        "x": 300,
+        "y": 350
+      },
+      "data": {
+        "label": "Type Username",
+        "actionType": "type",
+        "params": {
+          "selector": "#txtUsername",
+          "value": "adm075",
+          "timeout": 10000
+        },
+        "executionStatus": "idle"
+      },
+      "measured": {
+        "width": 180,
+        "height": 80
+      }
+    },
+    {
+      "id": "54fe3740-780c-47a1-8c15-05812ffd29cb",
+      "type": "actionNode",
+      "position": {
+        "x": 300,
+        "y": 450
+      },
+      "data": {
+        "label": "Type Password",
+        "actionType": "type",
+        "params": {
+          "selector": "#txtPassword",
+          "value": "adm075",
+          "timeout": 10000
+        },
+        "executionStatus": "idle"
+      },
+      "measured": {
+        "width": 180,
+        "height": 80
+      }
+    },
+    {
+      "id": "3758a0db-6a88-4e13-b52e-a182c0f01869",
+      "type": "actionNode",
+      "position": {
+        "x": 300,
+        "y": 550
+      },
+      "data": {
+        "label": "Click Login",
+        "actionType": "click",
+        "params": {
+          "selector": "#btnLogin",
+          "timeout": 10000
+        },
+        "executionStatus": "idle"
+      },
+      "measured": {
+        "width": 180,
+        "height": 80
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-start-navigate",
+      "source": "start-1",
+      "target": "navigate-1",
+      "type": "smoothstep"
+    },
+    {
+      "id": "edge-navigate-wait",
+      "source": "navigate-1",
+      "target": "f39778ab-10dc-4984-b9ea-a8bc7a7a7a1e",
+      "type": "smoothstep"
+    },
+    {
+      "id": "edge-wait-type-username",
+      "source": "f39778ab-10dc-4984-b9ea-a8bc7a7a7a1e",
+      "target": "41c737d3-8581-4771-bdb8-ba5ef2d9e378",
+      "type": "smoothstep"
+    },
+    {
+      "id": "edge-type-username-password",
+      "source": "41c737d3-8581-4771-bdb8-ba5ef2d9e378",
+      "target": "54fe3740-780c-47a1-8c15-05812ffd29cb",
+      "type": "smoothstep"
+    },
+    {
+      "id": "edge-password-login",
+      "source": "54fe3740-780c-47a1-8c15-05812ffd29cb",
+      "target": "3758a0db-6a88-4e13-b52e-a182c0f01869",
+      "type": "smoothstep"
+    }
+  ],
+  "description": "Millware Login Flow - Fixed",
+  "metadata": {
+    "lastSaved": "2026-02-19T08:00:00.000Z",
+    "nodeCount": 6
+  },
+  "filename": "flow-import.flow.json",
+  "updatedAt": "2026-02-19T08:00:00.000Z"
+}

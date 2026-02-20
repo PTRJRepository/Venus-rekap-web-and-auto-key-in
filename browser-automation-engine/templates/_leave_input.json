@@ -1,0 +1,229 @@
+{
+    "name": "Leave Input Flow",
+    "description": "Input Annual Leave dan Sick Leave dengan parameter leaveType",
+    "params": {
+        "leaveType": "annual"
+    },
+    "steps": [
+        {
+            "action": "log",
+            "params": {
+                "message": "    → Input ${leaveType.toUpperCase()} LEAVE: ${attendance.status} (${attendance.leaveDescription})"
+            }
+        },
+        {
+            "action": "waitForElement",
+            "params": {
+                "selector": ".ui-autocomplete-input.CBOBox",
+                "timeout": 10000
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 1000
+            }
+        },
+        {
+            "comment": "═══ FORMAT DATE ═══",
+            "action": "formatDate",
+            "params": {
+                "date": "${attendance.date}",
+                "saveTo": "formattedDateLeave"
+            }
+        },
+        {
+            "comment": "═══ INPUT DOC DATE ═══",
+            "action": "typeInput",
+            "params": {
+                "selector": "#MainContent_txtDocDate",
+                "value": "${formattedDateLeave}"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 500
+            }
+        },
+        {
+            "comment": "═══ INPUT TRANSACTION DATE ═══",
+            "action": "typeInput",
+            "params": {
+                "selector": "#MainContent_txtTrxDate",
+                "value": "${formattedDateLeave}"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 500
+            }
+        },
+        {
+            "action": "pressKey",
+            "params": {
+                "key": "ArrowDown"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 200
+            }
+        },
+        {
+            "action": "pressKey",
+            "params": {
+                "key": "Enter"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 500
+            }
+        },
+        {
+            "comment": "═══ INPUT EMPLOYEE ID ═══",
+            "action": "retryInputWithValidation",
+            "params": {
+                "selector": ".ui-autocomplete-input.CBOBox",
+                "index": 0,
+                "value": "${employee.PTRJEmployeeID}",
+                "validationSelector": "#MainContent_ddlEmployee_RFV",
+                "maxRetries": 1,
+                "formReentryFields": []
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 2000
+            }
+        },
+        {
+            "action": "checkEmployeeInputSuccess",
+            "params": {
+                "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
+                "timeout": 2000
+            }
+        },
+        {
+            "action": "if",
+            "params": {
+                "condition": "!context.employeeInputFailed",
+                "thenSteps": [
+                    {
+                        "action": "waitForElement",
+                        "params": {
+                            "selector": "#MainContent_ddlShift",
+                            "timeout": 10000
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 500
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT TASK CODE (berdasarkan leaveType) ═══",
+                        "action": "retryInputWithValidation",
+                        "params": {
+                            "selector": ".ui-autocomplete-input.CBOBox",
+                            "index": 1,
+                            "value": "${leaveType === 'annual' ? '(GA9130) PERSONNEL ANNUAL LEAVE' : '(GA9127) (AL) PERSONNEL SICK LEAVE'}",
+                            "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                            "maxRetries": 1,
+                            "forceInput": true,
+                            "checkIfAlreadyFilled": false
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 1000
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT HOURS ═══",
+                        "action": "typeInput",
+                        "params": {
+                            "selector": "#MainContent_txtHours",
+                            "value": "${attendance.regularHours}"
+                        }
+                    },
+                    {
+                        "comment": "═══ VALIDATE: Regular radio still selected ═══",
+                        "action": "checkElementState",
+                        "params": {
+                            "selector": "#MainContent_rblOT_0",
+                            "saveTo": "valRegState"
+                        }
+                    },
+                    {
+                        "action": "if",
+                        "params": {
+                            "condition": "valRegState.checked === true",
+                            "thenSteps": [
+                                {
+                                    "action": "clickAndWaitForReload",
+                                    "params": {
+                                        "selector": "#MainContent_btnAdd",
+                                        "timeout": 15000
+                                    }
+                                }
+                            ],
+                            "elseSteps": [
+                                {
+                                    "action": "log",
+                                    "params": {
+                                        "message": "🛑 ERROR: Regular radio not checked!"
+                                    }
+                                },
+                                {
+                                    "action": "reloadPage",
+                                    "params": {}
+                                },
+                                {
+                                    "action": "wait",
+                                    "params": {
+                                        "duration": 5000
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "action": "checkPageAndNavigate",
+                        "params": {}
+                    },
+                    {
+                        "action": "waitForReady",
+                        "params": {
+                            "selector": ".ui-autocomplete-input.CBOBox",
+                            "timeout": 10000
+                        }
+                    },
+                    {
+                        "action": "validateText",
+                        "params": {
+                            "selector": "#MainContent_lblTotalNormalHour",
+                            "minLength": 1,
+                            "throwOnFail": false
+                        }
+                    }
+                ],
+                "elseSteps": [
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "    ❌ SKIP: Employee input failed"
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}

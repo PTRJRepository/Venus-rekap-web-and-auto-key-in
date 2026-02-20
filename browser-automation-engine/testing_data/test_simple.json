@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "export_date": "2026-02-02T16:28:15.835Z",
+    "period_start": "2026-01-01",
+    "period_end": "2026-01-31",
+    "total_employees": 1,
+    "source": "web_interface",
+    "onlyOvertime": false,
+    "syncMismatchesOnly": true,
+    "syncRegularOnly": false
+  },
+  "data": [
+    {
+      "EmployeeID": "PTRJ.241000003",
+      "EmployeeName": "Abu Hurairoh",
+      "PTRJEmployeeID": "POM00224",
+      "ChargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "Attendance": {
+        "2026-01-26": {
+          "date": "2026-01-26",
+          "dayName": "Sen",
+          "status": "Hadir",
+          "display": "✓ +3.5h",
+          "class": "hours-normal-overtime",
+          "checkIn": "06:59",
+          "checkOut": "18:01",
+          "regularHours": 7,
+          "overtimeHours": 3.5,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "isSickLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null,
+          "syncStatus": "MISS",
+          "syncDetail": "mismatch",
+          "skipRegular": false,
+          "skipOvertime": false
+        }
+      }
+    }
+  ]
+}

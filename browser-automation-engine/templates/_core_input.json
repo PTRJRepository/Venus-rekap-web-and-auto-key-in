@@ -1,0 +1,232 @@
+{
+    "name": "Core Input Flow (Regular & Overtime)",
+    "description": "Unified input flow untuk Regular dan Overtime. Mode ditentukan oleh parameter inputMode (reguler/overtime)",
+    "params": {
+        "inputMode": "reguler"
+    },
+    "steps": [
+        {
+            "comment": "═══ LOG: Processing Mode ═══",
+            "action": "log",
+            "params": {
+                "message": "    → Processing ${inputMode.toUpperCase()}: Date=${attendance.date}, Hours=${inputMode === 'reguler' ? attendance.regularHours : attendance.overtimeHours}"
+            }
+        },
+        {
+            "comment": "═══ FORMAT DATE ═══",
+            "action": "formatDate",
+            "params": {
+                "date": "${attendance.date}",
+                "saveTo": "formattedDate"
+            }
+        },
+        {
+            "comment": "═══ INPUT DOC DATE (PERTAMA) ═══",
+            "action": "typeInput",
+            "params": {
+                "selector": "#MainContent_txtDocDate",
+                "value": "${formattedDate}"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 500
+            }
+        },
+        {
+            "comment": "═══ INPUT TRANSACTION DATE (KEDUA) ═══",
+            "action": "typeInput",
+            "params": {
+                "selector": "#MainContent_txtTrxDate",
+                "value": "${formattedDate}"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 500
+            }
+        },
+        {
+            "comment": "═══ TRIGGER FORM REFRESH ═══",
+            "action": "pressKey",
+            "params": {
+                "key": "Enter"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 5000
+            }
+        },
+        {
+            "comment": "═══ INPUT EMPLOYEE ID ═══",
+            "action": "retryInputWithValidation",
+            "params": {
+                "selector": ".ui-autocomplete-input.CBOBox",
+                "index": 0,
+                "value": "${employee.PTRJEmployeeID}",
+                "validationSelector": "#MainContent_ddlEmployee_RFV",
+                "maxRetries": 1,
+                "formReentryFields": []
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 2000
+            }
+        },
+        {
+            "comment": "═══ CHECK EMPLOYEE INPUT SUCCESS ═══",
+            "action": "checkEmployeeInputSuccess",
+            "params": {
+                "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
+                "timeout": 2000
+            }
+        },
+        {
+            "comment": "═══ PROCEED IF EMPLOYEE INPUT SUCCESS ═══",
+            "action": "if",
+            "params": {
+                "condition": "!context.employeeInputFailed",
+                "thenSteps": [
+                    {
+                        "action": "waitForElement",
+                        "params": {
+                            "selector": "#MainContent_ddlShift",
+                            "timeout": 10000
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 500
+                        }
+                    },
+                    {
+                        "comment": "═══ SELECT RADIO BUTTON (REGULER/OVERTIME) ═══",
+                        "action": "log",
+                        "params": {
+                            "message": "  📌 Selecting: ${inputMode === 'reguler' ? 'Normal (#rblOT_0)' : 'Overtime (#rblOT_1)'}"
+                        }
+                    },
+                    {
+                        "action": "click",
+                        "params": {
+                            "selector": "${inputMode === 'reguler' ? '#MainContent_rblOT_0' : '#MainContent_rblOT_1'}"
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 3000
+                        }
+                    },
+                    {
+                        "comment": "═══ VERIFY RADIO BUTTON SELECTED ═══",
+                        "action": "checkElementState",
+                        "params": {
+                            "selector": "${inputMode === 'reguler' ? '#MainContent_rblOT_0' : '#MainContent_rblOT_1'}",
+                            "saveTo": "radioState"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  ✓ Radio State: Checked=${radioState.checked}, Disabled=${radioState.disabled}"
+                        }
+                    },
+                    {
+                        "comment": "═══ PROCEED IF RADIO ENABLED ═══",
+                        "action": "if",
+                        "params": {
+                            "condition": "radioState.disabled === false",
+                            "thenSteps": [
+                                {
+                                    "comment": "═══ INPUT CHARGE JOB ═══",
+                                    "action": "include",
+                                    "params": {
+                                        "template": "_charge_job_input"
+                                    }
+                                },
+                                {
+                                    "action": "wait",
+                                    "params": {
+                                        "duration": 1000
+                                    }
+                                },
+                                {
+                                    "comment": "═══ INPUT HOURS ═══",
+                                    "action": "typeInput",
+                                    "params": {
+                                        "selector": "#MainContent_txtHours",
+                                        "value": "${inputMode === 'reguler' ? attendance.regularHours : attendance.overtimeHours}"
+                                    }
+                                },
+                                {
+                                    "comment": "═══ SUBMIT ═══",
+                                    "action": "clickAndWaitForReload",
+                                    "params": {
+                                        "selector": "#MainContent_btnAdd",
+                                        "timeout": 15000
+                                    }
+                                },
+                                {
+                                    "action": "checkPageAndNavigate",
+                                    "params": {}
+                                },
+                                {
+                                    "action": "waitForReady",
+                                    "params": {
+                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                        "timeout": 10000
+                                    }
+                                },
+                                {
+                                    "comment": "═══ VALIDATE TOTAL HOURS ═══",
+                                    "action": "validateText",
+                                    "params": {
+                                        "selector": "${inputMode === 'reguler' ? '#MainContent_lblTotalNormalHour' : '#MainContent_lblTotalOTHour'}",
+                                        "minLength": 1,
+                                        "throwOnFail": false
+                                    }
+                                }
+                            ],
+                            "elseSteps": [
+                                {
+                                    "action": "log",
+                                    "params": {
+                                        "message": "  ⚠️ SKIP: Radio button disabled. Data already exists."
+                                    }
+                                },
+                                {
+                                    "action": "navigate",
+                                    "params": {
+                                        "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
+                                    }
+                                },
+                                {
+                                    "action": "wait",
+                                    "params": {
+                                        "duration": 2000
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "elseSteps": [
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "    ❌ SKIP: Employee input failed"
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}

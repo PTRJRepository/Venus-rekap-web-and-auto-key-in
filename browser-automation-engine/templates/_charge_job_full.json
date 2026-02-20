@@ -1,0 +1,119 @@
+{
+    "name": "Charge Job Input - Full (Extracted from _attendance_logic.json)",
+    "description": "Complete charge job input flow with all 5 parts. Used by both Regular and Overtime input.",
+    "steps": [
+        {
+            "action": "parseChargeJob",
+            "params": {
+                "chargeJob": "${employee.ChargeJob}"
+            }
+        },
+        {
+            "comment": "═══ PART 1: Task Code (index 1) - OPTIMIZED ═══",
+            "action": "retryInputWithValidation",
+            "params": {
+                "selector": ".ui-autocomplete-input.CBOBox",
+                "index": 1,
+                "value": "${chargeJobPart1Clean}",
+                "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                "maxRetries": 1,
+                "forceInput": true,
+                "checkIfAlreadyFilled": false
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 1000
+            }
+        },
+        {
+            "comment": "═══ PART 2: Station Code (index 2) - OPTIMIZED ═══",
+            "action": "if",
+            "params": {
+                "condition": "hasChargeJobPart2",
+                "thenSteps": [
+                    {
+                        "action": "retryInputWithValidation",
+                        "params": {
+                            "selector": ".ui-autocomplete-input.CBOBox",
+                            "index": 2,
+                            "value": "${chargeJobPart2}",
+                            "validationSelector": "#MainContent_MultiDimAcc_reqValBlock",
+                            "maxRetries": 1,
+                            "expectedFieldCount": "${expectedFieldCount}",
+                            "forceInput": true,
+                            "checkIfAlreadyFilled": false
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "comment": "═══ PART 3: Machine Code (index 3) - OPTIMIZED ═══",
+            "action": "if",
+            "params": {
+                "condition": "hasChargeJobPart3",
+                "thenSteps": [
+                    {
+                        "action": "retryInputWithValidation",
+                        "params": {
+                            "selector": ".ui-autocomplete-input.CBOBox",
+                            "index": 3,
+                            "value": "${chargeJobPart3}",
+                            "validationSelector": "#MainContent_MultiDimAcc_reqValSubBlk",
+                            "maxRetries": 1,
+                            "expectedFieldCount": "${expectedFieldCount}",
+                            "forceInput": true,
+                            "checkIfAlreadyFilled": false
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "comment": "═══ PART 4: Expense Code (index 4) - OPTIMIZED ═══",
+            "action": "if",
+            "params": {
+                "condition": "hasChargeJobPart4",
+                "thenSteps": [
+                    {
+                        "action": "retryInputWithValidation",
+                        "params": {
+                            "selector": ".ui-autocomplete-input.CBOBox",
+                            "index": 4,
+                            "value": "${chargeJobPart4}",
+                            "validationSelector": "#MainContent_MultiDimAcc_reqValExpCode",
+                            "maxRetries": 1,
+                            "expectedFieldCount": "${expectedFieldCount}",
+                            "forceInput": true,
+                            "checkIfAlreadyFilled": false
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "comment": "═══ PART 5: Additional Code (index 5) - IF EXISTS ═══",
+            "action": "if",
+            "params": {
+                "condition": "hasChargeJobPart5",
+                "thenSteps": [
+                    {
+                        "comment": "═══ PART 5: Additional Code (index 5) - OPTIMIZED ═══",
+                        "action": "retryInputWithValidation",
+                        "params": {
+                            "selector": ".ui-autocomplete-input.CBOBox",
+                            "index": 5,
+                            "value": "${chargeJobPart5}",
+                            "maxRetries": 1,
+                            "expectedFieldCount": "${expectedFieldCount}",
+                            "forceInput": true,
+                            "checkIfAlreadyFilled": false
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}

@@ -1,0 +1,192 @@
+{
+  "name": "Attendance Logic Sub-Routine v4",
+  "description": "Extracted logic for attendance input with proper status-based charge job selection and mode filtering",
+  "steps": [
+    {
+      "action": "log",
+      "params": {
+        "message": "═══════════════════════════════════════════════════════════════"
+      }
+    },
+    {
+      "action": "log",
+      "params": {
+        "message": "  MODE: syncRegularOnly=${metadata.syncRegularOnly}, onlyOvertime=${metadata.onlyOvertime}"
+      }
+    },
+    {
+      "action": "log",
+      "params": {
+        "message": "═══════════════════════════════════════════════════════════════"
+      }
+    },
+    {
+      "action": "forEachProperty",
+      "params": {
+        "object": "employee.Attendance",
+        "keyName": "date",
+        "valueName": "attendance",
+        "steps": [
+          {
+            "action": "log",
+            "params": {
+              "message": "  Date: ${date} | Status: ${attendance.status} | Regular: ${attendance.regularHours} | OT: ${attendance.overtimeHours}"
+            }
+          },
+          {
+            "comment": "Skip ALFA (tidak ada data) dan N/A (data belum tersedia)",
+            "action": "if",
+            "params": {
+              "condition": "(attendance.status || '').toUpperCase() === 'ALFA' || attendance.status === 'N/A'",
+              "thenSteps": [
+                {
+                  "action": "log",
+                  "params": {
+                    "message": "    ⏭️ SKIP: ${attendance.status} - no data in database"
+                  }
+                }
+              ],
+              "elseSteps": [
+                {
+                  "comment": "═══ STEP 1: CHECK ANNUAL LEAVE (CT/Cuti status) ═══",
+                  "action": "if",
+                  "params": {
+                    "condition": "attendance.isAnnualLeave === true && !attendance.isSickLeave",
+                    "thenSteps": [
+                      {
+                        "action": "log",
+                        "params": {
+                          "message": "    🏖️ ANNUAL LEAVE: ${attendance.status} - Using GA9130 (PERSONNEL ANNUAL LEAVE)"
+                        }
+                      },
+                      {
+                        "action": "include",
+                        "params": {
+                          "template": "_leave_input_full",
+                          "params": {
+                            "leaveType": "annual"
+                          }
+                        }
+                      }
+                    ],
+                    "elseSteps": [
+                      {
+                        "comment": "═══ STEP 2: CHECK SICK LEAVE (Sakit/SICK status) ═══",
+                        "action": "if",
+                        "params": {
+                          "condition": "attendance.isSickLeave === true",
+                          "thenSteps": [
+                            {
+                              "action": "log",
+                              "params": {
+                                "message": "    🤒 SICK LEAVE: ${attendance.status} - Using GA9127 (PERSONNEL SICK LEAVE)"
+                              }
+                            },
+                            {
+                              "action": "include",
+                              "params": {
+                                "template": "_leave_input_full",
+                                "params": {
+                                  "leaveType": "sick"
+                                }
+                              }
+                            }
+                          ],
+                          "elseSteps": [
+                            {
+                              "comment": "═══ STEP 3: REGULAR ATTENDANCE (Hadir, Partial In, etc.) - USE ORIGINAL CHARGE JOB ═══",
+                              "action": "log",
+                              "params": {
+                                "message": "    💼 REGULAR ATTENDANCE: ${attendance.status} - Using original Charge Job: ${employee.ChargeJob}"
+                              }
+                            },
+                            {
+                              "comment": "═══ PROCESS REGULAR HOURS (OT=0) ═══",
+                              "action": "if",
+                              "params": {
+                                "condition": "attendance.regularHours > 0 || (attendance.status || '').toUpperCase() === 'HADIR' || (attendance.status || '').toUpperCase() === 'PARTIAL IN'",
+                                "thenSteps": [
+                                  {
+                                    "comment": "═══ SKIP REGULAR IF onlyOvertime MODE ═══",
+                                    "action": "if",
+                                    "params": {
+                                      "condition": "metadata.onlyOvertime === true",
+                                      "thenSteps": [
+                                        {
+                                          "action": "log",
+                                          "params": {
+                                            "message": "    ⏭️ SKIP REGULAR: onlyOvertime mode is active"
+                                          }
+                                        }
+                                      ],
+                                      "elseSteps": [
+                                        {
+                                          "action": "include",
+                                          "params": {
+                                            "template": "_core_input",
+                                            "params": {
+                                              "inputMode": "reguler"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "comment": "═══ PROCESS OVERTIME HOURS (OT=1) IF EXISTS ═══",
+                              "action": "if",
+                              "params": {
+                                "condition": "attendance.overtimeHours > 0",
+                                "thenSteps": [
+                                  {
+                                    "action": "log",
+                                    "params": {
+                                      "message": "    ⏰ OVERTIME: ${attendance.overtimeHours}h - Using original Charge Job"
+                                    }
+                                  },
+                                  {
+                                    "comment": "═══ SKIP OVERTIME IF syncRegularOnly MODE ═══",
+                                    "action": "if",
+                                    "params": {
+                                      "condition": "metadata.syncRegularOnly === true",
+                                      "thenSteps": [
+                                        {
+                                          "action": "log",
+                                          "params": {
+                                            "message": "    ⏭️ SKIP OVERTIME: syncRegularOnly mode is active (only input regular hours)"
+                                          }
+                                        }
+                                      ],
+                                      "elseSteps": [
+                                        {
+                                          "action": "include",
+                                          "params": {
+                                            "template": "_core_input",
+                                            "params": {
+                                              "inputMode": "overtime"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

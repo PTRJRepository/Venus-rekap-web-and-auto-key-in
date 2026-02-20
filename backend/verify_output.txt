@@ -1,0 +1,8 @@
+--- Checking Data Existence (File Output) ---
+Start Time: 2026-02-01T06:03:18.095Z
+
+1. Checking Employee Mill Table (getAllEmployees)...
+[Result] Found 0 employees.
+[WARNING] Employee table is empty or query returned no results.
+
+Done.

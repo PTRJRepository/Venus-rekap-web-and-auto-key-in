@@ -1,0 +1,1115 @@
+{
+    "id": "millware-attendance-v1",
+    "name": "Millware Attendance Input",
+    "description": "Automated attendance input for Millware Task Register. Loops through employee data, inputs regular hours and overtime.",
+    "dataFile": "testing_data/partition_1.json",
+    "nodes": [
+        {
+            "id": "start",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 0
+            },
+            "data": {
+                "label": "Start",
+                "actionType": "start",
+                "params": {}
+            }
+        },
+        {
+            "id": "nav-login",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 100
+            },
+            "data": {
+                "label": "Navigate to Millware",
+                "actionType": "navigate",
+                "params": {
+                    "url": "http://millwarep3.rebinmas.com:8003/"
+                }
+            }
+        },
+        {
+            "id": "input-username",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 200
+            },
+            "data": {
+                "label": "Input Username",
+                "actionType": "type",
+                "params": {
+                    "selector": "#txtUsername",
+                    "value": "adm075"
+                }
+            }
+        },
+        {
+            "id": "input-password",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 300
+            },
+            "data": {
+                "label": "Input Password",
+                "actionType": "type",
+                "params": {
+                    "selector": "#txtPassword",
+                    "value": "adm075"
+                }
+            }
+        },
+        {
+            "id": "click-login",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 400
+            },
+            "data": {
+                "label": "Click Login",
+                "actionType": "click",
+                "params": {
+                    "selector": "#btnLogin"
+                }
+            }
+        },
+        {
+            "id": "wait-login",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 500
+            },
+            "data": {
+                "label": "Wait for Popup",
+                "actionType": "waitForElement",
+                "params": {
+                    "selector": ".PopupBoxLogin",
+                    "timeout": 15000
+                }
+            }
+        },
+        {
+            "id": "dismiss-popup",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 600
+            },
+            "data": {
+                "label": "Dismiss Login Popup",
+                "actionType": "click",
+                "params": {
+                    "selector": "#MainContent_btnOkay"
+                }
+            }
+        },
+        {
+            "id": "nav-task-register",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 700
+            },
+            "data": {
+                "label": "Navigate to Task Register",
+                "actionType": "navigate",
+                "params": {
+                    "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
+                }
+            }
+        },
+        {
+            "id": "wait-page-load",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 800
+            },
+            "data": {
+                "label": "Wait Page Load",
+                "actionType": "wait",
+                "params": {
+                    "duration": 2000
+                }
+            }
+        },
+        {
+            "id": "loop-employees",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 920
+            },
+            "data": {
+                "label": "🔁 For Each Employee",
+                "actionType": "forEach",
+                "params": {
+                    "items": "data.data",
+                    "itemName": "employee"
+                }
+            }
+        },
+        {
+            "id": "reset-flag",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 1040
+            },
+            "data": {
+                "label": "Reset Failure Flag",
+                "actionType": "setVariable",
+                "params": {
+                    "variable": "metadata.employeeInputFailed",
+                    "value": false
+                }
+            }
+        },
+        {
+            "id": "recovery-check",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 1140
+            },
+            "data": {
+                "label": "Recovery: Check Page",
+                "actionType": "checkPageAndNavigate",
+                "params": {}
+            }
+        },
+        {
+            "id": "log-employee",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 1240
+            },
+            "data": {
+                "label": "Log Employee",
+                "actionType": "log",
+                "params": {
+                    "message": "Processing: ${employee.EmployeeName} (${employee.PTRJEmployeeID})"
+                }
+            }
+        },
+        {
+            "id": "loop-attendance",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 1360
+            },
+            "data": {
+                "label": "🔁 For Each Attendance Date",
+                "actionType": "forEachProperty",
+                "params": {
+                    "object": "employee.Attendance",
+                    "keyName": "date",
+                    "valueName": "attendance"
+                }
+            }
+        },
+        {
+            "id": "check-regular",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 1480
+            },
+            "data": {
+                "label": "🔀 Has Regular Hours?",
+                "actionType": "if",
+                "params": {
+                    "condition": "!metadata?.employeeInputFailed && attendance?.status"
+                }
+            }
+        },
+        {
+            "id": "format-date-reg",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 1600
+            },
+            "data": {
+                "label": "Format Date",
+                "actionType": "formatDate",
+                "params": {
+                    "date": "${attendance.date}",
+                    "saveTo": "formattedDate"
+                }
+            }
+        },
+        {
+            "id": "input-doc-date",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 1700
+            },
+            "data": {
+                "label": "Input Doc Date",
+                "actionType": "type",
+                "params": {
+                    "selector": "#MainContent_txtDocDate",
+                    "value": "${formattedDate}"
+                }
+            }
+        },
+        {
+            "id": "input-trx-date",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 1800
+            },
+            "data": {
+                "label": "Input Trx Date",
+                "actionType": "type",
+                "params": {
+                    "selector": "#MainContent_txtTrxDate",
+                    "value": "${formattedDate}"
+                }
+            }
+        },
+        {
+            "id": "confirm-date",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 1900
+            },
+            "data": {
+                "label": "Confirm Date (Enter)",
+                "actionType": "pressKey",
+                "params": {
+                    "key": "Enter"
+                }
+            }
+        },
+        {
+            "id": "wait-postback-date",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 2000
+            },
+            "data": {
+                "label": "Wait PostBack",
+                "actionType": "wait",
+                "params": {
+                    "duration": 1500
+                }
+            }
+        },
+        {
+            "id": "input-employee",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 2100
+            },
+            "data": {
+                "label": "Input Employee ID",
+                "actionType": "retryInputWithValidation",
+                "params": {
+                    "selector": ".ui-autocomplete-input.CBOBox",
+                    "index": 0,
+                    "value": "${employee.PTRJEmployeeID}",
+                    "validationSelector": "#MainContent_ddlEmployee_RFV",
+                    "maxRetries": 5
+                }
+            }
+        },
+        {
+            "id": "wait-employee-load",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 2200
+            },
+            "data": {
+                "label": "Wait Employee Load",
+                "actionType": "waitForElement",
+                "params": {
+                    "selector": "#MainContent_ddlShift",
+                    "timeout": 10000
+                }
+            }
+        },
+        {
+            "id": "parse-charge-job",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 2300
+            },
+            "data": {
+                "label": "Parse ChargeJob",
+                "actionType": "parseChargeJob",
+                "params": {
+                    "chargeJob": "${employee.ChargeJob}"
+                }
+            }
+        },
+        {
+            "id": "input-task-code",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 2400
+            },
+            "data": {
+                "label": "Input Task Code",
+                "actionType": "retryInputWithValidation",
+                "params": {
+                    "selector": ".ui-autocomplete-input.CBOBox",
+                    "index": 1,
+                    "value": "${chargeJobPart1Clean}",
+                    "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                    "maxRetries": 5
+                }
+            }
+        },
+        {
+            "id": "wait-task-code",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 2500
+            },
+            "data": {
+                "label": "Wait Task Code PostBack",
+                "actionType": "wait",
+                "params": {
+                    "duration": 3000
+                }
+            }
+        },
+        {
+            "id": "input-account-code",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 2600
+            },
+            "data": {
+                "label": "Input Account Code",
+                "actionType": "retryInputWithValidation",
+                "params": {
+                    "selector": ".ui-autocomplete-input.CBOBox",
+                    "index": 2,
+                    "value": "${chargeJobPart2}",
+                    "validationSelector": "#MainContent_ddlAccountCode_RFV",
+                    "maxRetries": 5
+                }
+            }
+        },
+        {
+            "id": "input-sub-block",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 2700
+            },
+            "data": {
+                "label": "Input Sub Block",
+                "actionType": "retryInputWithValidation",
+                "params": {
+                    "selector": ".ui-autocomplete-input.CBOBox",
+                    "index": 3,
+                    "value": "${chargeJobPart3}",
+                    "validationSelector": "#MainContent_ddlSubBlock_RFV",
+                    "maxRetries": 5
+                }
+            }
+        },
+        {
+            "id": "input-regular-hours",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 2800
+            },
+            "data": {
+                "label": "Input Regular Hours (7.0)",
+                "actionType": "type",
+                "params": {
+                    "selector": "#MainContent_txtHours",
+                    "value": "7.0"
+                }
+            }
+        },
+        {
+            "id": "click-add-regular",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 2900
+            },
+            "data": {
+                "label": "Click Add",
+                "actionType": "click",
+                "params": {
+                    "selector": "#MainContent_btnAdd"
+                }
+            }
+        },
+        {
+            "id": "validate-regular",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 3000
+            },
+            "data": {
+                "label": "Validate Regular",
+                "actionType": "validateText",
+                "params": {
+                    "selector": "#MainContent_lblTotalNormalHour",
+                    "minLength": 1,
+                    "throwOnFail": false
+                }
+            }
+        },
+        {
+            "id": "log-regular-ok",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 3100
+            },
+            "data": {
+                "label": "Log Regular Success",
+                "actionType": "logValidation",
+                "params": {
+                    "inputType": "REGULAR",
+                    "status": "SUCCESS"
+                }
+            }
+        },
+        {
+            "id": "check-overtime",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 3220
+            },
+            "data": {
+                "label": "🔀 Has Overtime?",
+                "actionType": "if",
+                "params": {
+                    "condition": "attendance?.overtimeHours && !metadata?.employeeInputFailed"
+                }
+            }
+        },
+        {
+            "id": "format-date-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 3340
+            },
+            "data": {
+                "label": "Format Date (OT)",
+                "actionType": "formatDate",
+                "params": {
+                    "date": "${attendance.date}",
+                    "saveTo": "formattedDateOT"
+                }
+            }
+        },
+        {
+            "id": "input-doc-date-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 3440
+            },
+            "data": {
+                "label": "Input Doc Date (OT)",
+                "actionType": "type",
+                "params": {
+                    "selector": "#MainContent_txtDocDate",
+                    "value": "${formattedDateOT}"
+                }
+            }
+        },
+        {
+            "id": "input-trx-date-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 3540
+            },
+            "data": {
+                "label": "Input Trx Date (OT)",
+                "actionType": "type",
+                "params": {
+                    "selector": "#MainContent_txtTrxDate",
+                    "value": "${formattedDateOT}"
+                }
+            }
+        },
+        {
+            "id": "confirm-date-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 3640
+            },
+            "data": {
+                "label": "Confirm Date (OT)",
+                "actionType": "pressKey",
+                "params": {
+                    "key": "Enter"
+                }
+            }
+        },
+        {
+            "id": "wait-postback-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 3740
+            },
+            "data": {
+                "label": "Wait PostBack (OT)",
+                "actionType": "wait",
+                "params": {
+                    "duration": 500
+                }
+            }
+        },
+        {
+            "id": "input-employee-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 3840
+            },
+            "data": {
+                "label": "Input Employee (OT)",
+                "actionType": "retryInputWithValidation",
+                "params": {
+                    "selector": ".ui-autocomplete-input.CBOBox",
+                    "index": 0,
+                    "value": "${employee.PTRJEmployeeID}",
+                    "validationSelector": "#MainContent_ddlEmployee_RFV",
+                    "maxRetries": 5
+                }
+            }
+        },
+        {
+            "id": "wait-employee-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 3940
+            },
+            "data": {
+                "label": "Wait Employee (OT)",
+                "actionType": "waitForElement",
+                "params": {
+                    "selector": "#MainContent_ddlShift",
+                    "timeout": 10000
+                }
+            }
+        },
+        {
+            "id": "click-overtime-radio",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 4040
+            },
+            "data": {
+                "label": "Select Overtime Radio",
+                "actionType": "click",
+                "params": {
+                    "selector": "#MainContent_rblOT_1"
+                }
+            }
+        },
+        {
+            "id": "wait-radio-postback",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 4140
+            },
+            "data": {
+                "label": "Wait Radio PostBack",
+                "actionType": "wait",
+                "params": {
+                    "duration": 5000
+                }
+            }
+        },
+        {
+            "id": "parse-charge-job-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 4240
+            },
+            "data": {
+                "label": "Parse ChargeJob (OT)",
+                "actionType": "parseChargeJob",
+                "params": {
+                    "chargeJob": "${employee.ChargeJob}"
+                }
+            }
+        },
+        {
+            "id": "input-task-code-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 4340
+            },
+            "data": {
+                "label": "Input Task Code (OT)",
+                "actionType": "retryInputWithValidation",
+                "params": {
+                    "selector": ".ui-autocomplete-input.CBOBox",
+                    "index": 1,
+                    "value": "${chargeJobPart1Clean}",
+                    "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                    "maxRetries": 5
+                }
+            }
+        },
+        {
+            "id": "input-account-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 4440
+            },
+            "data": {
+                "label": "Input Account (OT)",
+                "actionType": "retryInputWithValidation",
+                "params": {
+                    "selector": ".ui-autocomplete-input.CBOBox",
+                    "index": 2,
+                    "value": "${chargeJobPart2}",
+                    "validationSelector": "#MainContent_ddlAccountCode_RFV",
+                    "maxRetries": 5
+                }
+            }
+        },
+        {
+            "id": "input-sub-block-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 4540
+            },
+            "data": {
+                "label": "Input Sub Block (OT)",
+                "actionType": "retryInputWithValidation",
+                "params": {
+                    "selector": ".ui-autocomplete-input.CBOBox",
+                    "index": 3,
+                    "value": "${chargeJobPart3}",
+                    "validationSelector": "#MainContent_ddlSubBlock_RFV",
+                    "maxRetries": 5
+                }
+            }
+        },
+        {
+            "id": "input-ot-hours",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 4640
+            },
+            "data": {
+                "label": "Input OT Hours",
+                "actionType": "type",
+                "params": {
+                    "selector": "#MainContent_txtHours",
+                    "value": "${attendance.overtimeHours}"
+                }
+            }
+        },
+        {
+            "id": "click-add-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 4740
+            },
+            "data": {
+                "label": "Click Add (OT)",
+                "actionType": "click",
+                "params": {
+                    "selector": "#MainContent_btnAdd"
+                }
+            }
+        },
+        {
+            "id": "validate-ot",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 4840
+            },
+            "data": {
+                "label": "Validate OT",
+                "actionType": "validateText",
+                "params": {
+                    "selector": "#MainContent_lblTotalOTHour",
+                    "minLength": 1,
+                    "throwOnFail": false
+                }
+            }
+        },
+        {
+            "id": "log-ot-ok",
+            "type": "actionNode",
+            "position": {
+                "x": 200,
+                "y": 4940
+            },
+            "data": {
+                "label": "Log OT Success",
+                "actionType": "logValidation",
+                "params": {
+                    "inputType": "OVERTIME",
+                    "status": "SUCCESS"
+                }
+            }
+        },
+        {
+            "id": "log-done",
+            "type": "actionNode",
+            "position": {
+                "x": 400,
+                "y": 5100
+            },
+            "data": {
+                "label": "✅ All Done",
+                "actionType": "log",
+                "params": {
+                    "message": "✅ Selesai memproses semua data absensi"
+                }
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "e-start-nav",
+            "source": "start",
+            "target": "nav-login",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-nav-user",
+            "source": "nav-login",
+            "target": "input-username",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-user-pass",
+            "source": "input-username",
+            "target": "input-password",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-pass-login",
+            "source": "input-password",
+            "target": "click-login",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-login-wait",
+            "source": "click-login",
+            "target": "wait-login",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-wait-dismiss",
+            "source": "wait-login",
+            "target": "dismiss-popup",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-dismiss-nav2",
+            "source": "dismiss-popup",
+            "target": "nav-task-register",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-nav2-wait2",
+            "source": "nav-task-register",
+            "target": "wait-page-load",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-wait2-loop",
+            "source": "wait-page-load",
+            "target": "loop-employees",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-loop-reset",
+            "source": "loop-employees",
+            "target": "reset-flag",
+            "type": "smoothstep",
+            "label": "each employee"
+        },
+        {
+            "id": "e-reset-recovery",
+            "source": "reset-flag",
+            "target": "recovery-check",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-recovery-log",
+            "source": "recovery-check",
+            "target": "log-employee",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-log-loop2",
+            "source": "log-employee",
+            "target": "loop-attendance",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-loop2-check",
+            "source": "loop-attendance",
+            "target": "check-regular",
+            "type": "smoothstep",
+            "label": "each date"
+        },
+        {
+            "id": "e-check-then",
+            "source": "check-regular",
+            "target": "format-date-reg",
+            "type": "smoothstep",
+            "label": "TRUE"
+        },
+        {
+            "id": "e-fmt-doc",
+            "source": "format-date-reg",
+            "target": "input-doc-date",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-doc-trx",
+            "source": "input-doc-date",
+            "target": "input-trx-date",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-trx-confirm",
+            "source": "input-trx-date",
+            "target": "confirm-date",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-confirm-wait",
+            "source": "confirm-date",
+            "target": "wait-postback-date",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-wait-emp",
+            "source": "wait-postback-date",
+            "target": "input-employee",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-emp-waitload",
+            "source": "input-employee",
+            "target": "wait-employee-load",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-waitload-parse",
+            "source": "wait-employee-load",
+            "target": "parse-charge-job",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-parse-task",
+            "source": "parse-charge-job",
+            "target": "input-task-code",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-task-wait",
+            "source": "input-task-code",
+            "target": "wait-task-code",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-waittask-acct",
+            "source": "wait-task-code",
+            "target": "input-account-code",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-acct-sub",
+            "source": "input-account-code",
+            "target": "input-sub-block",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-sub-hours",
+            "source": "input-sub-block",
+            "target": "input-regular-hours",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-hours-add",
+            "source": "input-regular-hours",
+            "target": "click-add-regular",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-add-validate",
+            "source": "click-add-regular",
+            "target": "validate-regular",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-validate-log",
+            "source": "validate-regular",
+            "target": "log-regular-ok",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-regular-ot-check",
+            "source": "log-regular-ok",
+            "target": "check-overtime",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-ot-check-then",
+            "source": "check-overtime",
+            "target": "format-date-ot",
+            "type": "smoothstep",
+            "label": "TRUE"
+        },
+        {
+            "id": "e-fmtot-doc",
+            "source": "format-date-ot",
+            "target": "input-doc-date-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-doc-trx-ot",
+            "source": "input-doc-date-ot",
+            "target": "input-trx-date-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-trx-confirm-ot",
+            "source": "input-trx-date-ot",
+            "target": "confirm-date-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-confirm-wait-ot",
+            "source": "confirm-date-ot",
+            "target": "wait-postback-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-wait-emp-ot",
+            "source": "wait-postback-ot",
+            "target": "input-employee-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-emp-wait-ot",
+            "source": "input-employee-ot",
+            "target": "wait-employee-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-wait-radio",
+            "source": "wait-employee-ot",
+            "target": "click-overtime-radio",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-radio-waitpb",
+            "source": "click-overtime-radio",
+            "target": "wait-radio-postback",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-waitpb-parse",
+            "source": "wait-radio-postback",
+            "target": "parse-charge-job-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-parse-task-ot",
+            "source": "parse-charge-job-ot",
+            "target": "input-task-code-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-task-acct-ot",
+            "source": "input-task-code-ot",
+            "target": "input-account-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-acct-sub-ot",
+            "source": "input-account-ot",
+            "target": "input-sub-block-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-sub-hours-ot",
+            "source": "input-sub-block-ot",
+            "target": "input-ot-hours",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-hours-add-ot",
+            "source": "input-ot-hours",
+            "target": "click-add-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-add-validate-ot",
+            "source": "click-add-ot",
+            "target": "validate-ot",
+            "type": "smoothstep"
+        },
+        {
+            "id": "e-validate-log-ot",
+            "source": "validate-ot",
+            "target": "log-ot-ok",
+            "type": "smoothstep"
+        }
+    ],
+    "metadata": {
+        "version": 1,
+        "createdAt": 1740000000000,
+        "updatedAt": 1740000000000,
+        "tags": [
+            "millware",
+            "attendance",
+            "absensi",
+            "regular",
+            "overtime"
+        ]
+    }
+}

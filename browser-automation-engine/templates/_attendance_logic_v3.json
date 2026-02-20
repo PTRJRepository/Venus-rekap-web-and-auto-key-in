@@ -1,0 +1,1097 @@
+{
+  "name": "Attendance Logic Sub-Routine",
+  "description": "Extracted logic for attendance input loop",
+  "steps": [
+    {
+      "action": "forEachProperty",
+      "params": {
+        "object": "employee.Attendance",
+        "keyName": "date",
+        "valueName": "attendance",
+        "steps": [
+          {
+            "action": "log",
+            "params": {
+              "message": "  Date: ${date} | Status: ${attendance.status} | Regular: ${attendance.regularHours} | OT: ${attendance.overtimeHours}"
+            }
+          },
+          {
+            "comment": "Skip ALFA (tidak ada data) dan N/A (data belum tersedia). Annual Leave akan diproses terpisah.",
+            "action": "log",
+            "params": {
+              "message": "  → Checking: status=${attendance.status}, isAnnualLeave=${attendance.isAnnualLeave}"
+            }
+          },
+          {
+            "comment": "Skip ALFA dan N/A",
+            "action": "if",
+            "params": {
+              "condition": "(attendance.status || '').toUpperCase() === 'ALFA' || attendance.status === 'N/A'",
+              "thenSteps": [
+                {
+                  "action": "log",
+                  "params": {
+                    "message": "    ⏭️ SKIP: ${attendance.status} - no data in database"
+                  }
+                }
+              ],
+              "elseSteps": [
+                {
+                  "comment": "Process ANNUAL LEAVE",
+                  "action": "if",
+                  "params": {
+                    "condition": "attendance.isAnnualLeave === true && !attendance.checkIn",
+                    "thenSteps": [
+                      {
+                        "action": "log",
+                        "params": {
+                          "message": "    → Input ANNUAL LEAVE: ${attendance.status} (${attendance.leaveDescription})"
+                        }
+                      },
+                      {
+                        "action": "waitForElement",
+                        "params": {
+                          "selector": ".ui-autocomplete-input.CBOBox",
+                          "timeout": 10000
+                        }
+                      },
+                      {
+                        "action": "wait",
+                        "params": {
+                          "duration": 1000
+                        }
+                      },
+                      {
+                        "action": "formatDate",
+                        "params": {
+                          "date": "${attendance.date}",
+                          "saveTo": "formattedDateLeave"
+                        }
+                      },
+                      {
+                        "comment": "═══ INPUT DOC DATE (PERTAMA - ANNUAL LEAVE) ═══",
+                        "action": "typeInput",
+                        "params": {
+                          "selector": "#MainContent_txtDocDate",
+                          "value": "${formattedDateLeave}"
+                        }
+                      },
+                      {
+                        "action": "wait",
+                        "params": {
+                          "duration": 500
+                        }
+                      },
+                      {
+                        "comment": "═══ INPUT TRANSACTION DATE (KEDUA - ANNUAL LEAVE) ═══",
+                        "action": "typeInput",
+                        "params": {
+                          "selector": "#MainContent_txtTrxDate",
+                          "value": "${formattedDateLeave}"
+                        }
+                      },
+                      {
+                        "action": "wait",
+                        "params": {
+                          "duration": 500
+                        }
+                      },
+                      {
+                        "action": "pressKey",
+                        "params": {
+                          "key": "ArrowDown"
+                        }
+                      },
+                      {
+                        "action": "wait",
+                        "params": {
+                          "duration": 200
+                        }
+                      },
+                      {
+                        "action": "pressKey",
+                        "params": {
+                          "key": "Enter"
+                        }
+                      },
+                      {
+                        "action": "wait",
+                        "params": {
+                          "duration": 500
+                        }
+                      },
+                      {
+                        "action": "retryInputWithValidation",
+                        "params": {
+                          "selector": ".ui-autocomplete-input.CBOBox",
+                          "index": 0,
+                          "value": "${employee.PTRJEmployeeID}",
+                          "validationSelector": "#MainContent_ddlEmployee_RFV",
+                          "maxRetries": 1,
+                          "formReentryFields": []
+                        }
+                      },
+                      {
+                        "action": "wait",
+                        "params": {
+                          "duration": 2000
+                        }
+                      },
+                      {
+                        "action": "checkEmployeeInputSuccess",
+                        "params": {
+                          "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
+                          "timeout": 2000
+                        }
+                      },
+                      {
+                        "action": "if",
+                        "params": {
+                          "condition": "!context.employeeInputFailed",
+                          "thenSteps": [
+                            {
+                              "action": "waitForElement",
+                              "params": {
+                                "selector": "#MainContent_ddlShift",
+                                "timeout": 10000
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 500
+                              }
+                            },
+                            {
+                              "comment": "═══ ANNUAL LEAVE TASK CODE - OPTIMIZED ═══",
+                              "action": "retryInputWithValidation",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "index": 1,
+                                "value": "(GA9130) PERSONNEL ANNUAL LEAVE",
+                                "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                                "maxRetries": 1,
+                                "forceInput": true,
+                                "checkIfAlreadyFilled": false
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 1000
+                              }
+                            },
+                            {
+                              "action": "typeInput",
+                              "params": {
+                                "selector": "#MainContent_txtHours",
+                                "value": "${attendance.regularHours}"
+                              }
+                            },
+                            {
+                              "comment": "IMPORTANT: Skip Enter key - it causes implicit ASP.NET postback which leads to double submission",
+                              "action": "log",
+                              "params": {
+                                "message": "  ⏭️  Skipping Enter key - will click Add button directly to prevent double submission"
+                              }
+                            },
+                            {
+                              "comment": "🛡️ VALIDATION: Check if Regular radio is still selected before submitting",
+                              "action": "checkElementState",
+                              "params": {
+                                "selector": "#MainContent_rblOT_0",
+                                "saveTo": "valRegState"
+                              }
+                            },
+                            {
+                              "action": "if",
+                              "params": {
+                                "condition": "valRegState.checked === true",
+                                "thenSteps": [
+                                  {
+                                    "action": "clickAndWaitForReload",
+                                    "params": {
+                                      "selector": "#MainContent_btnAdd",
+                                      "timeout": 15000
+                                    }
+                                  }
+                                ],
+                                "elseSteps": [
+                                  {
+                                    "action": "log",
+                                    "params": {
+                                      "message": "🛑 CRITICAL ERROR: Regular radio not checked after input! Aborting entry."
+                                    }
+                                  },
+                                  {
+                                    "action": "reloadPage",
+                                    "params": {}
+                                  },
+                                  {
+                                    "action": "wait",
+                                    "params": {
+                                      "duration": 5000
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "action": "checkPageAndNavigate",
+                              "params": {}
+                            },
+                            {
+                              "action": "waitForReady",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "timeout": 10000
+                              }
+                            },
+                            {
+                              "action": "validateText",
+                              "params": {
+                                "selector": "#MainContent_lblTotalNormalHour",
+                                "minLength": 1,
+                                "throwOnFail": false
+                              }
+                            }
+                          ],
+                          "elseSteps": [
+                            {
+                              "action": "log",
+                              "params": {
+                                "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} failed"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "elseSteps": [
+                      {
+                        "comment": "Process SICK LEAVE",
+                        "action": "if",
+                        "params": {
+                          "condition": "attendance.isSickLeave === true && !attendance.checkIn",
+                          "thenSteps": [
+                            {
+                              "action": "log",
+                              "params": {
+                                "message": "    → Input SICK LEAVE: ${attendance.status} (${attendance.leaveDescription})"
+                              }
+                            },
+                            {
+                              "action": "waitForElement",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "timeout": 10000
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 1000
+                              }
+                            },
+                            {
+                              "action": "formatDate",
+                              "params": {
+                                "date": "${attendance.date}",
+                                "saveTo": "formattedDateLeave"
+                              }
+                            },
+                            {
+                              "comment": "═══ INPUT DOC DATE (PERTAMA - SICK LEAVE) ═══",
+                              "action": "typeInput",
+                              "params": {
+                                "selector": "#MainContent_txtDocDate",
+                                "value": "${formattedDateLeave}"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 500
+                              }
+                            },
+                            {
+                              "comment": "═══ INPUT TRANSACTION DATE (KEDUA - SICK LEAVE) ═══",
+                              "action": "typeInput",
+                              "params": {
+                                "selector": "#MainContent_txtTrxDate",
+                                "value": "${formattedDateLeave}"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 500
+                              }
+                            },
+                            {
+                              "action": "pressKey",
+                              "params": {
+                                "key": "ArrowDown"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 200
+                              }
+                            },
+                            {
+                              "action": "pressKey",
+                              "params": {
+                                "key": "Enter"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 500
+                              }
+                            },
+                            {
+                              "action": "retryInputWithValidation",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "index": 0,
+                                "value": "${employee.PTRJEmployeeID}",
+                                "validationSelector": "#MainContent_ddlEmployee_RFV",
+                                "maxRetries": 1,
+                                "formReentryFields": []
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 2000
+                              }
+                            },
+                            {
+                              "action": "checkEmployeeInputSuccess",
+                              "params": {
+                                "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
+                                "timeout": 2000
+                              }
+                            },
+                            {
+                              "action": "if",
+                              "params": {
+                                "condition": "!context.employeeInputFailed",
+                                "thenSteps": [
+                                  {
+                                    "action": "waitForElement",
+                                    "params": {
+                                      "selector": "#MainContent_ddlShift",
+                                      "timeout": 10000
+                                    }
+                                  },
+                                  {
+                                    "action": "wait",
+                                    "params": {
+                                      "duration": 500
+                                    }
+                                  },
+                                  {
+                                    "comment": "═══ SICK LEAVE TASK CODE - OPTIMIZED ═══",
+                                    "action": "retryInputWithValidation",
+                                    "params": {
+                                      "selector": ".ui-autocomplete-input.CBOBox",
+                                      "index": 1,
+                                      "value": "(GA9127) (AL) PERSONNEL SICK LEAVE",
+                                      "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                                      "maxRetries": 1,
+                                      "forceInput": true,
+                                      "checkIfAlreadyFilled": false
+                                    }
+                                  },
+                                  {
+                                    "action": "wait",
+                                    "params": {
+                                      "duration": 1000
+                                    }
+                                  },
+                                  {
+                                    "action": "typeInput",
+                                    "params": {
+                                      "selector": "#MainContent_txtHours",
+                                      "value": "${attendance.regularHours}"
+                                    }
+                                  },
+                                  {
+                                    "comment": "IMPORTANT: Skip Enter key - it causes implicit ASP.NET postback which leads to double submission",
+                                    "action": "log",
+                                    "params": {
+                                      "message": "  ⏭️  Skipping Enter key - will click Add button directly to prevent double submission"
+                                    }
+                                  },
+                                  {
+                                    "comment": "🛡️ VALIDATION: Check if Regular radio is still selected before submitting",
+                                    "action": "checkElementState",
+                                    "params": {
+                                      "selector": "#MainContent_rblOT_0",
+                                      "saveTo": "valRegState"
+                                    }
+                                  },
+                                  {
+                                    "action": "if",
+                                    "params": {
+                                      "condition": "valRegState.checked === true",
+                                      "thenSteps": [
+                                        {
+                                          "action": "clickAndWaitForReload",
+                                          "params": {
+                                            "selector": "#MainContent_btnAdd",
+                                            "timeout": 15000
+                                          }
+                                        }
+                                      ],
+                                      "elseSteps": [
+                                        {
+                                          "action": "log",
+                                          "params": {
+                                            "message": "🛑 CRITICAL ERROR: Regular radio not checked after input! Aborting entry."
+                                          }
+                                        },
+                                        {
+                                          "action": "reloadPage",
+                                          "params": {}
+                                        },
+                                        {
+                                          "action": "wait",
+                                          "params": {
+                                            "duration": 5000
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "action": "checkPageAndNavigate",
+                                    "params": {}
+                                  },
+                                  {
+                                    "action": "waitForReady",
+                                    "params": {
+                                      "selector": ".ui-autocomplete-input.CBOBox",
+                                      "timeout": 10000
+                                    }
+                                  },
+                                  {
+                                    "action": "validateText",
+                                    "params": {
+                                      "selector": "#MainContent_lblTotalNormalHour",
+                                      "minLength": 1,
+                                      "throwOnFail": false
+                                    }
+                                  }
+                                ],
+                                "elseSteps": [
+                                  {
+                                    "action": "log",
+                                    "params": {
+                                      "message": "    ⏭️ SKIP: Employee ${employee.PTRJEmployeeID} failed"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "comment": "Input REGULAR if not Mode Only Overtime",
+                        "action": "if",
+                        "params": {
+                          "condition": "attendance.status && !metadata.onlyOvertime && !attendance.skipRegular && (!attendance.isSickLeave || attendance.checkIn)",
+                          "thenSteps": [
+                            {
+                              "action": "log",
+                              "params": {
+                                "message": "    → Input REGULAR (status: ${attendance.status})"
+                              }
+                            },
+                            {
+                              "action": "log",
+                              "params": {
+                                "message": "    ⏳ Waiting for form to be ready..."
+                              }
+                            },
+                            {
+                              "action": "waitForElement",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "timeout": 10000
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 1000
+                              }
+                            },
+                            {
+                              "action": "formatDate",
+                              "params": {
+                                "date": "${attendance.date}",
+                                "saveTo": "formattedDate"
+                              }
+                            },
+                            {
+                              "comment": "═══ INPUT DOC DATE (PERTAMA - REGULAR JS) ═══",
+                              "action": "executeJavascript",
+                              "params": {
+                                "script": "const docDateField = document.querySelector('#MainContent_txtDocDate'); if(docDateField) { docDateField.value = '${formattedDate}'; docDateField.dispatchEvent(new Event('change', { bubbles: true })); }",
+                                "saveTo": "docDateSetResult"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 500
+                              }
+                            },
+                            {
+                              "comment": "═══ INPUT TRANSACTION DATE (KEDUA - REGULAR JS) ═══",
+                              "action": "executeJavascript",
+                              "params": {
+                                "script": "const dateField = document.querySelector('#MainContent_txtTrxDate'); if(dateField) { dateField.value = '${formattedDate}'; dateField.dispatchEvent(new Event('change', { bubbles: true })); }",
+                                "saveTo": "dateSetResult"
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 5000
+                              }
+                            },
+                            {
+                              "action": "waitForReady",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "timeout": 15000
+                              }
+                            },
+                            {
+                              "action": "retryInputWithValidation",
+                              "params": {
+                                "selector": ".ui-autocomplete-input.CBOBox",
+                                "index": 0,
+                                "value": "${employee.PTRJEmployeeID}",
+                                "validationSelector": "#MainContent_ddlEmployee_RFV",
+                                "maxRetries": 1,
+                                "formReentryFields": []
+                              }
+                            },
+                            {
+                              "action": "wait",
+                              "params": {
+                                "duration": 2000
+                              }
+                            },
+                            {
+                              "action": "checkEmployeeInputSuccess",
+                              "params": {
+                                "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
+                                "timeout": 2000
+                              }
+                            },
+                            {
+                              "action": "if",
+                              "params": {
+                                "condition": "!context.employeeInputFailed",
+                                "thenSteps": [
+                                  {
+                                    "action": "waitForElement",
+                                    "params": {
+                                      "selector": "#MainContent_ddlShift",
+                                      "timeout": 10000
+                                    }
+                                  },
+                                  {
+                                    "action": "wait",
+                                    "params": {
+                                      "duration": 500
+                                    }
+                                  },
+                                  {
+                                    "comment": "═══ TRANSACTION TYPE CONTROL: Ensure 'Normal' is selected ═══",
+                                    "action": "click",
+                                    "params": {
+                                      "selector": "#MainContent_rblOT_0"
+                                    }
+                                  },
+                                  {
+                                    "action": "wait",
+                                    "params": {
+                                      "duration": 2000
+                                    }
+                                  },
+                                  {
+                                    "action": "checkElementState",
+                                    "params": {
+                                      "selector": "#MainContent_rblOT_0",
+                                      "saveTo": "normalRadioState"
+                                    }
+                                  },
+                                  {
+                                    "action": "log",
+                                    "params": {
+                                      "message": "  📊 Normal Radio State: Exists=${normalRadioState.exists}, Disabled=${normalRadioState.disabled}, Checked=${normalRadioState.checked}, Value=${normalRadioState.value}"
+                                    }
+                                  },
+                                  {
+                                    "comment": "SKIP Logic: Explicit boolean check is REQUIRED to prevent string truthy bug",
+                                    "action": "if",
+                                    "params": {
+                                      "condition": "normalRadioState.disabled === false",
+                                      "thenSteps": [
+                                        {
+                                          "action": "checkElementState",
+                                          "params": {
+                                            "selector": ".ui-autocomplete-input.CBOBox",
+                                            "index": 1,
+                                            "saveTo": "taskCodeState"
+                                          }
+                                        },
+                                        {
+                                          "action": "if",
+                                          "params": {
+                                            "condition": "taskCodeState.disabled === false",
+                                            "thenSteps": [
+                                              {
+                                                "action": "include",
+                                                "params": {
+                                                  "template": "_charge_job_full"
+                                                },
+                                                "comment": "═══ CHARGE JOB INPUT (extracted) ═══"
+                                              },
+                                              {
+                                                "action": "log",
+                                                "params": {
+                                                  "message": "  Skipping Hour Input for Regular as requested."
+                                                }
+                                              },
+                                              {
+                                                "comment": "IMPORTANT: Skip Enter key - it causes implicit ASP.NET postback which leads to double submission",
+                                                "action": "log",
+                                                "params": {
+                                                  "message": "  ⏭️  Skipping Enter key - will click Add button directly to prevent double submission"
+                                                }
+                                              },
+                                              {
+                                                "comment": "🛡️ VALIDATION: Strict Transaction Type Check (Regular=Regular)",
+                                                "action": "checkElementState",
+                                                "params": {
+                                                  "selector": "#MainContent_rblOT_0",
+                                                  "saveTo": "valRegState"
+                                                }
+                                              },
+                                              {
+                                                "action": "if",
+                                                "params": {
+                                                  "condition": "valRegState.checked === true",
+                                                  "thenSteps": [
+                                                    {
+                                                      "action": "clickAndWaitForReload",
+                                                      "params": {
+                                                        "selector": "#MainContent_btnAdd",
+                                                        "timeout": 15000
+                                                      }
+                                                    }
+                                                  ],
+                                                  "elseSteps": [
+                                                    {
+                                                      "action": "log",
+                                                      "params": {
+                                                        "message": "🛑 CRITICAL ERROR: Attempted to add Regular Hours but Transaction Type is NOT Regular! Aborting entry."
+                                                      }
+                                                    },
+                                                    {
+                                                      "action": "reloadPage",
+                                                      "params": {}
+                                                    },
+                                                    {
+                                                      "action": "wait",
+                                                      "params": {
+                                                        "duration": 5000
+                                                      }
+                                                    }
+                                                  ]
+                                                }
+                                              },
+                                              {
+                                                "action": "checkPageAndNavigate",
+                                                "params": {}
+                                              },
+                                              {
+                                                "action": "waitForReady",
+                                                "params": {
+                                                  "selector": ".ui-autocomplete-input.CBOBox",
+                                                  "timeout": 10000
+                                                }
+                                              },
+                                              {
+                                                "action": "validateText",
+                                                "params": {
+                                                  "selector": "#MainContent_lblTotalNormalHour",
+                                                  "minLength": 1,
+                                                  "throwOnFail": false
+                                                }
+                                              }
+                                            ],
+                                            "elseSteps": [
+                                              {
+                                                "action": "log",
+                                                "params": {
+                                                  "message": "  ⚠️ SKIPPING Task Code: Field is DISABLED (Data likely exists)."
+                                                }
+                                              },
+                                              {
+                                                "action": "navigate",
+                                                "params": {
+                                                  "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
+                                                }
+                                              },
+                                              {
+                                                "action": "wait",
+                                                "params": {
+                                                  "duration": 2000
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      ],
+                                      "elseSteps": [
+                                        {
+                                          "action": "log",
+                                          "params": {
+                                            "message": "  ⚠️ SKIPPING Normal: Transaction Type 'Normal' is DISABLED/LOCKED. Data likely already exists or is locked."
+                                          }
+                                        },
+                                        {
+                                          "comment": "Ensure we don't proceed to type into a wrong form state. Refresh to clear.",
+                                          "action": "navigate",
+                                          "params": {
+                                            "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
+                                          }
+                                        },
+                                        {
+                                          "action": "wait",
+                                          "params": {
+                                            "duration": 3000
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ],
+                                "elseSteps": [
+                                  {
+                                    "action": "log",
+                                    "params": {
+                                      "message": "    ⏭️ SKIP: Employee failed"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "elseSteps": [
+                            {
+                              "comment": "Mode: OVERTIME ONLY (skip if syncRegularOnly is true)",
+                              "action": "if",
+                              "params": {
+                                "condition": "!metadata.syncRegularOnly && attendance.overtimeHours && attendance.overtimeHours > 0 && !attendance.skipOvertime",
+                                "thenSteps": [
+                                  {
+                                    "action": "log",
+                                    "params": {
+                                      "message": "    → Processing OVERTIME ONLY: ${attendance.overtimeHours}h"
+                                    }
+                                  },
+                                  {
+                                    "action": "formatDate",
+                                    "params": {
+                                      "date": "${attendance.date}",
+                                      "saveTo": "formattedDateOT"
+                                    }
+                                  },
+                                  {
+                                    "comment": "═══ INPUT DOC DATE (PERTAMA - OVERTIME ONLY) ═══",
+                                    "action": "typeInput",
+                                    "params": {
+                                      "selector": "#MainContent_txtDocDate",
+                                      "value": "${formattedDateOT}"
+                                    }
+                                  },
+                                  {
+                                    "action": "wait",
+                                    "params": {
+                                      "duration": 500
+                                    }
+                                  },
+                                  {
+                                    "comment": "═══ INPUT TRANSACTION DATE (KEDUA - OVERTIME ONLY) ═══",
+                                    "action": "typeInput",
+                                    "params": {
+                                      "selector": "#MainContent_txtTrxDate",
+                                      "value": "${formattedDateOT}"
+                                    }
+                                  },
+                                  {
+                                    "action": "wait",
+                                    "params": {
+                                      "duration": 500
+                                    }
+                                  },
+                                  {
+                                    "action": "pressKey",
+                                    "params": {
+                                      "key": "Enter"
+                                    }
+                                  },
+                                  {
+                                    "action": "wait",
+                                    "params": {
+                                      "duration": 5000
+                                    }
+                                  },
+                                  {
+                                    "action": "retryInputWithValidation",
+                                    "params": {
+                                      "selector": ".ui-autocomplete-input.CBOBox",
+                                      "index": 0,
+                                      "value": "${employee.PTRJEmployeeID}",
+                                      "validationSelector": "#MainContent_ddlEmployee_RFV",
+                                      "maxRetries": 1,
+                                      "formReentryFields": []
+                                    }
+                                  },
+                                  {
+                                    "action": "wait",
+                                    "params": {
+                                      "duration": 2000
+                                    }
+                                  },
+                                  {
+                                    "action": "checkEmployeeInputSuccess",
+                                    "params": {
+                                      "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
+                                      "timeout": 2000
+                                    }
+                                  },
+                                  {
+                                    "action": "if",
+                                    "params": {
+                                      "condition": "!context.employeeInputFailed",
+                                      "thenSteps": [
+                                        {
+                                          "action": "waitForElement",
+                                          "params": {
+                                            "selector": "#MainContent_ddlShift",
+                                            "timeout": 10000
+                                          }
+                                        },
+                                        {
+                                          "action": "wait",
+                                          "params": {
+                                            "duration": 500
+                                          }
+                                        },
+                                        {
+                                          "comment": "═══ TRANSACTION TYPE CONTROL: Ensure 'Overtime' is selected ═══",
+                                          "action": "click",
+                                          "params": {
+                                            "selector": "#MainContent_rblOT_0"
+                                          }
+                                        },
+                                        {
+                                          "action": "wait",
+                                          "params": {
+                                            "duration": 5000
+                                          }
+                                        },
+                                        {
+                                          "action": "log",
+                                          "params": {
+                                            "message": "  Debug: After clicking #MainContent_rblOT_0"
+                                          }
+                                        },
+                                        {
+                                          "action": "checkElementState",
+                                          "params": {
+                                            "selector": "#MainContent_rblOT_1",
+                                            "saveTo": "otRadioState"
+                                          }
+                                        },
+                                        {
+                                          "action": "log",
+                                          "params": {
+                                            "message": "  📊 Overtime Radio State: Exists=${otRadioState.exists}, Disabled=${otRadioState.disabled}, Checked=${otRadioState.checked}"
+                                          }
+                                        },
+                                        {
+                                          "comment": "SKIP Logic: Explicit boolean check is REQUIRED",
+                                          "action": "if",
+                                          "params": {
+                                            "condition": "otRadioState.disabled === false",
+                                            "thenSteps": [
+                                              {
+                                                "action": "waitForReady",
+                                                "params": {
+                                                  "selector": ".ui-autocomplete-input.CBOBox",
+                                                  "timeout": 15000
+                                                }
+                                              },
+                                              {
+                                                "action": "include",
+                                                "params": {
+                                                  "template": "_charge_job_full"
+                                                },
+                                                "comment": "═══ CHARGE JOB INPUT (extracted) ═══"
+                                              },
+                                              {
+                                                "action": "typeInput",
+                                                "params": {
+                                                  "selector": "#MainContent_txtHours",
+                                                  "value": "${attendance.overtimeHours}"
+                                                }
+                                              },
+                                              {
+                                                "comment": "IMPORTANT: Skip Enter key - it causes implicit ASP.NET postback which leads to double submission",
+                                                "action": "log",
+                                                "params": {
+                                                  "message": "  ⏭️  Skipping Enter key - will click Add button directly to prevent double submission"
+                                                }
+                                              },
+                                              {
+                                                "comment": "🛡️ VALIDATION: Strict Transaction Type Check (Overtime=Overtime)",
+                                                "action": "checkElementState",
+                                                "params": {
+                                                  "selector": "#MainContent_rblOT_1",
+                                                  "saveTo": "valOtState"
+                                                }
+                                              },
+                                              {
+                                                "action": "if",
+                                                "params": {
+                                                  "condition": "valOtState.checked === true",
+                                                  "thenSteps": [
+                                                    {
+                                                      "action": "clickAndWaitForReload",
+                                                      "params": {
+                                                        "selector": "#MainContent_btnAdd",
+                                                        "timeout": 15000
+                                                      }
+                                                    }
+                                                  ],
+                                                  "elseSteps": [
+                                                    {
+                                                      "action": "log",
+                                                      "params": {
+                                                        "message": "🛑 CRITICAL ERROR: Attempted to add Overtime Hours but Transaction Type is NOT Overtime! Aborting entry."
+                                                      }
+                                                    },
+                                                    {
+                                                      "action": "reloadPage",
+                                                      "params": {}
+                                                    },
+                                                    {
+                                                      "action": "wait",
+                                                      "params": {
+                                                        "duration": 5000
+                                                      }
+                                                    }
+                                                  ]
+                                                }
+                                              },
+                                              {
+                                                "action": "checkPageAndNavigate",
+                                                "params": {}
+                                              },
+                                              {
+                                                "action": "waitForReady",
+                                                "params": {
+                                                  "selector": ".ui-autocomplete-input.CBOBox",
+                                                  "timeout": 10000
+                                                }
+                                              },
+                                              {
+                                                "action": "validateText",
+                                                "params": {
+                                                  "selector": "#MainContent_lblTotalOTHour",
+                                                  "minLength": 1,
+                                                  "throwOnFail": false
+                                                }
+                                              }
+                                            ],
+                                            "elseSteps": [
+                                              {
+                                                "action": "log",
+                                                "params": {
+                                                  "message": "  ⚠️ SKIPPING Overtime: Transaction Type 'Overtime' is DISABLED/LOCKED."
+                                                }
+                                              },
+                                              {
+                                                "action": "navigate",
+                                                "params": {
+                                                  "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
+                                                }
+                                              },
+                                              {
+                                                "action": "wait",
+                                                "params": {
+                                                  "duration": 2000
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      ],
+                                      "elseSteps": [
+                                        {
+                                          "action": "if",
+                                          "params": {
+                                            "condition": "metadata.syncRegularOnly === true",
+                                            "thenSteps": [
+                                              {
+                                                "action": "log",
+                                                "params": {
+                                                  "message": "    ⏭️ SKIP Overtime: Mode is 'Regular Only' - skipping overtime processing"
+                                                }
+                                              }
+                                            ],
+                                            "elseSteps": [
+                                              {
+                                                "action": "log",
+                                                "params": {
+                                                  "message": "    ⏭️ SKIP: Employee failed"
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+#root {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left; /* Changed from center */
+}
+
+/* Remove default card styling that might interfere with MUI */
+.card {
+  padding: 0;
+}
