@@ -225,42 +225,64 @@ const FlowEditor: React.FC = () => {
             };
 
             addLog('info', `🎥 Recorded: ${event.type} ${event.url || event.selector || ''}`);
+            console.log('[FlowEditor] Recording event:', event.type, event.url || event.selector);
 
-            // Use a functional update to ensure we have the latest nodes
+            // FIX: Find the last non-navigate node to connect to (or use start-1 as fallback)
             setNodes((prevNodes) => {
-                const lastNode = prevNodes[prevNodes.length - 1];
+                // Find last node that is NOT a navigate node (to avoid chaining navigates)
+                let lastNode = prevNodes.slice().reverse().find(n => n.data?.actionType !== 'navigate');
+                
+                // Fallback to start node if no suitable node found
+                if (!lastNode) {
+                    lastNode = prevNodes.find(n => n.id === 'start-1') || prevNodes[prevNodes.length - 1];
+                }
+                
                 const lastY = lastNode ? lastNode.position.y : 50;
+                console.log('[FlowEditor] Last node for connection:', lastNode?.id, lastNode?.data?.actionType);
 
                 // For 'navigate', we don't need a validation node before it
                 if (event.type === 'navigate') {
                     const navNodeId = uuidv4();
+                    const url = event.params?.url || event.url;
+                    
+                    if (!url) {
+                        console.error('[FlowEditor] Navigate event missing URL!', event);
+                        addLog('error', '❌ Navigate event missing URL');
+                        return prevNodes; // Don't add node without URL
+                    }
+                    
                     const navNode: Node = {
                         id: navNodeId,
                         type: 'actionNode',
                         position: { x: 300, y: lastY + 100 },
                         data: {
-                            label: event.label || `Navigate to ${event.url}`,
+                            label: event.label || `Navigate to ${url}`,
                             actionType: 'navigate',
-                            params: { url: event.params?.url || event.url },
+                            params: { url: url },
                             executionStatus: 'idle'
                         }
                     };
 
-                    // Update edges in a separate state update to avoid race conditions
-                    setTimeout(() => {
-                        setEdges((prevEdges) => {
-                            if (!lastNode) return prevEdges;
-                            // Avoid duplicate edges
-                            const edgeExists = prevEdges.some(e => e.source === lastNode.id && e.target === navNodeId);
-                            if (edgeExists) return prevEdges;
-                            return [...prevEdges, {
-                                id: uuidv4(),
-                                source: lastNode.id,
-                                target: navNodeId,
-                                type: 'smoothstep'
-                            }];
-                        });
-                    }, 0);
+                    // FIX: Create edge immediately with the correct source
+                    const sourceId = lastNode?.id || 'start-1';
+                    console.log('[FlowEditor] Creating edge from', sourceId, 'to', navNodeId);
+                    
+                    setEdges((prevEdges) => {
+                        // Avoid duplicate edges
+                        const edgeExists = prevEdges.some(e => e.source === sourceId && e.target === navNodeId);
+                        if (edgeExists) {
+                            console.log('[FlowEditor] Edge already exists, skipping');
+                            return prevEdges;
+                        }
+                        const newEdge = {
+                            id: uuidv4(),
+                            source: sourceId,
+                            target: navNodeId,
+                            type: 'smoothstep' as const
+                        };
+                        console.log('[FlowEditor] Edge created:', newEdge);
+                        return [...prevEdges, newEdge];
+                    });
 
                     return [...prevNodes, navNode];
                 }
