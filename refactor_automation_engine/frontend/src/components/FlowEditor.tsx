@@ -165,6 +165,9 @@ const FlowEditor: React.FC = () => {
     
     // FIX: Add ref for tracking last recorded event to prevent duplicates
     const lastRecordedEventRef = useRef<{ type: string; selector?: string; url?: string; timestamp: number } | null>(null);
+    
+    // FIX: Track the last created node ID to maintain linear chain during recording
+    const lastCreatedNodeIdRef = useRef<string>('start-1');
 
     const [state, setState] = useState<FlowEditorState>({
         flowName: 'Untitled Flow',
@@ -227,20 +230,14 @@ const FlowEditor: React.FC = () => {
             addLog('info', `🎥 Recorded: ${event.type} ${event.url || event.selector || ''}`);
             console.log('[FlowEditor] Recording event:', event.type, event.url || event.selector);
 
-            // FIX: Find the last non-navigate node to connect to (or use start-1 as fallback)
+            // FIX: Use ref to track last created node for linear chain
             setNodes((prevNodes) => {
-                // Find last node that is NOT a navigate node (to avoid chaining navigates)
-                let lastNode = prevNodes.slice().reverse().find(n => n.data?.actionType !== 'navigate');
-                
-                // Fallback to start node if no suitable node found
-                if (!lastNode) {
-                    lastNode = prevNodes.find(n => n.id === 'start-1') || prevNodes[prevNodes.length - 1];
-                }
-                
-                const lastY = lastNode ? lastNode.position.y : 50;
-                console.log('[FlowEditor] Last node for connection:', lastNode?.id, lastNode?.data?.actionType);
+                const sourceId = lastCreatedNodeIdRef.current;
+                const sourceNode = prevNodes.find(n => n.id === sourceId);
+                const lastY = sourceNode ? sourceNode.position.y : 50;
+                console.log('[FlowEditor] Source node for connection:', sourceId);
 
-                // For 'navigate', we don't need a validation node before it
+                // For 'navigate', create single node
                 if (event.type === 'navigate') {
                     const navNodeId = uuidv4();
                     const url = event.params?.url || event.url;
@@ -248,7 +245,7 @@ const FlowEditor: React.FC = () => {
                     if (!url) {
                         console.error('[FlowEditor] Navigate event missing URL!', event);
                         addLog('error', '❌ Navigate event missing URL');
-                        return prevNodes; // Don't add node without URL
+                        return prevNodes;
                     }
                     
                     const navNode: Node = {
@@ -263,17 +260,10 @@ const FlowEditor: React.FC = () => {
                         }
                     };
 
-                    // FIX: Create edge immediately with the correct source
-                    const sourceId = lastNode?.id || 'start-1';
-                    console.log('[FlowEditor] Creating edge from', sourceId, 'to', navNodeId);
-                    
+                    // Create edge from source to navigate
                     setEdges((prevEdges) => {
-                        // Avoid duplicate edges
                         const edgeExists = prevEdges.some(e => e.source === sourceId && e.target === navNodeId);
-                        if (edgeExists) {
-                            console.log('[FlowEditor] Edge already exists, skipping');
-                            return prevEdges;
-                        }
+                        if (edgeExists) return prevEdges;
                         const newEdge = {
                             id: uuidv4(),
                             source: sourceId,
@@ -284,11 +274,13 @@ const FlowEditor: React.FC = () => {
                         return [...prevEdges, newEdge];
                     });
 
+                    // Update ref to point to this new node
+                    lastCreatedNodeIdRef.current = navNodeId;
                     return [...prevNodes, navNode];
                 }
 
-                // For other actions, create validation + action
-                // 1. Create Wait For Element (Validation) node
+                // For other actions, create wait + action pair
+                // 1. Create Wait For Element node
                 const waitNodeId = uuidv4();
                 const waitNode: Node = {
                     id: waitNodeId,
@@ -320,34 +312,34 @@ const FlowEditor: React.FC = () => {
                     }
                 };
 
-                // Add edges after nodes are added (using setTimeout to avoid race conditions)
-                setTimeout(() => {
-                    setEdges((prevEdges) => {
-                        const newEdges = [...prevEdges];
-                        if (lastNode) {
-                            const edgeExists = prevEdges.some(e => e.source === lastNode.id && e.target === waitNodeId);
-                            if (!edgeExists) {
-                                newEdges.push({
-                                    id: uuidv4(),
-                                    source: lastNode.id,
-                                    target: waitNodeId,
-                                    type: 'smoothstep'
-                                });
-                            }
-                        }
-                        const waitToActionExists = prevEdges.some(e => e.source === waitNodeId && e.target === actionNodeId);
-                        if (!waitToActionExists) {
-                            newEdges.push({
-                                id: uuidv4(),
-                                source: waitNodeId,
-                                target: actionNodeId,
-                                type: 'smoothstep'
-                            });
-                        }
-                        return newEdges;
-                    });
-                }, 0);
+                // Create edges: source -> wait -> action
+                setEdges((prevEdges) => {
+                    const edge1Exists = prevEdges.some(e => e.source === sourceId && e.target === waitNodeId);
+                    const edge2Exists = prevEdges.some(e => e.source === waitNodeId && e.target === actionNodeId);
+                    
+                    let newEdges = [...prevEdges];
+                    if (!edge1Exists) {
+                        newEdges.push({
+                            id: uuidv4(),
+                            source: sourceId,
+                            target: waitNodeId,
+                            type: 'smoothstep' as const
+                        });
+                    }
+                    if (!edge2Exists) {
+                        newEdges.push({
+                            id: uuidv4(),
+                            source: waitNodeId,
+                            target: actionNodeId,
+                            type: 'smoothstep' as const
+                        });
+                    }
+                    console.log('[FlowEditor] Edges created for action:', sourceId, '->', waitNodeId, '->', actionNodeId);
+                    return newEdges;
+                });
 
+                // Update ref to point to the action node (end of chain)
+                lastCreatedNodeIdRef.current = actionNodeId;
                 return [...prevNodes, waitNode, actionNode];
             });
         });
@@ -428,6 +420,7 @@ const FlowEditor: React.FC = () => {
         setNodes(initialNodes);
         setEdges(initialEdges);
         setSelectedNode(null);
+        lastCreatedNodeIdRef.current = 'start-1';
         addLog('info', '🗑️ Canvas cleared');
     }, [setNodes, setEdges]);
 
@@ -604,6 +597,8 @@ const FlowEditor: React.FC = () => {
         if (socketRef.current?.connected) {
             socketRef.current.emit('record:start', { url });
             setState(prev => ({ ...prev, isRecording: true, showRecordModal: false }));
+            // FIX: Reset chain tracker when starting new recording
+            lastCreatedNodeIdRef.current = 'start-1';
             addLog('info', `🔴 Recording started on: ${url}`);
         }
     }, []);
