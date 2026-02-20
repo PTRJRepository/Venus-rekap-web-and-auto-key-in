@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback } from 'react';
 import { ACTION_DEFINITIONS } from './Sidebar';
 import { Node } from '@xyflow/react';
 
@@ -17,9 +17,6 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ node, onUpdate, onClo
     const actionDef = ACTION_DEFINITIONS.find(a => a.type === actionType);
     const params = nodeData.params || {};
 
-    // Use refs to track input values independently from React state
-    // This prevents the "last character only" issue
-    const inputRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({});
 
     // Stable handler that directly updates node data
     const handleParamChange = useCallback((key: string, value: any) => {

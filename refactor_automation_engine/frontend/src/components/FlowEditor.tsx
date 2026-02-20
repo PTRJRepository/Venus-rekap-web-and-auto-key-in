@@ -8,7 +8,6 @@ import {
     Controls,
     Background,
     MiniMap,
-    Connection,
     Edge,
     Node,
     useReactFlow,
@@ -158,7 +157,6 @@ const FlowCanvas: React.FC<any> = ({
 };
 
 const FlowEditor: React.FC = () => {
-    const reactFlowWrapper = useRef<HTMLDivElement>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
