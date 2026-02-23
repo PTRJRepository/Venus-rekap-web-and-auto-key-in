@@ -89,7 +89,15 @@ if (!month || !year || isNaN(month) || isNaN(year)) {
                 Attendance: Object.fromEntries(
                     Object.values(emp.attendance)
                         .filter(a => a.status !== 'OFF' && a.status !== 'N/A' && a.status !== 'ALFA')
-                        .map(a => [a.date, a])
+                        .map(a => {
+                            let overrideJob = undefined;
+                            if (a.status.toUpperCase() === 'SAKIT' || a.isSickLeave) {
+                                overrideJob = 'personal sick leave';
+                            } else if (a.status.toUpperCase() === 'IZIN' || a.isAnnualLeave) {
+                                overrideJob = 'personal annual leave';
+                            }
+                            return [a.date, { ...a, ChargeJob: overrideJob }];
+                        })
                 )
             }))
         };

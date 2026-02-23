@@ -133,7 +133,7 @@
                         "params": {
                             "selector": ".ui-autocomplete-input.CBOBox",
                             "index": 1,
-                            "value": "${leaveType === 'annual' ? '(GA9130) PERSONNEL ANNUAL LEAVE' : '(GA9127) (AL) PERSONNEL SICK LEAVE'}",
+                            "value": "${leaveType === 'annual' ? 'personal anuall leave' : 'personal sick leave'}",
                             "validationSelector": "#MainContent_ddlTaskCode_RFV",
                             "maxRetries": 1,
                             "forceInput": true,

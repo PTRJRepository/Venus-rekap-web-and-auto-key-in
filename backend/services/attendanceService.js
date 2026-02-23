@@ -18,7 +18,7 @@ const WORK_HOURS = {
 // --- Leave Type Configuration ---
 // Leave types that should use task code "(GA9130) PERSONNEL ANNUAL LEAVE" in Millware
 // Excludes Sakit (Sick) and Haid (Menstrual) which have their own handling
-const ANNUAL_LEAVE_TYPES = ['CT', 'MELAHIRKAN', 'P1', 'ANNUAL LEAVE'];
+const ANNUAL_LEAVE_TYPES = ['CT', 'MELAHIRKAN', 'P1', 'ANNUAL LEAVE', 'IZIN'];
 const ANNUAL_LEAVE_TASK_CODE = '(GA9130) PERSONNEL ANNUAL LEAVE';
 
 // Leave types that should use task code "(GA9130) SICK LEAVE" (or similar)
@@ -491,7 +491,7 @@ const fetchAttendanceData = async (month, year) => {
                 if (isSun) {
                     // Sunday = Auto Hadir with OFF display
                     status = 'Hadir';  // Counts as HK
-                    regularHours = 0;  // No regular hours on Sunday
+                    regularHours = WORK_HOURS.NORMAL;  // Input regular hours on Sunday too
                     display = 'OFF';
                     cssClass = 'hours-off';
                     if (otHours > 0) {
