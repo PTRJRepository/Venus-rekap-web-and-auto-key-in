@@ -131,7 +131,7 @@
                         "params": {
                             "selector": ".ui-autocomplete-input.CBOBox",
                             "index": 1,
-                            "value": "${leaveType === 'annual' ? 'personal anuall leave' : 'personal sick leave'}",
+                            "value": "${leaveType === 'annual' ? 'PERSONNEL ANNUAL LEAVE' : 'PERSONNEL SICK LEAVE'}",
                             "validationSelector": "#MainContent_ddlTaskCode_RFV",
                             "maxRetries": 1,
                             "forceInput": true,
