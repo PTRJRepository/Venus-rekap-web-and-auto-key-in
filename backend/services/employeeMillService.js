@@ -164,7 +164,7 @@ const updateEmployee = async (venusEmployeeId, updates) => {
 
     const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8001';
     const API_TOKEN = process.env.API_TOKEN_QUERY;
-    const FINAL_URL = GATEWAY_URL.includes('/query') ? `${GATEWAY_URL}/v1/query` : `${GATEWAY_URL}/v1/query`;
+    const FINAL_URL = GATEWAY_URL.endsWith('/query') ? GATEWAY_URL.replace(/\/query$/, '/v1/query') : (GATEWAY_URL.includes('/query') ? GATEWAY_URL.replace('/query', '/v1/query') : `${GATEWAY_URL}/v1/query`);
 
     try {
         const response = await axios.post(FINAL_URL, {
@@ -220,7 +220,7 @@ const insertEmployee = async (employeeData) => {
 
     const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8001';
     const API_TOKEN = process.env.API_TOKEN_QUERY;
-    const FINAL_URL = GATEWAY_URL.includes('/query') ? `${GATEWAY_URL}/v1/query` : `${GATEWAY_URL}/v1/query`;
+    const FINAL_URL = GATEWAY_URL.endsWith('/query') ? GATEWAY_URL.replace(/\/query$/, '/v1/query') : (GATEWAY_URL.includes('/query') ? GATEWAY_URL.replace('/query', '/v1/query') : `${GATEWAY_URL}/v1/query`);
 
     try {
         const response = await axios.post(FINAL_URL, {

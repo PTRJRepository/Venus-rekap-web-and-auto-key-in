@@ -6,10 +6,75 @@
     },
     "steps": [
         {
-            "comment": "═══ LOG: Processing Mode ═══",
+            "comment": "═══ SET VARIABLES BASED ON MODE ═══",
+            "action": "if",
+            "params": {
+                "condition": "inputMode === 'reguler'",
+                "thenSteps": [
+                    {
+                        "action": "setContext",
+                        "params": {
+                            "key": "radioSelector",
+                            "value": "#MainContent_rblOT_0"
+                        }
+                    },
+                    {
+                        "action": "setContext",
+                        "params": {
+                            "key": "hoursValue",
+                            "valueSource": "attendance.regularHours"
+                        }
+                    },
+                    {
+                        "action": "setContext",
+                        "params": {
+                            "key": "totalHoursSelector",
+                            "value": "#MainContent_lblTotalNormalHour"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  📌 Mode: REGULAR - Radio: #MainContent_rblOT_0"
+                        }
+                    }
+                ],
+                "elseSteps": [
+                    {
+                        "action": "setContext",
+                        "params": {
+                            "key": "radioSelector",
+                            "value": "#MainContent_rblOT_1"
+                        }
+                    },
+                    {
+                        "action": "setContext",
+                        "params": {
+                            "key": "hoursValue",
+                            "valueSource": "attendance.overtimeHours"
+                        }
+                    },
+                    {
+                        "action": "setContext",
+                        "params": {
+                            "key": "totalHoursSelector",
+                            "value": "#MainContent_lblTotalOTHour"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  📌 Mode: OVERTIME - Radio: #MainContent_rblOT_1"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "comment": "═══ LOG: Processing ═══",
             "action": "log",
             "params": {
-                "message": "    → Processing ${inputMode.toUpperCase()}: Date=${attendance.date}, Hours=${inputMode === 'reguler' ? attendance.regularHours : attendance.overtimeHours}"
+                "message": "    → Processing ${inputMode.toUpperCase()}: Date=${attendance.date}, Hours=${hoursValue}"
             }
         },
         {
@@ -107,16 +172,10 @@
                         }
                     },
                     {
-                        "comment": "═══ SELECT RADIO BUTTON (REGULER/OVERTIME) ═══",
-                        "action": "log",
-                        "params": {
-                            "message": "  📌 Selecting: ${inputMode === 'reguler' ? 'Normal (#rblOT_0)' : 'Overtime (#rblOT_1)'}"
-                        }
-                    },
-                    {
+                        "comment": "═══ SELECT RADIO BUTTON ═══",
                         "action": "click",
                         "params": {
-                            "selector": "${inputMode === 'reguler' ? '#MainContent_rblOT_0' : '#MainContent_rblOT_1'}"
+                            "selector": "${radioSelector}"
                         }
                     },
                     {
@@ -129,7 +188,7 @@
                         "comment": "═══ VERIFY RADIO BUTTON SELECTED ═══",
                         "action": "checkElementState",
                         "params": {
-                            "selector": "${inputMode === 'reguler' ? '#MainContent_rblOT_0' : '#MainContent_rblOT_1'}",
+                            "selector": "${radioSelector}",
                             "saveTo": "radioState"
                         }
                     },
@@ -163,7 +222,7 @@
                                     "action": "typeInput",
                                     "params": {
                                         "selector": "#MainContent_txtHours",
-                                        "value": "${inputMode === 'reguler' ? attendance.regularHours : attendance.overtimeHours}"
+                                        "value": "${hoursValue}"
                                     }
                                 },
                                 {
@@ -189,7 +248,7 @@
                                     "comment": "═══ VALIDATE TOTAL HOURS ═══",
                                     "action": "validateText",
                                     "params": {
-                                        "selector": "${inputMode === 'reguler' ? '#MainContent_lblTotalNormalHour' : '#MainContent_lblTotalOTHour'}",
+                                        "selector": "${totalHoursSelector}",
                                         "minLength": 1,
                                         "throwOnFail": false
                                     }

@@ -1,0 +1,178 @@
+{
+  "name": "Attendance Logic v5 - Fixed",
+  "description": "Fixed version - no variable substitution issues",
+  "steps": [
+    {
+      "action": "log",
+      "params": {
+        "message": "═══════════════════════════════════════════════════════════════"
+      }
+    },
+    {
+      "action": "log",
+      "params": {
+        "message": "  Starting attendance processing for ${employee.EmployeeName} (${employee.PTRJEmployeeID})"
+      }
+    },
+    {
+      "action": "log",
+      "params": {
+        "message": "═══════════════════════════════════════════════════════════════"
+      }
+    },
+    {
+      "action": "forEachProperty",
+      "params": {
+        "object": "employee.Attendance",
+        "keyName": "date",
+        "valueName": "attendance",
+        "steps": [
+          {
+            "action": "log",
+            "params": {
+              "message": "  📅 ${date} | Status: ${attendance.status} | Regular: ${attendance.regularHours}h | OT: ${attendance.overtimeHours}h"
+            }
+          },
+          {
+            "comment": "═══ SKIP: ALFA dan N/A ═══",
+            "action": "if",
+            "params": {
+              "condition": "(attendance.status || '').toUpperCase() === 'ALFA' || attendance.status === 'N/A'",
+              "thenSteps": [
+                {
+                  "action": "log",
+                  "params": {
+                    "message": "    ⏭️ SKIP: ${attendance.status}"
+                  }
+                }
+              ],
+              "elseSteps": [
+                {
+                  "comment": "═══ ANNUAL LEAVE ═══",
+                  "action": "if",
+                  "params": {
+                    "condition": "attendance.isAnnualLeave === true && !attendance.checkIn",
+                    "thenSteps": [
+                      {
+                        "action": "include",
+                        "params": {
+                          "template": "_leave_input",
+                          "params": {
+                            "leaveType": "annual"
+                          }
+                        }
+                      }
+                    ],
+                    "elseSteps": [
+                      {
+                        "comment": "═══ SICK LEAVE ═══",
+                        "action": "if",
+                        "params": {
+                          "condition": "attendance.isSickLeave === true",
+                          "thenSteps": [
+                            {
+                              "action": "include",
+                              "params": {
+                                "template": "_leave_input",
+                                "params": {
+                                  "leaveType": "sick"
+                                }
+                              }
+                            }
+                          ],
+                          "elseSteps": [
+                            {
+                              "comment": "═══ REGULAR ATTENDANCE ═══",
+                              "action": "log",
+                              "params": {
+                                "message": "    💼 REGULAR: ${attendance.status} - ChargeJob: ${employee.ChargeJob}"
+                              }
+                            },
+                            {
+                              "comment": "═══ PROCESS REGULAR IF NEEDED ═══",
+                              "action": "if",
+                              "params": {
+                                "condition": "attendance.regularHours > 0 || (attendance.status || '').toUpperCase() === 'HADIR' || (attendance.status || '').toUpperCase() === 'PARTIAL IN'",
+                                "thenSteps": [
+                                  {
+                                    "action": "if",
+                                    "params": {
+                                      "condition": "metadata.onlyOvertime === true",
+                                      "thenSteps": [
+                                        {
+                                          "action": "log",
+                                          "params": {
+                                            "message": "    ⏭️ SKIP REGULAR: onlyOvertime mode"
+                                          }
+                                        }
+                                      ],
+                                      "elseSteps": [
+                                        {
+                                          "action": "include",
+                                          "params": {
+                                            "template": "_core_input",
+                                            "params": {
+                                              "inputMode": "reguler"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "comment": "═══ PROCESS OVERTIME IF EXISTS ═══",
+                              "action": "if",
+                              "params": {
+                                "condition": "attendance.overtimeHours > 0",
+                                "thenSteps": [
+                                  {
+                                    "action": "log",
+                                    "params": {
+                                      "message": "    ⏰ OVERTIME: ${attendance.overtimeHours}h"
+                                    }
+                                  },
+                                  {
+                                    "action": "if",
+                                    "params": {
+                                      "condition": "metadata.syncRegularOnly === true",
+                                      "thenSteps": [
+                                        {
+                                          "action": "log",
+                                          "params": {
+                                            "message": "    ⏭️ SKIP OT: syncRegularOnly mode"
+                                          }
+                                        }
+                                      ],
+                                      "elseSteps": [
+                                        {
+                                          "action": "include",
+                                          "params": {
+                                            "template": "_core_input",
+                                            "params": {
+                                              "inputMode": "overtime"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

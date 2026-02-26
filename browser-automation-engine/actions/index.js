@@ -408,6 +408,38 @@ const actions = {
     },
 
     /**
+     * setContext - Set a value in context with variable substitution support
+     * params.key: the key to set in context (e.g., "radioSelector")
+     * params.value: static value to set
+     * params.valueSource: dot-notation path to get value from context (e.g., "attendance.regularHours")
+     */
+    setContext: async (page, params, context, engine) => {
+        const { key, value, valueSource } = params;
+        
+        if (valueSource) {
+            // Get value from context using dot notation
+            const keys = valueSource.split('.');
+            let val = context;
+            for (const k of keys) {
+                if (val === undefined || val === null) {
+                    console.log(`⚠️ setContext: Cannot access '${valueSource}' - undefined at key '${k}'`);
+                    console.log(`   Available context keys: ${Object.keys(context).join(', ')}`);
+                    val = undefined;
+                    break;
+                }
+                val = val[k];
+            }
+            context[key] = val;
+            console.log(`💾 setContext: ${key} = ${val} (from ${valueSource})`);
+        } else {
+            // Use static value (with variable substitution if needed)
+            const resolvedValue = engine.substituteVariables(value || '', context);
+            context[key] = resolvedValue;
+            console.log(`💾 setContext: ${key} = ${resolvedValue}`);
+        }
+    },
+
+    /**
      * Assert that a specific element has focus before typing
      * Prevents typing into wrong elements in parallel execution
      */

@@ -126,16 +126,39 @@
                         }
                     },
                     {
-                        "comment": "═══ LEAVE TASK CODE - ${leaveType.toUpperCase()} ═══",
-                        "action": "retryInputWithValidation",
+                        "comment": "═══ ANNUAL LEAVE: Use (GA9130) PERSONNEL ANNUAL LEAVE ═══",
+                        "action": "if",
                         "params": {
-                            "selector": ".ui-autocomplete-input.CBOBox",
-                            "index": 1,
-                            "value": "${leaveType === 'annual' ? 'PERSONNEL ANNUAL LEAVE' : 'PERSONNEL SICK LEAVE'}",
-                            "validationSelector": "#MainContent_ddlTaskCode_RFV",
-                            "maxRetries": 1,
-                            "forceInput": true,
-                            "checkIfAlreadyFilled": false
+                            "condition": "leaveType === 'annual'",
+                            "thenSteps": [
+                                {
+                                    "action": "retryInputWithValidation",
+                                    "params": {
+                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                        "index": 1,
+                                        "value": "(GA9130) PERSONNEL ANNUAL LEAVE",
+                                        "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                                        "maxRetries": 1,
+                                        "forceInput": true,
+                                        "checkIfAlreadyFilled": false
+                                    }
+                                }
+                            ],
+                            "elseSteps": [
+                                {
+                                    "comment": "═══ SICK LEAVE: Use (GA9127) (AL) PERSONNEL SICK LEAVE ═══",
+                                    "action": "retryInputWithValidation",
+                                    "params": {
+                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                        "index": 1,
+                                        "value": "(GA9127) (AL) PERSONNEL SICK LEAVE",
+                                        "validationSelector": "#MainContent_ddlTaskCode_RFV",
+                                        "maxRetries": 1,
+                                        "forceInput": true,
+                                        "checkIfAlreadyFilled": false
+                                    }
+                                }
+                            ]
                         }
                     },
                     {

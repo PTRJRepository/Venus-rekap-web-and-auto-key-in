@@ -48,15 +48,8 @@ const queryTaskRegData = async (startDate, endDate, empCodes = null, otFilter = 
 
         const otDesc = otFilter === 0 ? '(Normal)' : otFilter === 1 ? '(Overtime)' : '(All)';
         console.log(`[Comparison] Querying PR_TASKREGLN ${otDesc}: ${startDate} to ${endDate}`);
-        if (empCodes && empCodes.length > 0) {
-            console.log(`[Comparison] Filtered by EmpCodes: ${empCodes.slice(0, 5).join(', ')}...`);
-        }
-        console.log(`[Comparison] SQL: ${sql.substring(0, 300)}...`);
         const result = await executeQuery(sql);
         console.log(`[Comparison] Found ${result.length} records in PR_TASKREGLN ${otDesc}`);
-        if (result.length > 0) {
-            console.log(`[Comparison] Sample records: EmpCode=${result[0].EmpCode}, TrxDate=${result[0].TrxDate}, OT=${result[0].OT}, Hours=${result[0].Hours}`);
-        }
 
         return result;
     } catch (error) {
@@ -100,20 +93,13 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
         millwareMap[key].push(row);
     });
 
-    // DEBUG: Show sample keys from millwareMap
-    const sampleKeys = Object.keys(millwareMap).slice(0, 5);
     console.log(`[Compare] Millware map has ${Object.keys(millwareMap).length} unique date+employee keys`);
-    if (sampleKeys.length > 0) {
-        console.log(`[Compare] Sample keys: ${sampleKeys.join(', ')}`);
-    }
 
     // Compare each Venus record
     const results = [];
-    let synced = 0, notSynced = 0, mismatch = 0;
+    let synced = 0, mismatch = 0;
 
-    // DEBUG: Log input data
     console.log(`[Compare] Processing ${venusData.length} employees, date range: ${startDate} to ${endDate}`);
-    console.log(`[Compare] Options: onlyOvertime=${options.onlyOvertime}, onlyRegular=${options.onlyRegular}, syncRegularOnly=${options.syncRegularOnly}`);
 
     venusData.forEach(emp => {
         const ptrjId = emp.ptrjEmployeeID;
@@ -125,7 +111,6 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
         // Get attendance dates
         const attendance = emp.attendance || {};
         const attendanceDates = Object.keys(attendance);
-        console.log(`[Compare] Employee ${ptrjId} has ${attendanceDates.length} attendance dates: ${attendanceDates.slice(0, 3).join(', ')}...`);
 
         Object.values(attendance).forEach(day => {
             // Skip ALFA / N/A - these shouldn't be synced
@@ -136,21 +121,12 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
             if (!dateStr || dateStr < startDate || dateStr > endDate) return;
 
             const key = `${ptrjId}_${dateStr}`;
-            console.log(`[Compare] Checking ${key}...`);
 
             let status = 'not_synced';
             let details = null;
 
             // Default values if no record found
             let millwareRecords = millwareMap[key] || [];
-
-            // DEBUG: Show if key was found
-            const keyFound = millwareMap.hasOwnProperty(key);
-            console.log(`[Compare] Key "${key}" ${keyFound ? 'FOUND' : 'NOT FOUND'} in millwareMap`);
-            if (!keyFound && Object.keys(millwareMap).length > 0) {
-                const sampleKeys = Object.keys(millwareMap).slice(0, 5);
-                console.log(`[Compare] Sample keys in millwareMap: ${sampleKeys.join(', ')}`);
-            }
 
             // Record found in Millware (or defaulted to empty array)
             // Handle BIT/Boolean type from SQL: Use loose equality or Number()
@@ -167,41 +143,85 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
             let regularMatch = false;
             let otMatch = false;
 
-            // --- SMART EXISTENCE CHECK (LOOSE SYNC V2) ---
+            // --- STRICT HOURS CHECK & EXISTENCE MANDATE ---
+            // CRITICAL: Data MUST exist in Millware to be considered synced.
+            // Even if Venus has 0 hours (Sunday/holiday), we need a record in Millware to mark as synced.
 
-            // 1. Check if we NEED to input data (Venus has data)
-            const needRegular = venusRegular > 0; // Standard shift or manual input
-            const needOT = venusOt > 0;
-
-            // 2. Check if data ALREADY EXISTS in Millware
-            // Use tolerance for hours to catch 'almost zero' or floating point issues
-            // But mainly we assume if a record exists for that type, it's "Synced" (to prevent double input)
+            // 1. Check if data EXISTS in Millware
             const hasRegularRecord = millwareRecords.some(r => r.OT == 0 || r.OT == false);
             const hasOTRecord = millwareRecords.some(r => r.OT == 1 || r.OT == true);
+            const hasAnyRecord = millwareRecords.length > 0;
 
-            // 3. Determine Sync Status
-            // Synced if: (We don't need it) OR (We need it AND distinct record exists)
-            let regularSynced = !needRegular || hasRegularRecord;
-            let otSynced = !needOT || hasOTRecord;
+            // 2. Determine Sync Status
+            // VERY STRICT: Millware MUST have corresponding records to be considered synced.
+            // No data in Millware = NOT SYNCED, regardless of Venus hours value.
+            let regularSynced = false;
+            let otSynced = false;
+
+            // --- REGULAR HOURS CHECK (OT = 0) ---
+            // RULE: All Venus "Hadir" statuses MUST have corresponding record in Millware
+            // This includes: Normal work days, Sunday (OFF), Holiday (LBR), Sick, Annual Leave
+            // All of these are PAID and must be input to Millware with proper TaskCode
+            
+            // ALFA and N/A are the only statuses that don't need input
+            const needsRegularRecord = day.status !== 'ALFA' && day.status !== 'N/A';
+            
+            if (needsRegularRecord) {
+                // Must have OT=0 record in Millware
+                if (hasRegularRecord) {
+                    // Record exists, check if hours match
+                    regularSynced = Math.abs(normalHours - venusRegular) < 0.1;
+                } else {
+                    // No OT=0 record in Millware → NOT SYNCED
+                    regularSynced = false;
+                }
+            } else {
+                // ALFA/N/A - no input needed, consider synced
+                regularSynced = true;
+            }
+
+            // --- OVERTIME HOURS CHECK (OT = 1) ---
+            // RULE: If Venus has OT hours > 0, Millware MUST have OT=1 record with matching hours
+            // If Venus has OT = 0, no OT record needed (unless there's a mismatch to detect)
+            if (venusOt > 0) {
+                // Venus expects OT hours → Millware MUST have OT=1 record
+                if (hasOTRecord) {
+                    // Record exists, check if hours match
+                    otSynced = Math.abs(otHours - venusOt) < 0.1;
+                } else {
+                    // No OT=1 record in Millware but Venus has OT hours → NOT SYNCED
+                    otSynced = false;
+                }
+            } else {
+                // Venus OT = 0 (no overtime)
+                // If Millware has OT record, verify it's also 0 or close
+                // If no record, that's fine - no OT expected
+                otSynced = hasOTRecord
+                    ? Math.abs(otHours - venusOt) < 0.1
+                    : true;
+            }
 
             // --- MODE FILTERING ---
             if (options.onlyOvertime) {
-                regularSynced = true; // Ignore regular mismatch in OT Only mode
+                // In OT-only mode, we only care about OT synchronization
+                regularSynced = true; // Ignore regular
             }
             if (options.onlyRegular) {
-                // ONLY check if regular data EXISTS in database (for overtime pre-check)
-                // Regular is synced ONLY if we have a regular record in DB
-                regularSynced = hasRegularRecord;
-                otSynced = true; // Ignore OT status when checking regular
+                // In Regular-only mode, we only care about regular synchronization
+                otSynced = true; // Ignore OT
             }
             if (options.syncRegularOnly) {
-                otSynced = true; // Ignore OT mismatch in Regular Only mode
+                // When syncing regular only, ignore OT status
+                otSynced = true;
             }
 
-            // Special Case: Sunday/Holiday (Venus might have 0h Regular, but Millware has OT-code as Normal?)
-            // If Venus says 0 Regular, we consider Regular synced (nothing to input).
-
+            // Final sync decision - both regular and OT must be synced (unless filtered by mode)
             isSynced = regularSynced && otSynced;
+
+            // Log mismatches for debugging
+            if (!isSynced) {
+                console.log(`[Compare] ❌ MISS: ${key} | Regular: ${regularSynced ? '✓' : '✗'}, OT: ${otSynced ? '✓' : '✗'} | Venus: ${venusRegular}h+${venusOt}h | Millware: ${normalHours}h+${otHours}h | Records=${millwareRecords.length}`);
+            }
 
             // Set match flags for UI feedback (green checkmarks)
             // Note: We keep the TRUE match status for UI visualization even if filtered out
@@ -300,9 +320,16 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
         });
     });
 
+    // Summary log
+    const total = synced + mismatch;
+    console.log(`[Compare] ═══════════════════════════════════════════════════`);
+    console.log(`[Compare] SUMMARY: Total=${total}, Synced=${synced}, Mismatch=${mismatch}`);
+    console.log(`[Compare] Match Rate: ${total > 0 ? ((synced / total) * 100).toFixed(1) : 0}%`);
+    console.log(`[Compare] ═══════════════════════════════════════════════════`);
+
     return {
         results,
-        summary: { synced, notSynced, mismatch, total: synced + notSynced + mismatch }
+        summary: { synced, mismatch, total, notSynced: mismatch } // notSynced alias for backward compatibility
     };
 };
 
@@ -349,6 +376,7 @@ const getSyncSummaryByEmployee = async (startDate, endDate, empCodes = null) => 
 const formatDateSQL = (date) => {
     if (!date) return null;
     if (typeof date === 'string') {
+        // Already a string, just take first 10 chars (YYYY-MM-DD)
         return date.substring(0, 10);
     }
     return new Date(date).toISOString().split('T')[0];

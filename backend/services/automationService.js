@@ -85,7 +85,9 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
                     isSickLeave: isSickLeave,
                     // Clear leave codes if we forced isAnnualLeave to false (Partial In or Sick)
                     leaveTaskCode: isAnnualLeave ? (data.leaveTaskCode || null) : null,
-                    leaveDescription: isAnnualLeave ? (data.leaveDescription || null) : null
+                    leaveDescription: isAnnualLeave ? (data.leaveDescription || null) : null,
+                    // For Sunday/Holiday, explicitly mark that normal ChargeJob should be used
+                    useNormalChargeJob: (!isAnnualLeave && !isSickLeave) // Regular day, Sunday, or Holiday uses normal ChargeJob
                 };
             });
         }
@@ -208,102 +210,107 @@ const saveAutomationData = async (data) => {
                 // - Overtime (OT=1): Only input if NO OT=1 record exists
 
                 if (onlyOvertime) {
-                    // OT Mode: Only keep if OT is NOT matched AND OT hours > 0 in Venus
+                    // OT Mode: Only keep if OT is MISSING in Millware
                     const venusOT = att.overtimeHours || 0;
                     const millwareOT = att.millwareInfo?.millwareOT || 0;
-                    const hasOTRecord = att.millwareInfo?.records > 0;
-                    const hasRegularRecord = att.millwareInfo?.hasRegularRecord || false;
+                    const hasOTRecord = att.millwareInfo?.hasOTRecord === true;
+                    const hasRegularRecord = att.millwareInfo?.hasRegularRecord === true;
 
                     if (venusOT === 0) {
                         shouldKeep = false;
-                        reason = `Venus OT = 0 (nothing to transfer)`;
+                        reason = `Venus OT = 0 (tidak ada lembur)`;
                     } else if (!hasRegularRecord) {
-                        // NEW RULE: Regular attendance must exist in Millware before overtime can be input
+                        // PREREQUISITE: Regular attendance must exist in Millware before overtime can be input
                         shouldKeep = false;
-                        reason = `⛔ Prerequisites not met: Regular attendance (OT=0) not yet in Millware`;
-                    } else if (att.skipOvertime === true) {
+                        reason = `⛔ Prerequisites not met: Regular attendance (OT=0) belum ada di Millware`;
+                    } else if (hasOTRecord && Math.abs(millwareOT - venusOT) < 0.1) {
+                        // OT record exists and hours match
                         shouldKeep = false;
-                        reason = `OT record exists in Millware (OT=1 record found)`;
-                    } else if (millwareOT > 0) {
-                        // EXPLICIT: Skip if Millware has ANY OT hours
-                        shouldKeep = false;
-                        reason = `Millware has ${millwareOT}h OT (record exists - skip)`;
-                    } else if (att.syncDetail === 'synced') {
-                        shouldKeep = false;
-                        reason = `Already synced in Millware`;
-                    } else {
+                        reason = `OT sudah synced (${millwareOT}h)`;
+                    } else if (!hasOTRecord) {
+                        // No OT=1 record in Millware - NEEDS INPUT
                         shouldKeep = true;
                         reason = `OT MISSING - No OT=1 record in Millware (Venus: ${venusOT}h)`;
+                    } else {
+                        // OT record exists but hours don't match
+                        shouldKeep = true;
+                        reason = `OT MISMATCH - Venus: ${venusOT}h vs Millware: ${millwareOT}h`;
                     }
                 }
                 else if (syncRegularOnly) {
-                    // Regular Mode: Only keep if Regular is NOT matched AND Regular hours > 0 in Venus
+                    // Regular Mode: Only keep if Regular is MISSING in Millware
                     const venusReg = att.regularHours || 0;
                     const millwareReg = att.millwareInfo?.millwareNormal || 0;
-                    const hasRegularRecord = att.millwareInfo?.records > 0;
+                    const hasRegularRecord = att.millwareInfo?.hasRegularRecord === true;
 
-                    // Special cases where 0 hours is still valid (Hadir, Annual Leave, Sick Leave)
-                    const isZeroValid = att.status === 'Hadir' || att.isAnnualLeave || att.isSickLeave;
-
-                    if (!isZeroValid && venusReg === 0) {
+                    // Skip ALFA - no input needed
+                    if (att.status === 'ALFA') {
                         shouldKeep = false;
-                        reason = `Venus Regular = 0 (nothing to transfer)`;
+                        reason = `ALFA - tidak perlu input`;
                     } else if (att.skipRegular === true) {
+                        // Regular already matched in Millware
                         shouldKeep = false;
-                        reason = `Regular record exists in Millware (OT=0 record found)`;
-                    } else if (millwareReg > 0) {
-                        // EXPLICIT: Skip if Millware has ANY Regular hours
-                        shouldKeep = false;
-                        reason = `Millware has ${millwareReg}h Regular (record exists - skip)`;
-                    } else if (att.syncDetail === 'synced') {
-                        shouldKeep = false;
-                        reason = `Already synced in Millware`;
-                    } else {
+                        reason = `Regular record exists in Millware (${millwareReg}h)`;
+                    } else if (!hasRegularRecord) {
+                        // No OT=0 record in Millware - NEEDS INPUT
                         shouldKeep = true;
-                        reason = `Regular MISSING - No OT=0 record in Millware (Venus: ${venusReg}h)`;
+                        reason = `Regular MISSING - No OT=0 record in Millware (Venus: ${venusReg}h, Status: ${att.status})`;
+                    } else if (Math.abs(millwareReg - venusReg) >= 0.1) {
+                        // Record exists but hours don't match
+                        shouldKeep = true;
+                        reason = `Regular MISMATCH - Venus: ${venusReg}h vs Millware: ${millwareReg}h`;
+                    } else {
+                        // Already synced
+                        shouldKeep = false;
+                        reason = `Regular already synced (${millwareReg}h)`;
                     }
                 }
                 else {
                     // All Mismatches Mode: Keep if syncStatus is MISS
-                    // CRITICAL: Only input data that DOESN'T exist at all in Millware
+                    // CRITICAL: Only input data that is MISSING in Millware
                     const venusReg = att.regularHours || 0;
                     const venusOT = att.overtimeHours || 0;
                     const millwareReg = att.millwareInfo?.millwareNormal || 0;
                     const millwareOT = att.millwareInfo?.millwareOT || 0;
+                    const hasRegularRecord = att.millwareInfo?.hasRegularRecord === true;
+                    const hasOTRecord = att.millwareInfo?.hasOTRecord === true;
 
                     // Primary check: syncStatus from comparison service
                     if (att.syncStatus === 'MATCH' || att.syncDetail === 'synced') {
                         shouldKeep = false;
                         reason = `Already synced (MATCH)`;
                     } else if (att.syncStatus === 'MISS') {
-                        // Additional strict checks to ensure truly missing
-                        const regularMissing = att.skipRegular === false && millwareReg === 0;
-                        const otMissing = att.skipOvertime === false && millwareOT === 0;
-                        const needsRegular = venusReg > 0 || att.status === 'Hadir' || att.isAnnualLeave || att.isSickLeave;
-                        const needsOT = venusOT > 0;
+                        // Check what's missing
+                        const regularNeedsInput = !hasRegularRecord && att.status !== 'ALFA';
+                        const otNeedsInput = !hasOTRecord && venusOT > 0;
+                        
+                        // Also check if hours don't match (mismatch case)
+                        const regularMismatch = hasRegularRecord && Math.abs(millwareReg - venusReg) >= 0.1;
+                        const otMismatch = hasOTRecord && Math.abs(millwareOT - venusOT) >= 0.1;
 
-                        if ((needsRegular && regularMissing) || (needsOT && otMissing)) {
+                        if (regularNeedsInput || otNeedsInput || regularMismatch || otMismatch) {
                             shouldKeep = true;
-                            reason = `MISS (Reg:${needsRegular && regularMissing ? 'MISS' : 'OK'}, OT:${needsOT && otMissing ? 'MISS' : 'OK'})`;
+                            const reasons = [];
+                            if (regularNeedsInput) reasons.push('Regular belum diinput');
+                            if (otNeedsInput) reasons.push(`OT ${venusOT}h belum diinput`);
+                            if (regularMismatch) reasons.push(`Regular beda: ${venusReg}h vs ${millwareReg}h`);
+                            if (otMismatch) reasons.push(`OT beda: ${venusOT}h vs ${millwareOT}h`);
+                            reason = `MISS: ${reasons.join(', ')}`;
                         } else {
                             shouldKeep = false;
-                            reason = `No missing data (Reg:${venusReg}h/${millwareReg}h, OT:${venusOT}h/${millwareOT}h)`;
+                            reason = `No missing data`;
                         }
                     } else {
-                        // Fallback: check individual flags with explicit hour checks
-                        const needsRegular = !att.skipRegular && (venusReg > 0 || att.status === 'Hadir' || att.isAnnualLeave || att.isSickLeave);
+                        // Fallback: use skip flags
+                        const needsRegular = !att.skipRegular && att.status !== 'ALFA';
                         const needsOT = !att.skipOvertime && venusOT > 0;
 
-                        // EXPLICIT: Also check if Millware has hours (prevent update scenarios)
-                        const regularAvailable = millwareReg > 0;
-                        const otAvailable = millwareOT > 0;
-
-                        if ((needsRegular && !regularAvailable) || (needsOT && !otAvailable)) {
+                        if (needsRegular || needsOT) {
                             shouldKeep = true;
-                            reason = `Needs sync (Reg:${needsRegular && !regularAvailable ? 'MISS' : 'OK'}, OT:${needsOT && !otAvailable ? 'MISS' : 'OK'})`;
+                            reason = `Needs sync (skipRegular=${att.skipRegular}, skipOvertime=${att.skipOvertime})`;
                         } else {
                             shouldKeep = false;
-                            reason = `No missing data (Reg:${venusReg}h/${millwareReg}h, OT:${venusOT}h/${millwareOT}h)`;
+                            reason = `Already synced (flags)`;
                         }
                     }
                 }
@@ -350,6 +357,15 @@ const saveAutomationData = async (data) => {
         },
         data: transformedData
     };
+
+    // Log ChargeJob info for debugging
+    transformedData.forEach(emp => {
+        if (emp.ChargeJob) {
+            console.log(`[Automation] Employee ${emp.PTRJEmployeeID} (${emp.EmployeeName}): ChargeJob="${emp.ChargeJob}"`);
+        } else {
+            console.log(`[Automation] ⚠️ Employee ${emp.PTRJEmployeeID} (${emp.EmployeeName}): NO ChargeJob!`);
+        }
+    });
 
     console.log(`[Automation] Saving ${transformedData.length} employees${onlyOvertime ? ' (ONLY OVERTIME mode)' : ''}`);
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));

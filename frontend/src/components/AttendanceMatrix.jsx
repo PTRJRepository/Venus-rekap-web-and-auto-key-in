@@ -65,9 +65,8 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
     };
 
     // Get sync status for a cell (compareMode)
-    // Simple comparison: if Venus shows "Hadir" and record exists in Millware for that date = SYNCED
-    // Get sync status for a cell (compareMode)
-    const getSyncStatus = (ptrjId, dateStr, venusStatus, venusOtHours = 0) => {
+    // Separate modes: PRESENCE (Regular/OT=0) vs OVERTIME (OT=1)
+    const getSyncStatus = (ptrjId, dateStr, venusStatus, venusRegularHours = 0, venusOtHours = 0) => {
         if (!compareMode || compareMode === 'off' || !comparisonData || !ptrjId || ptrjId === 'N/A') {
             return null;
         }
@@ -75,54 +74,74 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
         const key = `${ptrjId}_${dateStr}`;
         const millwareRecord = comparisonData[key];
 
-        // --- PRESENCE MODE (OT=0) ---
-        if (compareMode === 'presence') {
-            // Skip non-working statuses
-            const skipStatuses = ['ALFA', 'OFF', 'N/A'];
-            if (skipStatuses.includes(venusStatus?.toUpperCase())) {
-                return null;
-            }
-
-            if (!millwareRecord) {
-                return {
-                    status: 'not_synced',
-                    icon: <SyncDisabledIcon sx={{ fontSize: 10, color: '#dc2626' }} />,
-                    tooltip: `❌ Belum absen (Normal) di Millware`
-                };
-            }
-            return {
-                status: 'synced',
-                icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
-                tooltip: `✓ Tersinkron (${millwareRecord.hours}h Normal)`
-            };
+        // Skip ALFA and N/A - these don't need input
+        const skipStatuses = ['ALFA', 'N/A'];
+        if (skipStatuses.includes(venusStatus?.toUpperCase())) {
+            return null;
         }
 
-        // --- OVERTIME MODE (OT=1) ---
-        if (compareMode === 'overtime') {
-            // Only check if there is OT in Venus
-            if (venusOtHours <= 0) return null;
-
-            if (!millwareRecord) {
+        // === PRESENCE MODE (Regular/OT=0) ===
+        if (compareMode === 'presence') {
+            // All statuses except ALFA need input (Sunday/Holiday/Sick/Annual are PAID)
+            if (!millwareRecord || !millwareRecord.hasRegularRecord) {
+                // No regular record in Millware → MISS (RED)
                 return {
                     status: 'not_synced',
                     icon: <SyncDisabledIcon sx={{ fontSize: 10, color: '#dc2626' }} />,
-                    tooltip: `❌ Lembur ${venusOtHours}h belum masuk Millware`
+                    tooltip: `❌ Regular belum diinput (Venus: ${venusRegularHours}h)`
                 };
             }
 
-            // Compare OT hours
-            const diff = Math.abs(millwareRecord.hours - venusOtHours);
+            // Record exists - check if hours match
+            const diff = Math.abs(millwareRecord.normal - venusRegularHours);
             if (diff < 0.1) {
+                // Hours match → SYNCED (GREEN)
                 return {
                     status: 'synced',
                     icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
-                    tooltip: `✓ Lembur tersinkron (${millwareRecord.hours}h)`
+                    tooltip: `✓ Regular synced (${millwareRecord.normal}h)`
                 };
             } else {
+                // Hours don't match → MISMATCH (YELLOW)
                 return {
                     status: 'mismatch',
                     icon: <WarningIcon sx={{ fontSize: 10, color: '#d97706' }} />,
-                    tooltip: `⚠ Lembur beda: Venus=${venusOtHours}h vs Millware=${millwareRecord.hours}h`
+                    tooltip: `⚠ Regular beda: Venus=${venusRegularHours}h vs Millware=${millwareRecord.normal}h`
+                };
+            }
+        }
+
+        // === OVERTIME MODE (OT=1) ===
+        if (compareMode === 'overtime') {
+            // Only check if Venus has OT hours
+            if (venusOtHours <= 0) {
+                return null; // No OT expected
+            }
+
+            if (!millwareRecord || !millwareRecord.hasOTRecord) {
+                // No OT record in Millware → MISS (RED)
+                return {
+                    status: 'not_synced',
+                    icon: <SyncDisabledIcon sx={{ fontSize: 10, color: '#dc2626' }} />,
+                    tooltip: `❌ OT ${venusOtHours}h belum diinput`
+                };
+            }
+
+            // OT record exists - HOURS MUST MATCH EXACTLY
+            const diff = Math.abs(millwareRecord.ot - venusOtHours);
+            if (diff < 0.1) {
+                // Hours match exactly → SYNCED (GREEN)
+                return {
+                    status: 'synced',
+                    icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
+                    tooltip: `✓ OT synced (${millwareRecord.ot}h)`
+                };
+            } else {
+                // Hours don't match → MISMATCH (YELLOW)
+                return {
+                    status: 'mismatch',
+                    icon: <WarningIcon sx={{ fontSize: 10, color: '#d97706' }} />,
+                    tooltip: `⚠ OT beda: Venus=${venusOtHours}h vs Millware=${millwareRecord.ot}h`
                 };
             }
         }
@@ -306,7 +325,8 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                                         const cellBg = d.isHoliday ? '#fecaca' : d.isSunday ? '#fff1f2' : st.bg;
 
                                         // Get sync status if in compare mode
-                                        const syncStatus = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.overtimeHours || 0);
+                                        // Pass both regular and overtime hours
+                                        const syncStatus = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.regularHours || 0, d.overtimeHours || 0);
 
                                         // Determine border style based on sync status
                                         let borderStyle = {};

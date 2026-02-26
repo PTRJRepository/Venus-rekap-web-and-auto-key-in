@@ -405,12 +405,12 @@ class AutomationEngine {
             }
 
             const result = value !== undefined ? value : match;
-            
+
             // Warning jika value undefined/null
             if (value === undefined || value === null) {
                 console.warn(`⚠️  [substituteVariables] Variable \${${path}} resolved to ${value}`);
             }
-            
+
             // console.log(`🔄 Substituted: \${${path}} -> "${result}"`);
             return result;
         });
@@ -436,6 +436,8 @@ class AutomationEngine {
                 } else if (value !== null && (typeof value === 'object' || Array.isArray(value))) {
                     result[key] = this.substituteParams(value, context);
                 } else {
+                    // For non-string values (numbers, booleans), check if they need substitution
+                    // This handles cases where context value is directly assigned
                     result[key] = value;
                 }
             }

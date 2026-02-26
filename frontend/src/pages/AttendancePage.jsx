@@ -172,20 +172,21 @@ const AttendancePage = () => {
         if (data && data.results) {
             data.results.forEach(r => {
                 const key = `${r.ptrjId}_${r.date}`;
-                // If not_synced, we don't put it in map (or put null) so !map[key] works
-                // If synced/mismatch, we put details
-                if (r.syncStatus !== 'not_synced') { // Include ALL Millware records (even matched ones) to know they exist
-                    if (r.details) {
-                        map[key] = {
-                            hours: r.details.millwareHours,
-                            normal: r.details.millwareNormal,
-                            ot: r.details.millwareOT,
-                            TaskCode: r.details.millwareTaskCode || r.millwareTaskCode, // Capture TaskCode
-                            status: r.status,
-                            regularMatched: r.details.regularMatched === true,
-                            otMatched: r.details.otMatched === true
-                        };
-                    }
+                // Include ALL records - synced, mismatch, AND not_synced (MISS)
+                // This way UI can show proper status for each
+                if (r.details) {
+                    map[key] = {
+                        hours: r.details.millwareHours,
+                        normal: r.details.millwareNormal,
+                        ot: r.details.millwareOT,
+                        TaskCode: r.details.millwareTaskCode || r.millwareTaskCode,
+                        status: r.status, // MATCH or MISS
+                        syncStatus: r.syncStatus, // synced, mismatch, or not_synced
+                        regularMatched: r.details.regularMatched === true,
+                        otMatched: r.details.otMatched === true,
+                        hasRegularRecord: r.details.hasRegularRecord === true,
+                        hasOTRecord: r.details.hasOTRecord === true
+                    };
                 }
             });
         }

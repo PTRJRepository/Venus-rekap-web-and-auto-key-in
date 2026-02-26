@@ -776,7 +776,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                     display = `LBR +${otHours.toFixed(1)}h`;
                     cssClass = 'hours-normal-overtime';
                 } else if (isSun) {
-                    regularHours = 0; // Sunday = rest day, no regular hours
+                    regularHours = WORK_HOURS.NORMAL; // Sunday = 7 hours regular for automation input
                     status = 'Hadir';
                     display = `OFF +${otHours.toFixed(1)}h`;
                     cssClass = 'hours-overtime-only';
@@ -803,7 +803,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
                 status = 'Hadir';  // Counts as HK
                 display = 'OFF';
                 cssClass = 'hours-off';
-                regularHours = 0;
+                regularHours = WORK_HOURS.NORMAL; // Sunday = 7 hours regular for automation input
             }
             else if (isHol) {
                 status = 'Hadir';  // Counts as HK
