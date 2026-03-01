@@ -302,6 +302,24 @@ class AutomationEngine {
         this.browser = await puppeteer.launch(launchOptions);
         this.page = await this.browser.newPage();
 
+        // ═══ PREVENT FOCUS/VISIBILITY THROTTLING ═══
+        // Inject script to override visibility state so the page always thinks it is active
+        await this.page.evaluateOnNewDocument(() => {
+            Object.defineProperty(document, 'hidden', { get: () => false });
+            Object.defineProperty(document, 'visibilityState', { get: () => 'visible' });
+
+            // Override RequestAnimationFrame to use standard setTimeout if throttled
+            let lastTime = 0;
+            window.requestAnimationFrame = function (callback) {
+                const currTime = new Date().getTime();
+                const timeToCall = Math.max(0, 16 - (currTime - lastTime));
+                const id = window.setTimeout(function () { callback(currTime + timeToCall); }, timeToCall);
+                lastTime = currTime + timeToCall;
+                return id;
+            };
+            window.cancelAnimationFrame = function (id) { clearTimeout(id); };
+        });
+
         // ═══ CONNECTION MONITORING ═══
         this.browser.on('disconnected', () => {
             console.error(`❌ [E${this.engineId}] Browser disconnected!`);
