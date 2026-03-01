@@ -155,7 +155,7 @@ const App = () => {
                             <Tab icon={<TableViewIcon fontSize="small" />} iconPosition="start" label="Matrix" value="matrix" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
                             <Tab icon={<CompareIcon fontSize="small" />} iconPosition="start" label="Komparasi" value="comparison" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
                         </Tabs>
-                        <Box sx={{ width: 1, height: 24, bgcolor: '#e5e7eb' }} />
+                        <Box sx={{ width: '1px', height: 24, bgcolor: '#e5e7eb', mx: 2 }} />
 
                         {/* PERIOD SELECTOR */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#f9fafb', p: 0.5, borderRadius: 1, border: '1px solid #e5e7eb' }}>

@@ -89,6 +89,43 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
         setTabIndex(newValue);
     };
 
+    const globalSummary = React.useMemo(() => {
+        if (!results || !results.results) return null;
+        const sum = {
+            totalCuti: 0,
+            totalSakit: 0,
+            totalHadir: 0,
+            totalAlfa: 0,
+            totalJamRegularVenus: 0,
+            totalJamRegularMillware: 0,
+            totalJamLemburVenus: 0,
+            totalJamLemburMillware: 0,
+        };
+
+        results.results.forEach(row => {
+            const status = (row.venusStatus || '').toUpperCase();
+            if (status.includes('CT') || status.includes('CUTI') || status === 'I' || status === 'IZIN') sum.totalCuti++;
+            else if (status === 'S' || status.includes('SAKIT') || status === 'SD') sum.totalSakit++;
+            else if (status === 'A' || status.includes('ALFA')) sum.totalAlfa++;
+            else if (status !== 'OFF' && status !== 'LIBUR') sum.totalHadir++;
+
+            sum.totalJamRegularVenus += row.venusRegularHours || 0;
+            sum.totalJamLemburVenus += row.venusOvertimeHours || 0;
+            if (row.details) {
+                sum.totalJamRegularMillware += row.details.millwareNormal || 0;
+                sum.totalJamLemburMillware += row.details.millwareOT || 0;
+            }
+        });
+
+        return {
+            ...sum,
+            totalJamRegularVenus: Number(sum.totalJamRegularVenus.toFixed(2)),
+            totalJamLemburVenus: Number(sum.totalJamLemburVenus.toFixed(2)),
+            totalJamRegularMillware: Number(sum.totalJamRegularMillware.toFixed(2)),
+            totalJamLemburMillware: Number(sum.totalJamLemburMillware.toFixed(2))
+        };
+    }, [results]);
+
     const employeeSummary = results ? results.results.reduce((acc, row) => {
         if (!acc[row.ptrjId]) {
             acc[row.ptrjId] = {
@@ -116,6 +153,14 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
     }, {}) : {};
 
     const summaryArray = Object.values(employeeSummary);
+
+    const StatCard = ({ title, value, color = '#2196f3', subvalue }) => (
+        <Paper elevation={0} sx={{ p: 1.5, border: '1px solid #333', borderRadius: 2, minWidth: 120, bgcolor: 'rgba(255,255,255,0.02)' }}>
+            <Typography variant="caption" sx={{ color: '#aaa', display: 'block', mb: 0.5 }}>{title}</Typography>
+            <Typography variant="h6" sx={{ color, fontWeight: 'bold', lineHeight: 1 }}>{value}</Typography>
+            {subvalue && <Typography variant="caption" sx={{ color: '#888', display: 'block', mt: 0.5 }}>{subvalue}</Typography>}
+        </Paper>
+    );
 
     const content = (
         <>
@@ -189,38 +234,21 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
 
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-                {/* Summary */}
-                {results && (
-                    <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <Chip
-                            icon={<CheckCircleIcon />}
-                            label={`✓ Synced: ${results.summary.synced}`}
-                            color="success"
-                            sx={{ fontWeight: 'bold' }}
-                        />
-                        <Chip
-                            icon={<CancelIcon />}
-                            label={`❌ Mismatch: ${results.summary.mismatch}`}
-                            color="error"
-                            sx={{ fontWeight: 'bold' }}
-                        />
-                        <Typography variant="body2" sx={{ color: '#888' }}>
-                            Total: {results.summary.total} records
+                {/* Summary Metrics */}
+                {results && globalSummary && (
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="subtitle2" sx={{ color: '#ccc', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CompareIcon fontSize="small" /> Ringkasan Global ({results.summary.total} records)
                         </Typography>
-                        {compareMode === 'regular' && (
-                            <Chip
-                                size="small"
-                                label="Mode: Regular Only"
-                                sx={{ bgcolor: '#1976d2', color: 'white' }}
-                            />
-                        )}
-                        {compareMode === 'overtime' && (
-                            <Chip
-                                size="small"
-                                label="Mode: Overtime Only"
-                                sx={{ bgcolor: '#d32f2f', color: 'white' }}
-                            />
-                        )}
+                        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                            <StatCard title="✅ Synced" value={results.summary.synced} color="#4caf50" />
+                            <StatCard title="❌ Mismatch" value={results.summary.mismatch} color="#f44336" />
+                            <StatCard title="🏃 Hadir" value={`${globalSummary.totalHadir} Hari`} color="#e0e0e0" />
+                            <StatCard title="🏖️ Cuti/Izin" value={`${globalSummary.totalCuti} Hari`} color="#ff9800" />
+                            <StatCard title="🏥 Sakit" value={`${globalSummary.totalSakit} Hari`} color="#2196f3" />
+                            <StatCard title="⏱️ Total Jam Reguler" value={`${globalSummary.totalJamRegularVenus}h`} color="#00bcd4" subvalue={`Millware: ${globalSummary.totalJamRegularMillware}h`} />
+                            <StatCard title="⏳ Total Jam Lembur" value={`${globalSummary.totalJamLemburVenus}h`} color="#9c27b0" subvalue={`Millware: ${globalSummary.totalJamLemburMillware}h`} />
+                        </Box>
                     </Box>
                 )}
 
