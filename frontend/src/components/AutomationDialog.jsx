@@ -97,42 +97,35 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
 
                 // 2. REFINE SELECTION BASED ON TARGET MODE (Critical cleanup)
                 if (shouldInclude) {
-                    // --- Target: REGULAR ---
-                    if (targetMode === 'regular') {
-                        if (millwareRecord) {
-                            // Check match status
-                            if (millwareRecord.regularMatched === true) {
+                    // Check if it's REALLY missing based on backend 'status' property
+                    if (millwareRecord && millwareRecord.status !== 'MISS') {
+                        shouldInclude = false;
+                        reason = `Backend status is not MISS (${millwareRecord.status})`;
+                    } else {
+                        // --- Target: REGULAR ---
+                        if (targetMode === 'regular') {
+                            if (millwareRecord && millwareRecord.details?.hasRegularRecord === true) {
                                 shouldInclude = false;
+                                reason = `Regular record actually exists`;
                             }
-                            // STRICT REQUIREMENT: "Beda jam jangan dinput" (Don't input if hours differ)
-                            // If record exists and has Normal hours > 0, it's an Update/Mismatch, not a Missing.
-                            else if ((millwareRecord.normal || 0) > 0) {
+                            else if (!millwareRecord && (day.regularHours || 0) === 0 && !(['HADIR', 'PARTIAL IN', 'S', 'SAKIT', 'C', 'CUTI', 'I', 'IZIN', 'SD', 'SICK', 'CT'].some(s => statusUpper.startsWith(s)))) {
+                                // If missing entirely, BUT Venus has 0 regular AND it's not a payable status, don't include
                                 shouldInclude = false;
-                            }
-                        }
-                        else if (!millwareRecord && (day.regularHours || 0) === 0) {
-                            shouldInclude = false; // Missing but Venus 0 Regular => Not a mismatch
-                        } else {
-                            if (millwareRecord) reason = `Regular Hours Mismatch (${day.regularHours} vs ${millwareRecord.normal || 0})`;
-                        }
-                    }
-                    // --- Target: OVERTIME ---
-                    else if (targetMode === 'overtime') {
-                        if (millwareRecord) {
-                            if (millwareRecord.otMatched === true) {
-                                shouldInclude = false;
-                            }
-                            // STRICT REQUIREMENT: "Beda jam jangan dinput"
-                            // If record exists and has OT hours > 0, it's an Update/Mismatch, so SKIP.
-                            // We only want to input if Millware has NO OT (0).
-                            else if ((millwareRecord.ot || 0) > 0) {
-                                shouldInclude = false;
+                            } else {
+                                reason = `Regular Missing (Venus: ${day.regularHours}h)`;
                             }
                         }
-                        else if (!millwareRecord && (day.overtimeHours || 0) === 0) {
-                            shouldInclude = false; // Missing but Venus 0 OT => Not a mismatch
-                        } else {
-                            if (millwareRecord) reason = `Overtime Mismatch (${day.overtimeHours} vs ${millwareRecord.ot || 0})`;
+                        // --- Target: OVERTIME ---
+                        else if (targetMode === 'overtime') {
+                            if (millwareRecord && millwareRecord.details?.hasOTRecord === true) {
+                                shouldInclude = false;
+                                reason = `OT record actually exists`;
+                            }
+                            else if ((day.overtimeHours || 0) === 0) {
+                                shouldInclude = false; // Missing but Venus 0 OT => Not a mismatch
+                            } else {
+                                reason = `Overtime Missing (Venus:${day.overtimeHours})`;
+                            }
                         }
                     }
                 }

@@ -28,24 +28,15 @@ const MONTHS = [
     { id: 12, name: 'Des', full: 'Desember' },
 ];
 
-const MonthNavigator = ({ onFetch, loading }) => {
-    const getInitialPeriod = () => {
-        const today = new Date();
-        let m = today.getMonth() + 1;
-        let y = today.getFullYear();
-        if (today.getDate() < 15) {
-            m -= 1;
-            if (m === 0) {
-                m = 12;
-                y -= 1;
-            }
-        }
-        return { month: m, year: y };
-    };
+const MonthNavigator = ({ selectedMonth, selectedYear, onFetch, loading }) => {
+    // We'll manage local state but sync it to props when props change
+    const [month, setMonth] = useState(selectedMonth || new Date().getMonth() + 1);
+    const [year, setYear] = useState(selectedYear || new Date().getFullYear());
 
-    const initialPeriod = getInitialPeriod();
-    const [year, setYear] = useState(initialPeriod.year);
-    const [month, setMonth] = useState(initialPeriod.month);
+    React.useEffect(() => {
+        if (selectedMonth) setMonth(selectedMonth);
+        if (selectedYear) setYear(selectedYear);
+    }, [selectedMonth, selectedYear]);
 
     const handleMonthChange = (event, newMonth) => {
         if (newMonth) {

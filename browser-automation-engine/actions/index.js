@@ -246,10 +246,10 @@ const actions = {
     include: async (page, params, context, engine) => {
         const templateName = params.template;
         console.log(`📂 Including template: ${templateName}`);
-        
+
         // DEBUG: Log current context keys for troubleshooting
         console.log(`  🔍 Current context keys: ${Object.keys(context).join(', ') || '(empty)'}`);
-        
+
         // Merge additional params into context
         const mergedContext = { ...context };
         if (params.params && typeof params.params === 'object') {
@@ -258,13 +258,13 @@ const actions = {
                 console.log(`  📌 Param: ${key} = ${params.params[key]}`);
             });
         }
-        
+
         // DEBUG: Log merged context keys
         console.log(`  🔍 Merged context keys: ${Object.keys(mergedContext).join(', ') || '(empty)'}`);
 
         const template = engine.loadTemplate(templateName);
         console.log(`  ✅ Template "${templateName}" loaded with ${template.steps.length} steps`);
-        
+
         // Execute steps with merged context
         await engine.executeSteps(template.steps, mergedContext, 1);
     },
@@ -415,7 +415,7 @@ const actions = {
      */
     setContext: async (page, params, context, engine) => {
         const { key, value, valueSource } = params;
-        
+
         if (valueSource) {
             // Get value from context using dot notation
             const keys = valueSource.split('.');
@@ -781,6 +781,25 @@ const actions = {
         const key = params.key || 'Enter';
         console.log(`⌨️  Menekan tombol: ${key}`);
         await page.keyboard.press(key);
+    },
+
+    /**
+     * Tekan tombol keyboard (Enter) dan tunggu halaman reload (berguna untuk ASP.NET postbacks)
+     */
+    pressKeyAndWaitForReload: async (page, params) => {
+        const key = params.key || 'Enter';
+        const timeout = params.timeout || 30000;
+        console.log(`⌨️🔄 Menekan tombol: ${key} dan menunggu reload...`);
+
+        try {
+            await Promise.all([
+                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout }),
+                page.keyboard.press(key)
+            ]);
+            console.log(`✅ Reload halaman selesai`);
+        } catch (error) {
+            console.warn(`⚠️ Warning saat pressKeyAndWaitForReload: ${error.message}`);
+        }
     },
 
     /**

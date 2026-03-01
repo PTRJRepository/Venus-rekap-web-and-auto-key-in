@@ -72,15 +72,18 @@
             }
         },
         {
-            "action": "pressKey",
+            "action": "pressKeyAndWaitForReload",
             "params": {
-                "key": "Enter"
+                "key": "Enter",
+                "timeout": 30000
             }
         },
         {
-            "action": "wait",
+            "comment": "═══ WAIT FOR PAGE TO STABILIZE AFTER REFRESH ═══",
+            "action": "waitForElement",
             "params": {
-                "duration": 500
+                "selector": ".ui-autocomplete-input.CBOBox",
+                "timeout": 20000
             }
         },
         {
@@ -106,7 +109,7 @@
             "action": "checkEmployeeInputSuccess",
             "params": {
                 "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
-                "timeout": 2000
+                "timeout": 15000
             }
         },
         {

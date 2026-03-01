@@ -148,9 +148,9 @@ const calculateOptimalInstances = (requestedInstances, employeeCount, attendance
     const cpuCount = getCpuCount();
     const freeMemMB = getFreeMemoryMB();
 
-    // Estimate memory needed per instance (headless ~300MB, non-headless ~800MB)
-    const memPerInstance = HEADLESS ? 300 : 800;
-    const maxByMemory = Math.floor(freeMemMB * 0.7 / memPerInstance); // Use 70% of free memory
+    // Estimate memory needed per instance (headless ~200MB, non-headless ~400MB)
+    const memPerInstance = HEADLESS ? 200 : 400;
+    const maxByMemory = Math.floor(freeMemMB * 0.85 / memPerInstance); // Use 85% of free memory
 
     // Limit based on CPU cores (1.5 instances per core for headless, 1 for non-headless)
     const maxByCpu = HEADLESS ? Math.floor(cpuCount * 1.5) : cpuCount;
@@ -532,7 +532,7 @@ const runWatchdog = async (engines) => {
             console.log(`\n📊 Instance Adjustment Details:`);
             console.log(`   • Total Attendance Records: ${totalAttendanceRecords} (limits instances)`);
             console.log(`   • Employee Count: ${allEmployees.length}`);
-            console.log(`   • Max by Memory: ${Math.floor(getFreeMemoryMB() * 0.7 / (HEADLESS ? 300 : 800))} instances`);
+            console.log(`   • Max by Memory: ${Math.floor(getFreeMemoryMB() * 0.85 / (HEADLESS ? 200 : 400))} instances`);
             console.log(`   • Max by CPU: ${HEADLESS ? Math.floor(getCpuCount() * 1.5) : getCpuCount()} instances`);
             console.log(`   • Min Attendance per Instance: 10 records`);
             console.log(`   • Final: Using ${actualInstances} instance(s) for optimal performance`);

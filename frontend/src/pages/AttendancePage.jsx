@@ -75,26 +75,37 @@ const AttendancePage = () => {
     const [attendanceData, setAttendanceData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const getInitialPeriod = () => {
-        const today = new Date();
-        let m = today.getMonth() + 1;
-        let y = today.getFullYear();
-        if (today.getDate() < 15) {
-            m -= 1;
-            if (m === 0) {
-                m = 12;
-                y -= 1;
-            }
-        }
-        return { month: m, year: y };
-    };
-
-    const initialPeriod = getInitialPeriod();
-    const [selectedMonth, setSelectedMonth] = useState(initialPeriod.month);
-    const [selectedYear, setSelectedYear] = useState(initialPeriod.year);
+    const [selectedMonth, setSelectedMonth] = useState(null);
+    const [selectedYear, setSelectedYear] = useState(null);
     const [currentPeriod, setCurrentPeriod] = useState(null);
     const [showLegend, setShowLegend] = useState(false);
     const [activeTab, setActiveTab] = useState('matrix');
+
+    // Fetch dynamic initial period from backend on component mount
+    React.useEffect(() => {
+        const fetchInitialPeriod = async () => {
+            try {
+                const response = await fetch('/api/latest-period');
+                const data = await response.json();
+                if (data.success) {
+                    setSelectedMonth(data.month);
+                    setSelectedYear(data.year);
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (err) {
+                console.error('Failed to fetch initial period:', err);
+                // Fallback to static logic if API fails
+                const today = new Date();
+                let m = today.getMonth() + 1;
+                let y = today.getFullYear();
+                if (today.getDate() < 15) { m -= 1; if (m === 0) { m = 12; y -= 1; } }
+                setSelectedMonth(m);
+                setSelectedYear(y);
+            }
+        };
+        fetchInitialPeriod();
+    }, []);
 
     // Automation State
     const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);

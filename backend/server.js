@@ -84,6 +84,33 @@ app.get('/api/months', async (req, res) => {
     }
 });
 
+app.get('/api/latest-period', async (req, res) => {
+    try {
+        // Get the absolute latest date available in the attendance system
+        const sql = `SELECT MAX(TADate) as LatestDate FROM [VenusHR14].[dbo].[HR_T_TAMachine_Summary]`;
+        const result = await executeQuery(sql);
+
+        if (result && result.length > 0 && result[0].LatestDate) {
+            const latestDate = new Date(result[0].LatestDate);
+            res.json({
+                success: true,
+                month: latestDate.getMonth() + 1,
+                year: latestDate.getFullYear()
+            });
+        } else {
+            // Fallback to current date minus logic if no data exists
+            const today = new Date();
+            let m = today.getMonth() + 1;
+            let y = today.getFullYear();
+            if (today.getDate() < 15) { m -= 1; if (m === 0) { m = 12; y -= 1; } }
+            res.json({ success: true, month: m, year: y });
+        }
+    } catch (error) {
+        console.error("Error fetching latest period:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.get('/api/attendance', async (req, res) => {
     const { month, year } = req.query;
     const noAttendance = process.env.NO_ATTENDANCE === 'true';
