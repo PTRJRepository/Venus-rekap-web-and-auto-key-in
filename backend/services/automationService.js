@@ -88,8 +88,8 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
                     leaveDescription: isAnnualLeave ? (data.leaveDescription || null) : null,
                     // For Sunday/Holiday, explicitly mark that normal ChargeJob should be used
                     useNormalChargeJob: (!isAnnualLeave && !isSickLeave), // Regular day, Sunday, or Holiday uses normal ChargeJob
-                    // Calculate leave hours based on day (Friday = 5, else 7)
-                    calculatedLeaveHours: new Date(date).getDay() === 5 ? 5 : 7
+                    // Calculate leave hours based on day (Saturday = 5, else 7)
+                    calculatedLeaveHours: new Date(date).getDay() === 6 ? 5 : 7
                 };
             });
         }
