@@ -173,7 +173,7 @@
                         "action": "typeInput",
                         "params": {
                             "selector": "#MainContent_txtHours",
-                            "value": "8"
+                            "value": "${attendance.calculatedLeaveHours}"
                         }
                     },
                     {

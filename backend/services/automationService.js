@@ -87,7 +87,9 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
                     leaveTaskCode: isAnnualLeave ? (data.leaveTaskCode || null) : null,
                     leaveDescription: isAnnualLeave ? (data.leaveDescription || null) : null,
                     // For Sunday/Holiday, explicitly mark that normal ChargeJob should be used
-                    useNormalChargeJob: (!isAnnualLeave && !isSickLeave) // Regular day, Sunday, or Holiday uses normal ChargeJob
+                    useNormalChargeJob: (!isAnnualLeave && !isSickLeave), // Regular day, Sunday, or Holiday uses normal ChargeJob
+                    // Calculate leave hours based on day (Friday = 5, else 7)
+                    calculatedLeaveHours: new Date(date).getDay() === 5 ? 5 : 7
                 };
             });
         }
@@ -283,7 +285,7 @@ const saveAutomationData = async (data) => {
                         // Check what's missing
                         const regularNeedsInput = !hasRegularRecord && att.status !== 'ALFA';
                         const otNeedsInput = !hasOTRecord && venusOT > 0;
-                        
+
                         // Also check if hours don't match (mismatch case)
                         const regularMismatch = hasRegularRecord && Math.abs(millwareReg - venusReg) >= 0.1;
                         const otMismatch = hasOTRecord && Math.abs(millwareOT - venusOT) >= 0.1;
