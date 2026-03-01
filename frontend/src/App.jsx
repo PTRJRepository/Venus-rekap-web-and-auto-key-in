@@ -153,7 +153,7 @@ const App = () => {
                         }} sx={{ minHeight: 40 }}>
                             <Tab icon={<AssessmentIcon fontSize="small" />} iconPosition="start" label="Report" value="report" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
                             <Tab icon={<TableViewIcon fontSize="small" />} iconPosition="start" label="Matrix" value="matrix" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
-                            <Tab icon={<ExportIcon fontSize="small" />} iconPosition="start" label="Ekspor" value="export" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
+                            <Tab icon={<CompareIcon fontSize="small" />} iconPosition="start" label="Komparasi" value="comparison" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
                         </Tabs>
                         <Box sx={{ width: 1, height: 24, bgcolor: '#e5e7eb' }} />
 
@@ -263,8 +263,18 @@ const App = () => {
                         comparisonData={comparisonData}
                     />
                 )}
-                {activeTab === 'export' && (
-                    <Box sx={{ p: 4, textAlign: 'center' }}><Typography variant="h6" color="text.secondary">Fitur Ekspor (Segera Hadir)</Typography></Box>
+                {activeTab === 'comparison' && (
+                    <ComparisonDialog
+                        open={false}
+                        inline={true}
+                        selectedEmployees={selectedEmployeeIds.length > 0
+                            ? (data ? data.filter(e => selectedEmployeeIds.includes(e.id)) : [])
+                            : (data || [])
+                        }
+                        month={selectedMonth}
+                        year={selectedYear}
+                        onComparisonComplete={handleComparisonComplete}
+                    />
                 )}
             </Box>
 

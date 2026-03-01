@@ -162,15 +162,18 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
             // RULE: All Venus "Hadir" statuses MUST have corresponding record in Millware
             // This includes: Normal work days, Sunday (OFF), Holiday (LBR), Sick, Annual Leave
             // All of these are PAID and must be input to Millware with proper TaskCode
-            
+
             // ALFA and N/A are the only statuses that don't need input
             const needsRegularRecord = day.status !== 'ALFA' && day.status !== 'N/A';
-            
+
             if (needsRegularRecord) {
                 // Must have OT=0 record in Millware
                 if (hasRegularRecord) {
-                    // Record exists, check if hours match
-                    regularSynced = Math.abs(normalHours - venusRegular) < 0.1;
+                    // Record exists in Millware. 
+                    // Per user request: "kalo yan beda jam gappa, intinya datanya hrus ada... (ingta yang sakit dan cuti dinaggpa ada datanya)"
+                    // So we do not strictly check hours (Math.abs(normalHours - venusRegular) < 0.1). 
+                    // The mere existence of a regular record is sufficient to be considered "synced".
+                    regularSynced = true;
                 } else {
                     // No OT=0 record in Millware → NOT SYNCED
                     regularSynced = false;
@@ -186,19 +189,18 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
             if (venusOt > 0) {
                 // Venus expects OT hours → Millware MUST have OT=1 record
                 if (hasOTRecord) {
-                    // Record exists, check if hours match
-                    otSynced = Math.abs(otHours - venusOt) < 0.1;
+                    // Record exists. Following the same logic: "kalo yan beda jam gappa"
+                    // Existence of OT record is enough.
+                    otSynced = true;
                 } else {
                     // No OT=1 record in Millware but Venus has OT hours → NOT SYNCED
                     otSynced = false;
                 }
             } else {
                 // Venus OT = 0 (no overtime)
-                // If Millware has OT record, verify it's also 0 or close
-                // If no record, that's fine - no OT expected
-                otSynced = hasOTRecord
-                    ? Math.abs(otHours - venusOt) < 0.1
-                    : true;
+                // If Millware has an OT record but Venus 0, we can also consider it synced
+                // because we only care about missing data from Millware.
+                otSynced = true;
             }
 
             // --- MODE FILTERING ---

@@ -2,30 +2,32 @@ import React, { useState } from 'react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions, Button,
     Typography, Box, Table, TableHead, TableRow, TableCell, TableBody,
-    Chip, CircularProgress, Alert, TextField, FormControlLabel, Radio, RadioGroup, FormControl, FormLabel
+    Chip, CircularProgress, Alert, TextField, FormControlLabel, Radio, RadioGroup, FormControl, FormLabel,
+    Tabs, Tab, Paper
 } from '@mui/material';
 import CompareIcon from '@mui/icons-material/Compare';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import WarningIcon from '@mui/icons-material/Warning';
 
-const ComparisonDialog = ({ open, onClose, selectedEmployees, month, year, onComparisonComplete }) => {
+const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, onComparisonComplete, inline = false }) => {
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
     const [error, setError] = useState(null);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [compareMode, setCompareMode] = useState('all'); // 'all', 'regular', 'overtime'
+    const [tabIndex, setTabIndex] = useState(0);
 
     React.useEffect(() => {
-        if (open && month && year) {
+        if ((open || inline) && month && year) {
             const lastDay = new Date(year, month, 0).getDate();
             const start = `${year}-${String(month).padStart(2, '0')}-01`;
             const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
             setStartDate(start);
             setEndDate(end);
         }
-    }, [open, month, year]);
+    }, [open, inline, month, year]);
 
     const handleCompare = async () => {
         if (!startDate || !endDate) {
@@ -83,16 +85,47 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees, month, year, onCom
         return <Chip size="small" color={colors[status]} label={labels[status]} icon={getSyncIcon(status)} />;
     };
 
-    return (
-        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth
-            PaperProps={{ sx: { minHeight: '70vh', bgcolor: '#1e1e1e', color: '#e0e0e0' } }}>
-            <DialogTitle sx={{ borderBottom: '1px solid #333', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CompareIcon sx={{ color: '#2196f3' }} />
-                <Typography component="span" variant="h6" sx={{ flexGrow: 1 }}>Sync Comparison - PR_TASKREGLN</Typography>
-            </DialogTitle>
+    const handleTabChange = (event, newValue) => {
+        setTabIndex(newValue);
+    };
 
+    const employeeSummary = results ? results.results.reduce((acc, row) => {
+        if (!acc[row.ptrjId]) {
+            acc[row.ptrjId] = {
+                ptrjId: row.ptrjId,
+                employeeName: row.employeeName,
+                synced: 0,
+                mismatch: 0,
+                venusRegularHours: 0,
+                venusOvertimeHours: 0,
+                millwareRegularHours: 0,
+                millwareOvertimeHours: 0,
+            };
+        }
+        if (row.syncStatus === 'synced') acc[row.ptrjId].synced += 1;
+        else acc[row.ptrjId].mismatch += 1;
 
-            <DialogContent sx={{ p: 2 }}>
+        acc[row.ptrjId].venusRegularHours = Number((acc[row.ptrjId].venusRegularHours + (row.venusRegularHours || 0)).toFixed(2));
+        acc[row.ptrjId].venusOvertimeHours = Number((acc[row.ptrjId].venusOvertimeHours + (row.venusOvertimeHours || 0)).toFixed(2));
+        if (row.details) {
+            acc[row.ptrjId].millwareRegularHours = Number((acc[row.ptrjId].millwareRegularHours + (row.details.millwareNormal || 0)).toFixed(2));
+            acc[row.ptrjId].millwareOvertimeHours = Number((acc[row.ptrjId].millwareOvertimeHours + (row.details.millwareOT || 0)).toFixed(2));
+        }
+
+        return acc;
+    }, {}) : {};
+
+    const summaryArray = Object.values(employeeSummary);
+
+    const content = (
+        <>
+            <Box sx={{ p: inline ? 0 : 2, display: 'flex', flexDirection: 'column', height: inline ? '100%' : 'auto' }}>
+                {!inline && (
+                    <Box sx={{ borderBottom: '1px solid #333', display: 'flex', alignItems: 'center', gap: 1, pb: 2, mb: 2 }}>
+                        <CompareIcon sx={{ color: '#2196f3' }} />
+                        <Typography component="span" variant="h6" sx={{ flexGrow: 1 }}>Sync Comparison - PR_TASKREGLN</Typography>
+                    </Box>
+                )}
                 {/* Controls */}
                 <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                     <TextField
@@ -113,7 +146,7 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees, month, year, onCom
                         size="small"
                         sx={{ '& input': { color: 'white' }, '& label': { color: '#888' } }}
                     />
-                    
+
                     <FormControl sx={{ minWidth: 200 }}>
                         <FormLabel sx={{ color: '#aaa', fontSize: '0.75rem' }}>Compare Mode</FormLabel>
                         <RadioGroup
@@ -139,7 +172,7 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees, month, year, onCom
                             />
                         </RadioGroup>
                     </FormControl>
-                    
+
                     <Button
                         variant="contained"
                         color="primary"
@@ -159,40 +192,50 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees, month, year, onCom
                 {/* Summary */}
                 {results && (
                     <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <Chip 
-                            icon={<CheckCircleIcon />} 
-                            label={`✓ Synced: ${results.summary.synced}`} 
-                            color="success" 
+                        <Chip
+                            icon={<CheckCircleIcon />}
+                            label={`✓ Synced: ${results.summary.synced}`}
+                            color="success"
                             sx={{ fontWeight: 'bold' }}
                         />
-                        <Chip 
-                            icon={<CancelIcon />} 
-                            label={`❌ Not Synced: ${results.summary.mismatch}`} 
-                            color="error" 
+                        <Chip
+                            icon={<CancelIcon />}
+                            label={`❌ Mismatch: ${results.summary.mismatch}`}
+                            color="error"
                             sx={{ fontWeight: 'bold' }}
                         />
                         <Typography variant="body2" sx={{ color: '#888' }}>
                             Total: {results.summary.total} records
                         </Typography>
                         {compareMode === 'regular' && (
-                            <Chip 
-                                size="small" 
-                                label="Mode: Regular Only" 
+                            <Chip
+                                size="small"
+                                label="Mode: Regular Only"
                                 sx={{ bgcolor: '#1976d2', color: 'white' }}
                             />
                         )}
                         {compareMode === 'overtime' && (
-                            <Chip 
-                                size="small" 
-                                label="Mode: Overtime Only" 
+                            <Chip
+                                size="small"
+                                label="Mode: Overtime Only"
                                 sx={{ bgcolor: '#d32f2f', color: 'white' }}
                             />
                         )}
                     </Box>
                 )}
 
-                {/* Results Table */}
-                {results && results.results.length > 0 && (
+                {/* Tabs for View Selection */}
+                {results && (
+                    <Box sx={{ borderBottom: 1, borderColor: '#333', mb: 2 }}>
+                        <Tabs value={tabIndex} onChange={handleTabChange} textColor="inherit" indicatorColor="primary">
+                            <Tab label="Detail (Per Day)" sx={{ color: tabIndex === 0 ? '#2196f3' : '#aaa' }} />
+                            <Tab label="Summary (Per Name)" sx={{ color: tabIndex === 1 ? '#2196f3' : '#aaa' }} />
+                        </Tabs>
+                    </Box>
+                )}
+
+                {/* Results Table (Detailed) */}
+                {results && tabIndex === 0 && results.results.length > 0 && (
                     <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
                         <Table size="small" stickyHeader>
                             <TableHead>
@@ -250,6 +293,76 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees, month, year, onCom
                     </Box>
                 )}
 
+                {/* Summary Table (Per Name) */}
+                {results && tabIndex === 1 && summaryArray.length > 0 && (
+                    <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+                        <Table size="small" stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Status</TableCell>
+                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>PTRJ ID</TableCell>
+                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Name</TableCell>
+                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Synced Days</TableCell>
+                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Miss Days</TableCell>
+                                    {(compareMode === 'all' || compareMode === 'regular') && (
+                                        <>
+                                            <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Venus Regular (Total)</TableCell>
+                                            <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Millware Regular (Total)</TableCell>
+                                        </>
+                                    )}
+                                    {(compareMode === 'all' || compareMode === 'overtime') && (
+                                        <>
+                                            <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Venus OT (Total)</TableCell>
+                                            <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Millware OT (Total)</TableCell>
+                                        </>
+                                    )}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {summaryArray.map((row, idx) => {
+                                    const isPerfectMatch = row.mismatch === 0;
+                                    return (
+                                        <TableRow key={idx} sx={{
+                                            bgcolor: isPerfectMatch ? 'rgba(76,175,80,0.15)' : 'rgba(244,67,54,0.15)'
+                                        }}>
+                                            <TableCell>
+                                                {isPerfectMatch
+                                                    ? <Chip size="small" color="success" label="All Synced" icon={<CheckCircleIcon />} />
+                                                    : <Chip size="small" color="error" label="Has Mismatch" icon={<CancelIcon />} />
+                                                }
+                                            </TableCell>
+                                            <TableCell sx={{ color: '#e0e0e0', fontFamily: 'monospace' }}>{row.ptrjId}</TableCell>
+                                            <TableCell sx={{ color: '#e0e0e0' }}>{row.employeeName}</TableCell>
+                                            <TableCell sx={{ color: '#4caf50', fontWeight: 'bold' }}>{row.synced}</TableCell>
+                                            <TableCell sx={{ color: row.mismatch > 0 ? '#f44336' : '#e0e0e0', fontWeight: row.mismatch > 0 ? 'bold' : 'normal' }}>
+                                                {row.mismatch}
+                                            </TableCell>
+
+                                            {(compareMode === 'all' || compareMode === 'regular') && (
+                                                <>
+                                                    <TableCell sx={{ color: '#e0e0e0' }}>{row.venusRegularHours}h</TableCell>
+                                                    <TableCell sx={{ color: row.venusRegularHours === row.millwareRegularHours ? '#4caf50' : '#ff9800' }}>
+                                                        {row.millwareRegularHours}h
+                                                    </TableCell>
+                                                </>
+                                            )}
+
+                                            {(compareMode === 'all' || compareMode === 'overtime') && (
+                                                <>
+                                                    <TableCell sx={{ color: '#e0e0e0' }}>{row.venusOvertimeHours}h</TableCell>
+                                                    <TableCell sx={{ color: row.venusOvertimeHours === row.millwareOvertimeHours ? '#4caf50' : '#ff9800' }}>
+                                                        {row.millwareOvertimeHours}h
+                                                    </TableCell>
+                                                </>
+                                            )}
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </Box>
+                )}
+
                 {results && results.results.length === 0 && (
                     <Typography sx={{ textAlign: 'center', color: '#666', mt: 4 }}>
                         No records to compare (employees may not have PTRJ IDs mapped)
@@ -261,8 +374,24 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees, month, year, onCom
                         Select date range and click "Compare" to check sync status
                     </Typography>
                 )}
-            </DialogContent>
+            </Box>
+        </>
+    );
 
+    if (inline) {
+        return (
+            <Paper elevation={0} sx={{ height: '100%', bgcolor: '#ffffff', color: '#1e1e1e', overflowY: 'auto', p: 2 }}>
+                {content}
+            </Paper>
+        );
+    }
+
+    return (
+        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth
+            PaperProps={{ sx: { minHeight: '70vh', bgcolor: '#1e1e1e', color: '#e0e0e0' } }}>
+            <DialogContent sx={{ p: 0 }}>
+                {content}
+            </DialogContent>
             <DialogActions sx={{ borderTop: '1px solid #333', p: 2 }}>
                 <Button onClick={onClose} sx={{ color: '#aaa' }}>Close</Button>
             </DialogActions>

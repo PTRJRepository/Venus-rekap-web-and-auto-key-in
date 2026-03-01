@@ -92,23 +92,12 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                 };
             }
 
-            // Record exists - check if hours match
-            const diff = Math.abs(millwareRecord.normal - venusRegularHours);
-            if (diff < 0.1) {
-                // Hours match → SYNCED (GREEN)
-                return {
-                    status: 'synced',
-                    icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
-                    tooltip: `✓ Regular synced (${millwareRecord.normal}h)`
-                };
-            } else {
-                // Hours don't match → MISMATCH (YELLOW)
-                return {
-                    status: 'mismatch',
-                    icon: <WarningIcon sx={{ fontSize: 10, color: '#d97706' }} />,
-                    tooltip: `⚠ Regular beda: Venus=${venusRegularHours}h vs Millware=${millwareRecord.normal}h`
-                };
-            }
+            // Record exists - user requested 'kalo yan beda jam gappa, intinya datanya hrus ada'
+            return {
+                status: 'synced',
+                icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
+                tooltip: `✓ Regular synced (${millwareRecord.normal}h)`
+            };
         }
 
         // === OVERTIME MODE (OT=1) ===
@@ -127,23 +116,12 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                 };
             }
 
-            // OT record exists - HOURS MUST MATCH EXACTLY
-            const diff = Math.abs(millwareRecord.ot - venusOtHours);
-            if (diff < 0.1) {
-                // Hours match exactly → SYNCED (GREEN)
-                return {
-                    status: 'synced',
-                    icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
-                    tooltip: `✓ OT synced (${millwareRecord.ot}h)`
-                };
-            } else {
-                // Hours don't match → MISMATCH (YELLOW)
-                return {
-                    status: 'mismatch',
-                    icon: <WarningIcon sx={{ fontSize: 10, color: '#d97706' }} />,
-                    tooltip: `⚠ OT beda: Venus=${venusOtHours}h vs Millware=${millwareRecord.ot}h`
-                };
-            }
+            // OT record exists
+            return {
+                status: 'synced',
+                icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
+                tooltip: `✓ OT synced (${millwareRecord.ot}h)`
+            };
         }
 
         return null;
@@ -164,21 +142,6 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                         <TableRow>
                             <TableCell padding="checkbox" sx={{ position: 'sticky', left: 0, zIndex: 111, bgcolor: '#f9fafb', width: 40 }}><Checkbox indeterminate={selectedIds.length > 0 && selectedIds.length < safeData.length} checked={safeData.length > 0 && selectedIds.length === safeData.length} onChange={handleSelectAll} size="small" /></TableCell>
                             <TableCell sx={{ position: 'sticky', left: 40, zIndex: 111, bgcolor: '#f9fafb', width: 200, fontWeight: 700, fontSize: '0.7rem', boxShadow: '2px 0 5px rgba(0,0,0,0.08)' }}><PersonIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />NAMA</TableCell>
-                            <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#f9fafb', width: 90, fontWeight: 700, fontSize: '0.7rem' }}>VENUS ID</TableCell>
-                            <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#f9fafb', width: 100, fontWeight: 700, fontSize: '0.7rem' }}>PTRJ ID</TableCell>
-
-                            {/* Single Charge Job Column */}
-                            <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#fef8ed', minWidth: 200, fontWeight: 700, fontSize: '0.7rem', color: '#92400e', whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                                CHARGE JOB
-                            </TableCell>
-
-                            {/* Status Karyawan Column - only visible in edit mode */}
-                            {isEditMode && (
-                                <TableCell sx={{ bgcolor: '#fef3c7', width: 80, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center' }}>
-                                    is_karyawan
-                                </TableCell>
-                            )}
-
                             {dayNumbers.map(day => {
                                 const d = daysMap[day];
                                 const isHoliday = d?.isHoliday;
@@ -196,6 +159,21 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                                     </TableCell>
                                 );
                             })}
+                            <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#f9fafb', width: 90, fontWeight: 700, fontSize: '0.7rem', borderLeft: '2px solid #e5e7eb' }}>VENUS ID</TableCell>
+                            <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#f9fafb', width: 100, fontWeight: 700, fontSize: '0.7rem' }}>PTRJ ID</TableCell>
+                            <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#fef8ed', minWidth: 200, fontWeight: 700, fontSize: '0.7rem', color: '#92400e', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                                CHARGE JOB
+                            </TableCell>
+                            {isEditMode && (
+                                <TableCell sx={{ bgcolor: '#fef3c7', width: 80, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center' }}>
+                                    is_karyawan
+                                </TableCell>
+                            )}
+                            {isEditMode && (
+                                <TableCell sx={{ bgcolor: '#fef3c7', width: 80, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center' }}>
+                                    ACTIONS
+                                </TableCell>
+                            )}
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -224,69 +202,8 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                                             ) : (
                                                 <Typography variant="body2" noWrap sx={{ fontSize: '0.8rem' }}>{emp.name}</Typography>
                                             )}
-                                            {isEditing && <Box sx={{ ml: 'auto', display: 'flex' }}><IconButton size="small" color="success" onClick={(e) => { e.stopPropagation(); handleSaveEdit(emp); }} disabled={saving}><SaveIcon fontSize="small" /></IconButton><IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleCancelEdit(); }}><CloseIcon fontSize="small" /></IconButton></Box>}
                                         </Box>
                                     </TableCell>
-                                    <TableCell sx={{ fontSize: '0.75rem', color: '#4b5563' }} onClick={(e) => isEditing && e.stopPropagation()}>{emp.id}</TableCell>
-                                    <TableCell onClick={(e) => isEditing && e.stopPropagation()}>{isEditing ? <TextField size="small" value={editValues.ptrjEmployeeID} onChange={(e) => setEditValues(p => ({ ...p, ptrjEmployeeID: e.target.value }))} sx={{ width: '100%', '& input': { py: 0.5, fontSize: '0.75rem' } }} /> : (emp.ptrjEmployeeID || '-')}</TableCell>
-
-                                    {/* Single Charge Job Cell - show as-is without splitting */}
-                                    <TableCell onClick={(e) => isEditing && e.stopPropagation()} sx={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 300 }}>
-                                        {isEditing ? (
-                                            <TextField
-                                                size="small"
-                                                value={editValues.chargeJob}
-                                                onChange={(e) => setEditValues(p => ({ ...p, chargeJob: e.target.value }))}
-                                                sx={{ width: '100%', '& input': { py: 0.5, fontSize: '0.7rem' } }}
-                                                placeholder="Charge Job"
-                                            />
-                                        ) : (
-                                            <Tooltip title={chargeJob}>
-                                                <Typography variant="body2" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                                                    {chargeJob}
-                                                </Typography>
-                                            </Tooltip>
-                                        )}
-                                    </TableCell>
-
-                                    {/* Status Karyawan Cell - only visible in edit mode */}
-                                    {isEditMode && (
-                                        <TableCell align="center" onClick={(e) => e.stopPropagation()} sx={{ bgcolor: isEditing ? '#fef3c7' : 'transparent' }}>
-                                            <Checkbox
-                                                size="small"
-                                                checked={isEditing ? editValues.isKaryawan : (emp.isKaryawan !== false)}
-                                                onChange={async (e) => {
-                                                    e.stopPropagation();
-                                                    const newValue = e.target.checked;
-                                                    if (isEditing) {
-                                                        // If editing, update the edit state
-                                                        setEditValues(p => ({ ...p, isKaryawan: newValue }));
-                                                    } else {
-                                                        // If not editing, save directly
-                                                        try {
-                                                            const result = await updateEmployeeMill(emp.id, { is_karyawan: newValue });
-                                                            if (result.success) {
-                                                                setSnackbar({ open: true, message: 'Status tersimpan!', severity: 'success' });
-                                                                if (onDataUpdate) {
-                                                                    onDataUpdate({
-                                                                        type: 'update_employee',
-                                                                        id: emp.id,
-                                                                        updates: { isKaryawan: newValue }
-                                                                    });
-                                                                }
-                                                            } else {
-                                                                setSnackbar({ open: true, message: result.error || 'Gagal', severity: 'error' });
-                                                            }
-                                                        } catch (err) {
-                                                            setSnackbar({ open: true, message: err.message, severity: 'error' });
-                                                        }
-                                                    }
-                                                }}
-                                                color="success"
-                                            />
-                                        </TableCell>
-                                    )}
-
                                     {dayNumbers.map(day => {
                                         const d = emp.attendance?.[day];
                                         if (!d) return <TableCell key={day} />;
@@ -368,6 +285,79 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                                             </Tooltip>
                                         );
                                     })}
+
+                                    <TableCell sx={{ fontSize: '0.75rem', color: '#4b5563', borderLeft: '2px solid #e5e7eb' }} onClick={(e) => isEditing && e.stopPropagation()}>{emp.id}</TableCell>
+                                    <TableCell onClick={(e) => isEditing && e.stopPropagation()}>{isEditing ? <TextField size="small" value={editValues.ptrjEmployeeID} onChange={(e) => setEditValues(p => ({ ...p, ptrjEmployeeID: e.target.value }))} sx={{ width: '100%', '& input': { py: 0.5, fontSize: '0.75rem' } }} /> : (emp.ptrjEmployeeID || '-')}</TableCell>
+
+                                    {/* Single Charge Job Cell - show as-is without splitting */}
+                                    <TableCell onClick={(e) => isEditing && e.stopPropagation()} sx={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 300 }}>
+                                        {isEditing ? (
+                                            <TextField
+                                                size="small"
+                                                value={editValues.chargeJob}
+                                                onChange={(e) => setEditValues(p => ({ ...p, chargeJob: e.target.value }))}
+                                                sx={{ width: '100%', '& input': { py: 0.5, fontSize: '0.7rem' } }}
+                                                placeholder="Charge Job"
+                                            />
+                                        ) : (
+                                            <Tooltip title={chargeJob}>
+                                                <Typography variant="body2" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                                                    {chargeJob}
+                                                </Typography>
+                                            </Tooltip>
+                                        )}
+                                    </TableCell>
+
+                                    {/* Status Karyawan Cell - only visible in edit mode */}
+                                    {isEditMode && (
+                                        <TableCell align="center" onClick={(e) => e.stopPropagation()} sx={{ bgcolor: isEditing ? '#fef3c7' : 'transparent' }}>
+                                            <Checkbox
+                                                size="small"
+                                                checked={isEditing ? editValues.isKaryawan : (emp.isKaryawan !== false)}
+                                                onChange={async (e) => {
+                                                    e.stopPropagation();
+                                                    const newValue = e.target.checked;
+                                                    if (isEditing) {
+                                                        // If editing, update the edit state
+                                                        setEditValues(p => ({ ...p, isKaryawan: newValue }));
+                                                    } else {
+                                                        // If not editing, save directly
+                                                        try {
+                                                            const result = await updateEmployeeMill(emp.id, { is_karyawan: newValue });
+                                                            if (result.success) {
+                                                                setSnackbar({ open: true, message: 'Status tersimpan!', severity: 'success' });
+                                                                if (onDataUpdate) {
+                                                                    onDataUpdate({
+                                                                        type: 'update_employee',
+                                                                        id: emp.id,
+                                                                        updates: { isKaryawan: newValue }
+                                                                    });
+                                                                }
+                                                            } else {
+                                                                setSnackbar({ open: true, message: result.error || 'Gagal', severity: 'error' });
+                                                            }
+                                                        } catch (err) {
+                                                            setSnackbar({ open: true, message: err.message, severity: 'error' });
+                                                        }
+                                                    }
+                                                }}
+                                                color="success"
+                                            />
+                                        </TableCell>
+                                    )}
+
+                                    {isEditMode && (
+                                        <TableCell align="center" onClick={(e) => e.stopPropagation()} sx={{ bgcolor: isEditing ? '#fef3c7' : 'transparent', borderLeft: '1px solid #e5e7eb', minWidth: 80 }}>
+                                            {isEditing ? (
+                                                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                    <IconButton size="small" color="success" onClick={(e) => { e.stopPropagation(); handleSaveEdit(emp); }} disabled={saving}><SaveIcon fontSize="small" /></IconButton>
+                                                    <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleCancelEdit(); }}><CloseIcon fontSize="small" /></IconButton>
+                                                </Box>
+                                            ) : (
+                                                <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleStartEdit(emp); }}><EditIcon fontSize="small" /></IconButton>
+                                            )}
+                                        </TableCell>
+                                    )}
                                 </TableRow>
                             );
                         })}

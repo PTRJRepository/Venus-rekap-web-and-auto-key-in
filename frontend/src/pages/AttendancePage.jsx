@@ -13,7 +13,9 @@ import {
     Tooltip,
     IconButton,
     Collapse,
-    Badge
+    Badge,
+    Tabs,
+    Tab
 } from '@mui/material';
 import {
     CheckCircle as CheckIcon,
@@ -27,11 +29,15 @@ import {
     ExpandLess as ExpandLessIcon,
     Refresh as RefreshIcon,
     Sync as SyncIcon,
-    CompareArrows as CompareIcon
+    CompareArrows as CompareIcon,
+    Assessment as AssessmentIcon,
+    TableView as TableViewIcon,
+    Compare as CompareTabIcon
 } from '@mui/icons-material';
 import AttendanceMatrix from '../components/AttendanceMatrix';
 import AutomationDialog from '../components/AutomationDialog';
 import ComparisonDialog from '../components/ComparisonDialog';
+import AttendanceSummaryReport from '../components/AttendanceSummaryReport';
 import { fetchAttendanceData } from '../services/api';
 
 const getMonths = () => [
@@ -69,10 +75,26 @@ const AttendancePage = () => {
     const [attendanceData, setAttendanceData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const getInitialPeriod = () => {
+        const today = new Date();
+        let m = today.getMonth() + 1;
+        let y = today.getFullYear();
+        if (today.getDate() < 15) {
+            m -= 1;
+            if (m === 0) {
+                m = 12;
+                y -= 1;
+            }
+        }
+        return { month: m, year: y };
+    };
+
+    const initialPeriod = getInitialPeriod();
+    const [selectedMonth, setSelectedMonth] = useState(initialPeriod.month);
+    const [selectedYear, setSelectedYear] = useState(initialPeriod.year);
     const [currentPeriod, setCurrentPeriod] = useState(null);
     const [showLegend, setShowLegend] = useState(false);
+    const [activeTab, setActiveTab] = useState('matrix');
 
     // Automation State
     const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
@@ -235,6 +257,13 @@ const AttendancePage = () => {
                         >
                             📊 Rekap Absensi
                         </Typography>
+
+                        <Box sx={{ width: 1, height: 24, bgcolor: '#e5e7eb', mx: 1 }} />
+                        <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} sx={{ minHeight: 40 }}>
+                            <Tab icon={<AssessmentIcon fontSize="small" />} iconPosition="start" label="Report" value="report" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
+                            <Tab icon={<TableViewIcon fontSize="small" />} iconPosition="start" label="Matrix" value="matrix" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
+                            <Tab icon={<CompareTabIcon fontSize="small" />} iconPosition="start" label="Komparasi" value="comparison" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
+                        </Tabs>
 
                         {/* REMOVED DIVIDER AS REQUESTED */}
 
@@ -504,15 +533,39 @@ const AttendancePage = () => {
                         </Box>
                     </Box>
                 ) : (
-                    <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-                        <AttendanceMatrix
-                            data={attendanceData}
-                            onDataUpdate={handleDataUpdate}
-                            selectedIds={selectedEmployeeIds}
-                            onToggleSelect={setSelectedEmployeeIds}
-                            compareMode={compareMode}
-                            comparisonData={comparisonData}
-                        />
+                    <Box sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        {activeTab === 'report' && (
+                            <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+                                <AttendanceSummaryReport data={attendanceData} />
+                            </Box>
+                        )}
+                        {activeTab === 'matrix' && (
+                            <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+                                <AttendanceMatrix
+                                    data={attendanceData}
+                                    onDataUpdate={handleDataUpdate}
+                                    selectedIds={selectedEmployeeIds}
+                                    onToggleSelect={setSelectedEmployeeIds}
+                                    compareMode={compareMode}
+                                    comparisonData={comparisonData}
+                                />
+                            </Box>
+                        )}
+                        {activeTab === 'comparison' && (
+                            <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+                                <ComparisonDialog
+                                    open={false}
+                                    inline={true}
+                                    selectedEmployees={selectedEmployeeIds.length > 0
+                                        ? attendanceData.filter(e => selectedEmployeeIds.includes(e.id))
+                                        : attendanceData
+                                    }
+                                    month={selectedMonth}
+                                    year={selectedYear}
+                                    onComparisonComplete={handleComparisonComplete}
+                                />
+                            </Box>
+                        )}
                     </Box>
                 )}
             </Box>

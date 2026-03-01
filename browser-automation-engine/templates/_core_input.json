@@ -135,7 +135,9 @@
                 "value": "${employee.PTRJEmployeeID}",
                 "validationSelector": "#MainContent_ddlEmployee_RFV",
                 "maxRetries": 1,
-                "formReentryFields": []
+                "formReentryFields": [],
+                "forceInput": true,
+                "checkIfAlreadyFilled": false
             }
         },
         {

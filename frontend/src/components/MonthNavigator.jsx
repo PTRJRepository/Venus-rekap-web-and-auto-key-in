@@ -29,9 +29,23 @@ const MONTHS = [
 ];
 
 const MonthNavigator = ({ onFetch, loading }) => {
-    const currentDate = new Date();
-    const [year, setYear] = useState(currentDate.getFullYear());
-    const [month, setMonth] = useState(currentDate.getMonth() + 1);
+    const getInitialPeriod = () => {
+        const today = new Date();
+        let m = today.getMonth() + 1;
+        let y = today.getFullYear();
+        if (today.getDate() < 15) {
+            m -= 1;
+            if (m === 0) {
+                m = 12;
+                y -= 1;
+            }
+        }
+        return { month: m, year: y };
+    };
+
+    const initialPeriod = getInitialPeriod();
+    const [year, setYear] = useState(initialPeriod.year);
+    const [month, setMonth] = useState(initialPeriod.month);
 
     const handleMonthChange = (event, newMonth) => {
         if (newMonth) {

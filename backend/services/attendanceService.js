@@ -1,7 +1,7 @@
 const { executeQuery } = require('./gateway');
 // const { getPTRJMapping, matchPTRJEmployeeId } = require('./mappingService'); // Now unused
 // const { getChargeJobMapFromDB } = require('./employeeMillService'); // Now unused
-const { getAllEmployees: getMillEmployees, getHolidaysFromDB: fetchHolidaysFromMill } = require('./employeeMillService');
+const { getAllEmployees: getMillEmployees, getHolidaysFromDB: fetchHolidaysFromMill, upsertEmployee } = require('./employeeMillService');
 
 // const fs = require('fs'); // Unused
 // const path = require('path'); // Unused
@@ -164,6 +164,30 @@ const fetchWeeklyEmployees = async () => {
     }
 };
 
+// --- Helper: Fetch Employee Names from Venus ---
+const fetchVenusEmployeeNames = async (employeeIds) => {
+    if (!employeeIds || employeeIds.length === 0) return {};
+    try {
+        const map = {};
+        const chunkSize = 500;
+        for (let i = 0; i < employeeIds.length; i += chunkSize) {
+            const chunk = employeeIds.slice(i, i + chunkSize);
+            const idList = chunk.map(id => `'${id}'`).join(',');
+            const sql = `SELECT EmployeeID, EmployeeName FROM [VenusHR14].[dbo].[HR_M_EmployeePI] WHERE EmployeeID IN (${idList})`;
+            const result = await executeQuery(sql);
+            if (result && Array.isArray(result)) {
+                result.forEach(r => {
+                    map[r.EmployeeID] = r.EmployeeName;
+                });
+            }
+        }
+        return map;
+    } catch (e) {
+        console.error("Error fetching Venus employee names:", e);
+        return {};
+    }
+};
+
 // --- Main Data Fetcher ---
 const fetchAttendanceData = async (month, year) => {
     const startDate = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
@@ -206,6 +230,35 @@ const fetchAttendanceData = async (month, year) => {
             millMap[me.venus_employee_id] = me;
         }
     });
+
+    // Determine Active Employees early to fetch names if necessary
+    const activeEmployeeIds = new Set();
+    attendanceRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
+
+    // Auto-sync missing names
+    const missingNamesIds = [];
+    activeEmployeeIds.forEach(id => {
+        if (!millMap[id] || !millMap[id].employee_name || millMap[id].employee_name.trim() === '') {
+            missingNamesIds.push(id);
+        }
+    });
+
+    if (missingNamesIds.length > 0) {
+        console.log(`[EmployeeMill] Found ${missingNamesIds.length} active employees missing name in employee_mill. Fetching from Venus...`);
+        const venusNamesMap = await fetchVenusEmployeeNames(missingNamesIds);
+
+        for (const id of missingNamesIds) {
+            const name = venusNamesMap[id] || id; // Fallback to ID if not found
+            // Auto-insert or update in employee_mill asynchronously
+            upsertEmployee(id, { employee_name: name, is_karyawan: 1 }).then(() => {
+                console.log(`[EmployeeMill] Auto-inserted/updated missing employee: ${id} - ${name}`);
+            }).catch(e => console.error(`[EmployeeMill] Error upserting ${id}:`, e));
+
+            // Immediately populate millMap so current request uses it
+            if (!millMap[id]) millMap[id] = { venus_employee_id: id };
+            millMap[id].employee_name = name;
+        }
+    }
 
     // LEFT JOIN: Start with Weekly employees, get mapping from extend_db_ptrj if available
     let employees = weeklyEmployeeIds.map(we => {
@@ -291,11 +344,6 @@ const fetchAttendanceData = async (month, year) => {
     console.log(`[DEBUG] Map sizes - Att: ${Object.keys(attendanceMap).length}, OT: ${Object.keys(overtimeMap).length}, Leave: ${Object.keys(leaveMap).length}, Abs: ${Object.keys(absenceMap).length}`);
 
     // --- Active Employee Filter ---
-    // Only include employees who have ATTENDANCE records in the database
-    // Employees with only overtime/leave/absence but no attendance will be excluded
-    const activeEmployeeIds = new Set();
-    attendanceRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
-
     // Log for debugging
     console.log(`[FILTER] Employees with attendance records: ${activeEmployeeIds.size}`);
 
@@ -704,6 +752,49 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
     absencesRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
 
     console.log(`[OVERTIME-ONLY] Active employees: ${activeEmployeeIds.size}`);
+
+    // Build mapping from extend_db_ptrj
+    const millMap = {};
+    employees.forEach(me => {
+        if (me.venus_employee_id) millMap[me.venus_employee_id] = me;
+    });
+
+    // Auto-sync missing names
+    const missingNamesIds = [];
+    activeEmployeeIds.forEach(id => {
+        if (!millMap[id] || !millMap[id].employee_name || millMap[id].employee_name.trim() === '') {
+            missingNamesIds.push(id);
+        }
+    });
+
+    if (missingNamesIds.length > 0) {
+        console.log(`[OVERTIME-ONLY EmployeeMill] Found ${missingNamesIds.length} active employees missing name. Fetching from Venus...`);
+        const venusNamesMap = await fetchVenusEmployeeNames(missingNamesIds);
+
+        for (const id of missingNamesIds) {
+            const name = venusNamesMap[id] || id;
+            upsertEmployee(id, { employee_name: name, is_karyawan: 1 }).catch(e => console.error(e));
+            if (!millMap[id]) millMap[id] = { venus_employee_id: id };
+            millMap[id].employee_name = name;
+        }
+    }
+
+    // Since in overtime-only mode we use 'employees' from getAllEmployees(),
+    // we need to make sure the missing employees we just added are actually in the array.
+    const millIds = new Set(employees.map(e => e.venus_employee_id));
+    for (const id of missingNamesIds) {
+        if (!millIds.has(id)) {
+            employees.push({
+                venus_employee_id: id,
+                employee_name: millMap[id].employee_name,
+                ptrj_employee_id: null,
+                charge_job: null
+            });
+        } else {
+            const emp = employees.find(e => e.venus_employee_id === id);
+            if (emp) emp.employee_name = millMap[id].employee_name;
+        }
+    }
 
     let activeEmployees = employees.filter(emp => activeEmployeeIds.has(emp.venus_employee_id));
 
