@@ -1,0 +1,145 @@
+{
+  "name": "Millware Attendance Input - V4 (Status-Based Charge Job Selection) - Engine 3",
+  "description": "Template untuk input absensi dengan logika status-based: CT/Cuti→Annual Leave, Sakit→Sick Leave, Hadir/Partial In→Original Charge Job",
+  "dataFile": "testing_data/_temp_engine_3.json",
+  "steps": [
+    {
+      "action": "navigate",
+      "params": {
+        "url": "http://millwarep3.rebinmas.com:8003/"
+      }
+    },
+    {
+      "action": "typeInput",
+      "params": {
+        "selector": "#txtUsername",
+        "value": "adm075"
+      }
+    },
+    {
+      "action": "typeInput",
+      "params": {
+        "selector": "#txtPassword",
+        "value": "adm075"
+      }
+    },
+    {
+      "action": "click",
+      "params": {
+        "selector": "#btnLogin"
+      }
+    },
+    {
+      "action": "wait",
+      "params": {
+        "duration": 1000
+      }
+    },
+    {
+      "action": "waitForElement",
+      "params": {
+        "selector": ".PopupBoxLogin",
+        "timeout": 15000
+      }
+    },
+    {
+      "action": "click",
+      "params": {
+        "selector": "#MainContent_btnOkay"
+      }
+    },
+    {
+      "action": "navigate",
+      "params": {
+        "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx"
+      }
+    },
+    {
+      "action": "wait",
+      "params": {
+        "duration": 2000
+      }
+    },
+    {
+      "action": "wait",
+      "params": {
+        "duration": 2000
+      }
+    },
+    {
+      "action": "forEach",
+      "params": {
+        "items": "data.data",
+        "itemName": "employee",
+        "steps": [
+          {
+            "action": "log",
+            "params": {
+              "message": "Processing Employee: ${employee.EmployeeName} (${employee.PTRJEmployeeID})"
+            }
+          },
+          {
+            "comment": "═══ PASS 1: Input Data (V4 - Status-Based Charge Job Selection) ═══",
+            "action": "include",
+            "params": {
+              "template": "_attendance_logic_v4"
+            }
+          },
+          {
+            "comment": "═══ VALIDATION: Check DB for Transfer Status ═══",
+            "action": "verifyEmployeeSync",
+            "params": {}
+          },
+          {
+            "comment": "═══ LOG RESULT ═══",
+            "action": "if",
+            "params": {
+              "condition": "context.employeeFailed === true",
+              "thenSteps": [
+                {
+                  "action": "log",
+                  "params": {
+                    "message": "⚠️ ${employee.EmployeeName}: Some transfers FAILED. Moving to next employee..."
+                  }
+                }
+              ],
+              "elseSteps": [
+                {
+                  "action": "log",
+                  "params": {
+                    "message": "✅ ${employee.EmployeeName}: All transfers SUCCESSFUL!"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "action": "log",
+      "params": {
+        "message": "✅ Selesai memproses semua data absensi"
+      }
+    },
+    {
+      "comment": "═══ SUMMARY: REAL-TIME CSV LOCATION ═══",
+      "action": "log",
+      "params": {
+        "message": "📊 Failed employees CSV updated in REAL-TIME during automation"
+      }
+    },
+    {
+      "action": "log",
+      "params": {
+        "message": "📍 Location: browser-automation-engine/logs/emp_failed/"
+      }
+    },
+    {
+      "action": "log",
+      "params": {
+        "message": "💡 File: failed_employees_*.csv (can be opened in Excel while automation runs)"
+      }
+    }
+  ]
+}

@@ -119,7 +119,13 @@ const calculateConsecutiveWorkingDays = (startDateStr, duration, holidayMap) => 
 // --- Helper: Check Availability ---
 const getLatestAvailableDate = async () => {
     try {
-        const sql = `SELECT TOP (1) TADate FROM [VenusHR14].[dbo].[HR_T_TAMachine_Summary] ORDER BY TADate DESC`;
+        const sql = `
+            SELECT MAX(TADate) as TADate FROM (
+                SELECT TOP (1) TADate FROM [VenusHR14].[dbo].[HR_T_TAMachine_Summary] ORDER BY TADate DESC
+                UNION ALL
+                SELECT TOP (1) TADate FROM [VenusHR14].[dbo].[HR_T_TAMachineInput_D] ORDER BY TADate DESC
+            ) t
+        `;
         const result = await executeQuery(sql);
         if (result && result.length > 0) {
             return format(new Date(result[0].TADate), 'yyyy-MM-dd');
@@ -286,8 +292,10 @@ const fetchAttendanceData = async (month, year) => {
     attendanceRaw.forEach((row, idx) => {
         const dateStr = formatDateSQL(row.TADate);
         const key = `${row.EmployeeID}_${dateStr}`;
+        // The query orders by Priority ASC (1=Summary, 2=Input).
+        // Since input is later in the result set, it naturally overwrites the summary record for the same key.
         attendanceMap[key] = row;
-        if (idx === 0) console.log(`[DEBUG] First attendance key: ${key}, TADate: ${row.TADate}, formatted: ${dateStr}`);
+        if (idx === 0) console.log(`[DEBUG] First attendance key: ${key}, TADate: ${row.TADate}, formatted: ${dateStr}, Source Priority: ${row.Priority}`);
     });
     console.log(`[DEBUG] Attendance map size: ${Object.keys(attendanceMap).length}`);
 
@@ -604,9 +612,14 @@ const fetchAttendanceData = async (month, year) => {
 
 const fetchAttendanceRaw = async (start, end) => {
     const sql = `
-        SELECT EmployeeID, TADate, TACheckIn, TACheckOut, Shift
+        SELECT EmployeeID, TADate, TACheckIn, TACheckOut, Shift, 1 AS Priority
         FROM [VenusHR14].[dbo].[HR_T_TAMachine_Summary]
         WHERE TADate BETWEEN '${start}' AND '${end}'
+        UNION ALL
+        SELECT EmployeeID, TADate, CheckIn AS TACheckIn, CheckOut AS TACheckOut, ShiftCode AS Shift, 2 AS Priority
+        FROM [VenusHR14].[dbo].[HR_T_TAMachineInput_D]
+        WHERE TADate BETWEEN '${start}' AND '${end}'
+        ORDER BY EmployeeID, TADate, Priority ASC
     `;
     return await executeQuery(sql);
 };

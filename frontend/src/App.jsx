@@ -23,7 +23,7 @@ const App = () => {
     const [viewMode, setViewMode] = useState('attendance');
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState(null);
-    const [selectedMonth, setSelectedMonth] = useState(1);
+    const [selectedMonth, setSelectedMonth] = useState(2);
     const [selectedYear, setSelectedYear] = useState(2026);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
 
