@@ -16,6 +16,7 @@ import { Button } from '@mui/material';
 import AttendanceSummaryReport from './components/AttendanceSummaryReport';
 import AttendanceMatrix from './components/AttendanceMatrix';
 import PayrollReport from './components/PayrollReport';
+import OvertimeReport from './components/OvertimeReport';
 import AutomationDialog from './components/AutomationDialog';
 import ComparisonDialog from './components/ComparisonDialog';
 import { fetchAttendanceData } from './services/api';
@@ -189,6 +190,7 @@ const App = () => {
                             setActiveTab(newValue);
                         }} sx={{ minHeight: 40 }}>
                             <Tab icon={<AssessmentIcon fontSize="small" />} iconPosition="start" label="Report" value="report" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
+                            <Tab icon={<HourglassIcon fontSize="small" />} iconPosition="start" label="Lembur" value="lembur" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
                             <Tab icon={<TableViewIcon fontSize="small" />} iconPosition="start" label="Matrix" value="matrix" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
                             <Tab icon={<CompareIcon fontSize="small" />} iconPosition="start" label="Komparasi" value="comparison" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
                             <Tab icon={<ReceiptIcon fontSize="small" />} iconPosition="start" label="Payroll" value="payroll" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
@@ -290,6 +292,9 @@ const App = () => {
                 {activeTab === 'report' && (
                     <AttendanceSummaryReport data={data || []} />
                 )}
+                {activeTab === 'lembur' && (
+                    <OvertimeReport data={data || []} />
+                )}
                 {activeTab === 'matrix' && (
                     <AttendanceMatrix
                         data={data || []}
@@ -317,9 +322,37 @@ const App = () => {
                 {activeTab === 'payroll' && (
                     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                         <Box sx={{ p: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#374151' }}>
-                                Periode: {monthNames[selectedMonth - 1]} {selectedYear}
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <CalendarIcon fontSize="small" sx={{ color: '#7c3aed' }} />
+                                <FormControl size="small" sx={{ minWidth: 120 }}>
+                                    <Select
+                                        value={selectedMonth}
+                                        onChange={(e) => setSelectedMonth(e.target.value)}
+                                        sx={{
+                                            '& .MuiSelect-select': { py: 0.5, fontSize: '0.85rem', fontWeight: 600 },
+                                            '& .MuiOutlinedInput-notchedOutline': { border: 'none' }
+                                        }}
+                                    >
+                                        {monthNames.map((name, idx) => (
+                                            <MenuItem key={idx} value={idx + 1}>{name}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                <FormControl size="small" sx={{ minWidth: 80 }}>
+                                    <Select
+                                        value={selectedYear}
+                                        onChange={(e) => setSelectedYear(e.target.value)}
+                                        sx={{
+                                            '& .MuiSelect-select': { py: 0.5, fontSize: '0.85rem', fontWeight: 600 },
+                                            '& .MuiOutlinedInput-notchedOutline': { border: 'none' }
+                                        }}
+                                    >
+                                        {years.map(year => (
+                                            <MenuItem key={year} value={year}>{year}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Box>
                             <Button
                                 variant="contained"
                                 size="small"

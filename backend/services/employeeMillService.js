@@ -2,8 +2,8 @@ const { executeQuery } = require('./gateway');
 const axios = require('axios');
 require('dotenv').config();
 
-const SERVER_PROFILE = 'SERVER_PROFILE_1';
-const DB = 'extend_db_ptrj';
+const SERVER_PROFILE = 'SERVER_PROFILE_3';
+const DB = 'db_ptrj_mill';
 
 // Helper to query extend_db_ptrj specifically
 const queryExtendDB = async (sql, params = {}) => {
