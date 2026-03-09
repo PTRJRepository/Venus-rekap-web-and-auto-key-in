@@ -88,11 +88,23 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                 return {
                     status: 'not_synced',
                     icon: <SyncDisabledIcon sx={{ fontSize: 10, color: '#dc2626' }} />,
-                    tooltip: `❌ Regular belum diinput (Venus: ${venusRegularHours}h)`
+                    tooltip: `❌ Regular belum diinput (Venus: ${venusRegularHours}h)`,
+                    displayOverride: `${venusRegularHours}h`,
+                    displayColor: '#dc2626'
                 };
             }
 
             // Record exists - user requested 'kalo yan beda jam gappa, intinya datanya hrus ada'
+            if (!millwareRecord.regularMatched) {
+                return {
+                    status: 'mismatch',
+                    icon: <WarningIcon sx={{ fontSize: 10, color: '#d97706' }} />,
+                    tooltip: `⚠ Beda Jam Regular (V: ${venusRegularHours}h | M: ${millwareRecord.normal}h)`,
+                    displayOverride: `${venusRegularHours}h|${millwareRecord.normal}h`,
+                    displayColor: '#d97706'
+                };
+            }
+
             return {
                 status: 'synced',
                 icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
@@ -112,11 +124,25 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                 return {
                     status: 'not_synced',
                     icon: <SyncDisabledIcon sx={{ fontSize: 10, color: '#dc2626' }} />,
-                    tooltip: `❌ OT ${venusOtHours}h belum diinput`
+                    tooltip: `❌ OT ${venusOtHours}h belum diinput`,
+                    displayOverride: `${venusOtHours}h`,
+                    displayColor: '#dc2626'
                 };
             }
 
-            // OT record exists
+            if (!millwareRecord.otMatched) {
+                const diff = (millwareRecord.ot || 0) - venusOtHours;
+                const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
+                return {
+                    status: 'mismatch',
+                    icon: <WarningIcon sx={{ fontSize: 10, color: '#d97706' }} />,
+                    tooltip: `⚠ Beda Jam Lembur (Venus: ${venusOtHours}h, Millware: ${millwareRecord.ot}h, Selisih: ${diffStr}h)`,
+                    displayOverride: `${venusOtHours}h|${millwareRecord.ot}h`,
+                    displayColor: '#d97706'
+                };
+            }
+
+            // OT record exists and matches
             return {
                 status: 'synced',
                 icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
@@ -244,6 +270,10 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
                                         // Get sync status if in compare mode
                                         // Pass both regular and overtime hours
                                         const syncStatus = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.regularHours || 0, d.overtimeHours || 0);
+
+                                        if (syncStatus && syncStatus.displayOverride) {
+                                            cellContent = <span style={{ color: syncStatus.displayColor, fontWeight: 700, fontSize: '0.65rem', whiteSpace: 'nowrap' }}>{syncStatus.displayOverride}</span>;
+                                        }
 
                                         // Determine border style based on sync status
                                         let borderStyle = {};

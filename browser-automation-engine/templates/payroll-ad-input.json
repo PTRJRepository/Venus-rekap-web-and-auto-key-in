@@ -1,0 +1,316 @@
+{
+    "name": "Payroll AD Lists Input",
+    "description": "Input payroll components (tunjangan/potongan) ke AD Lists Millware untuk data yang MISS",
+    "dataFile": "testing_data/current_payroll_data.json",
+    "steps": [
+        {
+            "action": "log",
+            "params": {
+                "message": "═══════════════════════════════════════════════════════════════"
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "  PAYROLL AD LISTS AUTO INPUT"
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "  Month: ${metadata.month}/${metadata.year}"
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "  Total Employees: ${metadata.totalEmployees}"
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "═══════════════════════════════════════════════════════════════"
+            }
+        },
+        {
+            "comment": "═══ NAVIGATE TO AD LISTS PAGE ═══",
+            "action": "navigate",
+            "params": {
+                "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 2000
+            }
+        },
+        {
+            "comment": "═══ CLOSE POPUP IF EXISTS ═══",
+            "action": "closePopup",
+            "params": {}
+        },
+        {
+            "comment": "═══ CLICK NEW BUTTON ═══",
+            "action": "click",
+            "params": {
+                "selector": "#MainContent_btnNew"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 1500
+            }
+        },
+        {
+            "comment": "═══ VERIFY WE'RE ON ADDET PAGE ═══",
+            "action": "waitForElement",
+            "params": {
+                "selector": ".ui-autocomplete-input.CBOBox",
+                "timeout": 10000
+            }
+        },
+        {
+            "comment": "═══ LOOP THROUGH EMPLOYEES ═══",
+            "action": "forEachProperty",
+            "params": {
+                "object": "employees",
+                "keyName": "empKey",
+                "valueName": "employee",
+                "steps": [
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  👤 Employee: ${employee.employeeName} (${employee.ptrjId})"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  📋 Components to input: ${employee.components.length}"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT EMPLOYEE NAME ═══",
+                        "action": "smartType",
+                        "params": {
+                            "selector": ".ui-autocomplete-input.CBOBox",
+                            "value": "${employee.employeeName}",
+                            "confirmKey": "Enter",
+                            "smartSelect": true
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 1000
+                        }
+                    },
+                    {
+                        "comment": "═══ LOOP THROUGH COMPONENTS ═══",
+                        "action": "forEach",
+                        "params": {
+                            "array": "employee.components",
+                            "itemName": "component",
+                            "steps": [
+                                {
+                                    "action": "log",
+                                    "params": {
+                                        "message": "    └─ Component: ${component.componentName} → ADCode: ${component.adCode} = Rp ${component.venusAmount}"
+                                    }
+                                },
+                                {
+                                    "comment": "═══ INPUT AD CODE (TaskCode) ═══",
+                                    "action": "smartType",
+                                    "params": {
+                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                        "value": "${component.adCode}",
+                                        "index": 1,
+                                        "confirmKey": "Enter",
+                                        "smartSelect": true
+                                    }
+                                },
+                                {
+                                    "action": "wait",
+                                    "params": {
+                                        "duration": 800
+                                    }
+                                },
+                                {
+                                    "comment": "═══ INPUT AMOUNT ═══",
+                                    "action": "typeInput",
+                                    "params": {
+                                        "selector": "#MainContent_txtAmount",
+                                        "value": "${component.venusAmount}"
+                                    }
+                                },
+                                {
+                                    "action": "wait",
+                                    "params": {
+                                        "duration": 300
+                                    }
+                                },
+                                {
+                                    "comment": "═══ CLICK ADD BUTTON ═══",
+                                    "action": "click",
+                                    "params": {
+                                        "selector": "#MainContent_btnAdd"
+                                    }
+                                },
+                                {
+                                    "action": "wait",
+                                    "params": {
+                                        "duration": 1000
+                                    }
+                                },
+                                {
+                                    "comment": "═══ CHECK FOR VALIDATION ERROR ═══",
+                                    "action": "checkValidationError",
+                                    "params": {
+                                        "retryCount": 2,
+                                        "steps": [
+                                            {
+                                                "comment": "RETRY: Clear and re-input",
+                                                "action": "smartType",
+                                                "params": {
+                                                    "selector": ".ui-autocomplete-input.CBOBox",
+                                                    "value": "${component.adCode}",
+                                                    "index": 1,
+                                                    "confirmKey": "Enter",
+                                                    "smartSelect": true
+                                                }
+                                            },
+                                            {
+                                                "action": "wait",
+                                                "params": {
+                                                    "duration": 800
+                                                }
+                                            },
+                                            {
+                                                "action": "typeInput",
+                                                "params": {
+                                                    "selector": "#MainContent_txtAmount",
+                                                    "value": "${component.venusAmount}"
+                                                }
+                                            },
+                                            {
+                                                "action": "wait",
+                                                "params": {
+                                                    "duration": 300
+                                                }
+                                            },
+                                            {
+                                                "action": "click",
+                                                "params": {
+                                                    "selector": "#MainContent_btnAdd"
+                                                }
+                                            },
+                                            {
+                                                "action": "wait",
+                                                "params": {
+                                                    "duration": 1000
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "comment": "═══ CLICK SAVE BUTTON ═══",
+                        "action": "click",
+                        "params": {
+                            "selector": "#MainContent_btnSave"
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 2000
+                        }
+                    },
+                    {
+                        "comment": "═══ CHECK SAVE RESULT ═══",
+                        "action": "evaluate",
+                        "params": {
+                            "script": "return { saved: true }"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  ✅ Saved: ${employee.employeeName}"
+                        }
+                    },
+                    {
+                        "comment": "═══ NAVIGATE BACK TO LIST FOR NEXT EMPLOYEE ═══",
+                        "action": "navigate",
+                        "params": {
+                            "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx"
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 1500
+                        }
+                    },
+                    {
+                        "comment": "═══ CLICK NEW FOR NEXT EMPLOYEE ═══",
+                        "action": "click",
+                        "params": {
+                            "selector": "#MainContent_btnNew"
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 1500
+                        }
+                    },
+                    {
+                        "comment": "═══ VERIFY FORM READY ═══",
+                        "action": "waitForElement",
+                        "params": {
+                            "selector": ".ui-autocomplete-input.CBOBox",
+                            "timeout": 10000
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "═══════════════════════════════════════════════════════════════"
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "  ✅ PAYROLL AD LISTS INPUT COMPLETED"
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "═══════════════════════════════════════════════════════════════"
+            }
+        }
+    ]
+}

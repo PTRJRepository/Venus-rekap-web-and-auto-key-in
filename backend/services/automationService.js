@@ -367,9 +367,69 @@ const stopAutomationProcess = () => {
 
 // Track active process
 let currentProcess = null;
+let currentPayrollProcess = null;
+
+/**
+ * Start payroll automation process
+ * Uses current_payroll_data.json as input
+ */
+const startPayrollAutomationProcess = () => {
+    const env = {
+        ...process.env,
+        AUTO_CLOSE: process.env.AUTO_CLOSE || 'true',
+        HEADLESS: process.env.HEADLESS || 'false',
+        AUTOMATION_INSTANCES: process.env.AUTOMATION_INSTANCES || '1', // Single instance for payroll
+        ENGINE_START_DELAY: process.env.ENGINE_START_DELAY || '2000'
+    };
+
+    const instances = env.AUTOMATION_INSTANCES;
+    console.log(`[PayrollAutomation] Starting runner with ${instances} instance(s): node ${RUNNER_SCRIPT}`);
+
+    // Use payroll-ad-input template
+    const template = 'payroll-ad-input';
+
+    const child = spawn('node', [RUNNER_SCRIPT, template], {
+        cwd: ENGINE_DIR,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    currentPayrollProcess = child;
+
+    child.stdout.on('data', (data) => {
+        const lines = data.toString().split('\n').filter(line => line.trim());
+        lines.forEach(line => console.log(`[PayrollRunner] ${line}`));
+    });
+
+    child.stderr.on('data', (data) => {
+        console.error(`[PayrollRunner ERROR] ${data.toString()}`);
+    });
+
+    child.on('close', (code) => {
+        console.log(`[PayrollAutomation] Process exited with code ${code}`);
+        currentPayrollProcess = null;
+    });
+
+    return child;
+};
+
+/**
+ * Stop payroll automation process
+ */
+const stopPayrollAutomationProcess = () => {
+    if (currentPayrollProcess) {
+        console.log('[PayrollAutomation] Stopping process...');
+        currentPayrollProcess.kill('SIGINT');
+        currentPayrollProcess = null;
+        return true;
+    }
+    return false;
+};
 
 module.exports = {
     saveAutomationData,
     startAutomationProcess,
-    stopAutomationProcess
+    stopAutomationProcess,
+    startPayrollAutomationProcess,
+    stopPayrollAutomationProcess
 };

@@ -302,7 +302,9 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
                                                 <TableCell sx={{ color: '#e0e0e0', fontWeight: 'bold' }}>{row.venusOvertimeHours}h</TableCell>
                                                 <TableCell sx={{ color: row.details?.otMatched ? '#4caf50' : '#ff9800' }}>
                                                     {row.details ? `${row.details.millwareOT}h` : '-'}
-                                                    {row.details?.otMatched ? ' ✓' : ' ⚠'}
+                                                    {row.details?.otMatched ? ' ✓' : (
+                                                        row.details ? ` ⚠ (Selisih: ${row.details.millwareOT - row.venusOvertimeHours}h)` : ' ⚠'
+                                                    )}
                                                 </TableCell>
                                             </>
                                         ) : (
@@ -380,6 +382,11 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
                                                     <TableCell sx={{ color: '#e0e0e0' }}>{row.venusOvertimeHours}h</TableCell>
                                                     <TableCell sx={{ color: row.venusOvertimeHours === row.millwareOvertimeHours ? '#4caf50' : '#ff9800' }}>
                                                         {row.millwareOvertimeHours}h
+                                                        {row.venusOvertimeHours !== row.millwareOvertimeHours && (
+                                                            <span style={{ fontSize: '0.7em', marginLeft: 4 }}>
+                                                                (Selisih: {(row.millwareOvertimeHours - row.venusOvertimeHours).toFixed(2)}h)
+                                                            </span>
+                                                        )}
                                                     </TableCell>
                                                 </>
                                             )}

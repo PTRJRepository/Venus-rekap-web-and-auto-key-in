@@ -125,7 +125,37 @@ class DistributedLock {
 
 // Default data file
 const DEFAULT_DATA_FILE = path.join(__dirname, 'testing_data', 'current_data.json');
-const dataFilePath = process.argv[2] || DEFAULT_DATA_FILE;
+const DEFAULT_TEMPLATE_NAME = 'attendance-input-loop';
+
+// Support both old and new argument styles:
+// Old: node parallel-runner.js [dataFile]
+// New: node parallel-runner.js [templateName] [dataFile]
+let dataFilePath, templateName;
+
+if (process.argv[2]) {
+    // Check if it's a known template name or a file path
+    const arg2 = process.argv[2];
+    if (arg2.includes('-') || arg2.includes('.json')) {
+        // Could be a template name like 'payroll-ad-input' or a file path
+        if (fs.existsSync(path.join(__dirname, 'templates', `${arg2}.json`))) {
+            templateName = arg2;
+            dataFilePath = process.argv[3] || DEFAULT_DATA_FILE;
+        } else {
+            // Assume it's a data file path
+            dataFilePath = arg2;
+            templateName = process.argv[3] || DEFAULT_TEMPLATE_NAME;
+        }
+    } else {
+        // It's likely a template name
+        templateName = arg2;
+        dataFilePath = process.argv[3] || DEFAULT_DATA_FILE;
+    }
+} else {
+    dataFilePath = DEFAULT_DATA_FILE;
+    templateName = DEFAULT_TEMPLATE_NAME;
+}
+
+const TEMPLATE_NAME = templateName;
 
 // ==================== CONFIGURATION ====================
 // Read from environment variables with sensible defaults
@@ -133,7 +163,6 @@ const AUTOMATION_INSTANCES = parseInt(process.env.AUTOMATION_INSTANCES || '3');
 const ENGINE_START_DELAY = parseInt(process.env.ENGINE_START_DELAY || '500');
 const HEARTBEAT_TIMEOUT = parseInt(process.env.HEARTBEAT_TIMEOUT || '120000');
 const MAX_RESTARTS = parseInt(process.env.MAX_ENGINE_RESTARTS || '10');
-const TEMPLATE_NAME = 'attendance-input-loop';
 const HEADLESS = process.env.HEADLESS === 'true';
 const MAX_MEMORY_MB = parseInt(process.env.CHROME_MEMORY_LIMIT || '0');
 
@@ -192,6 +221,7 @@ const logSystemInfo = () => {
 };
 
 const logConfig = (actualInstances, requestedInstances) => {
+    console.log(`📂 Using template: ${TEMPLATE_NAME}`);
     console.log(`📂 Using data file: ${dataFilePath}`);
     console.log(`⚙️  Configuration:`);
     console.log(`   • Requested Instances: ${requestedInstances}`);

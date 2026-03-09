@@ -10,10 +10,12 @@ import HourglassIcon from '@mui/icons-material/HourglassEmpty';
 import DetailIcon from '@mui/icons-material/EventNote';
 import SyncIcon from '@mui/icons-material/Sync';
 import CompareIcon from '@mui/icons-material/CompareArrows';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import { Button } from '@mui/material';
 
 import AttendanceSummaryReport from './components/AttendanceSummaryReport';
 import AttendanceMatrix from './components/AttendanceMatrix';
+import PayrollReport from './components/PayrollReport';
 import AutomationDialog from './components/AutomationDialog';
 import ComparisonDialog from './components/ComparisonDialog';
 import { fetchAttendanceData } from './services/api';
@@ -33,6 +35,7 @@ const App = () => {
     const [isComparisonOpen, setIsComparisonOpen] = useState(false);
     const [comparisonData, setComparisonData] = useState(null);
     const [compareMode, setCompareMode] = useState('off');
+    const [isPayrollAutomationRunning, setIsPayrollAutomationRunning] = useState(false);
 
     // Month names
     const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -140,6 +143,40 @@ const App = () => {
         setIsComparisonOpen(true);
     };
 
+    const handlePayrollAutomation = async () => {
+        if (!selectedMonth || !selectedYear) {
+            setSnackbar({ open: true, message: 'Pilih bulan dan tahun terlebih dahulu', severity: 'warning' });
+            return;
+        }
+
+        setIsPayrollAutomationRunning(true);
+        setSnackbar({ open: true, message: 'Memulai Auto Key-In Payroll...', severity: 'info' });
+
+        try {
+            const response = await fetch('/api/payroll/automation/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ month: selectedMonth, year: selectedYear })
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                setSnackbar({
+                    open: true,
+                    message: result.message || 'Auto Key-In Payroll dimulai',
+                    severity: 'success'
+                });
+            } else {
+                setSnackbar({ open: true, message: result.error || 'Gagal memulai', severity: 'error' });
+            }
+        } catch (e) {
+            console.error("Payroll automation failed:", e);
+            setSnackbar({ open: true, message: 'Error: ' + e.message, severity: 'error' });
+        } finally {
+            setIsPayrollAutomationRunning(false);
+        }
+    };
+
     const showSnackbar = (message, severity = 'info') => setSnackbar({ open: true, message, severity });
 
     return (
@@ -154,6 +191,7 @@ const App = () => {
                             <Tab icon={<AssessmentIcon fontSize="small" />} iconPosition="start" label="Report" value="report" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
                             <Tab icon={<TableViewIcon fontSize="small" />} iconPosition="start" label="Matrix" value="matrix" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
                             <Tab icon={<CompareIcon fontSize="small" />} iconPosition="start" label="Komparasi" value="comparison" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
+                            <Tab icon={<ReceiptIcon fontSize="small" />} iconPosition="start" label="Payroll" value="payroll" sx={{ minHeight: 40, py: 0, fontSize: '0.85rem' }} />
                         </Tabs>
                         <Box sx={{ width: '1px', height: 24, bgcolor: '#e5e7eb', mx: 2 }} />
 
@@ -275,6 +313,27 @@ const App = () => {
                         year={selectedYear}
                         onComparisonComplete={handleComparisonComplete}
                     />
+                )}
+                {activeTab === 'payroll' && (
+                    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <Box sx={{ p: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#374151' }}>
+                                Periode: {monthNames[selectedMonth - 1]} {selectedYear}
+                            </Typography>
+                            <Button
+                                variant="contained"
+                                size="small"
+                                color="success"
+                                startIcon={<SyncIcon />}
+                                onClick={handlePayrollAutomation}
+                                disabled={isPayrollAutomationRunning}
+                                sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem' }}
+                            >
+                                {isPayrollAutomationRunning ? 'Sedang Berjalan...' : 'Auto Key-In Payroll'}
+                            </Button>
+                        </Box>
+                        <PayrollReport month={selectedMonth} year={selectedYear} />
+                    </Box>
                 )}
             </Box>
 

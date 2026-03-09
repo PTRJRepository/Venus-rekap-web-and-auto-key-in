@@ -13,7 +13,7 @@ const { updateEmployee, getAllEmployees, upsertEmployee } = require('./services/
 const { saveAutomationData, startAutomationProcess } = require('./services/automationService');
 const { queryTaskRegData, compareWithTaskReg, getMissData, getSyncSummaryByEmployee } = require('./services/comparisonService');
 const validationService = require('./services/validationService');
-
+const { fetchPayrollData } = require('./services/payrollService');
 require('dotenv').config();
 
 // --- Helper Functions for Holidays ---
@@ -140,6 +140,31 @@ app.get('/api/attendance', async (req, res) => {
         });
     } catch (error) {
         console.error("API Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/payroll', async (req, res) => {
+    const { month, year } = req.query;
+    console.log(`Received request for payroll data: ${month}/${year}`);
+
+    if (!month || !year) return res.status(400).json({ error: 'Month and Year required' });
+
+    try {
+        const result = await fetchPayrollData(parseInt(month), parseInt(year));
+
+        if (result.success) {
+            res.json({
+                success: true,
+                data: result.data,
+                month: parseInt(month),
+                year: parseInt(year)
+            });
+        } else {
+            res.status(500).json({ success: false, error: result.error });
+        }
+    } catch (error) {
+        console.error("Payroll API Error:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -833,6 +858,109 @@ app.post('/api/automation/run', async (req, res) => {
 app.post('/api/automation/stop', (req, res) => {
     try {
         const stopped = stopAutomationProcess();
+        res.json({ success: true, stopped });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Payroll Automation Routes ---
+
+// Prepare and run payroll automation
+const { triggerPayrollAutomation } = require('./services/payrollAutomationService');
+const { startPayrollAutomationProcess, stopPayrollAutomationProcess } = require('./services/automationService');
+
+app.post('/api/payroll/automation/run', async (req, res) => {
+    const { month, year } = req.body;
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        console.log(`[PayrollAutomation API] Request to run for ${month}/${year}`);
+
+        // First, prepare the data (find MISS components)
+        const prepResult = await triggerPayrollAutomation(month, year);
+        if (!prepResult.success) {
+            throw new Error(prepResult.error);
+        }
+
+        if (prepResult.data.employees.length === 0) {
+            return res.json({
+                success: true,
+                message: 'Tidak ada data payroll yang perlu diinputkan (semua sudah cocok)',
+                employeesProcessed: 0,
+                componentsProcessed: 0
+            });
+        }
+
+        // Count total components
+        const totalComponents = prepResult.data.employees.reduce((sum, emp) => sum + emp.components.length, 0);
+
+        console.log(`[PayrollAutomation API] Prepared ${prepResult.data.employees.length} employees with ${totalComponents} components`);
+
+        // Start the automation process
+        const child = startPayrollAutomationProcess();
+
+        // Handle spawn errors
+        child.on('error', (err) => {
+            console.error('[PayrollAutomation] Spawn error:', err);
+            if (!res.headersSent) {
+                res.status(500).json({ error: `Failed to start automation: ${err.message}` });
+            }
+        });
+
+        // Setup Streaming Response
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const sendChunk = (type, data) => {
+            try {
+                res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+            } catch (e) {
+                // Response closed
+            }
+        };
+
+        child.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n').filter(line => line.trim());
+            lines.forEach(line => sendChunk('log', line));
+        });
+
+        child.stderr.on('data', (data) => {
+            sendChunk('error', data.toString());
+        });
+
+        child.on('close', (code) => {
+            sendChunk('complete', { code, employees: prepResult.data.employees.length, components: totalComponents });
+            res.end();
+        });
+
+        // Initial response
+        res.json({
+            success: true,
+            message: `Memproses ${prepResult.data.employees.length} karyawan dengan ${totalComponents} komponen`,
+            employees: prepResult.data.employees.map(e => ({
+                name: e.employeeName,
+                ptrjId: e.ptrjId,
+                components: e.components.length
+            }))
+        });
+
+    } catch (error) {
+        console.error('[PayrollAutomation API] Error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
+// Stop payroll automation
+app.post('/api/payroll/automation/stop', (req, res) => {
+    try {
+        const stopped = stopPayrollAutomationProcess();
         res.json({ success: true, stopped });
     } catch (error) {
         res.status(500).json({ error: error.message });
