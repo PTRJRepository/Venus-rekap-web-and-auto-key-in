@@ -2,44 +2,27 @@ const { executeQuery } = require('./gateway');
 const axios = require('axios');
 require('dotenv').config();
 
-const SERVER_PROFILE = 'SERVER_PROFILE_3';
-const DB = 'db_ptrj_mill';
+// PTRJ ID and ChargeJob from SERVER_PROFILE_1, database extend_db_ptrj
+const SERVER_PROFILE_PTRJ = 'SERVER_PROFILE_1';
+const DB_PTRJ = 'extend_db_ptrj';
 
-// Helper to query extend_db_ptrj specifically
-const queryExtendDB = async (sql, params = {}) => {
-    // Note: The executeQuery from gateway.js usually takes sql, server, database
-    // But currently gateway.js implementation might be tied to config.
-    // Let's rely on standard axios call like in seeder to be safe and independent.
-
-    // Actually, let's use the implementation from gateway.js if it supports explicit server/db
-    // Checking gateway.js content might be useful, but to avoid circular deps or config issues, 
-    // I'll implement a clean query method here using env vars directly.
-
+// Helper to query specific server/database
+const queryWithServer = async (sql, serverProfile, database) => {
     const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8001';
     const API_TOKEN = process.env.API_TOKEN_QUERY;
-
-    // Handle proxy vs direct
-    const endpoint = GATEWAY_URL.includes('/query') ?
-        (GATEWAY_URL.endsWith('/query') ? GATEWAY_URL : `${GATEWAY_URL}/v1/query`) :
-        `${GATEWAY_URL}/v1/query`;
-
-    const SAFE_ENDPOINT = endpoint.replace('//v1', '/v1').replace('query/v1', 'query');
-    // Previous scripts used logic: IS_PROXY ? `${GATEWAY_URL}/v1/query` : `${GATEWAY_URL}/v1/query`
-    // If GATEWAY_URL is http://localhost:8001, endpoint is http://localhost:8001/v1/query
 
     const IS_PROXY = GATEWAY_URL.includes('/query');
     const FINAL_URL = IS_PROXY ? `${GATEWAY_URL}/v1/query` : `${GATEWAY_URL}/v1/query`;
 
     console.log(`[EmployeeMill] Querying: ${FINAL_URL}`);
-    console.log(`[EmployeeMill] Server: ${SERVER_PROFILE}, DB: ${params.database || DB}`);
+    console.log(`[EmployeeMill] Server: ${serverProfile}, DB: ${database}`);
     console.log(`[EmployeeMill] SQL: ${sql.substring(0, 100)}...`);
 
     try {
         const response = await axios.post(FINAL_URL, {
             sql,
-            // params, // Gateway might not support safe params yet, use string interpolation in caller if needed
-            server: SERVER_PROFILE,
-            database: params.database || DB
+            server: serverProfile,
+            database: database
         }, {
             headers: { 'x-api-key': API_TOKEN },
             timeout: 60000
@@ -58,17 +41,60 @@ const queryExtendDB = async (sql, params = {}) => {
     }
 };
 
+// Helper to query extend_db_ptrj (for ptrj_employee_id and charge_job)
+const queryExtendDB = async (sql, database = DB_PTRJ) => {
+    return await queryWithServer(sql, SERVER_PROFILE_PTRJ, database);
+};
+
 /**
  * Get all employee mappings from DB
+ * ptrj_employee_id and charge_job from extend_db_ptrj.employee_mill
  * Returns array of { venus_employee_id, ptrj_employee_id, employee_name, charge_job, is_karyawan }
  */
 const getAllEmployees = async () => {
+    // Get ptrj_employee_id and charge_job from extend_db_ptrj.employee_mill (SERVER_PROFILE_1)
     const sql = `
-        SELECT nik, venus_employee_id, ptrj_employee_id, employee_name, charge_job, ISNULL(is_karyawan, 1) as is_karyawan 
-        FROM employee_mill 
+        SELECT nik, venus_employee_id, ptrj_employee_id, employee_name, charge_job, ISNULL(is_karyawan, 1) as is_karyawan
+        FROM employee_mill
         WHERE is_active = 1
     `;
-    return await queryExtendDB(sql);
+    console.log('[EmployeeMill] Fetching ptrj_employee_id and charge_job from extend_db_ptrj...');
+    const results = await queryExtendDB(sql);
+
+    // Build map from results
+    const employeeMap = {};
+    if (results && results.length > 0) {
+        results.forEach(r => {
+            employeeMap[r.venus_employee_id] = {
+                venus_employee_id: r.venus_employee_id,
+                ptrj_employee_id: r.ptrj_employee_id || null,
+                employee_name: r.employee_name || null,
+                charge_job: r.charge_job || null,
+                is_karyawan: r.is_karyawan
+            };
+        });
+        console.log(`[EmployeeMill] Got ${results.length} employees from employee_mill`);
+    } else {
+        console.log('[EmployeeMill] WARNING - No results from employee_mill!');
+    }
+
+    // Convert map back to array
+    const finalResults = Object.values(employeeMap);
+
+    // DEBUG: Log sample data
+    if (finalResults && finalResults.length > 0) {
+        console.log('[EmployeeMill] Final sample data:');
+        finalResults.slice(0, 5).forEach((r, i) => {
+            console.log(`  [${i}] venus_employee_id="${r.venus_employee_id}", ptrj_employee_id="${r.ptrj_employee_id}", charge_job="${r.charge_job}", is_karyawan="${r.is_karyawan}"`);
+        });
+
+        const withPtrj = finalResults.filter(r => r.ptrj_employee_id && r.ptrj_employee_id.trim() !== '').length;
+        const withCharge = finalResults.filter(r => r.charge_job && r.charge_job.trim() !== '').length;
+        const nonKaryawan = finalResults.filter(r => r.is_karyawan === 0 || r.is_karyawan === false || r.is_karyawan === '0').length;
+        console.log(`[EmployeeMill] Total: ${finalResults.length}, with ptrj_employee_id: ${withPtrj}, with charge_job: ${withCharge}, non-karyawan: ${nonKaryawan}`);
+    }
+
+    return finalResults;
 };
 
 /**
@@ -77,13 +103,15 @@ const getAllEmployees = async () => {
  */
 const getHolidaysFromDB = async (start, end) => {
     const sql = `
-        SELECT HolidayDate, Description 
-        FROM [db_ptrj_mill].[dbo].[HR_GPH] 
+        SELECT HolidayDate, Description
+        FROM [HR_GPH]
         WHERE HolidayDate BETWEEN '${start}' AND '${end}'
     `;
-    // Pass specific database for this query
-    return await queryExtendDB(sql, { database: 'db_ptrj_mill' });
+    // Use db_ptrj_mill database
+    return await queryWithServer(sql, SERVER_PROFILE_PTRJ, 'db_ptrj_mill');
 };
+
+/**
 
 /**
  * Get PTRJ Mapping object: { [venusId]: ptrjId }
@@ -169,8 +197,8 @@ const updateEmployee = async (venusEmployeeId, updates) => {
     try {
         const response = await axios.post(FINAL_URL, {
             sql,
-            server: SERVER_PROFILE,
-            database: DB
+            server: SERVER_PROFILE_PTRJ,
+            database: DB_PTRJ
         }, {
             headers: { 'x-api-key': API_TOKEN },
             timeout: 60000
@@ -225,8 +253,8 @@ const insertEmployee = async (employeeData) => {
     try {
         const response = await axios.post(FINAL_URL, {
             sql,
-            server: SERVER_PROFILE,
-            database: DB
+            server: SERVER_PROFILE_PTRJ,
+            database: DB_PTRJ
         }, {
             headers: { 'x-api-key': API_TOKEN },
             timeout: 60000

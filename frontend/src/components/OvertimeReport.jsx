@@ -12,10 +12,15 @@ import {
     Chip,
     Avatar,
     TextField,
-    Button
+    Button,
+    Tooltip
 } from '@mui/material';
 import BusinessIcon from '@mui/icons-material/Business';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
+import HourglassIcon from '@mui/icons-material/HourglassEmpty';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 /**
  * Extract station name from chargeJob field
@@ -97,16 +102,104 @@ const OvertimeReport = ({ data = [] }) => {
         );
     }
 
+    const handleExportPDF = () => {
+        const doc = new jsPDF();
+
+        // Header Rectangle
+        doc.setFillColor(30, 41, 59); // Dark slate header
+        doc.rect(0, 0, doc.internal.pageSize.width, 35, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('REPORT LEMBUR KARYAWAN', 14, 22);
+
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Venus Rekap Web | Dicetak pada: ${new Date().toLocaleDateString('id-ID')}`, 14, 30);
+
+        // Filter info
+        let filterText = 'Menampilkan: Semua Data Karyawan Lembur';
+        if (minHours !== '' || maxHours !== '' || searchTerm) {
+            filterText = `Filter Aktif: ${searchTerm ? `Pencarian "${searchTerm}" | ` : ''} Range: ${minHours || 0} - ${maxHours || 'Tak Terhingga'} Jam`;
+        }
+
+        doc.setTextColor(80, 80, 80);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'italic');
+        doc.text(filterText, 14, 45);
+
+        // Table
+        const tableColumn = ["No.", "Karyawan", "PTRJ ID", "Stasiun", "Total Jam Lembur"];
+        const tableRows = [];
+
+        filteredEmployees.forEach((emp, ind) => {
+            const empData = [
+                ind + 1,
+                emp.name,
+                emp.ptrjEmployeeID || '-',
+                emp.station,
+                `${emp.totalOvertime} Jam`
+            ];
+            tableRows.push(empData);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 50,
+            theme: 'grid',
+            headStyles: {
+                fillColor: [100, 116, 139], // Slate-500
+                textColor: 255,
+                fontStyle: 'bold'
+            },
+            bodyStyles: {
+                textColor: [50, 50, 50]
+            },
+            alternateRowStyles: {
+                fillColor: [248, 250, 252] // Slate-50
+            },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 15 },
+                2: { halign: 'center', cellWidth: 35 },
+                4: { halign: 'center', cellWidth: 40, fontStyle: 'bold', textColor: [126, 34, 206] } // Purple-700
+            },
+            styles: { fontSize: 9, cellPadding: 3 },
+            didDrawPage: function (data) {
+                // Footer
+                const str = 'Halaman ' + doc.internal.getNumberOfPages();
+                doc.setFontSize(8);
+                doc.setTextColor(150);
+                doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
+            }
+        });
+
+        doc.save(`Report_Lembur_${new Date().getTime()}.pdf`);
+    };
+
     return (
-        <Paper elevation={0} sx={{ height: '100%', display: 'flex', flexDirection: 'column', border: '1px solid #e5e7eb', borderRadius: 1, overflow: 'hidden' }}>
+        <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* Header & Filters */}
-            <Box sx={{ p: 2, borderBottom: '1px solid #e5e7eb', bgcolor: '#f9fafb' }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.default' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: 1 }}>
-                        ⏱️ Report Lembur Karyawan
+                    <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <HourglassIcon sx={{ color: 'secondary.main', mb: '2px' }} /> Report Lembur Karyawan
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Chip label={`${filteredEmployees.length} Karyawan`} size="small" sx={{ bgcolor: '#ffedd5', color: '#c2410c', fontWeight: 600 }} />
+                        <Tooltip title="Export ke PDF Ciamik">
+                            <Button
+                                variant="contained"
+                                size="small"
+                                color="error"
+                                onClick={handleExportPDF}
+                                startIcon={<PictureAsPdfIcon />}
+                                sx={{ fontWeight: 800, borderRadius: 1.5, boxShadow: '0 4px 6px rgba(239, 68, 68, 0.2)' }}
+                            >
+                                GET PDF
+                            </Button>
+                        </Tooltip>
+                        <Chip label={`${filteredEmployees.length} Karyawan`} size="small" color="primary" variant="outlined" sx={{ fontWeight: 600, height: 32 }} />
                     </Box>
                 </Box>
 
@@ -116,11 +209,11 @@ const OvertimeReport = ({ data = [] }) => {
                         placeholder="Cari Nama / ID"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        sx={{ bgcolor: 'white', minWidth: 200 }}
+                        sx={{ minWidth: 220 }}
                     />
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'white', p: 0.5, borderRadius: 1, border: '1px solid #e5e7eb' }}>
-                        <FilterAltIcon fontSize="small" sx={{ color: '#6b7280', ml: 0.5 }} />
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#4b5563' }}>Range Jam:</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'background.paper', p: 0.5, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                        <FilterAltIcon fontSize="small" color="action" sx={{ ml: 0.5 }} />
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>Range Jam:</Typography>
                         <TextField
                             size="small"
                             type="number"
@@ -129,7 +222,7 @@ const OvertimeReport = ({ data = [] }) => {
                             onChange={(e) => setMinHours(e.target.value)}
                             sx={{ width: 80, '& input': { py: 0.5, textAlign: 'center' } }}
                         />
-                        <Typography variant="body2" sx={{ color: '#9ca3af' }}>-</Typography>
+                        <Typography variant="body2" color="text.disabled">-</Typography>
                         <TextField
                             size="small"
                             type="number"
@@ -140,7 +233,7 @@ const OvertimeReport = ({ data = [] }) => {
                         />
                     </Box>
                     {(minHours !== '' || maxHours !== '' || searchTerm !== '') && (
-                        <Button size="small" variant="text" color="inherit" onClick={handleClearFilters} sx={{ textTransform: 'none', color: '#6b7280' }}>
+                        <Button size="small" variant="text" color="inherit" onClick={handleClearFilters} sx={{ textTransform: 'none', color: 'text.secondary' }}>
                             Reset Filter
                         </Button>
                     )}
@@ -148,51 +241,61 @@ const OvertimeReport = ({ data = [] }) => {
             </Box>
 
             {/* Table */}
-            <TableContainer sx={{ flexGrow: 1, overflowY: 'auto' }}>
+            <TableContainer sx={{ flexGrow: 1, overflowY: 'auto', borderTop: 'none', borderRadius: 0, border: 'none' }}>
                 <Table stickyHeader size="small">
                     <TableHead>
                         <TableRow>
-                            <TableCell sx={{ bgcolor: '#f1f5f9', width: 50, textAlign: 'center' }}>No.</TableCell>
-                            <TableCell sx={{ bgcolor: '#f1f5f9', fontWeight: 700, fontSize: '0.8rem' }}>Karyawan</TableCell>
-                            <TableCell sx={{ bgcolor: '#f1f5f9', fontWeight: 700, fontSize: '0.8rem' }}>PTRJ ID</TableCell>
-                            <TableCell sx={{ bgcolor: '#f1f5f9', fontWeight: 700, fontSize: '0.8rem' }}>Stasiun (Charge Job)</TableCell>
-                            <TableCell align="center" sx={{ bgcolor: '#f1f5f9', fontWeight: 700, fontSize: '0.8rem' }}>Total Jam Lembur</TableCell>
+                            <TableCell sx={{ width: 50, textAlign: 'center' }}>No.</TableCell>
+                            <TableCell>Karyawan</TableCell>
+                            <TableCell>PTRJ ID</TableCell>
+                            <TableCell>Stasiun (Charge Job)</TableCell>
+                            <TableCell align="center">Total Jam Lembur</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {filteredEmployees.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} align="center" sx={{ py: 4, color: '#6b7280' }}>
-                                    Tidak ada data karyawan lembur yang sesuai filter.
+                                <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                                        <FilterAltIcon sx={{ fontSize: 40, color: 'text.disabled', opacity: 0.5 }} />
+                                        <Typography>Tidak ada data karyawan lembur yang sesuai filter.</Typography>
+                                    </Box>
                                 </TableCell>
                             </TableRow>
                         ) : (
                             filteredEmployees.map((emp, index) => (
                                 <TableRow key={emp.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                    <TableCell align="center" sx={{ color: '#6b7280', fontSize: '0.8rem' }}>
+                                    <TableCell align="center" sx={{ color: 'text.secondary' }}>
                                         {index + 1}
                                     </TableCell>
-                                    <TableCell sx={{ fontSize: '0.8rem' }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Avatar sx={{ width: 28, height: 28, fontSize: '0.8rem', bgcolor: '#f97316' }}>
+                                    <TableCell>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <Avatar sx={{ width: 32, height: 32, fontSize: '0.85rem', bgcolor: 'primary.light', color: 'primary.contrastText', fontWeight: 600 }}>
                                                 {emp.name?.charAt(0) || '?'}
                                             </Avatar>
-                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>{emp.name}</Typography>
+                                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>{emp.name}</Typography>
                                         </Box>
                                     </TableCell>
-                                    <TableCell sx={{ fontSize: '0.8rem', color: '#4b5563' }}>
+                                    <TableCell sx={{ color: 'text.secondary', fontWeight: 500 }}>
                                         {emp.ptrjEmployeeID || '-'}
                                     </TableCell>
-                                    <TableCell sx={{ fontSize: '0.8rem' }}>
+                                    <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <BusinessIcon sx={{ color: '#9ca3af', fontSize: 16 }} />
-                                            <Typography variant="body2" sx={{ color: '#4b5563' }}>{emp.station}</Typography>
+                                            <BusinessIcon sx={{ color: 'text.disabled', fontSize: 18 }} />
+                                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>{emp.station}</Typography>
                                         </Box>
                                     </TableCell>
                                     <TableCell align="center">
-                                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#c2410c' }}>
-                                            {emp.totalOvertime} Jam
-                                        </Typography>
+                                        <Chip
+                                            label={`${emp.totalOvertime} Jam`}
+                                            size="small"
+                                            sx={{
+                                                bgcolor: 'secondary.light',
+                                                color: 'secondary.dark',
+                                                fontWeight: 700,
+                                                minWidth: 70
+                                            }}
+                                        />
                                     </TableCell>
                                 </TableRow>
                             ))

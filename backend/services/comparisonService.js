@@ -68,12 +68,26 @@ const queryTaskRegData = async (startDate, endDate, empCodes = null, otFilter = 
 const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) => {
     const { onlyOvertime = false, onlyRegular = false } = options;
 
+    // DEBUG: Log all employees' ptrjEmployeeID
+    console.log('[Compare Service] Received venusData:', venusData.length, 'employees');
+    const sampleEmp = venusData[0];
+    if (sampleEmp) {
+        console.log('[Compare Service] Sample emp keys:', Object.keys(sampleEmp));
+        console.log('[Compare Service] Sample emp ptrjEmployeeID:', sampleEmp.ptrjEmployeeID);
+        console.log('[Compare Service] Sample emp name:', sampleEmp.name);
+        console.log('[Compare Service] Sample emp id:', sampleEmp.id);
+    }
+
     // Get PTRJ IDs from Venus data
     const ptrjIds = venusData
         .filter(emp => emp.ptrjEmployeeID && emp.ptrjEmployeeID !== 'N/A')
         .map(emp => emp.ptrjEmployeeID);
 
+    console.log('[Compare Service] Filtered ptrjIds count:', ptrjIds.length);
+    console.log('[Compare Service] Sample ptrjIds:', ptrjIds.slice(0, 5));
+
     if (ptrjIds.length === 0) {
+        console.log('[Compare Service] WARNING: No valid ptrjEmployeeID found in employees!');
         return { results: [], summary: { synced: 0, notSynced: 0, mismatch: 0 } };
     }
 
@@ -101,6 +115,10 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
 
     console.log(`[Compare] Processing ${venusData.length} employees, date range: ${startDate} to ${endDate}`);
 
+    let processedRecords = 0;
+    let skippedAlfa = 0;
+    let skippedOutOfRange = 0;
+
     venusData.forEach(emp => {
         const ptrjId = emp.ptrjEmployeeID;
         if (!ptrjId || ptrjId === 'N/A') {
@@ -111,15 +129,23 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
         // Get attendance dates
         const attendance = emp.attendance || {};
         const attendanceDates = Object.keys(attendance);
+        console.log(`[Compare] Employee ${emp.name} has ${attendanceDates.length} attendance records`);
 
         Object.values(attendance).forEach(day => {
             // Skip ALFA / N/A - these shouldn't be synced
-            if (day.status === 'ALFA' || day.status === 'N/A') return;
+            if (day.status === 'ALFA' || day.status === 'N/A') {
+                skippedAlfa++;
+                return;
+            }
 
             // Standardize date format to YYYY-MM-DD
             const dateStr = formatDateSQL(day.date);
-            if (!dateStr || dateStr < startDate || dateStr > endDate) return;
+            if (!dateStr || dateStr < startDate || dateStr > endDate) {
+                skippedOutOfRange++;
+                return;
+            }
 
+            processedRecords++;
             const key = `${ptrjId}_${dateStr}`;
 
             let status = 'not_synced';
@@ -327,6 +353,9 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
     console.log(`[Compare] ═══════════════════════════════════════════════════`);
     console.log(`[Compare] SUMMARY: Total=${total}, Synced=${synced}, Mismatch=${mismatch}`);
     console.log(`[Compare] Match Rate: ${total > 0 ? ((synced / total) * 100).toFixed(1) : 0}%`);
+    console.log(`[Compare] Records skipped - ALFA: ${skippedAlfa}, Out of range: ${skippedOutOfRange}`);
+    console.log(`[Compare] Processed records: ${processedRecords}`);
+    console.log(`[Compare] Results array length: ${results.length}`);
     console.log(`[Compare] ═══════════════════════════════════════════════════`);
 
     return {

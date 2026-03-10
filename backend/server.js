@@ -716,8 +716,22 @@ app.post('/api/comparison/compare', async (req, res) => {
             return res.status(400).json({ success: false, error: 'employees array, startDate, endDate required' });
         }
 
-        console.log(`[Comparison] Comparing ${employees.length} employees for ${startDate} to ${endDate}`);
+        // Debug: Log sample employee data
+        console.log(`[Comparison API] Comparing ${employees.length} employees for ${startDate} to ${endDate}`);
+        if (employees.length > 0) {
+            const sample = employees[0];
+            console.log('[Comparison API] Sample employee keys:', Object.keys(sample));
+            console.log('[Comparison API] Has ptrjEmployeeID:', !!sample.ptrjEmployeeID, 'Value:', sample.ptrjEmployeeID);
+            console.log('[Comparison API] Has attendance:', !!sample.attendance);
+            if (sample.attendance) {
+                const sampleDay = sample.attendance['1'];
+                console.log('[Comparison API] Sample day 1 data:', JSON.stringify(sampleDay));
+            }
+        }
+
         const result = await compareWithTaskReg(employees, startDate, endDate);
+
+        console.log('[Comparison API] Result summary:', result.summary);
 
         res.json({
             success: true,

@@ -23,10 +23,13 @@ Frontend (React/Vite) → Backend (Express) → Automation Engine (Puppeteer) �
 
 ### Backend (`/backend`)
 - Express server on port 5000 (or `PORT` env var)
-- Services pattern: `attendanceService`, `automationService`, `comparisonService`, `exportService`, `employeeMillService`, `validationService`
+- Services pattern: `attendanceService`, `automationService`, `comparisonService`, `exportService`, `employeeMillService`, `validationService`, `payrollService`, `payrollComparisonService`, `payrollAutomationService`
 - SQLite for local staging data (`employee_mill` table, staging data)
 - Fetches data from external Venus HR database via gateway
 - External API uses token-based authentication (`API_TOKEN_QUERY`)
+- Employee mapping uses dual-server connection:
+  - `ptrj_employee_id` from `SERVER_PROFILE_1` + `extend_db_ptrj` database (`employee_mill` table)
+  - `charge_job` from `SERVER_PROFILE_1` + `VenusHR14` database (HR_M_EmployeePI table)
 
 ### Browser Automation Engine (`/browser-automation-engine`)
 - Puppeteer-based with modular action system
@@ -134,6 +137,15 @@ Templates are JSON files in `/browser-automation-engine/templates/`:
 
 Variable substitution: `${employee.name}`, `${context.data}`, etc.
 
+### Running Templates via parallel-runner.js
+```bash
+# Default: attendance-input-loop template
+node parallel-runner.js
+
+# Specific template
+node parallel-runner.js payroll-ad-input
+```
+
 ### Available Actions (in `actions/index.js`)
 - `navigate` - Navigate to URL
 - `typeInput` - Type text into selector
@@ -150,14 +162,36 @@ Variable substitution: `${employee.name}`, `${context.data}`, etc.
 - `/backend/server.js` - Main Express server with all API routes
 - `/backend/services/automationService.js` - Automation trigger and data preparation
 - `/backend/services/comparisonService.js` - Venus vs Millware comparison logic
+- `/backend/services/payrollAutomationService.js` - Payroll automation data preparation
 - `/browser-automation-engine/engine.js` - Core AutomationEngine class
 - `/browser-automation-engine/parallel-runner.js` - Multi-engine orchestration
 - `/browser-automation-engine/templates/` - Automation workflow definitions
-- `/browser-automation-engine/testing_data/current_data.json` - Input data file
+- `/browser-automation-engine/testing_data/current_data.json` - Attendance input data
+- `/browser-automation-engine/testing_data/current_payroll_data.json` - Payroll input data
+
+## Development Testing
+
+Testing scripts are located in `_dev_utils/tests/`:
+```bash
+# Test API endpoints
+node _dev_utils/tests/test_api_endpoints.js
+
+# Test frontend UI and data flow
+node _dev_utils/tests/test_frontend_ui.js
+```
+
+## Frontend Components
+
+- `/frontend/src/App.jsx` - Main app with tabs (Report, Matrix, Comparison, Payroll)
+- `/frontend/src/components/PayrollReport.jsx` - Payroll comparison display
+- `/frontend/src/components/OvertimeReport.jsx` - Overtime filtering and display
+- `/frontend/src/components/AutomationDialog.jsx` - Attendance automation trigger
+- `/frontend/src/components/ComparisonDialog.jsx` - Comparison results dialog
 
 ## Conventions
 
 - Indonesian language used for UI labels and logging
+- Employee filtering: `is_karyawan = false` and `charge_job` containing "STAFF" are excluded from the employee list
 - Naming: PascalCase for React components, camelCase for functions, snake_case for JSON keys
 - Date format: `yyyy-MM-dd` for API, locale `id-ID` for display
 - Employee IDs: `EmployeeID` (Venus), `PTRJEmployeeID` (Millware/TaskReg)
@@ -179,3 +213,20 @@ The `comparisonService` compares Venus attendance data with Millware PR_TASKREGL
 - Used for filtering automation to only input missing data
 - Query `/api/comparison/compare` for full comparison
 - Query `/api/comparison/miss` for only mismatches
+
+## Payroll Services
+
+- `/backend/services/payrollService.js` - Fetches payroll data from Venus HR (HR_T_PYWeekly_M, HR_T_PYWeekly_DComponent)
+- `/backend/services/payrollComparisonService.js` - Compares Venus payroll with Millware PR_ADTRANS
+- `/backend/services/payrollAutomationService.js` - Prepares payroll automation data (MISS components only)
+- Uses TaskDesc matching to map Venus components to Millware ADCode (TaskCode)
+
+### Payroll Automation API
+- `POST /api/payroll/automation/run` - Trigger payroll AD Lists automation
+- `POST /api/payroll/automation/stop` - Stop running automation
+- Template: `payroll-ad-input.json` - Inputs tunjangan/potongan to AD Lists
+
+### Millware AD Lists Integration
+- URL: `http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx`
+- Input page: `frmPrTrxADDets.aspx` (after clicking New)
+- Fields: Employee → ADCode (TaskCode) → Amount → Add → Save

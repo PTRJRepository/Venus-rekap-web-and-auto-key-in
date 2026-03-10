@@ -1,33 +1,83 @@
-import React, { useState } from 'react';
-import { Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Tooltip, Typography, Chip, Avatar, Switch, FormControlLabel, TextField, IconButton, Snackbar, Alert, Checkbox } from '@mui/material';
-import CheckIcon from '@mui/icons-material/CheckCircle';
-import PersonIcon from '@mui/icons-material/Person';
-import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
-import CloseIcon from '@mui/icons-material/Close';
-import SyncIcon from '@mui/icons-material/Sync';
-import SyncDisabledIcon from '@mui/icons-material/SyncDisabled';
-import WarningIcon from '@mui/icons-material/Warning';
+import React, { useState, useEffect } from 'react';
+import { Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Tooltip, Typography, Avatar, IconButton, Snackbar, Alert, Checkbox, LinearProgress, Collapse, Grid, Fade, CircularProgress, Chip, TextField, Button, FormControlLabel, Switch } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import EventIcon from '@mui/icons-material/Event';
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { updateEmployeeMill } from '../services/api';
 
-const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, selectedIds = [], onToggleSelect, compareMode = 'off', comparisonData = null }) => {
+const AttendanceMatrix = ({
+    data = [],
+    viewMode = 'attendance',
+    onDataUpdate,
+    selectedIds = [],
+    onToggleSelect,
+    compareMode = 'off',
+    comparisonData = null,
+    isLoadingComparison = false,
+    isEditMode = false,
+    setIsEditMode
+}) => {
     const safeData = Array.isArray(data) ? data : [];
-    const [isEditMode, setIsEditMode] = useState(false);
     const [editingRow, setEditingRow] = useState(null);
     const [editValues, setEditValues] = useState({ ptrjEmployeeID: '', chargeJob: '', employeeName: '', isKaryawan: true });
     const [saving, setSaving] = useState(false);
+    const [expandedRows, setExpandedRows] = useState(new Set());
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-    const handleStartEdit = (emp) => { setEditingRow(emp.id); setEditValues({ ptrjEmployeeID: emp.ptrjEmployeeID || '', chargeJob: emp.chargeJob || '', employeeName: emp.name || '', isKaryawan: emp.isKaryawan !== false }); };
-    const handleCancelEdit = () => { setEditingRow(null); setEditValues({ ptrjEmployeeID: '', chargeJob: '', employeeName: '', isKaryawan: true }); };
+    // AGGRESSIVE DEBUGGING
+    useEffect(() => {
+        if (compareMode !== 'off') {
+            console.log('%c [MATRIX SYNC DEBUG] %c Compare Mode:', 'background: #0052CC; color: #fff; font-weight: bold;', 'color: #0052CC', compareMode);
+            console.log('Has comparisonData:', !!comparisonData);
+            if (comparisonData) {
+                const keys = Object.keys(comparisonData);
+                console.log('Comparison Data Keys count:', keys.length);
+                if (keys.length > 0) {
+                    console.log('Sample Key from data:', keys[0]);
+                    console.log('Sample Value:', comparisonData[keys[0]]);
+                }
+            }
+        }
+    }, [comparisonData, compareMode]);
+
+    const toggleRow = (id) => {
+        const newExpanded = new Set(expandedRows);
+        if (newExpanded.has(id)) newExpanded.delete(id);
+        else newExpanded.add(id);
+        setExpandedRows(newExpanded);
+    };
+
+    const handleStartEdit = (emp) => {
+        setEditingRow(emp.id);
+        setEditValues({
+            ptrjEmployeeID: emp.ptrjEmployeeID || '',
+            chargeJob: emp.chargeJob || '',
+            employeeName: emp.name || '',
+            isKaryawan: emp.isKaryawan !== false
+        });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingRow(null);
+        setEditValues({ ptrjEmployeeID: '', chargeJob: '', employeeName: '', isKaryawan: true });
+    };
+
     const handleSaveEdit = async (emp) => {
         setSaving(true);
         try {
-            const result = await updateEmployeeMill(emp.id, { ptrj_employee_id: editValues.ptrjEmployeeID, charge_job: editValues.chargeJob, employee_name: editValues.employeeName, is_karyawan: editValues.isKaryawan });
+            const result = await updateEmployeeMill(emp.id, {
+                ptrj_employee_id: editValues.ptrjEmployeeID,
+                charge_job: editValues.chargeJob,
+                employee_name: editValues.employeeName,
+                is_karyawan: editValues.isKaryawan
+            });
             if (result.success) {
                 setSnackbar({ open: true, message: 'Data tersimpan!', severity: 'success' });
                 setEditingRow(null);
-                // Update local state without full refresh - call parent with updated employee info
                 if (onDataUpdate) {
                     onDataUpdate({
                         type: 'update_employee',
@@ -46,355 +96,371 @@ const AttendanceMatrix = ({ data = [], viewMode = 'attendance', onDataUpdate, se
         finally { setSaving(false); }
     };
 
-    const handleSelectAll = (e) => { if (onToggleSelect) onToggleSelect(e.target.checked ? safeData.map(d => d.id) : []); };
     const handleSelectRow = (id) => { if (onToggleSelect) onToggleSelect(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]); };
 
-    if (safeData.length === 0) return <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography color="text.secondary">Pilih Periode untuk menampilkan data</Typography></Box>;
+    const getStatusUI = (s) => {
+        const st = (s || '').toUpperCase();
+        if (st === 'HADIR') return { bg: '#E8F5E9', text: '#2E7D32', icon: <CheckCircleIcon sx={{ fontSize: 16 }} />, label: 'H' };
+        if (st === 'ALFA') return { bg: '#FFEBEE', text: '#C62828', icon: <CancelIcon sx={{ fontSize: 16 }} />, label: 'A' };
+        if (st === 'OFF') return { bg: '#F5F5F5', text: '#757575', icon: null, label: 'OFF' };
+        if (['CT', 'CUTI', 'I', 'IZIN'].includes(st)) return { bg: '#E3F2FD', text: '#1565C0', icon: <EventIcon sx={{ fontSize: 16 }} />, label: st.substring(0, 2) };
+        if (['S', 'SAKIT', 'SD'].includes(st)) return { bg: '#FFF9C4', text: '#F9A825', icon: <MedicalServicesIcon sx={{ fontSize: 16 }} />, label: 'S' };
+        return { bg: '#fff', text: '#172B4D', icon: null, label: s };
+    };
 
+    const getCellContent = (d, viewMode) => {
+        if (!d) return null;
+        if (viewMode === 'overtime') {
+            const otHours = Number(d.overtimeHours) || 0;
+            if (otHours > 0) {
+                return (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#9C27B0', py: 0.2 }}>
+                        <AccessTimeIcon sx={{ fontSize: 12 }} />
+                        <Typography sx={{ fontSize: '0.65rem', fontWeight: 800 }}>{otHours}h</Typography>
+                    </Box>
+                );
+            }
+            return <Typography sx={{ fontSize: '0.65rem', color: 'text.disabled' }}>-</Typography>;
+        }
+        if (viewMode === 'detail') {
+            const regHours = Number(d.regularHours) || 0;
+            const otHours = Number(d.overtimeHours) || 0;
+            return (
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#172B4D', py: 0.2, fontSize: '0.6rem', lineHeight: 1 }}>
+                    {regHours > 0 ? <Typography sx={{ fontSize: '0.65rem', fontWeight: 700 }}>{regHours}h</Typography> : null}
+                    {otHours > 0 ? <Typography sx={{ fontSize: '0.55rem', color: '#9C27B0', fontWeight: 700 }}>+{otHours}h</Typography> : null}
+                    {regHours === 0 && otHours === 0 ? <Typography sx={{ fontSize: '0.6rem', color: '#757575' }}>-</Typography> : null}
+                </Box>
+            );
+        }
+        const ui = getStatusUI(d.status);
+        return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: ui.text, py: 0.4 }}>
+                {ui.icon ? React.cloneElement(ui.icon, { sx: { fontSize: 14 } }) : <Typography sx={{ fontSize: '0.65rem', fontWeight: 800 }}>{ui.label}</Typography>}
+            </Box>
+        );
+    };
+
+    const today = new Date().getDate();
     const daysMap = safeData[0]?.attendance || {};
     const dayNumbers = Object.keys(daysMap).sort((a, b) => Number(a) - Number(b));
 
-    const getStatusColor = (s) => {
-        const st = (s || '').toUpperCase();
-        if (st === 'HADIR') return { bg: '#ecfdf5', text: '#059669', label: 'H' };
-        if (st === 'ALFA') return { bg: '#7f1d1d', text: '#fff', label: 'A' };
-        if (st === 'OFF') return { bg: '#f1f5f9', text: '#64748b', label: 'OFF' };
-        if (['CT', 'CUTI', 'I', 'IZIN'].includes(st)) return { bg: '#eff6ff', text: '#1e40af', label: st.substring(0, 2) };
-        if (['S', 'SAKIT', 'SD', 'SICK'].includes(st)) return { bg: '#fee2e2', text: '#b91c1c', label: 'S' };
-        return { bg: '#fff', text: '#1e293b', label: s };
-    };
-
-    // Get sync status for a cell (compareMode)
-    // Separate modes: PRESENCE (Regular/OT=0) vs OVERTIME (OT=1)
     const getSyncStatus = (ptrjId, dateStr, venusStatus, venusRegularHours = 0, venusOtHours = 0) => {
-        if (!compareMode || compareMode === 'off' || !comparisonData || !ptrjId || ptrjId === 'N/A') {
-            return null;
+        // When compareMode is active but no valid PTRJ ID - show as NOT SYNCED (red border)
+        if (!compareMode || compareMode === 'off') return null;
+
+        // Check if employee has valid PTRJ ID
+        const hasValidPtrjId = ptrjId && ptrjId !== 'N/A' && String(ptrjId).trim() !== '';
+
+        if (!hasValidPtrjId) {
+            // Employee not mapped - show red border indicating not synced
+            return { status: 'not_synced', displayOverride: 'N/A', displayColor: '#DE350B', borderWidth: 2, isUnmapped: true };
         }
 
-        const key = `${ptrjId}_${dateStr}`;
+        if (!comparisonData) return null;
+
+        // NORMALIZE DATE: Extract only YYYY-MM-DD if ISO
+        const cleanDate = String(dateStr).includes('T') ? dateStr.split('T')[0] : dateStr;
+        const normId = String(ptrjId).trim();
+        const key = `${normId}_${cleanDate}`;
         const millwareRecord = comparisonData[key];
 
-        // Skip ALFA and N/A - these don't need input
-        const skipStatuses = ['ALFA', 'N/A'];
-        if (skipStatuses.includes(venusStatus?.toUpperCase())) {
-            return null;
-        }
+        if (['ALFA', 'N/A', 'OFF'].includes(venusStatus?.toUpperCase())) return null;
 
-        // === PRESENCE MODE (Regular/OT=0) ===
+        const date = new Date(cleanDate);
+        const isSunday = date.getDay() === 0;
+        const isSaturday = date.getDay() === 6;
+        const expectedHours = isSunday ? 0 : (isSaturday ? 5 : 7);
+        const millwareHours = millwareRecord ? (millwareRecord.normal || 0) : 0;
+        const isBelowThreshold = !isSunday && millwareHours > 0 && millwareHours < expectedHours;
+
         if (compareMode === 'presence') {
-            // All statuses except ALFA need input (Sunday/Holiday/Sick/Annual are PAID)
             if (!millwareRecord || !millwareRecord.hasRegularRecord) {
-                // No regular record in Millware → MISS (RED)
-                return {
-                    status: 'not_synced',
-                    icon: <SyncDisabledIcon sx={{ fontSize: 10, color: '#dc2626' }} />,
-                    tooltip: `❌ Regular belum diinput (Venus: ${venusRegularHours}h)`,
-                    displayOverride: `${venusRegularHours}h`,
-                    displayColor: '#dc2626'
-                };
+                return { status: 'not_synced', displayOverride: `${venusRegularHours}h`, displayColor: '#DE350B', borderWidth: 2 };
             }
-
-            // Record exists - user requested 'kalo yan beda jam gappa, intinya datanya hrus ada'
             if (!millwareRecord.regularMatched) {
-                return {
-                    status: 'mismatch',
-                    icon: <WarningIcon sx={{ fontSize: 10, color: '#d97706' }} />,
-                    tooltip: `⚠ Beda Jam Regular (V: ${venusRegularHours}h | M: ${millwareRecord.normal}h)`,
-                    displayOverride: `${venusRegularHours}h|${millwareRecord.normal}h`,
-                    displayColor: '#d97706'
-                };
+                return { status: 'mismatch', displayOverride: `${venusRegularHours}h|${millwareRecord.normal}h`, displayColor: '#FF991F', borderWidth: 2, millwareHours, isBelowThreshold };
             }
-
-            return {
-                status: 'synced',
-                icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
-                tooltip: `✓ Regular synced (${millwareRecord.normal}h)`
-            };
+            return { status: 'synced', millwareHours, isBelowThreshold, borderWidth: 1 };
         }
 
-        // === OVERTIME MODE (OT=1) ===
         if (compareMode === 'overtime') {
-            // Only check if Venus has OT hours
-            if (venusOtHours <= 0) {
-                return null; // No OT expected
-            }
-
+            const vOT = Number(venusOtHours) || 0;
+            if (vOT <= 0) return null;
             if (!millwareRecord || !millwareRecord.hasOTRecord) {
-                // No OT record in Millware → MISS (RED)
-                return {
-                    status: 'not_synced',
-                    icon: <SyncDisabledIcon sx={{ fontSize: 10, color: '#dc2626' }} />,
-                    tooltip: `❌ OT ${venusOtHours}h belum diinput`,
-                    displayOverride: `${venusOtHours}h`,
-                    displayColor: '#dc2626'
-                };
+                return { status: 'not_synced', displayOverride: `${vOT}h`, displayColor: '#DE350B', borderWidth: 2 };
             }
-
             if (!millwareRecord.otMatched) {
-                const diff = (millwareRecord.ot || 0) - venusOtHours;
-                const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
-                return {
-                    status: 'mismatch',
-                    icon: <WarningIcon sx={{ fontSize: 10, color: '#d97706' }} />,
-                    tooltip: `⚠ Beda Jam Lembur (Venus: ${venusOtHours}h, Millware: ${millwareRecord.ot}h, Selisih: ${diffStr}h)`,
-                    displayOverride: `${venusOtHours}h|${millwareRecord.ot}h`,
-                    displayColor: '#d97706'
-                };
+                return { status: 'mismatch', displayOverride: `${vOT}h|${millwareRecord.ot}h`, displayColor: '#FF991F', borderWidth: 2, millwareHours: millwareRecord.ot || 0 };
             }
-
-            // OT record exists and matches
-            return {
-                status: 'synced',
-                icon: <SyncIcon sx={{ fontSize: 10, color: '#16a34a' }} />,
-                tooltip: `✓ OT synced (${millwareRecord.ot}h)`
-            };
+            return { status: 'synced', millwareHours: millwareRecord.ot || 0, borderWidth: 1 };
         }
-
         return null;
     };
 
+    const getSyncStyle = (sync, isToday) => {
+        if (!sync) return {
+            boxShadow: isToday ? 'inset 0 0 0 1px #2196F3' : 'none'
+        };
+
+        const colors = { synced: '#00875A', not_synced: '#DE350B', mismatch: '#FF991F' };
+        const color = colors[sync.status] || '#ccc';
+
+        const shadow = `inset 0 0 0 ${sync.borderWidth || 1}px ${color}${isToday ? ', inset 0 0 0 2px #2196F3' : ''}`;
+
+        // Special styling for unmapped employees (N/A PTRJ ID)
+        if (sync.isUnmapped) {
+            return {
+                boxShadow: shadow,
+                bgcolor: 'rgba(222, 53, 11, 0.08)',
+                backgroundImage: sync.isUnmapped ? 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(222, 53, 11, 0.05) 2px, rgba(222, 53, 11, 0.05) 4px)' : 'none'
+            };
+        }
+
+        return {
+            boxShadow: shadow,
+            bgcolor: sync.status === 'not_synced' ? 'rgba(222, 53, 11, 0.03)' : (sync.status === 'mismatch' ? 'rgba(255, 153, 31, 0.03)' : 'inherit'),
+            ...(sync.isBelowThreshold ? { bgcolor: 'rgba(255, 153, 31, 0.08)' } : {})
+        };
+    };
+
     return (
-        <Paper elevation={0} sx={{ height: '100%', display: 'flex', flexDirection: 'column', border: '1px solid #e5e7eb', borderRadius: 1, overflow: 'hidden' }}>
-            <Box sx={{ px: 1.5, py: 0.5, borderBottom: '1px solid #e5e7eb', bgcolor: isEditMode ? '#fef3c7' : '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 36 }}>
-                <FormControlLabel control={<Switch checked={isEditMode} onChange={(e) => { setIsEditMode(e.target.checked); if (!e.target.checked) handleCancelEdit(); }} color="warning" size="small" />} label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><EditIcon sx={{ fontSize: 14, color: isEditMode ? '#d97706' : '#9ca3af' }} /><Typography variant="caption" sx={{ fontWeight: isEditMode ? 600 : 400, color: isEditMode ? '#92400e' : '#6b7280' }}>Edit</Typography></Box>} sx={{ m: 0 }} />
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    {selectedIds.length > 0 && <Typography variant="caption" sx={{ color: '#059669', fontWeight: 600 }}>{selectedIds.length} Terpilih</Typography>}
-                    {isEditMode && <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.7rem' }}>Klik baris untuk edit</Typography>}
+        <Paper elevation={0} sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid #DFE1E6', borderRadius: 2, position: 'relative' }}>
+            {/* OVERLAY LOADING FORCED */}
+            <Fade in={isLoadingComparison}>
+                <Box sx={{
+                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                    bgcolor: 'rgba(15, 32, 64, 0.6)', zIndex: 2000,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    backdropFilter: 'blur(2px)', color: '#fff', gap: 2
+                }}>
+                    <CircularProgress color="inherit" size={48} thickness={5} />
+                    <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.1em' }}>SYNCING WITH MILLWARE...</Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }}>Harap tunggu, sedang membandingkan ribuan baris data.</Typography>
                 </Box>
-            </Box>
-            <TableContainer sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'auto' }}>
-                <Table stickyHeader size="small" sx={{ minWidth: 'max-content', '& .MuiTableCell-root': { borderRight: '1px solid #f3f4f6', borderBottom: '1px solid #f3f4f6', py: 0.5, px: 0.75 } }}>
+            </Fade>
+
+            {isLoadingComparison && <LinearProgress sx={{ height: 3 }} />}
+
+            <TableContainer sx={{ flexGrow: 1 }}>
+                <Table stickyHeader size="small" sx={{
+                    minWidth: 'max-content',
+                    '& .MuiTableCell-root': {
+                        borderRight: '1px solid #F0F0F0',
+                        borderBottom: '1px solid #F0F0F0',
+                        py: 0.4,
+                        px: 0.5,
+                        fontSize: '0.7rem'
+                    }
+                }}>
                     <TableHead>
-                        <TableRow>
-                            <TableCell padding="checkbox" sx={{ position: 'sticky', left: 0, zIndex: 111, bgcolor: '#f9fafb', width: 40 }}><Checkbox indeterminate={selectedIds.length > 0 && selectedIds.length < safeData.length} checked={safeData.length > 0 && selectedIds.length === safeData.length} onChange={handleSelectAll} size="small" /></TableCell>
-                            <TableCell sx={{ position: 'sticky', left: 40, zIndex: 111, bgcolor: '#f9fafb', width: 200, fontWeight: 700, fontSize: '0.7rem', boxShadow: '2px 0 5px rgba(0,0,0,0.08)' }}><PersonIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />NAMA</TableCell>
+                        <TableRow sx={{ height: 32 }}>
+                            <TableCell sx={{ position: 'sticky', left: 0, zIndex: 112, bgcolor: '#F4F5F7', width: 32, p: 0 }} align="center"><Checkbox size="small" sx={{ p: 0.5 }} /></TableCell>
+                            <TableCell sx={{ position: 'sticky', left: 32, zIndex: 112, bgcolor: '#F4F5F7', width: 180, fontWeight: 800, borderRight: '2px solid #C1C7D0 !important' }}>KARYAWAN</TableCell>
+                            <TableCell sx={{ position: 'sticky', left: 212, zIndex: 112, bgcolor: '#F4F5F7', width: 80, fontWeight: 800, borderRight: '2px solid #C1C7D0 !important' }}>ID PTRJ</TableCell>
                             {dayNumbers.map(day => {
                                 const d = daysMap[day];
-                                const isHoliday = d?.isHoliday;
-                                const isSunday = d?.isSunday;
-                                const bgColor = isHoliday ? '#fecaca' : isSunday ? '#fff1f2' : '#fff';
-                                const textColor = isHoliday ? '#991b1b' : isSunday ? '#e11d48' : '#111';
+                                const isToday = Number(day) === today;
+                                const isWeeklySplit = d?.dayName === 'Min';
                                 return (
-                                    <TableCell key={day} align="center" sx={{ width: 40, bgcolor: bgColor, color: textColor, fontWeight: 600, fontSize: '0.7rem' }}>
-                                        <Tooltip title={d?.holidayName || ''} arrow disableHoverListener={!isHoliday}>
-                                            <div>
-                                                <div>{day}</div>
-                                                <div style={{ fontSize: '0.6rem', opacity: 0.7 }}>{d?.dayName?.substring(0, 2)}</div>
-                                            </div>
-                                        </Tooltip>
+                                    <TableCell key={day} align="center" sx={{
+                                        width: 34, bgcolor: isToday ? '#E3F2FD' : '#F4F5F7',
+                                        borderRight: isWeeklySplit ? '2px solid #C1C7D0 !important' : '1px solid #F0F0F0',
+                                        boxShadow: isToday ? 'inset 0 -2px 0 #2196F3' : 'none',
+                                        p: 0
+                                    }}>
+                                        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: isToday ? '#1976D2' : 'inherit', lineHeight: 1 }}>{day}</Typography>
+                                        <Typography sx={{ fontSize: '0.55rem', fontWeight: 600, opacity: 0.6, lineHeight: 1 }}>{d?.dayName?.substring(0, 2).toUpperCase()}</Typography>
                                     </TableCell>
                                 );
                             })}
-                            <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#f9fafb', width: 90, fontWeight: 700, fontSize: '0.7rem', borderLeft: '2px solid #e5e7eb' }}>VENUS ID</TableCell>
-                            <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#f9fafb', width: 100, fontWeight: 700, fontSize: '0.7rem' }}>PTRJ ID</TableCell>
-                            <TableCell sx={{ bgcolor: isEditMode ? '#fef3c7' : '#fef8ed', minWidth: 200, fontWeight: 700, fontSize: '0.7rem', color: '#92400e', whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                                CHARGE JOB
-                            </TableCell>
-                            {isEditMode && (
-                                <TableCell sx={{ bgcolor: '#fef3c7', width: 80, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center' }}>
-                                    is_karyawan
-                                </TableCell>
-                            )}
-                            {isEditMode && (
-                                <TableCell sx={{ bgcolor: '#fef3c7', width: 80, fontWeight: 700, fontSize: '0.7rem', textAlign: 'center' }}>
-                                    ACTIONS
-                                </TableCell>
-                            )}
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {safeData.map((emp, idx) => {
-                            const isEven = idx % 2 === 0;
-                            const isEditing = editingRow === emp.id;
+                        {safeData.map((emp) => {
                             const isSelected = selectedIds.includes(emp.id);
+                            const isExpanded = expandedRows.has(emp.id);
+                            const isEditing = editingRow === emp.id;
 
-                            // Use chargeJob as-is (no splitting)
-                            const chargeJob = emp.chargeJob || '-';
+                            let attendanceCount = 0;
+                            let overtimeHoursCount = 0;
+                            let overtimeDaysCount = 0;
+
+                            if (emp.attendance) {
+                                Object.values(emp.attendance).forEach(d => {
+                                    if (d && d.status) {
+                                        const st = d.status.toUpperCase();
+                                        if (st !== 'ALFA') {
+                                            attendanceCount++;
+                                        }
+                                    }
+                                    if (d && Number(d.overtimeHours) > 0) {
+                                        overtimeHoursCount += Number(d.overtimeHours);
+                                        overtimeDaysCount++;
+                                    }
+                                });
+                            }
+
+                            // Check if employee is non-karyawan (shouldn't happen after filter, but just in case)
+                            const isNonKaryawan = emp.isKaryawan === false;
 
                             return (
-                                <TableRow key={emp.id} hover selected={isSelected} onClick={() => { if (isEditMode && !isEditing) handleStartEdit(emp); else if (!isEditMode) handleSelectRow(emp.id); }} sx={{ bgcolor: isEditing ? '#fef3c7' : isSelected ? '#eff6ff' : isEven ? '#fff' : '#fafbfc', cursor: 'pointer' }}>
-                                    <TableCell padding="checkbox" sx={{ position: 'sticky', left: 0, zIndex: 101, bgcolor: isEditing ? '#fef3c7' : isSelected ? '#eff6ff' : isEven ? '#fff' : '#fafbfc' }} onClick={(e) => { e.stopPropagation(); handleSelectRow(emp.id); }}><Checkbox checked={isSelected} size="small" /></TableCell>
-                                    <TableCell sx={{ position: 'sticky', left: 40, zIndex: 101, bgcolor: isEditing ? '#fef3c7' : isSelected ? '#eff6ff' : isEven ? '#fff' : '#fafbfc', boxShadow: '2px 0 5px rgba(0,0,0,0.05)', fontWeight: 500, minWidth: 200 }} onClick={(e) => isEditing && e.stopPropagation()}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Avatar sx={{ width: 24, height: 24, fontSize: '0.7rem', bgcolor: isEditing ? '#d97706' : '#7c3aed' }}>{(isEditing ? editValues.employeeName : emp.name)?.charAt(0)}</Avatar>
-                                            {isEditing ? (
-                                                <TextField
-                                                    size="small"
-                                                    value={editValues.employeeName}
-                                                    onChange={(e) => setEditValues(p => ({ ...p, employeeName: e.target.value }))}
-                                                    sx={{ flex: 1, '& input': { py: 0.5, fontSize: '0.75rem' } }}
-                                                    placeholder="Nama Karyawan"
-                                                />
-                                            ) : (
-                                                <Typography variant="body2" noWrap sx={{ fontSize: '0.8rem' }}>{emp.name}</Typography>
-                                            )}
-                                        </Box>
-                                    </TableCell>
-                                    {dayNumbers.map(day => {
-                                        const d = emp.attendance?.[day];
-                                        if (!d) return <TableCell key={day} />;
-                                        const st = getStatusColor(d.status);
+                                <React.Fragment key={emp.id}>
+                                    <TableRow hover selected={isSelected} sx={{ height: 32, bgcolor: isEditing ? '#FFF9C4' : (isNonKaryawan ? 'rgba(255, 152, 0, 0.1)' : 'inherit') }}>
+                                        <TableCell sx={{ position: 'sticky', left: 0, zIndex: 101, bgcolor: 'inherit', p: 0 }} align="center">
+                                            <IconButton size="small" onClick={() => toggleRow(emp.id)} sx={{ p: 0.2 }}>{isExpanded ? <ExpandMoreIcon sx={{ fontSize: 16 }} /> : <ChevronRightIcon sx={{ fontSize: 16 }} />}</IconButton>
+                                        </TableCell>
+                                        <TableCell sx={{ position: 'sticky', left: 32, zIndex: 101, bgcolor: isNonKaryawan ? 'rgba(255, 152, 0, 0.15)' : 'inherit', borderRight: '2px solid #F0F0F0 !important' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Avatar sx={{ width: 20, height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: isNonKaryawan ? 'warning.light' : 'primary.light', flexShrink: 0 }}>{emp.name.charAt(0)}</Avatar>
+                                                <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: isNonKaryawan ? 'warning.dark' : '#172B4D', noWrap: true, textOverflow: 'ellipsis', overflow: 'hidden' }}>{emp.name}</Typography>
+                                                {isNonKaryawan && <Chip size="small" label="NON-KARYAWAN" sx={{ height: 14, fontSize: '0.55rem', fontWeight: 800, bgcolor: 'warning.main', color: 'white', '& .MuiChip-label': { px: 0.5 } }} />}
+                                                {viewMode === 'attendance' && (
+                                                    <Chip size="small" label={attendanceCount} sx={{ height: 16, minWidth: 20, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#E8F5E9', color: '#2E7D32', '& .MuiChip-label': { px: 0.5 }, ml: 'auto', flexShrink: 0 }} />
+                                                )}
+                                                {viewMode === 'overtime' && (
+                                                    <Chip size="small" label={`${overtimeHoursCount}h/${overtimeDaysCount}hr`} sx={{ height: 16, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#F3E5F5', color: '#9C27B0', '& .MuiChip-label': { px: 0.5 }, ml: 'auto', flexShrink: 0 }} />
+                                                )}
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell
+                                            sx={{
+                                                position: 'sticky',
+                                                left: 212,
+                                                zIndex: 101,
+                                                bgcolor: isEditing ? '#FFF8E1' : 'inherit',
+                                                borderRight: '2px solid #F0F0F0 !important',
+                                                cursor: 'pointer',
+                                                '&:hover': { bgcolor: 'action.hover' }
+                                            }}
+                                            onClick={() => handleStartEdit(emp)}
+                                        >
+                                            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: emp.ptrjEmployeeID ? 'secondary.main' : 'text.disabled' }}>
+                                                {emp.ptrjEmployeeID || 'N/A'}
+                                            </Typography>
+                                            {isEditMode && <Typography sx={{ fontSize: '0.5rem', color: 'warning.main' }}>Klik untuk edit</Typography>}
+                                        </TableCell>
 
-                                        let cellContent;
-                                        if (viewMode === 'overtime') {
-                                            const ot = d.overtimeHours || 0;
-                                            cellContent = ot > 0 ? <span style={{ color: '#c2410c', fontWeight: 700 }}>{ot}</span> : '-';
-                                        } else if (viewMode === 'detail') {
-                                            // WORK_HOURS Constants (Must match backend)
-                                            const WORK_HOURS = { NORMAL: 7, SHORT: 5 };
+                                        {dayNumbers.map(day => {
+                                            const d = emp.attendance?.[day];
+                                            if (!d) return <TableCell key={day} />;
+                                            const ui = getStatusUI(d.status);
+                                            const isToday = Number(day) === today;
+                                            const isWeeklySplit = d?.dayName === 'Min';
+                                            const sync = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.regularHours, d.overtimeHours);
+                                            const cellContent = getCellContent(d, viewMode);
+                                            const syncStyle = getSyncStyle(sync, isToday);
 
-                                            // Calculate regular hours based on day: Saturday = 5h, others = 7h
-                                            const date = new Date(d.date);
-                                            const dayOfWeek = date.getDay(); // 0=Sunday, 6=Saturday
-                                            const isShortDay = dayOfWeek === 6;
+                                            const tooltipTitle = sync?.isUnmapped
+                                                ? `${d.status} (${day}) - Belum Mapping PTRJ ID`
+                                                : `${d.status} (${day})${sync ? ' - ' + sync.status : ''}`;
 
-                                            // If Hadir or Partial In, use calculated hours; otherwise use 0
-                                            let reg = 0;
-                                            if (['Hadir', 'Partial In', 'Partial Out'].includes(d.status)) {
-                                                reg = d.regularHours > 0 ? d.regularHours : (dayOfWeek === 0 ? 0 : (isShortDay ? WORK_HOURS.SHORT : WORK_HOURS.NORMAL));
-                                            }
-                                            const ot = d.overtimeHours || 0;
-
-                                            if (['Hadir', 'Partial In', 'Partial Out'].includes(d.status)) {
-                                                cellContent = <span>{reg}{ot > 0 ? <span style={{ color: '#c2410c' }}>+{ot}</span> : ''}</span>;
-                                            } else {
-                                                cellContent = st.label; // Show status label for non-hadir
-                                            }
-                                        } else {
-                                            // Default attendance view - checkmark for Hadir
-                                            cellContent = d.status === 'Hadir' ? <CheckIcon sx={{ fontSize: 14, color: '#059669' }} /> : st.label;
-                                        }
-
-                                        const cellBg = d.isHoliday ? '#fecaca' : d.isSunday ? '#fff1f2' : st.bg;
-
-                                        // Get sync status if in compare mode
-                                        // Pass both regular and overtime hours
-                                        const syncStatus = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.regularHours || 0, d.overtimeHours || 0);
-
-                                        if (syncStatus && syncStatus.displayOverride) {
-                                            cellContent = <span style={{ color: syncStatus.displayColor, fontWeight: 700, fontSize: '0.65rem', whiteSpace: 'nowrap' }}>{syncStatus.displayOverride}</span>;
-                                        }
-
-                                        // Determine border style based on sync status
-                                        let borderStyle = {};
-                                        if (syncStatus) {
-                                            if (syncStatus.status === 'synced') {
-                                                borderStyle = { boxShadow: 'inset 0 0 0 2px #16a34a' };
-                                            } else if (syncStatus.status === 'not_synced') {
-                                                borderStyle = { boxShadow: 'inset 0 0 0 2px #dc2626' };
-                                            } else if (syncStatus.status === 'mismatch') {
-                                                borderStyle = { boxShadow: 'inset 0 0 0 2px #d97706' };
-                                            }
-                                        }
-
-                                        return (
-                                            <Tooltip key={day} title={syncStatus?.tooltip || ''} arrow disableHoverListener={!syncStatus}>
-                                                <TableCell
-                                                    align="center"
-                                                    sx={{
-                                                        bgcolor: cellBg,
-                                                        color: st.text,
-                                                        fontWeight: 600,
-                                                        fontSize: '0.7rem',
+                                            return (
+                                                <Tooltip key={day} title={tooltipTitle} arrow>
+                                                    <TableCell align="center" sx={{
+                                                        bgcolor: isToday && !sync ? 'rgba(33, 150, 243, 0.05)' : (syncStyle.bgcolor || ui.bg),
+                                                        borderRight: isWeeklySplit ? '2px solid #C1C7D0 !important' : '1px solid #F0F0F0',
                                                         position: 'relative',
-                                                        ...borderStyle
-                                                    }}
-                                                >
-                                                    {cellContent}
-                                                    {syncStatus && (
-                                                        <Box sx={{
-                                                            position: 'absolute',
-                                                            top: 1,
-                                                            right: 1,
-                                                            lineHeight: 1
-                                                        }}>
-                                                            {syncStatus.icon}
+                                                        p: 0,
+                                                        cursor: 'pointer',
+                                                        ...syncStyle,
+                                                        '&:hover': { filter: 'brightness(0.95)' }
+                                                    }} onDoubleClick={() => handleStartEdit(emp)}>
+                                                        {cellContent}
+                                                        {sync?.displayOverride && (
+                                                            <Typography sx={{ position: 'absolute', bottom: 1, left: 0, right: 0, fontSize: '0.55rem', fontWeight: 900, color: sync.displayColor, lineHeight: 1 }}>{sync.displayOverride}</Typography>
+                                                        )}
+                                                    </TableCell>
+                                                </Tooltip>
+                                            );
+                                        })}
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell sx={{ p: 0, border: 'none' }} colSpan={dayNumbers.length + 3}>
+                                            <Collapse in={isExpanded || isEditing} timeout="auto" unmountOnExit>
+                                                <Box sx={{ p: 2, bgcolor: isEditing ? '#FFF8E1' : '#F4F5F7', borderBottom: '1px solid #DFE1E6' }}>
+                                                    {isEditing ? (
+                                                        // EDIT MODE FORM
+                                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                            <Typography variant="caption" sx={{ fontWeight: 700, color: 'warning.dark' }}>EDIT DATA: {emp.name} ({emp.id})</Typography>
+                                                            <Grid container spacing={2}>
+                                                                <Grid item xs={6}>
+                                                                    <TextField
+                                                                        label="PTRJ Employee ID"
+                                                                        value={editValues.ptrjEmployeeID}
+                                                                        onChange={(e) => setEditValues({ ...editValues, ptrjEmployeeID: e.target.value })}
+                                                                        size="small"
+                                                                        fullWidth
+                                                                        placeholder="POM00001"
+                                                                    />
+                                                                </Grid>
+                                                                <Grid item xs={6}>
+                                                                    <TextField
+                                                                        label="Charge Job"
+                                                                        value={editValues.chargeJob}
+                                                                        onChange={(e) => setEditValues({ ...editValues, chargeJob: e.target.value })}
+                                                                        size="small"
+                                                                        fullWidth
+                                                                        placeholder="TaskCode|Station|Machine|Expense"
+                                                                    />
+                                                                </Grid>
+                                                                <Grid item xs={12}>
+                                                                    <FormControlLabel
+                                                                        control={
+                                                                            <Switch
+                                                                                checked={editValues.isKaryawan}
+                                                                                onChange={(e) => setEditValues({ ...editValues, isKaryawan: e.target.checked })}
+                                                                                color="warning"
+                                                                            />
+                                                                        }
+                                                                        label={editValues.isKaryawan ? "Karyawan Tetap" : "Non-Karyawan (Kontrak)"}
+                                                                    />
+                                                                </Grid>
+                                                                <Grid item xs={12}>
+                                                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                                                        <Button
+                                                                            variant="contained"
+                                                                            color="primary"
+                                                                            size="small"
+                                                                            onClick={() => handleSaveEdit(emp)}
+                                                                            disabled={saving}
+                                                                        >
+                                                                            {saving ? 'Menyimpan...' : 'Simpan'}
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="outlined"
+                                                                            color="secondary"
+                                                                            size="small"
+                                                                            onClick={handleCancelEdit}
+                                                                            disabled={saving}
+                                                                        >
+                                                                            Batal
+                                                                        </Button>
+                                                                    </Box>
+                                                                </Grid>
+                                                            </Grid>
                                                         </Box>
+                                                    ) : (
+                                                        // VIEW MODE
+                                                        <>
+                                                            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>DETAIL INFO: {emp.name}</Typography>
+                                                            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                                                                <Grid item xs={3}><Typography variant="body2" sx={{ fontSize: '0.75rem' }}><b>Charge Job:</b> {emp.chargeJob || '-'}</Typography></Grid>
+                                                                <Grid item xs={3}><Typography variant="body2" sx={{ fontSize: '0.75rem' }}><b>Status:</b> {emp.isKaryawan === false ? 'Non-Karyawan' : (emp.isKaryawan ? 'Karyawan Tetap' : 'Belum Diisi')}</Typography></Grid>
+                                                            </Grid>
+                                                        </>
                                                     )}
-                                                </TableCell>
-                                            </Tooltip>
-                                        );
-                                    })}
-
-                                    <TableCell sx={{ fontSize: '0.75rem', color: '#4b5563', borderLeft: '2px solid #e5e7eb' }} onClick={(e) => isEditing && e.stopPropagation()}>{emp.id}</TableCell>
-                                    <TableCell onClick={(e) => isEditing && e.stopPropagation()}>{isEditing ? <TextField size="small" value={editValues.ptrjEmployeeID} onChange={(e) => setEditValues(p => ({ ...p, ptrjEmployeeID: e.target.value }))} sx={{ width: '100%', '& input': { py: 0.5, fontSize: '0.75rem' } }} /> : (emp.ptrjEmployeeID || '-')}</TableCell>
-
-                                    {/* Single Charge Job Cell - show as-is without splitting */}
-                                    <TableCell onClick={(e) => isEditing && e.stopPropagation()} sx={{ whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 300 }}>
-                                        {isEditing ? (
-                                            <TextField
-                                                size="small"
-                                                value={editValues.chargeJob}
-                                                onChange={(e) => setEditValues(p => ({ ...p, chargeJob: e.target.value }))}
-                                                sx={{ width: '100%', '& input': { py: 0.5, fontSize: '0.7rem' } }}
-                                                placeholder="Charge Job"
-                                            />
-                                        ) : (
-                                            <Tooltip title={chargeJob}>
-                                                <Typography variant="body2" sx={{ fontSize: '0.7rem', whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                                                    {chargeJob}
-                                                </Typography>
-                                            </Tooltip>
-                                        )}
-                                    </TableCell>
-
-                                    {/* Status Karyawan Cell - only visible in edit mode */}
-                                    {isEditMode && (
-                                        <TableCell align="center" onClick={(e) => e.stopPropagation()} sx={{ bgcolor: isEditing ? '#fef3c7' : 'transparent' }}>
-                                            <Checkbox
-                                                size="small"
-                                                checked={isEditing ? editValues.isKaryawan : (emp.isKaryawan !== false)}
-                                                onChange={async (e) => {
-                                                    e.stopPropagation();
-                                                    const newValue = e.target.checked;
-                                                    if (isEditing) {
-                                                        // If editing, update the edit state
-                                                        setEditValues(p => ({ ...p, isKaryawan: newValue }));
-                                                    } else {
-                                                        // If not editing, save directly
-                                                        try {
-                                                            const result = await updateEmployeeMill(emp.id, { is_karyawan: newValue });
-                                                            if (result.success) {
-                                                                setSnackbar({ open: true, message: 'Status tersimpan!', severity: 'success' });
-                                                                if (onDataUpdate) {
-                                                                    onDataUpdate({
-                                                                        type: 'update_employee',
-                                                                        id: emp.id,
-                                                                        updates: { isKaryawan: newValue }
-                                                                    });
-                                                                }
-                                                            } else {
-                                                                setSnackbar({ open: true, message: result.error || 'Gagal', severity: 'error' });
-                                                            }
-                                                        } catch (err) {
-                                                            setSnackbar({ open: true, message: err.message, severity: 'error' });
-                                                        }
-                                                    }
-                                                }}
-                                                color="success"
-                                            />
-                                        </TableCell>
-                                    )}
-
-                                    {isEditMode && (
-                                        <TableCell align="center" onClick={(e) => e.stopPropagation()} sx={{ bgcolor: isEditing ? '#fef3c7' : 'transparent', borderLeft: '1px solid #e5e7eb', minWidth: 80 }}>
-                                            {isEditing ? (
-                                                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                                                    <IconButton size="small" color="success" onClick={(e) => { e.stopPropagation(); handleSaveEdit(emp); }} disabled={saving}><SaveIcon fontSize="small" /></IconButton>
-                                                    <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleCancelEdit(); }}><CloseIcon fontSize="small" /></IconButton>
                                                 </Box>
-                                            ) : (
-                                                <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleStartEdit(emp); }}><EditIcon fontSize="small" /></IconButton>
-                                            )}
+                                            </Collapse>
                                         </TableCell>
-                                    )}
-                                </TableRow>
+                                    </TableRow>
+                                </React.Fragment>
                             );
                         })}
                     </TableBody>
                 </Table>
             </TableContainer>
-            <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar(p => ({ ...p, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}><Alert severity={snackbar.severity}>{snackbar.message}</Alert></Snackbar>
+            <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar(p => ({ ...p, open: false }))}><Alert severity={snackbar.severity}>{snackbar.message}</Alert></Snackbar>
         </Paper>
     );
 };

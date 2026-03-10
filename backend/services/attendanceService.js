@@ -237,6 +237,13 @@ const fetchAttendanceData = async (month, year) => {
         }
     });
 
+    // DEBUG: Show sample Weekly EmployeeIDs vs what's in millMap
+    console.log('[DEBUG] Sample Weekly EmployeeIDs:', weeklyEmployeeIds.slice(0, 5).map(w => w.EmployeeID));
+    console.log('[DEBUG] Sample millMap keys:', Object.keys(millMap).slice(0, 5));
+    // Check if any Weekly IDs match millMap keys
+    const matchedCount = weeklyEmployeeIds.filter(w => millMap[w.EmployeeID]).length;
+    console.log(`[DEBUG] Matched ${matchedCount} out of ${weeklyEmployeeIds.length} Weekly employees in millMap`);
+
     // Determine Active Employees early to fetch names if necessary
     const activeEmployeeIds = new Set();
     attendanceRaw.forEach(r => activeEmployeeIds.add(r.EmployeeID));
@@ -269,23 +276,54 @@ const fetchAttendanceData = async (month, year) => {
     // LEFT JOIN: Start with Weekly employees, get mapping from extend_db_ptrj if available
     let employees = weeklyEmployeeIds.map(we => {
         const millData = millMap[we.EmployeeID];
+        const ptrjId = millData?.ptrj_employee_id || null;
+        const chargeJob = millData?.charge_job || null;
+        const isKaryawan = millData?.is_karyawan;
+
+        // DEBUG: Log first few to see if ptrj_employee_id is coming through
+        if (we.EmployeeID === weeklyEmployeeIds[0].EmployeeID) {
+            console.log(`[DEBUG] First employee: ${we.EmployeeID}`);
+            console.log(`[DEBUG]   millData:`, millData);
+            console.log(`[DEBUG]   ptrj_employee_id: "${ptrjId}"`);
+            console.log(`[DEBUG]   charge_job: "${chargeJob}"`);
+            console.log(`[DEBUG]   is_karyawan: "${isKaryawan}"`);
+        }
+
         return {
             venus_employee_id: we.EmployeeID,
             employee_name: millData?.employee_name || we.EmployeeName || we.EmployeeID, // Fallback to ID if no name
-            ptrj_employee_id: millData?.ptrj_employee_id || null,
-            charge_job: millData?.charge_job || null
+            ptrj_employee_id: ptrjId,
+            charge_job: chargeJob,
+            is_karyawan: isKaryawan
         };
     });
 
     // FILTER: Exclude "STAFF" from the list completely
+    // FILTER: Exclude non-karyawan (is_karyawan = 0 or false)
     const initialCount = employees.length;
+
+    // DEBUG: Count employees by is_karyawan status
+    const nonKaryawanCount = employees.filter(e => e.is_karyawan === false || e.is_karyawan === 0 || e.is_karyawan === '0').length;
+    const staffCount = employees.filter(e => (e.charge_job || '').toUpperCase().includes('STAFF')).length;
+    console.log(`[FILTER] Pre-filter: ${nonKaryawanCount} non-karyawan, ${staffCount} STAFF`);
+
     employees = employees.filter(emp => {
+        // Skip if is_karyawan is explicitly false or 0 (from employee_mill table)
+        // Note: undefined means employee not in employee_mill yet - keep them for now
+        if (emp.is_karyawan === false || emp.is_karyawan === 0 || emp.is_karyawan === '0') return false;
         const job = (emp.charge_job || '').toUpperCase();
         return !job.includes('STAFF');
     });
-    console.log(`[FILTER] Removed ${initialCount - employees.length} STAFF employees. Remaining: ${employees.length}`);
+    console.log(`[FILTER] Removed ${initialCount - employees.length} (STAFF + non-karyawan). Remaining: ${employees.length}`);
 
+    // DEBUG: Show sample of final employee data
     console.log(`[DEBUG] Final employee list: ${employees.length} (with ${employees.filter(e => e.ptrj_employee_id).length} having PTRJ mapping)`);
+    if (employees.length > 0) {
+        console.log('[DEBUG] Sample employees (first 3):');
+        employees.slice(0, 3).forEach((emp, i) => {
+            console.log(`  [${i}] venus_id="${emp.venus_employee_id}", name="${emp.employee_name}", ptrj_id="${emp.ptrj_employee_id}", charge_job="${emp.charge_job}", is_karyawan=${emp.is_karyawan}`);
+        });
+    }
 
     // 2. Build Lookups
     const attendanceMap = {};
@@ -378,6 +416,7 @@ const fetchAttendanceData = async (month, year) => {
             name: empName,
             ptrjEmployeeID: ptrjId,
             chargeJob: chargeJob,  // Combined format, not split
+            isKaryawan: emp.is_karyawan !== false,  // Default to true if not specified
             attendance: {}
         };
 
@@ -699,7 +738,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
         holidayMap,
         leaveTypesMap
     ] = await Promise.all([
-        getAllEmployees(),
+        getMillEmployees(),
         fetchOvertimeRaw(startDate, endDate),
         fetchLeavesRaw(startDate, endDate),
         fetchAbsencesRaw(startDate, endDate),
@@ -836,6 +875,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
             name: empName,
             ptrjEmployeeID: ptrjId,
             chargeJob: chargeJob,  // Combined format, not split
+            isKaryawan: emp.is_karyawan !== false,  // Default to true if not specified
             attendance: {}
         };
 
