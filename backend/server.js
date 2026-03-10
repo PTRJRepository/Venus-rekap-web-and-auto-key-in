@@ -169,6 +169,56 @@ app.get('/api/payroll', async (req, res) => {
     }
 });
 
+// ==================== WAGES API (Daftar Upah) ====================
+
+// GET /api/wages - Get wages comparison (Venus vs Millware)
+app.get('/api/wages', async (req, res) => {
+    const { month, year } = req.query;
+    console.log(`Received request for wages: ${month}/${year}`);
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'Month and Year required' });
+    }
+
+    try {
+        const result = await wagesService.fetchWagesData(parseInt(month), parseInt(year));
+
+        if (result.success) {
+            res.json({
+                success: true,
+                data: result.data,
+                period: result.period
+            });
+        } else {
+            res.status(500).json({ success: false, error: result.error });
+        }
+    } catch (error) {
+        console.error("Wages API Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/wages/periods - Get available periods
+app.get('/api/wages/periods', async (req, res) => {
+    console.log('Received request for wages periods');
+
+    try {
+        const result = await wagesService.getAvailablePeriods();
+
+        if (result.success) {
+            res.json({
+                success: true,
+                data: result.data
+            });
+        } else {
+            res.status(500).json({ success: false, error: result.error });
+        }
+    } catch (error) {
+        console.error("Wages Periods API Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Enhanced monthly grid endpoint that matches the original Python application
 app.get('/api/monthly-grid', async (req, res) => {
     const { month, year, bus_code } = req.query;
@@ -883,6 +933,7 @@ app.post('/api/automation/stop', (req, res) => {
 // Prepare and run payroll automation
 const { triggerPayrollAutomation } = require('./services/payrollAutomationService');
 const { startPayrollAutomationProcess, stopPayrollAutomationProcess } = require('./services/automationService');
+const wagesService = require('./services/wagesService');
 
 app.post('/api/payroll/automation/run', async (req, res) => {
     const { month, year } = req.body;
