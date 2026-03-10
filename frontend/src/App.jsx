@@ -455,6 +455,7 @@ const App = () => {
                                     selectedIds={selectedEmployeeIds} onToggleSelect={setSelectedEmployeeIds}
                                     compareMode={compareMode} comparisonData={comparisonData}
                                     isLoadingComparison={isComparing} isEditMode={isEditMode} setIsEditMode={setIsEditMode}
+                                    isFiltered={isFilterActive}
                                 />
                             </>
                         )}
@@ -465,6 +466,10 @@ const App = () => {
                                         <Paper sx={{ p: 5, width: 250, textAlign: 'center', cursor: 'pointer' }} onClick={() => setReportType('attendance')}>
                                             <AssessmentIcon sx={{ fontSize: 48, mb: 2 }} />
                                             <Typography variant="h6">Report Absensi</Typography>
+                                        </Paper>
+                                        <Paper sx={{ p: 5, width: 250, textAlign: 'center', cursor: 'pointer' }} onClick={() => setReportType('overtime')}>
+                                            <HourglassIcon sx={{ fontSize: 48, mb: 2 }} />
+                                            <Typography variant="h6">Report Lembur</Typography>
                                         </Paper>
                                         <Paper sx={{ p: 5, width: 250, textAlign: 'center', cursor: 'pointer', border: '2px solid #7c3aed' }} onClick={() => setReportType('range_ot')}>
                                             <FilterListIcon sx={{ fontSize: 48, mb: 2, color: '#7c3aed' }} />
