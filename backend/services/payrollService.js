@@ -123,27 +123,32 @@ const fetchPayrollData = async (month, year) => {
 
             const sync = {
                 isSynced: false,
+                gajiPokok: { venus: py.gajiPokok, millware: mw ? mw.gaji_pokok || 0 : 0 },
                 lembur: { venus: vLembur, millware: mw ? mw.tunjangan_lembur || 0 : 0 },
                 jabatan: { venus: vJabatan, millware: mw ? mw.tunjangan_jabatan || 0 : 0 },
                 beras: { venus: vBeras, millware: mw ? mw.tunjangan_beras || 0 : 0 },
                 masaKerja: { venus: vMasaKerja, millware: mw ? mw.tunjangan_masa_kerja || 0 : 0 },
                 premi: {
                     venus: vPremi,
-                    millware: mw ? (mw.premi_panen || 0) + (mw.premi_kinerja || 0) + (mw.premi_brondol || 0) + (mw.premi_insentif || 0) + (mw.premi_lain || 0) : 0
+                    millware: mw ? mw.premi_total || 0 : 0
                 },
                 pph21: { venus: vPph21, millware: mw ? Math.abs(mw.potongan_pph21 || 0) : 0 },
                 bpjsKes: { venus: vBpjsKes, millware: mw ? Math.abs(mw.potongan_bpjs_kesehatan || 0) : 0 },
                 bpjsPen: { venus: vBpjsPen, millware: mw ? Math.abs(mw.potongan_bpjs_pensiun || 0) : 0 },
-                spsi: { venus: vSpsi, millware: mw ? Math.abs(mw.potongan_spsi || 0) : 0 }
+                spsi: { venus: vSpsi, millware: mw ? Math.abs(mw.potongan_spsi || 0) : 0 },
+                upahBersih: { venus: py.upahBersih, millware: mw ? mw.upah_bersih || 0 : 0 }
             };
 
             if (mw) {
-                const isMatch = (a, b) => Math.abs(a - b) < 10; // 10 rupiah tolerance
-                sync.isSynced = isMatch(sync.jabatan.venus, sync.jabatan.millware) &&
+                const isMatch = (a, b) => Math.abs(a - b) < 50; // 50 rupiah tolerance for rounding diffs
+                sync.isSynced = isMatch(sync.gajiPokok.venus, sync.gajiPokok.millware) &&
+                    isMatch(sync.lembur.venus, sync.lembur.millware) &&
+                    isMatch(sync.jabatan.venus, sync.jabatan.millware) &&
                     isMatch(sync.masaKerja.venus, sync.masaKerja.millware) &&
                     isMatch(sync.premi.venus, sync.premi.millware) &&
                     isMatch(sync.pph21.venus, sync.pph21.millware) &&
-                    isMatch(sync.spsi.venus, sync.spsi.millware);
+                    isMatch(sync.spsi.venus, sync.spsi.millware) &&
+                    isMatch(sync.upahBersih.venus, sync.upahBersih.millware);
             }
 
             return {

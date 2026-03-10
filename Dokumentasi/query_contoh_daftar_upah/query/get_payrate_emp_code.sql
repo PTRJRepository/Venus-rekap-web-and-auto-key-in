@@ -1,0 +1,1 @@
+SELECT TOP 10  "PayRate" FROM "HR_PAYROLL" WHERE "EmpCode" = 'H0490'
