@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Paper, AppBar, Toolbar, Tabs, Tab, Typography, IconButton, Snackbar, Alert, CircularProgress, Chip, Select, FormControl, MenuItem, ToggleButtonGroup, ToggleButton, Button, FormControlLabel, Switch, Drawer, Divider } from '@mui/material';
+import { Box, Paper, AppBar, Toolbar, Tabs, Tab, Typography, IconButton, Snackbar, Alert, CircularProgress, Chip, Select, FormControl, MenuItem, ToggleButtonGroup, ToggleButton, Button, FormControlLabel, Switch, Drawer, Divider, Tooltip } from '@mui/material';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -14,6 +14,8 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
+import LogoutIcon from '@mui/icons-material/Logout';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 import AttendanceSummaryReport from './components/AttendanceSummaryReport';
 import AttendanceMatrix from './components/AttendanceMatrix';
@@ -24,9 +26,13 @@ import AutomationDialog from './components/AutomationDialog';
 import ComparisonDialog from './components/ComparisonDialog';
 import AttendanceSummaryBar from './components/AttendanceSummaryBar';
 import AttendanceFilterBar from './components/AttendanceFilterBar';
+import LoginPage from './components/LoginPage';
 import { fetchAttendanceData, exportAttendanceJSON } from './services/api';
 
 const App = () => {
+    // Auth State
+    const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('venus_auth') === 'true');
+    
     const [activeTab, setActiveTab] = useState('matrix');
     const [reportType, setReportType] = useState(null);
     const [viewMode, setViewMode] = useState('attendance');
@@ -55,12 +61,21 @@ const App = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const DRAWER_WIDTH = 340;
-
     const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
     const years = [2024, 2025, 2026];
 
+    const handleLogin = (status) => {
+        setIsAuthenticated(status);
+        localStorage.setItem('venus_auth', status);
+    };
+
+    const handleLogout = () => {
+        setIsAuthenticated(false);
+        localStorage.removeItem('venus_auth');
+    };
+
     const handleFetchData = async () => {
-        if (!selectedMonth || !selectedYear) return;
+        if (!selectedMonth || !selectedYear || !isAuthenticated) return;
         setLoading(true);
         setData(null);
         try {
@@ -76,13 +91,13 @@ const App = () => {
     };
 
     useEffect(() => {
-        if (selectedMonth && selectedYear) {
+        if (isAuthenticated && selectedMonth && selectedYear) {
             handleFetchData();
             setSelectedEmployeeIds([]);
             setComparisonData(null);
             setCompareMode('off');
         }
-    }, [selectedMonth, selectedYear]);
+    }, [selectedMonth, selectedYear, isAuthenticated]);
 
     const handleDataUpdate = (updateInfo) => {
         if (!updateInfo || typeof updateInfo === 'function') {
@@ -203,7 +218,6 @@ const App = () => {
         return attendanceFilter !== 'all' || overtimeMin !== '' || overtimeMax !== '';
     }, [attendanceFilter, overtimeMin, overtimeMax]);
 
-    // CORE FILTER LOGIC: Filter by DAY for Overtime Range
     const filteredData = useMemo(() => {
         if (!data) return [];
         const todayNum = new Date().getDate();
@@ -219,13 +233,10 @@ const App = () => {
                 Object.entries(emp.attendance).forEach(([dayKey, dayData]) => {
                     const otHours = Number(dayData.overtimeHours) || 0;
                     const st = (dayData.status || '').toUpperCase();
-                    
                     let isDayPass = true;
 
                     if (isRangeActive) {
-                        if (otHours < minOt || otHours > maxOt || otHours <= 0) {
-                            isDayPass = false;
-                        }
+                        if (otHours < minOt || otHours > maxOt || otHours <= 0) isDayPass = false;
                     }
 
                     if (attendanceFilter !== 'all') {
@@ -320,33 +331,26 @@ const App = () => {
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(22);
         doc.setFont('helvetica', 'bold');
-        
         const title = isFilterActive ? 'LAPORAN KEHADIRAN (FILTER KHUSUS)' : 'LAPORAN KEHADIRAN KARYAWAN';
         doc.text(title, 105, 18, { align: 'center' });
-        
         doc.setFontSize(11);
         doc.setFont('helvetica', 'normal');
         doc.text(`PT. REBINMAS ABADI - Periode: ${monthName} ${selectedYear}`, 105, 28, { align: 'center' });
-        
         if (isFilterActive) {
             const filterStr = `Filter: Status ${attendanceFilter.toUpperCase()} | Range OT: ${overtimeMin || 0}-${overtimeMax || '∞'} jam`;
             doc.setFontSize(9);
             doc.text(filterStr, 105, 36, { align: 'center' });
         }
-
         doc.setTextColor(30, 30, 30);
         doc.setFillColor(248, 250, 252);
         doc.roundedRect(20, 55, 170, 50, 3, 3, 'F');
-        
         doc.setFont('helvetica', 'bold');
         doc.text(isFilterActive ? 'RINGKASAN HASIL FILTER' : 'RINGKASAN KEHADIRAN', 105, 65, { align: 'center' });
-        
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
         doc.text(`Total Karyawan Match: ${summary.totalKaryawan}`, 40, 80);
         doc.text(`Total Hari Match: ${summary.hadir + summary.alfa + summary.cuti + summary.sakit + summary.off}`, 40, 88);
         doc.text(`Total Jam OT Filter: ${summary.totalOvertime} jam`, 120, 80);
-
         doc.addPage();
         const tableColumn = ['No', 'Nama', 'ID', isFilterActive ? 'Hari Match' : 'Hadir', 'Alfa', 'Jam OT Match'];
         const tableRows = filteredData.map((emp, index) => {
@@ -354,19 +358,15 @@ const App = () => {
             const matchDays = s.hadir + s.alfa + s.cuti + s.sakit + s.off;
             return [index + 1, emp.name, emp.id, isFilterActive ? matchDays : s.hadir, s.alfa, `${s.totalOvertime}h` ];
         });
-        
-        autoTable(doc, { 
-            head: [tableColumn], 
-            body: tableRows, 
-            startY: 15, 
-            theme: 'grid', 
-            headStyles: { fillColor: isFilterActive ? [124, 58, 237] : [15, 32, 64] },
-            styles: { fontSize: 8 }
-        });
-
+        autoTable(doc, { head: [tableColumn], body: tableRows, startY: 15, theme: 'grid', headStyles: { fillColor: isFilterActive ? [124, 58, 237] : [15, 32, 64] }, styles: { fontSize: 8 } });
         doc.save(`Laporan_Kehadiran_Filtered_${monthName}_${selectedYear}.pdf`);
         showSnackbar('PDF berhasil di-export', 'success');
     };
+
+    // If not authenticated, show ONLY login page
+    if (!isAuthenticated) {
+        return <LoginPage onLogin={handleLogin} />;
+    }
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: 'background.default', overflow: 'hidden' }}>
@@ -387,6 +387,7 @@ const App = () => {
                         <Tab label="Payroll" value="payroll" icon={<ReceiptIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
                     </Tabs>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        {/* Period Selector */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'rgba(255,255,255,0.08)', px: 1.5, py: 0.5, borderRadius: 2 }}>
                             <CalendarIcon sx={{ fontSize: 16, color: 'secondary.light' }} />
                             <Select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} variant="standard" disableUnderline sx={{ color: '#fff', fontSize: '0.85rem', fontWeight: 700 }}>
@@ -399,6 +400,17 @@ const App = () => {
                         <IconButton onClick={handleFetchData} size="small" sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)' }}>
                             {loading ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : <RefreshIcon sx={{ fontSize: 18 }} />}
                         </IconButton>
+                        
+                        <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.1)', mx: 1 }} />
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Tooltip title="Admin Mill">
+                                <AccountCircleIcon sx={{ color: 'secondary.light' }} />
+                            </Tooltip>
+                            <IconButton onClick={handleLogout} size="small" sx={{ color: '#fff', bgcolor: 'rgba(255,0,0,0.1)', '&:hover': { bgcolor: 'rgba(255,0,0,0.2)' } }}>
+                                <LogoutIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                        </Box>
                     </Box>
                 </Toolbar>
             </AppBar>
