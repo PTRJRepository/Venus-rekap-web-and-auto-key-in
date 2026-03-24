@@ -509,31 +509,31 @@ const AttendancePage = () => {
                             </Box>
                         )}
 
-                        {/* Sync Buttons - Always visible when employees selected */}
-                        {selectedEmployeeIds.length > 0 && (() => {
-                            const counts = comparisonData && compareMode !== 'off' ? getSelectedMissCounts() : { hasRegularMiss: false, hasOTMiss: false, regularMissCount: 0, otMissCount: 0 };
-                            return (
-                                <Box sx={{ display: 'flex', gap: 1 }}>
-                                    {/* Combined Sync */}
-                                    <Button
-                                        variant="contained"
-                                        size="small"
-                                        color="success"
-                                        startIcon={<SyncIcon />}
-                                        onClick={() => openSyncDialog('all')}
-                                        sx={{
-                                            textTransform: 'none',
-                                            fontWeight: 700,
-                                            fontSize: '0.8rem',
-                                            height: 32,
-                                            bgcolor: '#2E7D32',
-                                            '&:hover': { bgcolor: '#1B5E20' }
-                                        }}
-                                    >
-                                        Sinkron ({selectedEmployeeIds.length})
-                                    </Button>
-                                    {/* Absen Only */}
-                                    {comparisonData && compareMode !== 'off' && counts.hasRegularMiss && (
+                        {/* Sync Buttons - Always visible next to compare when attendanceData loaded */}
+                        {attendanceData.length > 0 && (
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                {/* Combined Sync */}
+                                <Button
+                                    variant="contained"
+                                    size="small"
+                                    color="success"
+                                    startIcon={<SyncIcon />}
+                                    onClick={() => openSyncDialog('all')}
+                                    sx={{
+                                        textTransform: 'none',
+                                        fontWeight: 700,
+                                        fontSize: '0.8rem',
+                                        height: 32,
+                                        bgcolor: '#2E7D32',
+                                        '&:hover': { bgcolor: '#1B5E20' }
+                                    }}
+                                >
+                                    Sinkron ({selectedEmployeeIds.length > 0 ? selectedEmployeeIds.length : attendanceData.length})
+                                </Button>
+                                {/* Absen Only */}
+                                {comparisonData && compareMode !== 'off' && (() => {
+                                    const counts = getSelectedMissCounts();
+                                    return counts.hasRegularMiss ? (
                                         <Button
                                             variant="outlined"
                                             size="small"
@@ -551,9 +551,12 @@ const AttendancePage = () => {
                                         >
                                             Absen ({counts.regularMissCount})
                                         </Button>
-                                    )}
-                                    {/* OT Only */}
-                                    {comparisonData && compareMode !== 'off' && counts.hasOTMiss && (
+                                    ) : null;
+                                })()}
+                                {/* OT Only */}
+                                {comparisonData && compareMode !== 'off' && (() => {
+                                    const counts = getSelectedMissCounts();
+                                    return counts.hasOTMiss ? (
                                         <Button
                                             variant="outlined"
                                             size="small"
@@ -571,10 +574,10 @@ const AttendancePage = () => {
                                         >
                                             OT ({counts.otMissCount}h)
                                         </Button>
-                                    )}
-                                </Box>
-                            );
-                        })()}
+                                    ) : null;
+                                })()}
+                            </Box>
+                        )}
 
                         {/* Inline Compact Legend */}
                         <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 0.5 }}>
@@ -739,7 +742,7 @@ const AttendancePage = () => {
             <AutomationDialog
                 open={isAutomationOpen}
                 onClose={() => { setIsAutomationOpen(false); setSyncTargetMode('all'); }}
-                selectedEmployees={attendanceData.filter(e => selectedEmployeeIds.includes(e.id))}
+                selectedEmployees={selectedEmployeeIds.length > 0 ? attendanceData.filter(e => selectedEmployeeIds.includes(e.id)) : attendanceData}
                 month={selectedMonth}
                 year={selectedYear}
                 compareMode={compareMode}
