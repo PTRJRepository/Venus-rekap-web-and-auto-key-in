@@ -509,76 +509,72 @@ const AttendancePage = () => {
                             </Box>
                         )}
 
-                        {/* Sync Buttons - Shows when employees ARE selected AND comparison data exists */}
+                        {/* Sync Buttons - Shows when employees ARE selected AND comparison has run */}
                         {selectedEmployeeIds.length > 0 && comparisonData && compareMode !== 'off' && (() => {
                             const counts = getSelectedMissCounts();
-                            const showAbsen = counts.hasRegularMiss;
-                            const showOT = counts.hasOTMiss;
-                            const showCombined = counts.hasRegularMiss || counts.hasOTMiss;
                             return (
                                 <Box sx={{ display: 'flex', gap: 1, mr: 1 }}>
-                                    {/* Combined Sync */}
-                                    {showCombined && (
-                                        <Tooltip title="Sinkronkan Absensi & Overtime">
-                                            <Button
-                                                variant="contained"
-                                                size="small"
-                                                color="primary"
-                                                startIcon={<SyncIcon />}
-                                                onClick={() => openSyncDialog('all')}
-                                                sx={{
-                                                    textTransform: 'none',
-                                                    fontWeight: 700,
-                                                    fontSize: '0.75rem',
-                                                    minWidth: 90
-                                                }}
-                                            >
-                                                Sinkron ({selectedEmployeeIds.length})
-                                            </Button>
-                                        </Tooltip>
-                                    )}
-                                    {/* Regular Only */}
-                                    {showAbsen && (
-                                        <Tooltip title={`Sinkronkan ${counts.regularMissCount} hari absensi MISS`}>
+                                    {/* Combined Sync - always show if employees selected and comparison done */}
+                                    <Tooltip title="Sinkronkan Absensi & Overtime (Semua Mismatch)">
+                                        <Button
+                                            variant="contained"
+                                            size="small"
+                                            color="primary"
+                                            startIcon={<SyncIcon />}
+                                            onClick={() => openSyncDialog('all')}
+                                            sx={{
+                                                textTransform: 'none',
+                                                fontWeight: 700,
+                                                fontSize: '0.75rem',
+                                                minWidth: 90,
+                                                bgcolor: '#1976D2',
+                                                '&:hover': { bgcolor: '#1565C0' }
+                                            }}
+                                        >
+                                            Sinkron ({selectedEmployeeIds.length})
+                                        </Button>
+                                    </Tooltip>
+                                    {/* Regular Only - show if any regular MISS */}
+                                    {counts.hasRegularMiss && (
+                                        <Tooltip title={`Sinkronkan Absensi Saja (${counts.regularMissCount} hari MISS)`}>
                                             <Button
                                                 variant="outlined"
                                                 size="small"
-                                                color="warning"
                                                 startIcon={<CancelIcon />}
                                                 onClick={() => openSyncDialog('regular')}
                                                 sx={{
                                                     textTransform: 'none',
                                                     fontWeight: 700,
                                                     fontSize: '0.75rem',
-                                                    minWidth: 60,
+                                                    minWidth: 70,
                                                     borderColor: '#DC2626',
                                                     color: '#DC2626',
                                                     '&:hover': { borderColor: '#DC2626', bgcolor: 'rgba(220, 38, 38, 0.04)' }
                                                 }}
                                             >
-                                                Absen {counts.regularMissCount > 0 ? `(${counts.regularMissCount})` : ''}
+                                                Absen ({counts.regularMissCount})
                                             </Button>
                                         </Tooltip>
                                     )}
-                                    {/* Overtime Only */}
-                                    {showOT && (
-                                        <Tooltip title={`Sinkronkan ${counts.otMissCount}h overtime MISS`}>
+                                    {/* Overtime Only - show if any OT MISS */}
+                                    {counts.hasOTMiss && (
+                                        <Tooltip title={`Sinkronkan Overtime Saja (${counts.otMissCount}h MISS)`}>
                                             <Button
                                                 variant="outlined"
                                                 size="small"
+                                                startIcon={<TimeIcon sx={{ fontSize: '14px !important', color: '#7C3AED' }} />}
+                                                onClick={() => openSyncDialog('overtime')}
                                                 sx={{
                                                     textTransform: 'none',
                                                     fontWeight: 700,
                                                     fontSize: '0.75rem',
-                                                    minWidth: 60,
+                                                    minWidth: 70,
                                                     borderColor: '#7C3AED',
                                                     color: '#7C3AED',
                                                     '&:hover': { borderColor: '#7C3AED', bgcolor: 'rgba(124, 58, 237, 0.04)' }
                                                 }}
-                                                onClick={() => openSyncDialog('overtime')}
                                             >
-                                                <TimeIcon sx={{ fontSize: '14px !important', mr: 0.5, color: '#7C3AED' }} />
-                                                OT {counts.otMissCount > 0 ? `(${counts.otMissCount}h)` : ''}
+                                                OT ({counts.otMissCount}h)
                                             </Button>
                                         </Tooltip>
                                     )}
