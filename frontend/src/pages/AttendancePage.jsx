@@ -463,16 +463,9 @@ const AttendancePage = () => {
 
                     {/* Right: Legend Toggle + Compact Legend */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                        {/* Compare Button + Sync Button Row */}
+                        {/* Compare Buttons */}
                         {attendanceData.length > 0 && (
                             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                {/* DEBUG BADGE - will be removed */}
-                                <Chip
-                                    label={`SEL: ${selectedEmployeeIds.length} | COMP: ${comparisonData ? 'YES' : 'NO'} | MODE: ${compareMode}`}
-                                    size="small"
-                                    sx={{ height: 24, fontSize: '0.6rem', fontWeight: 900, bgcolor: '#fef08a', color: '#000', border: '2px solid #f59e0b' }}
-                                />
-                                <Button
                                 <Button
                                     variant={compareMode !== 'off' ? "contained" : "outlined"}
                                     size="small"
@@ -513,75 +506,75 @@ const AttendancePage = () => {
                                         <MenuItem value="off">Off</MenuItem>
                                     </Select>
                                 )}
-
-                                {/* Sync Buttons - Always visible when employees selected */}
-                                {selectedEmployeeIds.length > 0 && (() => {
-                                    const counts = comparisonData && compareMode !== 'off' ? getSelectedMissCounts() : { hasRegularMiss: false, hasOTMiss: false, regularMissCount: 0, otMissCount: 0 };
-                                    return (
-                                        <Box sx={{ display: 'flex', gap: 1 }}>
-                                            {/* Combined Sync - always visible */}
-                                            <Button
-                                                variant="contained"
-                                                size="small"
-                                                color="success"
-                                                startIcon={<SyncIcon />}
-                                                onClick={() => openSyncDialog('all')}
-                                                sx={{
-                                                    textTransform: 'none',
-                                                    fontWeight: 700,
-                                                    fontSize: '0.8rem',
-                                                    height: 32,
-                                                    bgcolor: '#2E7D32',
-                                                    '&:hover': { bgcolor: '#1B5E20' }
-                                                }}
-                                            >
-                                                Sinkron ({selectedEmployeeIds.length})
-                                            </Button>
-                                            {/* Absen Only */}
-                                            {comparisonData && compareMode !== 'off' && counts.hasRegularMiss && (
-                                                <Button
-                                                    variant="outlined"
-                                                    size="small"
-                                                    startIcon={<CancelIcon />}
-                                                    onClick={() => openSyncDialog('regular')}
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        fontWeight: 700,
-                                                        fontSize: '0.8rem',
-                                                        height: 32,
-                                                        borderColor: '#DC2626',
-                                                        color: '#DC2626',
-                                                        '&:hover': { borderColor: '#DC2626', bgcolor: 'rgba(220, 38, 38, 0.04)' }
-                                                    }}
-                                                >
-                                                    Absen ({counts.regularMissCount})
-                                                </Button>
-                                            )}
-                                            {/* OT Only */}
-                                            {comparisonData && compareMode !== 'off' && counts.hasOTMiss && (
-                                                <Button
-                                                    variant="outlined"
-                                                    size="small"
-                                                    startIcon={<TimeIcon sx={{ fontSize: '14px !important', color: '#7C3AED' }} />}
-                                                    onClick={() => openSyncDialog('overtime')}
-                                                    sx={{
-                                                        textTransform: 'none',
-                                                        fontWeight: 700,
-                                                        fontSize: '0.8rem',
-                                                        height: 32,
-                                                        borderColor: '#7C3AED',
-                                                        color: '#7C3AED',
-                                                        '&:hover': { borderColor: '#7C3AED', bgcolor: 'rgba(124, 58, 237, 0.04)' }
-                                                    }}
-                                                >
-                                                    OT ({counts.otMissCount}h)
-                                                </Button>
-                                            )}
-                                        </Box>
-                                    );
-                                })()}
                             </Box>
                         )}
+
+                        {/* Sync Buttons - Always visible when employees selected */}
+                        {selectedEmployeeIds.length > 0 && (() => {
+                            const counts = comparisonData && compareMode !== 'off' ? getSelectedMissCounts() : { hasRegularMiss: false, hasOTMiss: false, regularMissCount: 0, otMissCount: 0 };
+                            return (
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                    {/* Combined Sync */}
+                                    <Button
+                                        variant="contained"
+                                        size="small"
+                                        color="success"
+                                        startIcon={<SyncIcon />}
+                                        onClick={() => openSyncDialog('all')}
+                                        sx={{
+                                            textTransform: 'none',
+                                            fontWeight: 700,
+                                            fontSize: '0.8rem',
+                                            height: 32,
+                                            bgcolor: '#2E7D32',
+                                            '&:hover': { bgcolor: '#1B5E20' }
+                                        }}
+                                    >
+                                        Sinkron ({selectedEmployeeIds.length})
+                                    </Button>
+                                    {/* Absen Only */}
+                                    {comparisonData && compareMode !== 'off' && counts.hasRegularMiss && (
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            startIcon={<CancelIcon />}
+                                            onClick={() => openSyncDialog('regular')}
+                                            sx={{
+                                                textTransform: 'none',
+                                                fontWeight: 700,
+                                                fontSize: '0.8rem',
+                                                height: 32,
+                                                borderColor: '#DC2626',
+                                                color: '#DC2626',
+                                                '&:hover': { borderColor: '#DC2626', bgcolor: 'rgba(220, 38, 38, 0.04)' }
+                                            }}
+                                        >
+                                            Absen ({counts.regularMissCount})
+                                        </Button>
+                                    )}
+                                    {/* OT Only */}
+                                    {comparisonData && compareMode !== 'off' && counts.hasOTMiss && (
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            startIcon={<TimeIcon sx={{ fontSize: '14px !important', color: '#7C3AED' }} />}
+                                            onClick={() => openSyncDialog('overtime')}
+                                            sx={{
+                                                textTransform: 'none',
+                                                fontWeight: 700,
+                                                fontSize: '0.8rem',
+                                                height: 32,
+                                                borderColor: '#7C3AED',
+                                                color: '#7C3AED',
+                                                '&:hover': { borderColor: '#7C3AED', bgcolor: 'rgba(124, 58, 237, 0.04)' }
+                                            }}
+                                        >
+                                            OT ({counts.otMissCount}h)
+                                        </Button>
+                                    )}
+                                </Box>
+                            );
+                        })()}
 
                         {/* Inline Compact Legend */}
                         <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 0.5 }}>
