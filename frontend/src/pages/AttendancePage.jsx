@@ -465,7 +465,14 @@ const AttendancePage = () => {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
                         {/* Compare Button + Sync Button Row */}
                         {attendanceData.length > 0 && (
-                            <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                {/* DEBUG BADGE - will be removed */}
+                                <Chip
+                                    label={`SEL: ${selectedEmployeeIds.length} | COMP: ${comparisonData ? 'YES' : 'NO'} | MODE: ${compareMode}`}
+                                    size="small"
+                                    sx={{ height: 24, fontSize: '0.6rem', fontWeight: 900, bgcolor: '#fef08a', color: '#000', border: '2px solid #f59e0b' }}
+                                />
+                                <Button
                                 <Button
                                     variant={compareMode !== 'off' ? "contained" : "outlined"}
                                     size="small"
