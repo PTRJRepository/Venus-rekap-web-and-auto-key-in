@@ -6,7 +6,7 @@ import StopIcon from '@mui/icons-material/Stop';
 import RobotIcon from '@mui/icons-material/SmartToy';
 import DownloadIcon from '@mui/icons-material/Download';
 
-const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compareMode, comparisonData, onRefresh }) => {
+const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compareMode, syncTargetMode, comparisonData, onRefresh }) => {
     const [logs, setLogs] = useState([]);
     const [status, setStatus] = useState('idle');
     const [startDate, setStartDate] = useState('');
@@ -19,7 +19,13 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
     // Auto-set Target Mode based on prop
     useEffect(() => {
         if (open) {
-            if (compareMode === 'overtime') {
+            // Priority 1: syncTargetMode from category-specific button
+            if (syncTargetMode) {
+                setTargetMode(syncTargetMode);
+                setOnlyOvertime(syncTargetMode === 'overtime');
+            }
+            // Priority 2: compareMode fallback
+            else if (compareMode === 'overtime') {
                 setTargetMode('overtime');
                 setOnlyOvertime(true);
             } else {
@@ -27,7 +33,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                 setOnlyOvertime(false);
             }
         }
-    }, [open, compareMode]);
+    }, [open, compareMode, syncTargetMode]);
 
     // Sync onlyOvertime flag when targetMode changes
     useEffect(() => {
@@ -310,6 +316,27 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                 {status === 'completed' && <Typography component="span" variant="caption" sx={{ color: '#4caf50', border: '1px solid #4caf50', px: 1, borderRadius: 1 }}>COMPLETED</Typography>}
                 {status === 'failed' && <Typography component="span" variant="caption" sx={{ color: '#f44336', border: '1px solid #f44336', px: 1, borderRadius: 1 }}>FAILED</Typography>}
             </DialogTitle>
+
+            {/* Sync Mode Indicator Banner */}
+            <Box sx={{
+                px: 2,
+                py: 0.75,
+                bgcolor: targetMode === 'regular' ? 'rgba(220, 38, 38, 0.15)' : (targetMode === 'overtime' ? 'rgba(124, 58, 237, 0.15)' : 'rgba(25, 118, 210, 0.15)'),
+                borderBottom: `1px solid ${targetMode === 'regular' ? '#DC2626' : (targetMode === 'overtime' ? '#7C3AED' : '#1976D2')}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+            }}>
+                <Typography variant="caption" sx={{
+                    fontWeight: 900,
+                    fontSize: '0.7rem',
+                    color: targetMode === 'regular' ? '#DC2626' : (targetMode === 'overtime' ? '#7C3AED' : '#1976D2'),
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em'
+                }}>
+                    {targetMode === 'regular' ? 'SINKRONISASI ABSENSI SAJA' : (targetMode === 'overtime' ? 'SINKRONISASI OVERTIME SAJA' : 'SINKRONISASI ABSENSI + OVERTIME')}
+                </Typography>
+            </Box>
             <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ p: 2, bgcolor: '#252526', borderBottom: '1px solid #333' }}>
                     <Typography variant="body2" sx={{ color: '#aaa', mb: 1 }}>Target: <strong>{selectedEmployees.length} Karyawan</strong> | Periode: <strong>{month}/{year}</strong></Typography>

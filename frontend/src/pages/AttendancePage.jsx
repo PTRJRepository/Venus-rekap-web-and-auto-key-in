@@ -20,6 +20,7 @@ import {
 import {
     CheckCircle as CheckIcon,
     Cancel as CancelIcon,
+    Person as PersonIcon,
     AccessTime as TimeIcon,
     Flight as FlightIcon,
     LocalHospital as HospitalIcon,
@@ -113,6 +114,8 @@ const AttendancePage = () => {
     const [isComparisonOpen, setIsComparisonOpen] = useState(false);
     const [comparisonData, setComparisonData] = useState(null);
     const [compareMode, setCompareMode] = useState('off');
+    const [isComparing, setIsComparing] = useState(false);
+    const [syncTargetMode, setSyncTargetMode] = useState('all');
 
     const months = getMonths();
     const years = getYears();
@@ -168,6 +171,7 @@ const AttendancePage = () => {
     const performComparison = async () => {
         if (!attendanceData.length) return;
 
+        setIsComparing(true);
         // Default to current selected month range if not specified
         // We assume comparison uses same period as selected
         const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
@@ -197,7 +201,82 @@ const AttendancePage = () => {
             }
         } catch (e) {
             console.error("Auto-Comparison failed:", e);
+        } finally {
+            setIsComparing(false);
         }
+    };
+
+    // Calculate MISS counts for selected employees
+    const getSelectedMissCounts = () => {
+        if (!comparisonData || selectedEmployeeIds.length === 0 || !attendanceData.length) {
+            return { hasRegularMiss: false, hasOTMiss: false, regularMissCount: 0, otMissCount: 0 };
+        }
+
+        let regularMissCount = 0;
+        let otMissCount = 0;
+
+        selectedEmployeeIds.forEach(empId => {
+            const emp = attendanceData.find(e => e.id === empId);
+            if (!emp || !emp.attendance) return;
+
+            const ptrjId = emp.ptrjEmployeeID;
+            if (!ptrjId || ptrjId === 'N/A') return;
+
+            Object.values(emp.attendance).forEach(day => {
+                if (!day || !day.status) return;
+                const dateStr = day.date;
+                const key = `${ptrjId}_${dateStr}`;
+                const millwareRecord = comparisonData[key];
+                const statusUpper = (day.status || '').toUpperCase();
+
+                if (['ALFA', 'N/A', 'OFF'].includes(statusUpper)) return;
+
+                if (compareMode === 'presence') {
+                    if (!millwareRecord || !millwareRecord.hasRegularRecord) {
+                        regularMissCount++;
+                    } else if (!millwareRecord.regularMatched) {
+                        regularMissCount++;
+                    }
+                } else if (compareMode === 'overtime') {
+                    const vOT = Number(day.overtimeHours) || 0;
+                    if (vOT > 0) {
+                        if (!millwareRecord || !millwareRecord.hasOTRecord) {
+                            otMissCount += vOT;
+                        } else if (!millwareRecord.otMatched) {
+                            otMissCount += vOT;
+                        }
+                    }
+                } else {
+                    // All mode: count both
+                    if (!millwareRecord || !millwareRecord.hasRegularRecord) {
+                        regularMissCount++;
+                    } else if (!millwareRecord.regularMatched) {
+                        regularMissCount++;
+                    }
+
+                    const vOT = Number(day.overtimeHours) || 0;
+                    if (vOT > 0) {
+                        if (!millwareRecord || !millwareRecord.hasOTRecord) {
+                            otMissCount += vOT;
+                        } else if (!millwareRecord.otMatched) {
+                            otMissCount += vOT;
+                        }
+                    }
+                }
+            });
+        });
+
+        return {
+            hasRegularMiss: regularMissCount > 0,
+            hasOTMiss: otMissCount > 0,
+            regularMissCount,
+            otMissCount
+        };
+    };
+
+    const openSyncDialog = (mode) => {
+        setSyncTargetMode(mode);
+        setIsAutomationOpen(true);
     };
 
     const handleComparisonComplete = (data) => {
@@ -224,8 +303,20 @@ const AttendancePage = () => {
             });
         }
         setComparisonData(map);
+        // If we just got data and mode was off, set it to presence
         if (compareMode === 'off') setCompareMode('presence');
-        // Don't close dialog automatically, let user review results
+    };
+
+    const handleCompareToggle = () => {
+        if (compareMode === 'off') {
+            setCompareMode('presence');
+            performComparison();
+        } else if (compareMode === 'presence') {
+            setCompareMode('overtime');
+            if (!comparisonData) performComparison();
+        } else {
+            setCompareMode('off');
+        }
     };
 
     return (
@@ -372,23 +463,37 @@ const AttendancePage = () => {
 
                     {/* Right: Legend Toggle + Compact Legend */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                        {/* Compare Button - Always show when data exists */}
+                        {/* Compare Button - Now cycles modes and triggers comparison */}
                         {attendanceData.length > 0 && (
                             <Box sx={{ display: 'flex', gap: 1 }}>
                                 <Button
                                     variant={compareMode !== 'off' ? "contained" : "outlined"}
                                     size="small"
-                                    color="info"
-                                    startIcon={<CompareIcon />}
-                                    onClick={() => setIsComparisonOpen(true)}
+                                    color={compareMode !== 'off' ? "info" : "inherit"}
+                                    startIcon={isComparing ? <CircularProgress size={14} color="inherit" /> : <CompareIcon />}
+                                    onClick={handleCompareToggle}
+                                    disabled={isComparing}
                                     sx={{
                                         textTransform: 'none',
-                                        fontWeight: 600,
-                                        fontSize: '0.8rem'
+                                        fontWeight: 800,
+                                        fontSize: '0.8rem',
+                                        height: 32,
+                                        minWidth: 100
                                     }}
                                 >
-                                    Compare
+                                    {isComparing ? 'Syncing...' : (compareMode === 'off' ? 'CHECK SYNC' : compareMode.toUpperCase())}
                                 </Button>
+                                
+                                <Tooltip title="Buka Detail Komparasi">
+                                    <IconButton 
+                                        size="small" 
+                                        onClick={() => setIsComparisonOpen(true)}
+                                        sx={{ bgcolor: 'rgba(0,0,0,0.05)' }}
+                                    >
+                                        <CompareTabIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
+
                                 {comparisonData && compareMode !== 'off' && (
                                     <Select
                                         size="small"
@@ -404,24 +509,82 @@ const AttendancePage = () => {
                             </Box>
                         )}
 
-                        {/* Sync Button - Shows when employees ARE selected */}
-                        {selectedEmployeeIds.length > 0 && (
-                            <Button
-                                variant="contained"
-                                size="small"
-                                color="success"
-                                startIcon={<SyncIcon />}
-                                onClick={() => setIsAutomationOpen(true)}
-                                sx={{
-                                    textTransform: 'none',
-                                    fontWeight: 600,
-                                    fontSize: '0.8rem',
-                                    mr: 1
-                                }}
-                            >
-                                Sinkron ({selectedEmployeeIds.length})
-                            </Button>
-                        )}
+                        {/* Sync Buttons - Shows when employees ARE selected AND comparison data exists */}
+                        {selectedEmployeeIds.length > 0 && comparisonData && compareMode !== 'off' && (() => {
+                            const counts = getSelectedMissCounts();
+                            const showAbsen = counts.hasRegularMiss;
+                            const showOT = counts.hasOTMiss;
+                            const showCombined = counts.hasRegularMiss || counts.hasOTMiss;
+                            return (
+                                <Box sx={{ display: 'flex', gap: 1, mr: 1 }}>
+                                    {/* Combined Sync */}
+                                    {showCombined && (
+                                        <Tooltip title="Sinkronkan Absensi & Overtime">
+                                            <Button
+                                                variant="contained"
+                                                size="small"
+                                                color="primary"
+                                                startIcon={<SyncIcon />}
+                                                onClick={() => openSyncDialog('all')}
+                                                sx={{
+                                                    textTransform: 'none',
+                                                    fontWeight: 700,
+                                                    fontSize: '0.75rem',
+                                                    minWidth: 90
+                                                }}
+                                            >
+                                                Sinkron ({selectedEmployeeIds.length})
+                                            </Button>
+                                        </Tooltip>
+                                    )}
+                                    {/* Regular Only */}
+                                    {showAbsen && (
+                                        <Tooltip title={`Sinkronkan ${counts.regularMissCount} hari absensi MISS`}>
+                                            <Button
+                                                variant="outlined"
+                                                size="small"
+                                                color="warning"
+                                                startIcon={<CancelIcon />}
+                                                onClick={() => openSyncDialog('regular')}
+                                                sx={{
+                                                    textTransform: 'none',
+                                                    fontWeight: 700,
+                                                    fontSize: '0.75rem',
+                                                    minWidth: 60,
+                                                    borderColor: '#DC2626',
+                                                    color: '#DC2626',
+                                                    '&:hover': { borderColor: '#DC2626', bgcolor: 'rgba(220, 38, 38, 0.04)' }
+                                                }}
+                                            >
+                                                Absen {counts.regularMissCount > 0 ? `(${counts.regularMissCount})` : ''}
+                                            </Button>
+                                        </Tooltip>
+                                    )}
+                                    {/* Overtime Only */}
+                                    {showOT && (
+                                        <Tooltip title={`Sinkronkan ${counts.otMissCount}h overtime MISS`}>
+                                            <Button
+                                                variant="outlined"
+                                                size="small"
+                                                sx={{
+                                                    textTransform: 'none',
+                                                    fontWeight: 700,
+                                                    fontSize: '0.75rem',
+                                                    minWidth: 60,
+                                                    borderColor: '#7C3AED',
+                                                    color: '#7C3AED',
+                                                    '&:hover': { borderColor: '#7C3AED', bgcolor: 'rgba(124, 58, 237, 0.04)' }
+                                                }}
+                                                onClick={() => openSyncDialog('overtime')}
+                                            >
+                                                <TimeIcon sx={{ fontSize: '14px !important', mr: 0.5, color: '#7C3AED' }} />
+                                                OT {counts.otMissCount > 0 ? `(${counts.otMissCount}h)` : ''}
+                                            </Button>
+                                        </Tooltip>
+                                    )}
+                                </Box>
+                            );
+                        })()}
 
                         {/* Inline Compact Legend */}
                         <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 0.5 }}>
@@ -559,6 +722,7 @@ const AttendancePage = () => {
                                     onToggleSelect={setSelectedEmployeeIds}
                                     compareMode={compareMode}
                                     comparisonData={comparisonData}
+                                    isLoadingComparison={isComparing}
                                 />
                             </Box>
                         )}
@@ -584,12 +748,12 @@ const AttendancePage = () => {
             {/* Automation Dialog */}
             <AutomationDialog
                 open={isAutomationOpen}
-                onClose={() => setIsAutomationOpen(false)}
+                onClose={() => { setIsAutomationOpen(false); setSyncTargetMode('all'); }}
                 selectedEmployees={attendanceData.filter(e => selectedEmployeeIds.includes(e.id))}
                 month={selectedMonth}
                 year={selectedYear}
                 compareMode={compareMode}
-
+                syncTargetMode={syncTargetMode}
                 comparisonData={comparisonData}
                 onRefresh={performComparison}
             />
