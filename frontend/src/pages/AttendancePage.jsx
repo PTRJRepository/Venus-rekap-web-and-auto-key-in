@@ -33,7 +33,8 @@ import {
     CompareArrows as CompareIcon,
     Assessment as AssessmentIcon,
     TableView as TableViewIcon,
-    Compare as CompareTabIcon
+    Compare as CompareTabIcon,
+    FilterAlt as FilterAltIcon
 } from '@mui/icons-material';
 import AttendanceMatrix from '../components/AttendanceMatrix';
 import AutomationDialog from '../components/AutomationDialog';
@@ -116,6 +117,15 @@ const AttendancePage = () => {
     const [compareMode, setCompareMode] = useState('off');
     const [isComparing, setIsComparing] = useState(false);
     const [syncTargetMode, setSyncTargetMode] = useState('all');
+    const [viewMode, setViewMode] = useState('attendance'); // 'attendance', 'overtime', 'detail'
+    
+    // Cell Filter Analysis State
+    const [cellFilter, setCellFilter] = useState({
+        enabled: false,
+        condition: 'ot_gt', // 'ot_gt' (OT >), 'ot_lt' (OT <), 'ot_eq' (OT =), 'hours_lt' (below standard), 'hours_gt' (above standard), 'ot_only' (has OT), 'absence' (no show)
+        value: 3,
+        caseSensitive: false
+    });
 
     const months = getMonths();
     const years = getYears();
@@ -467,6 +477,79 @@ const AttendancePage = () => {
 
                     {/* Right: Legend Toggle + Compact Legend */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                        {/* View Mode Selector */}
+                        {attendanceData.length > 0 && (
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>View:</Typography>
+                                <Select
+                                    size="small"
+                                    value={viewMode}
+                                    onChange={(e) => setViewMode(e.target.value)}
+                                    sx={{ height: 32, fontSize: '0.8rem', minWidth: 100, bgcolor: 'white' }}
+                                >
+                                    <MenuItem value="attendance">Attendance</MenuItem>
+                                    <MenuItem value="overtime">Overtime Only</MenuItem>
+                                    <MenuItem value="detail">Detail (Reg + OT)</MenuItem>
+                                </Select>
+                            </Box>
+                        )}
+
+                        {/* Cell Filter Analysis */}
+                        {attendanceData.length > 0 && (
+                            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', bgcolor: cellFilter.enabled ? '#FEF3C7' : 'white', border: cellFilter.enabled ? '1px solid #FCD34D' : '1px solid #e5e7eb', borderRadius: 1, px: 1 }}>
+                                <Tooltip title="Filter sel berdasarkan kondisi tertentu">
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => setCellFilter(prev => ({ ...prev, enabled: !prev.enabled }))}
+                                        sx={{ 
+                                            p: 0.5,
+                                            bgcolor: cellFilter.enabled ? '#FCD34D' : 'transparent',
+                                            '&:hover': { bgcolor: cellFilter.enabled ? '#FBBF24' : 'rgba(0,0,0,0.04)' }
+                                        }}
+                                    >
+                                        <FilterAltIcon sx={{ fontSize: 16, color: cellFilter.enabled ? '#92400E' : '#6B7280' }} />
+                                    </IconButton>
+                                </Tooltip>
+                                {cellFilter.enabled && (
+                                    <>
+                                        <Select
+                                            size="small"
+                                            value={cellFilter.condition}
+                                            onChange={(e) => setCellFilter(prev => ({ ...prev, condition: e.target.value }))}
+                                            sx={{ height: 28, fontSize: '0.7rem', minWidth: 120 }}
+                                        >
+                                            <MenuItem value="ot_gt">OT &gt; (lebih dari)</MenuItem>
+                                            <MenuItem value="ot_gte">OT &ge; (minimal)</MenuItem>
+                                            <MenuItem value="ot_lt">OT &lt; (kurang dari)</MenuItem>
+                                            <MenuItem value="ot_eq">OT = (sama dengan)</MenuItem>
+                                            <MenuItem value="hours_lt">Jam &lt; Standard</MenuItem>
+                                            <MenuItem value="hours_gt">Jam &gt; Standard</MenuItem>
+                                            <MenuItem value="ot_only">Ada Lembur</MenuItem>
+                                            <MenuItem value="absence">Tidak Hadir (Alfa)</MenuItem>
+                                        </Select>
+                                        {['ot_gt', 'ot_gte', 'ot_lt', 'ot_eq'].includes(cellFilter.condition) && (
+                                            <TextField
+                                                size="small"
+                                                type="number"
+                                                value={cellFilter.value}
+                                                onChange={(e) => setCellFilter(prev => ({ ...prev, value: Number(e.target.value) }))}
+                                                sx={{ width: 60, '& input': { py: 0.5, textAlign: 'center', fontSize: '0.8rem' } }}
+                                            />
+                                        )}
+                                        <Tooltip title="Reset filter">
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => setCellFilter({ enabled: false, condition: 'ot_gt', value: 3 })}
+                                                sx={{ p: 0.3 }}
+                                            >
+                                                <CancelIcon sx={{ fontSize: 14 }} />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </>
+                                )}
+                            </Box>
+                        )}
+
                         {/* Compare Buttons */}
                         {attendanceData.length > 0 && (
                             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -713,6 +796,8 @@ const AttendancePage = () => {
                             <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
                                 <AttendanceMatrix
                                     data={attendanceData}
+                                    viewMode={viewMode}
+                                    cellFilter={cellFilter}
                                     onDataUpdate={handleDataUpdate}
                                     selectedIds={selectedEmployeeIds}
                                     onToggleSelect={setSelectedEmployeeIds}

@@ -51,16 +51,21 @@ const OvertimeReport = ({ data = [] }) => {
     // Calculate total overtime and filter employees
     const filteredEmployees = useMemo(() => {
         const result = safeData.map(emp => {
-            let totalOt = 0;
+            let totalOtHours = 0;
+            let totalOtDays = 0;
             if (emp.attendance) {
                 Object.values(emp.attendance).forEach(day => {
                     const ot = Number(day.overtimeHours) || 0;
-                    totalOt += ot;
+                    if (ot > 0) {
+                        totalOtHours += ot;
+                        totalOtDays++;
+                    }
                 });
             }
             return {
                 ...emp,
-                totalOvertime: totalOt,
+                totalOvertimeHours: totalOtHours,
+                totalOvertimeDays: totalOtDays,
                 station: getStation(emp.chargeJob) // For display grouping if needed
             };
         });
@@ -70,7 +75,7 @@ const OvertimeReport = ({ data = [] }) => {
 
         return result.filter(emp => {
             // Apply Range Filter
-            if (emp.totalOvertime < min || emp.totalOvertime > max) return false;
+            if (emp.totalOvertimeHours < min || emp.totalOvertimeHours > max) return false;
 
             // Apply Search Filter (Name or ID)
             if (searchTerm) {
@@ -82,10 +87,10 @@ const OvertimeReport = ({ data = [] }) => {
 
             // Exclude employees with 0 overtime if no min is set, assuming we only want to see people who *did* overtime
             // But if user explicitly sets min=0, then show them.
-            if (minHours === '' && emp.totalOvertime === 0) return false;
+            if (minHours === '' && emp.totalOvertimeHours === 0) return false;
 
             return true;
-        }).sort((a, b) => b.totalOvertime - a.totalOvertime); // Sort highest OT first
+        }).sort((a, b) => b.totalOvertimeHours - a.totalOvertimeHours); // Sort highest OT first
     }, [safeData, minHours, maxHours, searchTerm]);
 
     const handleClearFilters = () => {
@@ -129,8 +134,11 @@ const OvertimeReport = ({ data = [] }) => {
         doc.setFont('helvetica', 'italic');
         doc.text(filterText, 14, 45);
 
+        // Calculate grand total
+        const grandTotalHours = filteredEmployees.reduce((sum, emp) => sum + emp.totalOvertimeHours, 0);
+
         // Table
-        const tableColumn = ["No.", "Karyawan", "PTRJ ID", "Stasiun", "Total Jam Lembur"];
+        const tableColumn = ["No.", "Karyawan", "PTRJ ID", "Stasiun", "Hari OT", "Total Jam Lembur"];
         const tableRows = [];
 
         filteredEmployees.forEach((emp, ind) => {
@@ -139,10 +147,14 @@ const OvertimeReport = ({ data = [] }) => {
                 emp.name,
                 emp.ptrjEmployeeID || '-',
                 emp.station,
-                `${emp.totalOvertime} Jam`
+                emp.totalOvertimeDays,
+                `${emp.totalOvertimeHours} Jam`
             ];
             tableRows.push(empData);
         });
+
+        // Add total row
+        tableRows.push(['', '', '', 'TOTAL', filteredEmployees.reduce((sum, emp) => sum + emp.totalOvertimeDays, 0), `${grandTotalHours} Jam`]);
 
         autoTable(doc, {
             head: [tableColumn],
@@ -163,7 +175,8 @@ const OvertimeReport = ({ data = [] }) => {
             columnStyles: {
                 0: { halign: 'center', cellWidth: 15 },
                 2: { halign: 'center', cellWidth: 35 },
-                4: { halign: 'center', cellWidth: 40, fontStyle: 'bold', textColor: [126, 34, 206] } // Purple-700
+                4: { halign: 'center', cellWidth: 25, fontStyle: 'bold', textColor: [180, 83, 9] }, // Orange for days
+                5: { halign: 'center', cellWidth: 40, fontStyle: 'bold', textColor: [126, 34, 206] } // Purple-700 for hours
             },
             styles: { fontSize: 9, cellPadding: 3 },
             didDrawPage: function (data) {
@@ -249,13 +262,14 @@ const OvertimeReport = ({ data = [] }) => {
                             <TableCell>Karyawan</TableCell>
                             <TableCell>PTRJ ID</TableCell>
                             <TableCell>Stasiun (Charge Job)</TableCell>
+                            <TableCell align="center">Hari OT</TableCell>
                             <TableCell align="center">Total Jam Lembur</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {filteredEmployees.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                                <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                                         <FilterAltIcon sx={{ fontSize: 40, color: 'text.disabled', opacity: 0.5 }} />
                                         <Typography>Tidak ada data karyawan lembur yang sesuai filter.</Typography>
@@ -287,18 +301,66 @@ const OvertimeReport = ({ data = [] }) => {
                                     </TableCell>
                                     <TableCell align="center">
                                         <Chip
-                                            label={`${emp.totalOvertime} Jam`}
+                                            label={`${emp.totalOvertimeDays}`}
                                             size="small"
                                             sx={{
-                                                bgcolor: 'secondary.light',
-                                                color: 'secondary.dark',
+                                                bgcolor: '#FEF3C7',
+                                                color: '#B45309',
                                                 fontWeight: 700,
-                                                minWidth: 70
+                                                minWidth: 40,
+                                                border: '1px solid #FCD34D'
+                                            }}
+                                        />
+                                    </TableCell>
+                                    <TableCell align="center">
+                                        <Chip
+                                            label={`${emp.totalOvertimeHours} Jam`}
+                                            size="small"
+                                            sx={{
+                                                bgcolor: '#F3E8FF',
+                                                color: '#7B1FA2',
+                                                fontWeight: 700,
+                                                minWidth: 70,
+                                                border: '1px solid #E1BEE7'
                                             }}
                                         />
                                     </TableCell>
                                 </TableRow>
                             ))
+                        )}
+                        {/* Total Row */}
+                        {filteredEmployees.length > 0 && (
+                            <TableRow sx={{ bgcolor: '#F1F5F9', fontWeight: 800 }}>
+                                <TableCell colSpan={4} align="right" sx={{ fontWeight: 800, color: '#1E293B' }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 800 }}>TOTAL:</Typography>
+                                </TableCell>
+                                <TableCell align="center">
+                                    <Chip
+                                        label={filteredEmployees.reduce((sum, emp) => sum + emp.totalOvertimeDays, 0)}
+                                        size="small"
+                                        sx={{
+                                            bgcolor: '#FEF3C7',
+                                            color: '#B45309',
+                                            fontWeight: 800,
+                                            minWidth: 40,
+                                            border: '1px solid #FCD34D'
+                                        }}
+                                    />
+                                </TableCell>
+                                <TableCell align="center">
+                                    <Chip
+                                        label={`${filteredEmployees.reduce((sum, emp) => sum + emp.totalOvertimeHours, 0)} Jam`}
+                                        size="small"
+                                        sx={{
+                                            bgcolor: '#F3E8FF',
+                                            color: '#7B1FA2',
+                                            fontWeight: 800,
+                                            minWidth: 80,
+                                            border: '1px solid #E1BEE7'
+                                        }}
+                                    />
+                                </TableCell>
+                            </TableRow>
                         )}
                     </TableBody>
                 </Table>

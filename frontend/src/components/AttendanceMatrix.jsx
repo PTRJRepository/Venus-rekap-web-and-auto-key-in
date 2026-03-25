@@ -14,6 +14,7 @@ import { updateEmployeeMill } from '../services/api';
 const AttendanceMatrix = ({
     data = [],
     viewMode = 'attendance',
+    cellFilter = null,
     onDataUpdate,
     selectedIds = [],
     onToggleSelect,
@@ -30,6 +31,30 @@ const AttendanceMatrix = ({
     const [saving, setSaving] = useState(false);
     const [expandedRows, setExpandedRows] = useState(new Set());
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+    // Add global pulse animation style
+    useEffect(() => {
+        const styleId = 'attendance-matrix-pulse-animation';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.6; transform: scale(1.1); }
+                }
+                @keyframes highlight-pulse {
+                    0%, 100% { box-shadow: inset 0 0 0 2px #F59E0B; }
+                    50% { box-shadow: inset 0 0 0 3px #FCD34D; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        return () => {
+            const element = document.getElementById(styleId);
+            if (element) element.remove();
+        };
+    }, []);
 
     const toggleRow = (id) => {
         const newExpanded = new Set(expandedRows);
@@ -115,36 +140,336 @@ const AttendanceMatrix = ({
         return { bg: '#fff', text: '#172B4D', icon: null, label: s };
     };
 
-    const getCellContent = (d, viewMode) => {
-        if (!d) return null;
-        if (viewMode === 'overtime') {
+    // Extract station from chargeJob (e.g., "101/Station A/Machine 1" -> "Station A")
+    const getStation = (chargeJob) => {
+        if (!chargeJob || chargeJob === '-' || chargeJob === 'N/A') return null;
+        const parts = chargeJob.split('/');
+        if (parts.length > 1) {
+            return parts[1]?.trim() || null;
+        }
+        const firstPart = parts[0]?.trim() || '';
+        const match = firstPart.match(/^\([^)]+\)\s*(.+)$/);
+        if (match && match[1]) return match[1].trim();
+        return firstPart || null;
+    };
+
+    // Calculate total overtime for an employee
+    const calculateOTSummary = (emp) => {
+        if (!emp.attendance) return { days: 0, hours: 0, standardHours: 0, realHours: 0 };
+        let otDays = 0;
+        let totalHours = 0;
+        let standardHours = 0;
+        let realHours = 0;
+
+        Object.values(emp.attendance).forEach(d => {
             const otHours = Number(d.overtimeHours) || 0;
+            const regHours = Number(d.regularHours) || 0;
             if (otHours > 0) {
+                otDays++;
+                totalHours += otHours;
+                // Standard OT is typically calculated after 7 regular hours
+                const stdOT = Math.max(0, otHours - (regHours > 7 ? regHours - 7 : 0));
+                standardHours += stdOT;
+                realHours += otHours;
+            }
+        });
+
+        return { days: otDays, hours: totalHours, standardHours, realHours };
+    };
+
+    // Calculate presence summary for an employee
+    const calculatePresenceSummary = (emp) => {
+        if (!emp.attendance) return { days: 0, standardHours: 0, realHours: 0 };
+        let presentDays = 0;
+        let standardHours = 0;
+        let realHours = 0;
+
+        Object.values(emp.attendance).forEach(d => {
+            const regHours = Number(d.regularHours) || 0;
+            if (d.status === 'HADIR' && regHours > 0) {
+                presentDays++;
+                realHours += regHours;
+                // Standard presence: 7 hours for weekdays, 5 for Saturday
+                const date = new Date(d.date);
+                const isSunday = date.getDay() === 0;
+                const isSaturday = date.getDay() === 6;
+                const stdHours = isSunday ? 0 : (isSaturday ? 5 : 7);
+                standardHours += stdHours;
+            }
+        });
+
+        return { days: presentDays, standardHours, realHours };
+    };
+
+    // Check if a cell matches the filter condition
+    const cellMatchesFilter = (d, filter) => {
+        if (!filter || !filter.enabled || !d) return true;
+        
+        const regHours = Number(d.regularHours) || 0;
+        const otHours = Number(d.overtimeHours) || 0;
+        const isSunday = new Date(d.date).getDay() === 0;
+        const isSaturday = new Date(d.date).getDay() === 6;
+        const stdPresence = isSunday ? 0 : (isSaturday ? 5 : 7);
+        
+        switch (filter.condition) {
+            case 'ot_gt':
+                return otHours > filter.value;
+            case 'ot_gte':
+                return otHours >= filter.value;
+            case 'ot_lt':
+                return otHours > 0 && otHours < filter.value;
+            case 'ot_eq':
+                return otHours === filter.value;
+            case 'hours_lt':
+                return regHours > 0 && regHours < stdPresence;
+            case 'hours_gt':
+                return regHours > stdPresence;
+            case 'ot_only':
+                return otHours > 0;
+            case 'absence':
+                return d.status === 'ALFA';
+            default:
+                return true;
+        }
+    };
+
+    const getCellContent = (d, viewMode, empName = '', dayNum = '') => {
+        if (!d) return null;
+        
+        const isSunday = new Date(d.date).getDay() === 0;
+        const isSaturday = new Date(d.date).getDay() === 6;
+        const stdPresence = isSunday ? 0 : (isSaturday ? 5 : 7);
+        const regHours = Number(d.regularHours) || 0;
+        const otHours = Number(d.overtimeHours) || 0;
+        const totalHours = regHours + otHours;
+        const stdOT = Math.max(0, totalHours - stdPresence);
+        const isBelowStandard = !isSunday && regHours > 0 && regHours < stdPresence;
+        
+        // Helper to render warning icon for below standard hours
+        const renderWarning = () => {
+            if (isBelowStandard) {
                 return (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#9C27B0', py: 0.2 }}>
-                        <AccessTimeIcon sx={{ fontSize: 12 }} />
-                        <Typography sx={{ fontSize: '0.65rem', fontWeight: 800 }}>{otHours}h</Typography>
-                    </Box>
+                    <Tooltip 
+                        title={
+                            <Box sx={{ p: 1 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#DC2626', mb: 0.5 }}>
+                                    ⚠️ JAM KERJA KURANG
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                                    <strong>Real:</strong> {regHours}h | <strong>Standard:</strong> {stdPresence}h
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                                    <strong>Kurang:</strong> {(stdPresence - regHours).toFixed(1)}h dari standard
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontSize: '0.7rem', mt: 0.5, color: '#9CA3AF' }}>
+                                    Karyawan bekerja lebih sedikit dari jam standard yang ditetapkan
+                                </Typography>
+                            </Box>
+                        } 
+                        arrow 
+                        placement="top"
+                    >
+                        <WarningIcon sx={{ fontSize: 12, color: '#DC2626', position: 'absolute', top: 1, left: 1, animation: 'pulse 1.5s infinite' }} />
+                    </Tooltip>
+                );
+            }
+            return null;
+        };
+
+        // Helper to render OT warning (if OT hours are recorded but total is still below standard)
+        const renderOTWarning = () => {
+            const hasOTButBelowStandard = otHours > 0 && totalHours < stdPresence && !isSunday;
+            if (hasOTButBelowStandard) {
+                return (
+                    <Tooltip 
+                        title={
+                            <Box sx={{ p: 1 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#DC2626', mb: 0.5 }}>
+                                    ⚠️ LEMBUR TIDAK CUKUP
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                                    <strong>Regular:</strong> {regHours}h | <strong>OT:</strong> {otHours}h
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                                    <strong>Total:</strong> {totalHours}h | <strong>Standard:</strong> {stdPresence}h
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontSize: '0.7rem', mt: 0.5, color: '#9CA3AF' }}>
+                                    Meskipun ada lembur, total jam masih di bawah standard
+                                </Typography>
+                            </Box>
+                        } 
+                        arrow 
+                        placement="top"
+                    >
+                        <WarningIcon sx={{ fontSize: 12, color: '#EA580C', position: 'absolute', top: 1, right: 1, animation: 'pulse 1.5s infinite' }} />
+                    </Tooltip>
+                );
+            }
+            return null;
+        };
+
+        if (viewMode === 'overtime') {
+            if (otHours > 0) {
+                const hasNotation = stdOT !== otHours;
+                return (
+                    <Tooltip 
+                        title={
+                            <Box sx={{ p: 1 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#7B1FA2', mb: 0.5 }}>
+                                    🕒 LEMBUR
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                                    <strong>Real OT:</strong> {otHours}h
+                                </Typography>
+                                {hasNotation && (
+                                    <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                                        <strong>Standard OT:</strong> {stdOT}h
+                                    </Typography>
+                                )}
+                                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                                    <strong>Regular:</strong> {regHours}h
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                                    <strong>Total:</strong> {totalHours}h
+                                </Typography>
+                                {isBelowStandard && (
+                                    <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#FEE2E2', borderRadius: 1 }}>
+                                        <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#DC2626', fontWeight: 600 }}>
+                                            ⚠️ Regular hours ({regHours}h) di bawah standard ({stdPresence}h)
+                                        </Typography>
+                                    </Box>
+                                )}
+                                <Typography variant="caption" sx={{ fontSize: '0.65rem', color: '#9CA3AF', mt: 0.5, display: 'block' }}>
+                                    {empName} - Tanggal {d.date} ({d.dayName})
+                                </Typography>
+                            </Box>
+                        } 
+                        arrow 
+                        placement="top"
+                    >
+                        <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#9C27B0', py: 0.2 }}>
+                            {renderWarning()}
+                            {renderOTWarning()}
+                            <AccessTimeIcon sx={{ fontSize: 12 }} />
+                            <Typography sx={{ fontSize: '0.65rem', fontWeight: 800 }}>{otHours}h</Typography>
+                            {hasNotation && <Typography sx={{ fontSize: '0.5rem', color: '#7B1FA2', fontWeight: 600 }}>std: {stdOT}h</Typography>}
+                        </Box>
+                    </Tooltip>
                 );
             }
             return <Typography sx={{ fontSize: '0.65rem', color: 'text.disabled' }}>-</Typography>;
         }
+        
         if (viewMode === 'detail') {
-            const regHours = Number(d.regularHours) || 0;
-            const otHours = Number(d.overtimeHours) || 0;
             return (
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#172B4D', py: 0.2, fontSize: '0.6rem', lineHeight: 1 }}>
-                    {regHours > 0 ? <Typography sx={{ fontSize: '0.65rem', fontWeight: 700 }}>{regHours}h</Typography> : null}
-                    {otHours > 0 ? <Typography sx={{ fontSize: '0.55rem', color: '#9C27B0', fontWeight: 700 }}>+{otHours}h</Typography> : null}
-                    {regHours === 0 && otHours === 0 ? <Typography sx={{ fontSize: '0.6rem', color: '#757575' }}>-</Typography> : null}
-                </Box>
+                <Tooltip 
+                    title={
+                        <Box sx={{ p: 1 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#1E293B', mb: 0.5 }}>
+                                📊 DETAIL JAM KERJA
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                                <strong>Regular Hours:</strong> {regHours}h
+                            </Typography>
+                            {regHours !== stdPresence && stdPresence > 0 && (
+                                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                                    <strong>Standard Presence:</strong> {stdPresence}h {isBelowStandard ? <span style={{color: '#DC2626'}}>(⚠️ {regHours < stdPresence ? 'KURANG' : 'LEBIH'})</span> : '✓'}
+                                </Typography>
+                            )}
+                            {otHours > 0 && (
+                                <>
+                                    <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#7B1FA2' }}>
+                                        <strong>Overtime:</strong> +{otHours}h
+                                    </Typography>
+                                    {stdOT > 0 && (
+                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#7B1FA2' }}>
+                                            <strong>Standard OT:</strong> {stdOT}h
+                                        </Typography>
+                                    )}
+                                </>
+                            )}
+                            <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 700, mt: 0.5 }}>
+                                <strong>TOTAL:</strong> {totalHours}h {stdPresence > 0 && !isSunday && `(${totalHours >= stdPresence ? '✓' : '⚠️'} ${totalHours >= stdPresence ? 'Mencapai' : 'Di bawah'} standard)`}
+                            </Typography>
+                            {isBelowStandard && (
+                                <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#FEE2E2', borderRadius: 1 }}>
+                                    <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#DC2626', fontWeight: 600 }}>
+                                        ⚠️ {(stdPresence - regHours).toFixed(1)}h di bawah standard
+                                    </Typography>
+                                </Box>
+                            )}
+                            <Typography variant="caption" sx={{ fontSize: '0.65rem', color: '#9CA3AF', mt: 0.5, display: 'block' }}>
+                                {empName} - {d.date} ({d.dayName})
+                            </Typography>
+                        </Box>
+                    } 
+                    arrow 
+                    placement="top"
+                >
+                    <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#172B4D', py: 0.2, fontSize: '0.55rem', lineHeight: 1.1 }}>
+                        {renderWarning()}
+                        {regHours > 0 ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                                <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: isBelowStandard ? '#DC2626' : '#2E7D32' }}>{regHours}h</Typography>
+                                {regHours !== stdPresence && stdPresence > 0 && <Typography sx={{ fontSize: '0.5rem', color: isBelowStandard ? '#DC2626' : '#1565C0', fontWeight: 600 }}>std: {stdPresence}h</Typography>}
+                            </Box>
+                        ) : null}
+                        {otHours > 0 ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <Typography sx={{ fontSize: '0.6rem', color: '#9C27B0', fontWeight: 700 }}>+{otHours}h</Typography>
+                                {stdOT > 0 && <Typography sx={{ fontSize: '0.45rem', color: '#7B1FA2', fontWeight: 600 }}>std: {stdOT}h</Typography>}
+                            </Box>
+                        ) : null}
+                        {regHours === 0 && otHours === 0 ? <Typography sx={{ fontSize: '0.6rem', color: '#757575' }}>-</Typography> : null}
+                    </Box>
+                </Tooltip>
             );
         }
+        
+        // Default attendance view
         const ui = getStatusUI(d.status);
         return (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: ui.text, py: 0.4 }}>
-                {ui.icon ? React.cloneElement(ui.icon, { sx: { fontSize: 14 } }) : <Typography sx={{ fontSize: '0.65rem', fontWeight: 800 }}>{ui.label}</Typography>}
-            </Box>
+            <Tooltip 
+                title={
+                    <Box sx={{ p: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                            {d.status === 'HADIR' ? '✅ HADIR' : d.status === 'ALFA' ? '❌ ALFA' : d.status === 'OFF' ? '☀️ OFF' : d.status}
+                        </Typography>
+                        {regHours > 0 && (
+                            <>
+                                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                                    <strong>Regular:</strong> {regHours}h {stdPresence > 0 && `(${stdPresence}h standard)`}
+                                </Typography>
+                                {isBelowStandard && (
+                                    <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#DC2626', fontWeight: 600 }}>
+                                        ⚠️ {(stdPresence - regHours).toFixed(1)}h di bawah standard
+                                    </Typography>
+                                )}
+                            </>
+                        )}
+                        {otHours > 0 && (
+                            <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#7B1FA2' }}>
+                                <strong>OT:</strong> +{otHours}h
+                            </Typography>
+                        )}
+                        {d.checkIn && (
+                            <Typography variant="body2" sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
+                                Check-in: {d.checkIn} | Check-out: {d.checkOut || '-'}
+                            </Typography>
+                        )}
+                        <Typography variant="caption" sx={{ fontSize: '0.65rem', color: '#9CA3AF', mt: 0.5, display: 'block' }}>
+                            {empName} - {d.date} ({d.dayName})
+                        </Typography>
+                    </Box>
+                } 
+                arrow 
+                placement="top"
+            >
+                <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', color: ui.text, py: 0.4 }}>
+                    {renderWarning()}
+                    {ui.icon ? React.cloneElement(ui.icon, { sx: { fontSize: 14 } }) : <Typography sx={{ fontSize: '0.65rem', fontWeight: 800 }}>{ui.label}</Typography>}
+                </Box>
+            </Tooltip>
         );
     };
 
@@ -209,16 +534,27 @@ const AttendanceMatrix = ({
                     <TableHead>
                         <TableRow sx={{ height: 32 }}>
                             <TableCell sx={{ position: 'sticky', left: 0, zIndex: 112, bgcolor: '#F4F5F7', width: 64, p: 0 }} align="center">
-                                <Checkbox 
-                                    size="small" 
-                                    sx={{ p: 0.5 }} 
+                                <Checkbox
+                                    size="small"
+                                    sx={{ p: 0.5 }}
                                     checked={isAllSelected}
                                     indeterminate={isSomeSelected}
                                     onChange={handleSelectAll}
                                 />
                             </TableCell>
-                            <TableCell sx={{ position: 'sticky', left: 64, zIndex: 112, bgcolor: '#F4F5F7', width: 180, fontWeight: 800, borderRight: '2px solid #C1C7D0 !important' }}>KARYAWAN</TableCell>
-                            <TableCell sx={{ position: 'sticky', left: 244, zIndex: 112, bgcolor: '#F4F5F7', width: 80, fontWeight: 800, borderRight: '2px solid #C1C7D0 !important' }}>ID PTRJ</TableCell>
+                            <TableCell sx={{ position: 'sticky', left: 64, zIndex: 112, bgcolor: '#F4F5F7', width: 220, fontWeight: 800, borderRight: '2px solid #C1C7D0 !important' }}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, lineHeight: 1 }}>KARYAWAN</Typography>
+                                    <Typography sx={{ fontSize: '0.55rem', fontWeight: 600, opacity: 0.7, lineHeight: 1 }}>POSISI</Typography>
+                                </Box>
+                            </TableCell>
+                            <TableCell sx={{ position: 'sticky', left: 284, zIndex: 112, bgcolor: '#F4F5F7', width: 80, fontWeight: 800, borderRight: '2px solid #C1C7D0 !important' }}>ID PTRJ</TableCell>
+                            <TableCell sx={{ position: 'sticky', left: 364, zIndex: 112, bgcolor: '#F4F5F7', width: 100, fontWeight: 800, borderRight: '2px solid #C1C7D0 !important' }} align="center">
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#9C27B0', lineHeight: 1 }}>TOTAL OT</Typography>
+                                    <Typography sx={{ fontSize: '0.55rem', fontWeight: 600, color: '#7B1FA2', lineHeight: 1 }}>HARI | JAM</Typography>
+                                </Box>
+                            </TableCell>
                             {dayNumbers.map(day => {
                                 const d = daysMap[day];
                                 const isToday = Number(day) === todayNum;
@@ -285,11 +621,18 @@ const AttendanceMatrix = ({
                                             </Box>
                                         </TableCell>
                                         <TableCell sx={{ position: 'sticky', left: 64, zIndex: 101, bgcolor: 'inherit', borderRight: '2px solid #F0F0F0 !important' }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Avatar sx={{ width: 20, height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: 'primary.light', flexShrink: 0 }}>{emp.name.charAt(0)}</Avatar>
-                                                <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#172B4D', noWrap: true }}>{emp.name}</Typography>
-                                                
-                                                <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Avatar sx={{ width: 20, height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: 'primary.light', flexShrink: 0 }}>{emp.name.charAt(0)}</Avatar>
+                                                    <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#172B4D', noWrap: true }}>{emp.name}</Typography>
+                                                </Box>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2.5 }}>
+                                                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 600, color: '#5E6C84', noWrap: true }}>
+                                                        {getStation(emp.chargeJob) || 'N/A'}
+                                                    </Typography>
+                                                </Box>
+
+                                                <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
                                                     {/* MISS Badges - shown when comparison mode is active */}
                                                     {compareMode && compareMode !== 'off' ? (
                                                         <>
@@ -365,36 +708,127 @@ const AttendanceMatrix = ({
                                                 </Box>
                                             </Box>
                                         </TableCell>
-                                        <TableCell sx={{ position: 'sticky', left: 244, zIndex: 101, bgcolor: editingRow === emp.id ? '#FFF8E1' : 'inherit', borderRight: '2px solid #F0F0F0 !important', cursor: 'pointer' }} onClick={() => handleStartEdit(emp)}>
+                                        <TableCell sx={{ position: 'sticky', left: 284, zIndex: 101, bgcolor: editingRow === emp.id ? '#FFF8E1' : 'inherit', borderRight: '2px solid #F0F0F0 !important', cursor: 'pointer' }} onClick={() => handleStartEdit(emp)}>
                                             <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: emp.ptrjEmployeeID ? 'secondary.main' : 'text.disabled' }}>{emp.ptrjEmployeeID || 'N/A'}</Typography>
+                                        </TableCell>
+                                        <TableCell sx={{ position: 'sticky', left: 364, zIndex: 101, bgcolor: 'inherit', borderRight: '2px solid #C1C7D0 !important' }} align="center">
+                                            {(() => {
+                                                const otSummary = calculateOTSummary(emp);
+                                                const hasOT = otSummary.days > 0 && otSummary.hours > 0;
+                                                const hasNotation = otSummary.standardHours !== otSummary.realHours;
+                                                return (
+                                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.2 }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                            <Chip
+                                                                label={`${otSummary.days}`}
+                                                                size="small"
+                                                                sx={{
+                                                                    height: 18,
+                                                                    fontSize: '0.6rem',
+                                                                    fontWeight: 800,
+                                                                    bgcolor: otSummary.days > 0 ? '#F3E8FF' : '#f5f5f5',
+                                                                    color: otSummary.days > 0 ? '#7B1FA2' : '#757575',
+                                                                    border: otSummary.days > 0 ? '1px solid #7B1FA2' : '1px solid #e0e0e0'
+                                                                }}
+                                                            />
+                                                            <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: hasOT ? '#9C27B0' : '#757575' }}>
+                                                                {otSummary.hours}h
+                                                            </Typography>
+                                                        </Box>
+                                                        {hasNotation && (
+                                                            <Typography sx={{ fontSize: '0.5rem', fontWeight: 600, color: '#7B1FA2' }}>
+                                                                std: {otSummary.standardHours}h | real: {otSummary.realHours}h
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                );
+                                            })()}
                                         </TableCell>
 
                                         {dayNumbers.map(day => {
                                             const d = emp.attendance?.[day];
                                             if (!d) return <TableCell key={day} sx={{ bgcolor: isFiltered ? '#f8fafc' : 'inherit' }} />;
+                                            
+                                            // Check if cell matches filter
+                                            const matchesFilter = cellMatchesFilter(d, cellFilter);
+                                            const isHighlighted = cellFilter?.enabled && matchesFilter;
+                                            const isHidden = cellFilter?.enabled && !matchesFilter;
+                                            
+                                            // Skip rendering if cell doesn't match and we're in strict filter mode
+                                            if (isHidden) {
+                                                return (
+                                                    <TableCell 
+                                                        key={day} 
+                                                        align="center" 
+                                                        sx={{ 
+                                                            bgcolor: '#f9fafb', 
+                                                            borderRight: d?.dayName === 'Min' ? '2px solid #C1C7D0 !important' : '1px solid #F0F0F0', 
+                                                            position: 'relative', 
+                                                            p: 0,
+                                                            opacity: 0.3
+                                                        }}
+                                                    >
+                                                        <Typography sx={{ fontSize: '0.5rem', color: '#9CA3AF' }}>-</Typography>
+                                                    </TableCell>
+                                                );
+                                            }
+                                            
                                             const ui = getStatusUI(d.status);
                                             const sync = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.regularHours, d.overtimeHours);
                                             const syncStyle = getSyncStyle(sync, Number(day) === todayNum);
+                                            
                                             return (
-                                                <Tooltip key={day} title={`${d.status} (${day})`} arrow>
-                                                    <TableCell align="center" sx={{ bgcolor: syncStyle.bgcolor || ui.bg, borderRight: d?.dayName === 'Min' ? '2px solid #C1C7D0 !important' : '1px solid #F0F0F0', position: 'relative', p: 0, ...syncStyle }}>
-                                                        {/* Small Millware Hours Indicator (Top Right) */}
-                                                        {sync && (
-                                                            <Typography sx={{ position: 'absolute', top: 0.5, right: 1, fontSize: '0.45rem', fontWeight: 900, color: sync.status === 'synced' ? '#00875A' : '#DE350B', lineHeight: 1, zIndex: 1 }}>
-                                                                {sync.millwareHours}h
-                                                            </Typography>
-                                                        )}
-                                                        {getCellContent(d, viewMode)}
-                                                        {sync?.displayOverride && <Typography sx={{ position: 'absolute', bottom: 1, left: 0, right: 0, fontSize: '0.55rem', fontWeight: 900, color: sync.displayColor, lineHeight: 1 }}>{sync.displayOverride}</Typography>}
-                                                    </TableCell>
-                                                </Tooltip>
+                                                <TableCell 
+                                                    key={day} 
+                                                    align="center" 
+                                                    sx={{ 
+                                                        bgcolor: isHighlighted ? '#FEF3C7' : (syncStyle.bgcolor || ui.bg), 
+                                                        borderRight: d?.dayName === 'Min' ? '2px solid #C1C7D0 !important' : '1px solid #F0F0F0', 
+                                                        position: 'relative', 
+                                                        p: 0, 
+                                                        ...syncStyle,
+                                                        ...(isHighlighted ? { 
+                                                            boxShadow: 'inset 0 0 0 2px #F59E0B',
+                                                            animation: 'highlight-pulse 2s infinite'
+                                                        } : {})
+                                                    }}
+                                                >
+                                                    {/* Filter Match Indicator */}
+                                                    {isHighlighted && (
+                                                        <Typography 
+                                                            sx={{ 
+                                                                position: 'absolute', 
+                                                                top: 0, 
+                                                                left: 0, 
+                                                                right: 0, 
+                                                                fontSize: '0.45rem', 
+                                                                fontWeight: 800, 
+                                                                color: '#92400E', 
+                                                                lineHeight: 1, 
+                                                                zIndex: 2,
+                                                                textAlign: 'center',
+                                                                bgcolor: '#FCD34D'
+                                                            }}
+                                                        >
+                                                            ✓
+                                                        </Typography>
+                                                    )}
+                                                    {/* Small Millware Hours Indicator (Top Right) */}
+                                                    {sync && (
+                                                        <Typography sx={{ position: 'absolute', top: 0.5, right: 1, fontSize: '0.45rem', fontWeight: 900, color: sync.status === 'synced' ? '#00875A' : '#DE350B', lineHeight: 1, zIndex: 1 }}>
+                                                            {sync.millwareHours}h
+                                                        </Typography>
+                                                    )}
+                                                    {getCellContent(d, viewMode, emp.name, day)}
+                                                    {sync?.displayOverride && <Typography sx={{ position: 'absolute', bottom: 1, left: 0, right: 0, fontSize: '0.55rem', fontWeight: 900, color: sync.displayColor, lineHeight: 1 }}>{sync.displayOverride}</Typography>}
+                                                </TableCell>
                                             );
                                         })}
                                     </TableRow>
 
                                     {/* Expanded Detail / Edit Row */}
                                     <TableRow sx={{ display: expandedRows.has(emp.id) ? 'table-row' : 'none', bgcolor: '#fbfbfb' }}>
-                                        <TableCell colSpan={dayNumbers.length + 3} sx={{ p: 0, borderBottom: '2px solid #ddd' }}>
+                                        <TableCell colSpan={dayNumbers.length + 4} sx={{ p: 0, borderBottom: '2px solid #ddd' }}>
                                             <Collapse in={expandedRows.has(emp.id)} timeout="auto">
                                                 <Box sx={{ p: 2, borderLeft: '4px solid #7c3aed' }}>
                                                     <Grid container spacing={3} alignItems="flex-end">
