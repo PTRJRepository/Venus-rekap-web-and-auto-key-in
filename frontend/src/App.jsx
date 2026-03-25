@@ -501,6 +501,7 @@ const App = () => {
                                     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                                         <Button startIcon={<ArrowBackIcon />} onClick={() => setReportType(null)} sx={{ alignSelf: 'flex-start', mb: 2 }}>Kembali</Button>
                                         {reportType === 'attendance' && <AttendanceSummaryReport data={data || []} />}
+                                        {reportType === 'overtime' && <OvertimeReport data={data || []} />}
                                         {reportType === 'range_ot' && <OvertimeRangeReport data={filteredData} overtimeMin={overtimeMin} overtimeMax={overtimeMax} month={selectedMonth} year={selectedYear} appliedFilter={attendanceFilter} />}
                                     </Box>
                                 )}

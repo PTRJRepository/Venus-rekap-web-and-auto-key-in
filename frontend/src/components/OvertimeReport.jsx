@@ -117,14 +117,14 @@ const OvertimeReport = ({ data = [] }) => {
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(18);
         doc.setFont('helvetica', 'bold');
-        doc.text('REPORT LEMBUR KARYAWAN', 14, 22);
+        doc.text('REPORT SPL (SURAT PERINTAH LEMBUR)', 14, 22);
 
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         doc.text(`Venus Rekap Web | Dicetak pada: ${new Date().toLocaleDateString('id-ID')}`, 14, 30);
 
         // Filter info
-        let filterText = 'Menampilkan: Semua Data Karyawan Lembur';
+        let filterText = 'Menampilkan: Semua Data Karyawan SPL';
         if (minHours !== '' || maxHours !== '' || searchTerm) {
             filterText = `Filter Aktif: ${searchTerm ? `Pencarian "${searchTerm}" | ` : ''} Range: ${minHours || 0} - ${maxHours || 'Tak Terhingga'} Jam`;
         }
@@ -138,7 +138,7 @@ const OvertimeReport = ({ data = [] }) => {
         const grandTotalHours = filteredEmployees.reduce((sum, emp) => sum + emp.totalOvertimeHours, 0);
 
         // Table
-        const tableColumn = ["No.", "Karyawan", "PTRJ ID", "Stasiun", "Hari OT", "Total Jam Lembur"];
+        const tableColumn = ["No.", "Karyawan", "PTRJ ID", "Stasiun", "Hari SPL", "Total Jam SPL"];
         const tableRows = [];
 
         filteredEmployees.forEach((emp, ind) => {
@@ -148,13 +148,13 @@ const OvertimeReport = ({ data = [] }) => {
                 emp.ptrjEmployeeID || '-',
                 emp.station,
                 emp.totalOvertimeDays,
-                `${emp.totalOvertimeHours} Jam`
+                `${emp.totalOvertimeHours.toFixed(2)} Jam`
             ];
             tableRows.push(empData);
         });
 
         // Add total row
-        tableRows.push(['', '', '', 'TOTAL', filteredEmployees.reduce((sum, emp) => sum + emp.totalOvertimeDays, 0), `${grandTotalHours} Jam`]);
+        tableRows.push(['', '', '', 'TOTAL', filteredEmployees.reduce((sum, emp) => sum + emp.totalOvertimeDays, 0), `${grandTotalHours.toFixed(2)} Jam`]);
 
         autoTable(doc, {
             head: [tableColumn],
@@ -197,7 +197,7 @@ const OvertimeReport = ({ data = [] }) => {
             <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.default' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                     <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <HourglassIcon sx={{ color: 'secondary.main', mb: '2px' }} /> Report Lembur Karyawan
+                        <HourglassIcon sx={{ color: 'secondary.main', mb: '2px' }} /> Report SPL (Surat Perintah Lembur)
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <Tooltip title="Export ke PDF Ciamik">
@@ -262,8 +262,8 @@ const OvertimeReport = ({ data = [] }) => {
                             <TableCell>Karyawan</TableCell>
                             <TableCell>PTRJ ID</TableCell>
                             <TableCell>Stasiun (Charge Job)</TableCell>
-                            <TableCell align="center">Hari OT</TableCell>
-                            <TableCell align="center">Total Jam Lembur</TableCell>
+                            <TableCell align="center">Hari SPL</TableCell>
+                            <TableCell align="center">Total Jam SPL</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -314,7 +314,7 @@ const OvertimeReport = ({ data = [] }) => {
                                     </TableCell>
                                     <TableCell align="center">
                                         <Chip
-                                            label={`${emp.totalOvertimeHours} Jam`}
+                                            label={`${emp.totalOvertimeHours.toFixed(2)} Jam`}
                                             size="small"
                                             sx={{
                                                 bgcolor: '#F3E8FF',
@@ -349,7 +349,7 @@ const OvertimeReport = ({ data = [] }) => {
                                 </TableCell>
                                 <TableCell align="center">
                                     <Chip
-                                        label={`${filteredEmployees.reduce((sum, emp) => sum + emp.totalOvertimeHours, 0)} Jam`}
+                                        label={`${filteredEmployees.reduce((sum, emp) => sum + emp.totalOvertimeHours, 0).toFixed(2)} Jam`}
                                         size="small"
                                         sx={{
                                             bgcolor: '#F3E8FF',
