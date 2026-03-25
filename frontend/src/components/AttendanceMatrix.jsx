@@ -329,15 +329,15 @@ const AttendanceMatrix = ({
                                 <TooltipSection sx={{ bgcolor: '#FEF2F2', borderColor: '#FECACA' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                         <WarningIcon sx={{ fontSize: 14, color: '#DC2626' }} />
-                                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#DC2626' }}>JAM KERJA KURANG</Typography>
+                                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#DC2626' }}>REAL HOURS KURANG</Typography>
                                     </Box>
                                 </TooltipSection>
-                                <TooltipRow label="Real" value={`${regHours}h`} valueColor="#DC2626" />
-                                <TooltipRow label="Standard" value={`${stdPresence}h`} valueColor="#374151" />
-                                <TooltipRow label="Kurang" value={`${(stdPresence - regHours).toFixed(1)}h`} valueColor="#DC2626" highlight />
+                                <TooltipRow label="Real Hours" value={`${regHours.toFixed(2)}h`} valueColor="#DC2626" />
+                                <TooltipRow label="Std Hours" value={`${stdPresence.toFixed(2)}h`} valueColor="#374151" />
+                                <TooltipRow label="Selisih" value={`${(stdPresence - regHours).toFixed(2)}h`} valueColor="#DC2626" highlight />
                                 <TooltipFooter>
                                     <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary', fontStyle: 'italic' }}>
-                                        Dibawah jam standard kerja
+                                        Real hours di bawah std hours
                                     </Typography>
                                 </TooltipFooter>
                             </Box>
@@ -365,13 +365,13 @@ const AttendanceMatrix = ({
                                         <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#EA580C' }}>LEMBUR TIDAK CUKUP</Typography>
                                     </Box>
                                 </TooltipSection>
-                                <TooltipRow label="Regular" value={`${regHours}h`} valueColor="#374151" />
-                                <TooltipRow label="Overtime" value={`${otHours}h`} valueColor="#7C3AED" />
-                                <TooltipRow label="Total" value={`${totalHours}h`} valueColor="#EA580C" />
-                                <TooltipRow label="Standard" value={`${stdPresence}h`} valueColor="#374151" highlight />
+                                <TooltipRow label="Real Hours" value={`${regHours.toFixed(2)}h`} valueColor="#374151" />
+                                <TooltipRow label="SPL" value={`${otHours.toFixed(2)}h`} valueColor="#7C3AED" />
+                                <TooltipRow label="Total" value={`${totalHours.toFixed(2)}h`} valueColor="#EA580C" />
+                                <TooltipRow label="Std Hours" value={`${stdPresence.toFixed(2)}h`} valueColor="#374151" highlight />
                                 <TooltipFooter>
                                     <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary', fontStyle: 'italic' }}>
-                                        Total masih di bawah standard
+                                        Real + SPL masih di bawah std hours
                                     </Typography>
                                 </TooltipFooter>
                             </Box>
@@ -395,22 +395,22 @@ const AttendanceMatrix = ({
                                 <TooltipSection sx={{ bgcolor: '#F5F3FF', borderColor: '#DDD6FE' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                         <AccessTimeIcon sx={{ fontSize: 14, color: '#7C3AED' }} />
-                                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#7C3AED' }}>LEMBUR</Typography>
+                                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#7C3AED' }}>SPL</Typography>
                                         {isBelowStandard && (
                                             <WarningIcon sx={{ fontSize: 12, color: '#EA580C', ml: 0.5 }} />
                                         )}
                                     </Box>
                                 </TooltipSection>
-                                <TooltipRow label="Real OT" value={`${otHours}h`} valueColor="#7C3AED" />
+                                <TooltipRow label="SPL" value={`${otHours.toFixed(2)}h`} valueColor="#7C3AED" />
                                 {hasNotation && (
-                                    <TooltipRow label="Standard OT" value={`${stdOT}h`} valueColor="#6D28D9" />
+                                    <TooltipRow label="Std SPL" value={`${stdOT.toFixed(2)}h`} valueColor="#6D28D9" />
                                 )}
-                                <TooltipRow label="Regular" value={`${regHours}h`} valueColor="#374151" />
-                                <TooltipRow label="Total" value={`${totalHours}h`} valueColor="#374151" />
+                                <TooltipRow label="Real Hours" value={`${regHours.toFixed(2)}h`} valueColor="#374151" />
+                                <TooltipRow label="Total" value={`${totalHours.toFixed(2)}h`} valueColor="#374151" />
                                 {isBelowStandard && (
                                     <Box sx={{ px: 1.5, py: 0.5, bgcolor: '#FFF7ED' }}>
                                         <Typography sx={{ fontSize: '0.68rem', color: '#EA580C', fontWeight: 600 }}>
-                                            ⚠️ Regular ({regHours}h) di bawah standard ({stdPresence}h)
+                                            ⚠️ Real ({regHours.toFixed(2)}h) &lt; Std ({stdPresence}h)
                                         </Typography>
                                     </Box>
                                 )}
@@ -427,8 +427,8 @@ const AttendanceMatrix = ({
                             {renderWarning()}
                             {renderOTWarning()}
                             <AccessTimeIcon sx={{ fontSize: 12 }} />
-                            <Typography sx={{ fontSize: '0.65rem', fontWeight: 800 }}>{otHours}h</Typography>
-                            {hasNotation && <Typography sx={{ fontSize: '0.5rem', color: '#7B1FA2', fontWeight: 600 }}>std: {stdOT}h</Typography>}
+                            <Typography sx={{ fontSize: '0.65rem', fontWeight: 800 }}>{otHours.toFixed(2)}h</Typography>
+                            {hasNotation && <Typography sx={{ fontSize: '0.5rem', color: '#7B1FA2', fontWeight: 600 }}>std: {stdOT.toFixed(2)}h</Typography>}
                         </Box>
                     </ProTooltip>
                 );
@@ -443,30 +443,30 @@ const AttendanceMatrix = ({
                         <Box>
                             <TooltipSection>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#374151' }}>DETAIL JAM KERJA</Typography>
+                                    <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#374151' }}>DETAIL ABSEN</Typography>
                                     {isBelowStandard && <WarningIcon sx={{ fontSize: 12, color: '#DC2626' }} />}
                                 </Box>
                             </TooltipSection>
-                            <TooltipRow label="Regular" value={`${regHours}h`} valueColor={isBelowStandard ? '#DC2626' : '#374151'} isWarning={isBelowStandard} />
+                            <TooltipRow label="Real Hours" value={`${regHours.toFixed(2)}h`} valueColor={isBelowStandard ? '#DC2626' : '#374151'} isWarning={isBelowStandard} />
                             {regHours !== stdPresence && stdPresence > 0 && (
                                 <TooltipRow
-                                    label="Standard"
-                                    value={`${stdPresence}h`}
+                                    label="Std Hours"
+                                    value={`${stdPresence.toFixed(2)}h`}
                                     valueColor="#6B7280"
                                     highlight={isBelowStandard}
                                 />
                             )}
                             {otHours > 0 && (
                                 <>
-                                    <TooltipRow label="Overtime" value={`+${otHours}h`} valueColor="#7C3AED" />
+                                    <TooltipRow label="SPL" value={`+${otHours.toFixed(2)}h`} valueColor="#7C3AED" />
                                     {stdOT > 0 && (
-                                        <TooltipRow label="Std OT" value={`${stdOT}h`} valueColor="#6D28D9" />
+                                        <TooltipRow label="Std SPL" value={`${stdOT.toFixed(2)}h`} valueColor="#6D28D9" />
                                     )}
                                 </>
                             )}
                             <Box sx={{ px: 1.5, py: 0.5, bgcolor: isBelowStandard ? '#FEF2F2' : '#F0FDF4', borderTop: '1px solid', borderColor: 'divider' }}>
                                 <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: isBelowStandard ? '#DC2626' : '#059669' }}>
-                                    TOTAL: {totalHours}h
+                                    TOTAL: {totalHours.toFixed(2)}h
                                     {!isSunday && stdPresence > 0 && (
                                         <Typography component="span" sx={{ fontSize: '0.68rem', fontWeight: 600, ml: 0.5 }}>
                                             {totalHours >= stdPresence ? '✓ Mencapai' : '⚠️ Di bawah'}
@@ -487,14 +487,14 @@ const AttendanceMatrix = ({
                         {renderWarning()}
                         {regHours > 0 ? (
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-                                <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: isBelowStandard ? '#DC2626' : '#2E7D32' }}>{regHours}h</Typography>
-                                {regHours !== stdPresence && stdPresence > 0 && <Typography sx={{ fontSize: '0.5rem', color: isBelowStandard ? '#DC2626' : '#1565C0', fontWeight: 600 }}>std: {stdPresence}h</Typography>}
+                                <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: isBelowStandard ? '#DC2626' : '#2E7D32' }}>{regHours.toFixed(2)}h</Typography>
+                                {regHours !== stdPresence && stdPresence > 0 && <Typography sx={{ fontSize: '0.5rem', color: isBelowStandard ? '#DC2626' : '#1565C0', fontWeight: 600 }}>std: {stdPresence.toFixed(2)}h</Typography>}
                             </Box>
                         ) : null}
                         {otHours > 0 ? (
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <Typography sx={{ fontSize: '0.6rem', color: '#9C27B0', fontWeight: 700 }}>+{otHours}h</Typography>
-                                {stdOT > 0 && <Typography sx={{ fontSize: '0.45rem', color: '#7B1FA2', fontWeight: 600 }}>std: {stdOT}h</Typography>}
+                                <Typography sx={{ fontSize: '0.6rem', color: '#9C27B0', fontWeight: 700 }}>+{otHours.toFixed(2)}h</Typography>
+                                {stdOT > 0 && <Typography sx={{ fontSize: '0.45rem', color: '#7B1FA2', fontWeight: 600 }}>std: {stdOT.toFixed(2)}h</Typography>}
                             </Box>
                         ) : null}
                         {regHours === 0 && otHours === 0 ? <Typography sx={{ fontSize: '0.6rem', color: '#757575' }}>-</Typography> : null}
@@ -519,21 +519,21 @@ const AttendanceMatrix = ({
                         </TooltipSection>
                         {regHours > 0 && (
                             <>
-                                <TooltipRow label="Regular" value={`${regHours}h`} valueColor={isBelowStandard ? '#DC2626' : '#374151'} />
+                                <TooltipRow label="Real Hours" value={`${regHours.toFixed(2)}h`} valueColor={isBelowStandard ? '#DC2626' : '#374151'} />
                                 {stdPresence > 0 && (
-                                    <TooltipRow label="Standard" value={`${stdPresence}h`} valueColor="#6B7280" />
+                                    <TooltipRow label="Std Hours" value={`${stdPresence.toFixed(2)}h`} valueColor="#6B7280" />
                                 )}
                                 {isBelowStandard && (
                                     <Box sx={{ px: 1.5, py: 0.4, bgcolor: '#FEF2F2' }}>
                                         <Typography sx={{ fontSize: '0.68rem', color: '#DC2626', fontWeight: 600 }}>
-                                            ⚠️ {(stdPresence - regHours).toFixed(1)}h di bawah standard
+                                            ⚠️ {(stdPresence - regHours).toFixed(2)}h di bawah standard
                                         </Typography>
                                     </Box>
                                 )}
                             </>
                         )}
                         {otHours > 0 && (
-                            <TooltipRow label="Overtime" value={`+${otHours}h`} valueColor="#7C3AED" />
+                            <TooltipRow label="SPL" value={`+${otHours.toFixed(2)}h`} valueColor="#7C3AED" />
                         )}
                         {d.checkIn && (
                             <Box sx={{ px: 1.5, py: 0.4, borderTop: '1px solid', borderColor: 'divider' }}>
@@ -637,7 +637,7 @@ const AttendanceMatrix = ({
                             <TableCell sx={{ position: 'sticky', left: 284, zIndex: 112, bgcolor: '#F4F5F7', width: 80, fontWeight: 800, borderRight: '2px solid #C1C7D0 !important' }}>ID PTRJ</TableCell>
                             <TableCell sx={{ position: 'sticky', left: 364, zIndex: 112, bgcolor: '#F4F5F7', width: 100, fontWeight: 800, borderRight: '2px solid #C1C7D0 !important' }} align="center">
                                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#9C27B0', lineHeight: 1 }}>TOTAL OT</Typography>
+                                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#9C27B0', lineHeight: 1 }}>TOTAL SPL</Typography>
                                     <Typography sx={{ fontSize: '0.55rem', fontWeight: 600, color: '#7B1FA2', lineHeight: 1 }}>HARI | JAM</Typography>
                                 </Box>
                             </TableCell>
