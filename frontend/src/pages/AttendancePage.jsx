@@ -206,17 +206,21 @@ const AttendancePage = () => {
         }
     };
 
-    // Calculate MISS counts for selected employees
+    // Calculate MISS counts for selected employees (or all if none selected)
     const getSelectedMissCounts = () => {
-        if (!comparisonData || selectedEmployeeIds.length === 0 || !attendanceData.length) {
+        if (!comparisonData || !attendanceData.length) {
             return { hasRegularMiss: false, hasOTMiss: false, regularMissCount: 0, otMissCount: 0 };
         }
 
         let regularMissCount = 0;
         let otMissCount = 0;
 
-        selectedEmployeeIds.forEach(empId => {
-            const emp = attendanceData.find(e => e.id === empId);
+        // Use selected employees, or all employees if none selected
+        const employeesToCheck = selectedEmployeeIds.length > 0
+            ? attendanceData.filter(e => selectedEmployeeIds.includes(e.id))
+            : attendanceData;
+
+        employeesToCheck.forEach(emp => {
             if (!emp || !emp.attendance) return;
 
             const ptrjId = emp.ptrjEmployeeID;
@@ -509,75 +513,74 @@ const AttendancePage = () => {
                             </Box>
                         )}
 
-                        {/* Sync Buttons - Always visible next to compare when attendanceData loaded */}
-                        {attendanceData.length > 0 && (
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                {/* Combined Sync */}
-                                <Button
-                                    variant="contained"
-                                    size="small"
-                                    color="success"
-                                    startIcon={<SyncIcon />}
-                                    onClick={() => openSyncDialog('all')}
-                                    sx={{
-                                        textTransform: 'none',
-                                        fontWeight: 700,
-                                        fontSize: '0.8rem',
-                                        height: 32,
-                                        bgcolor: '#2E7D32',
-                                        '&:hover': { bgcolor: '#1B5E20' }
-                                    }}
-                                >
-                                    Sinkron ({selectedEmployeeIds.length > 0 ? selectedEmployeeIds.length : attendanceData.length})
-                                </Button>
-                                {/* Absen Only */}
-                                {comparisonData && compareMode !== 'off' && (() => {
-                                    const counts = getSelectedMissCounts();
-                                    return counts.hasRegularMiss ? (
-                                        <Button
-                                            variant="outlined"
-                                            size="small"
-                                            startIcon={<CancelIcon />}
-                                            onClick={() => openSyncDialog('regular')}
-                                            sx={{
-                                                textTransform: 'none',
-                                                fontWeight: 700,
-                                                fontSize: '0.8rem',
-                                                height: 32,
-                                                borderColor: '#DC2626',
-                                                color: '#DC2626',
-                                                '&:hover': { borderColor: '#DC2626', bgcolor: 'rgba(220, 38, 38, 0.04)' }
-                                            }}
-                                        >
-                                            Absen ({counts.regularMissCount})
-                                        </Button>
-                                    ) : null;
-                                })()}
-                                {/* OT Only */}
-                                {comparisonData && compareMode !== 'off' && (() => {
-                                    const counts = getSelectedMissCounts();
-                                    return counts.hasOTMiss ? (
-                                        <Button
-                                            variant="outlined"
-                                            size="small"
-                                            startIcon={<TimeIcon sx={{ fontSize: '14px !important', color: '#7C3AED' }} />}
-                                            onClick={() => openSyncDialog('overtime')}
-                                            sx={{
-                                                textTransform: 'none',
-                                                fontWeight: 700,
-                                                fontSize: '0.8rem',
-                                                height: 32,
-                                                borderColor: '#7C3AED',
-                                                color: '#7C3AED',
-                                                '&:hover': { borderColor: '#7C3AED', bgcolor: 'rgba(124, 58, 237, 0.04)' }
-                                            }}
-                                        >
-                                            OT ({counts.otMissCount}h)
-                                        </Button>
-                                    ) : null;
-                                })()}
-                            </Box>
-                        )}
+                        {/* Sync Buttons - Always visible next to compare, no conditions */}
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            {/* Combined Sync */}
+                            <Button
+                                variant="contained"
+                                size="small"
+                                color="success"
+                                startIcon={<SyncIcon />}
+                                onClick={() => openSyncDialog('all')}
+                                disabled={attendanceData.length === 0}
+                                sx={{
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    fontSize: '0.8rem',
+                                    height: 32,
+                                    bgcolor: '#2E7D32',
+                                    '&:hover': { bgcolor: '#1B5E20' }
+                                }}
+                            >
+                                Sinkron ({selectedEmployeeIds.length > 0 ? selectedEmployeeIds.length : attendanceData.length})
+                            </Button>
+                            {/* Absen Only */}
+                            {comparisonData && compareMode !== 'off' && (() => {
+                                const counts = getSelectedMissCounts();
+                                return counts.hasRegularMiss ? (
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<CancelIcon />}
+                                        onClick={() => openSyncDialog('regular')}
+                                        sx={{
+                                            textTransform: 'none',
+                                            fontWeight: 700,
+                                            fontSize: '0.8rem',
+                                            height: 32,
+                                            borderColor: '#DC2626',
+                                            color: '#DC2626',
+                                            '&:hover': { borderColor: '#DC2626', bgcolor: 'rgba(220, 38, 38, 0.04)' }
+                                        }}
+                                    >
+                                        Absen ({counts.regularMissCount})
+                                    </Button>
+                                ) : null;
+                            })()}
+                            {/* OT Only */}
+                            {comparisonData && compareMode !== 'off' && (() => {
+                                const counts = getSelectedMissCounts();
+                                return counts.hasOTMiss ? (
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<TimeIcon sx={{ fontSize: '14px !important', color: '#7C3AED' }} />}
+                                        onClick={() => openSyncDialog('overtime')}
+                                        sx={{
+                                            textTransform: 'none',
+                                            fontWeight: 700,
+                                            fontSize: '0.8rem',
+                                            height: 32,
+                                            borderColor: '#7C3AED',
+                                            color: '#7C3AED',
+                                            '&:hover': { borderColor: '#7C3AED', bgcolor: 'rgba(124, 58, 237, 0.04)' }
+                                        }}
+                                    >
+                                        OT ({counts.otMissCount}h)
+                                    </Button>
+                                ) : null;
+                            })()}
+                        </Box>
 
                         {/* Inline Compact Legend */}
                         <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 0.5 }}>

@@ -42,6 +42,7 @@ const App = () => {
     const [selectedYear, setSelectedYear] = useState(2026);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
     const [isComparing, setIsComparing] = useState(false);
+    const [syncTargetMode, setSyncTargetMode] = useState('all');
     const [isEditMode, setIsEditMode] = useState(false);
 
     // Filter State
@@ -189,6 +190,11 @@ const App = () => {
         } else {
             setCompareMode('off');
         }
+    };
+
+    const openSyncDialog = (mode) => {
+        setSyncTargetMode(mode);
+        setIsAutomationOpen(true);
     };
 
     const handlePayrollAutomation = async () => {
@@ -438,6 +444,9 @@ const App = () => {
                                     <Button variant={compareMode !== 'off' ? "contained" : "outlined"} size="small" color={compareMode !== 'off' ? "secondary" : "inherit"} startIcon={isComparing ? <CircularProgress size={14} /> : <CompareIcon />} onClick={handleCompareToggle} disabled={isComparing} sx={{ height: 32, fontWeight: 800 }}>
                                         {isComparing ? 'Syncing...' : 'COMPARE'}
                                     </Button>
+                                    <Button variant="contained" size="small" color="success" startIcon={<SyncIcon />} onClick={() => openSyncDialog('all')} disabled={!data || data.length === 0} sx={{ height: 32, fontWeight: 800, bgcolor: '#2E7D32', '&:hover': { bgcolor: '#1B5E20' } }}>
+                                        Sinkron ({selectedEmployeeIds.length > 0 ? selectedEmployeeIds.length : (data ? data.length : 0)})
+                                    </Button>
                                     <Button variant="contained" size="small" color="primary" startIcon={<FilterListIcon />} onClick={() => setIsSidebarOpen(true)} sx={{ height: 32, fontWeight: 800, ml: 1 }}>
                                         PARAMETER & KPI
                                     </Button>
@@ -521,7 +530,7 @@ const App = () => {
                 <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
             </Snackbar>
 
-            <AutomationDialog open={isAutomationOpen} onClose={() => setIsAutomationOpen(false)} selectedEmployees={data ? data.filter(e => selectedEmployeeIds.includes(e.id)) : []} month={selectedMonth} year={selectedYear} compareMode={compareMode} comparisonData={comparisonData} onRefresh={performComparison} />
+            <AutomationDialog open={isAutomationOpen} onClose={() => { setIsAutomationOpen(false); setSyncTargetMode('all'); }} selectedEmployees={selectedEmployeeIds.length > 0 ? (data ? data.filter(e => selectedEmployeeIds.includes(e.id)) : []) : (data || [])} month={selectedMonth} year={selectedYear} compareMode={compareMode} syncTargetMode={syncTargetMode} comparisonData={comparisonData} onRefresh={performComparison} />
             <ComparisonDialog open={isComparisonOpen} onClose={() => setIsComparisonOpen(false)} selectedEmployees={selectedEmployeeIds.length > 0 ? (data ? data.filter(e => selectedEmployeeIds.includes(e.id)) : []) : (data || [])} month={selectedMonth} year={selectedYear} onComparisonComplete={handleComparisonComplete} />
         </Box>
     );

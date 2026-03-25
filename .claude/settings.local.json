@@ -13,7 +13,9 @@
       "Bash(npm run build)",
       "Bash(cd:*)",
       "Bash(test:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(netstat -ano)"
     ]
   }
 }
