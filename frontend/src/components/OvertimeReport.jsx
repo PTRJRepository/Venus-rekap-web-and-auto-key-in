@@ -215,34 +215,36 @@ const OvertimeReport = ({ data = [] }) => {
 
     // Calculate and group by station
     const { stationData, grandStats } = useMemo(() => {
-        // Step 1: Calculate per-employee SPL totals
+        // Step 1: Calculate per-employee SPL totals - only from days that pass filter
+        const min = minHours === '' ? 0 : Number(minHours);
+        const max = maxHours === '' ? Infinity : Number(maxHours);
+
         const withTotals = safeData.map(emp => {
-            let totalOtHours = 0;
-            let totalOtDays = 0;
+            let filteredOtHours = 0;
+            let filteredOtDays = 0;
             if (emp.attendance) {
                 Object.values(emp.attendance).forEach(day => {
                     const ot = Number(day.overtimeHours) || 0;
-                    if (ot > 0) {
-                        totalOtHours += ot;
-                        totalOtDays++;
+                    // Only count if SPL per day passes the filter range
+                    if (ot > 0 && ot >= min && ot <= max) {
+                        filteredOtHours += ot;
+                        filteredOtDays++;
                     }
                 });
             }
             return {
                 ...emp,
-                totalOvertimeHours: totalOtHours,
-                totalOvertimeDays: totalOtDays,
+                totalOvertimeHours: filteredOtHours,
+                totalOvertimeDays: filteredOtDays,
                 station: getStation(emp.chargeJob)
             };
         });
 
-        // Step 2: Apply filters
-        const min = minHours === '' ? 0 : Number(minHours);
-        const max = maxHours === '' ? Infinity : Number(maxHours);
-
+        // Step 2: Apply search filter, then only show employees with at least 1 filtered day
         const filtered = withTotals.filter(emp => {
-            if (emp.totalOvertimeHours < min || emp.totalOvertimeHours > max) return false;
-            if (minHours === '' && emp.totalOvertimeHours === 0) return false;
+            // Must have at least one day passing the range filter
+            if (emp.totalOvertimeDays === 0) return false;
+            // Search filter
             if (searchTerm) {
                 const s = searchTerm.toLowerCase();
                 if (!(emp.name || '').toLowerCase().includes(s) &&
@@ -313,7 +315,7 @@ const OvertimeReport = ({ data = [] }) => {
 
         let filterText = 'Menampilkan: Semua Data';
         if (minHours !== '' || maxHours !== '' || searchTerm) {
-            filterText = `Filter: ${searchTerm ? `"${searchTerm}" | ` : ''}Range: ${minHours || 0} - ${maxHours || '∞'} Jam`;
+            filterText = `Filter: ${searchTerm ? `"${searchTerm}" | ` : ''}Range/Hari: ${minHours || 0} - ${maxHours || '∞'} Jam`;
         }
         doc.setFontSize(9);
         doc.text(filterText, 105, 36, { align: 'center' });
@@ -477,7 +479,7 @@ const OvertimeReport = ({ data = [] }) => {
                     />
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'background.paper', p: 0.5, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                         <FilterAltIcon fontSize="small" color="action" sx={{ ml: 0.5 }} />
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem' }}>Range:</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem' }}>Range/Hari (Jam):</Typography>
                         <TextField
                             size="small"
                             type="number"
