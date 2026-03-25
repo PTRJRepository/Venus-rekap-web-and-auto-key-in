@@ -28,6 +28,8 @@ import PeopleIcon from '@mui/icons-material/People';
 import HistoryIcon from '@mui/icons-material/History';
 import GroupsIcon from '@mui/icons-material/Groups';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import EventIcon from '@mui/icons-material/Event';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -45,9 +47,166 @@ const getStation = (chargeJob) => {
 };
 
 /**
+ * Employee Row - shows summary, expands to show daily SPL breakdown
+ */
+const EmployeeRow = ({ emp, index, minHours, maxHours }) => {
+    const [open, setOpen] = useState(false);
+
+    // Get filtered SPL days for this employee
+    const splDays = useMemo(() => {
+        const min = minHours === '' ? 0 : Number(minHours);
+        const max = maxHours === '' ? Infinity : Number(maxHours);
+        const days = [];
+        if (emp.attendance) {
+            Object.entries(emp.attendance).forEach(([dayNum, day]) => {
+                const ot = Number(day.overtimeHours) || 0;
+                if (ot > 0 && ot >= min && ot <= max) {
+                    days.push({
+                        day: dayNum,
+                        date: day.date,
+                        dayName: day.dayName || '',
+                        hours: ot
+                    });
+                }
+            });
+        }
+        return days.sort((a, b) => Number(a.day) - Number(b.day));
+    }, [emp.attendance, minHours, maxHours]);
+
+    return (
+        <>
+            {/* Employee Summary Row */}
+            <TableRow
+                hover
+                onClick={() => setOpen(!open)}
+                sx={{
+                    cursor: 'pointer',
+                    bgcolor: open ? '#fffbeb' : 'transparent',
+                    '&:hover': { bgcolor: open ? '#fef3c7' : '#f8fafc' },
+                    '&:last-child': { border: 0 }
+                }}
+            >
+                <TableCell align="center" sx={{ width: 40 }}>
+                    <Typography sx={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 500 }}>{index}</Typography>
+                </TableCell>
+                <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Avatar sx={{ width: 22, height: 22, fontSize: '0.65rem', bgcolor: '#7c3aed', fontWeight: 700 }}>
+                            {emp.name?.charAt(0) || '?'}
+                        </Avatar>
+                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                            <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#1e293b' }}>{emp.name}</Typography>
+                            <Typography sx={{ fontSize: '0.6rem', color: '#94a3b8' }}>{emp.ptrjEmployeeID || '-'}</Typography>
+                        </Box>
+                    </Box>
+                </TableCell>
+                <TableCell align="center">
+                    <Chip
+                        label={`${emp.totalOvertimeDays} Hari`}
+                        size="small"
+                        icon={<HistoryIcon sx={{ fontSize: '12px !important' }} />}
+                        sx={{
+                            bgcolor: '#FEF3C7',
+                            color: '#B45309',
+                            fontWeight: 700,
+                            height: 20,
+                            fontSize: '0.65rem',
+                            minWidth: 70,
+                            '& .MuiChip-icon': { color: '#B45309' }
+                        }}
+                    />
+                </TableCell>
+                <TableCell align="center">
+                    <Chip
+                        label={`${emp.totalOvertimeHours.toFixed(2)} Jam`}
+                        size="small"
+                        icon={<AccessTimeIcon sx={{ fontSize: '12px !important' }} />}
+                        sx={{
+                            bgcolor: '#F3E8FF',
+                            color: '#7B1FA2',
+                            fontWeight: 700,
+                            height: 20,
+                            fontSize: '0.65rem',
+                            minWidth: 80,
+                            '& .MuiChip-icon': { color: '#7B1FA2' }
+                        }}
+                    />
+                </TableCell>
+                <TableCell align="center" sx={{ width: 30 }}>
+                    <IconButton size="small" sx={{ p: 0.25 }}>
+                        {open ? <KeyboardArrowUpIcon sx={{ fontSize: 16, color: '#7c3aed' }} /> : <KeyboardArrowDownIcon sx={{ fontSize: 16, color: '#94a3b8' }} />}
+                    </IconButton>
+                </TableCell>
+            </TableRow>
+
+            {/* Expanded SPL Day Detail */}
+            <TableRow sx={{ bgcolor: open ? '#fffbeb' : 'transparent' }}>
+                <TableCell colSpan={5} sx={{ py: 0, border: 0 }}>
+                    <Collapse in={open} timeout="auto">
+                        <Box sx={{ py: 0.5, px: 6, bgcolor: '#fffdf0', borderTop: '1px solid #fde68a', borderBottom: '1px solid #fde68a' }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                {splDays.map((day) => (
+                                    <Box
+                                        key={day.day}
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 1.5,
+                                            py: 0.4,
+                                            px: 1,
+                                            bgcolor: 'white',
+                                            borderRadius: 1,
+                                            border: '1px solid #e2e8f0'
+                                        }}
+                                    >
+                                        <CalendarTodayIcon sx={{ fontSize: 12, color: '#94a3b8' }} />
+                                        <Typography sx={{ fontSize: '0.65rem', fontWeight: 600, color: '#64748b', minWidth: 70 }}>
+                                            {day.date}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: '0.65rem', color: '#94a3b8', minWidth: 50 }}>
+                                            {day.dayName}
+                                        </Typography>
+                                        <Box sx={{ flex: 1 }} />
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: '#7c3aed' }}>
+                                                SPL: {day.hours.toFixed(2)} Jam
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                ))}
+                                {/* Employee Subtotal */}
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1,
+                                        py: 0.4,
+                                        px: 1,
+                                        bgcolor: '#7c3aed',
+                                        borderRadius: 1
+                                    }}
+                                >
+                                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'white' }}>
+                                        SUBTOTAL {emp.name?.toUpperCase()}
+                                    </Typography>
+                                    <Box sx={{ flex: 1 }} />
+                                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: '#fbbf24' }}>
+                                        {emp.totalOvertimeDays} Hari &bull; {emp.totalOvertimeHours.toFixed(2)} Jam
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        </Box>
+                    </Collapse>
+                </TableCell>
+            </TableRow>
+        </>
+    );
+};
+
+/**
  * Collapsible Station Row - shows station header with subtotal, expands to show employees
  */
-const StationRow = ({ station, employees, stats, open: controlledOpen, onToggle }) => {
+const StationRow = ({ station, employees, stats, minHours, maxHours, open: controlledOpen, onToggle }) => {
     const [internalOpen, setInternalOpen] = useState(false);
     const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
     const handleToggle = onToggle || (() => setInternalOpen(!internalOpen));
@@ -64,12 +223,12 @@ const StationRow = ({ station, employees, stats, open: controlledOpen, onToggle 
                     '&:hover': { bgcolor: open ? '#dcfce7' : '#f1f5f9' }
                 }}
             >
-                <TableCell sx={{ width: 50 }}>
+                <TableCell sx={{ width: 40 }}>
                     <IconButton size="small">
                         {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                     </IconButton>
                 </TableCell>
-                <TableCell colSpan={2} sx={{ fontWeight: 700 }}>
+                <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <BusinessIcon sx={{ color: '#7c3aed', fontSize: 18 }} />
                         <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.8rem' }}>{station}</Typography>
@@ -115,67 +274,27 @@ const StationRow = ({ station, employees, stats, open: controlledOpen, onToggle 
                         }}
                     />
                 </TableCell>
+                <TableCell sx={{ width: 30 }} />
             </TableRow>
 
             {/* Expanded Employee Detail Rows */}
             <TableRow>
-                <TableCell colSpan={6} sx={{ py: 0, border: 0 }}>
+                <TableCell colSpan={5} sx={{ py: 0, border: 0 }}>
                     <Collapse in={open} timeout="auto" unmountOnExit>
-                        <Box sx={{ py: 1, bgcolor: '#fafafa' }}>
+                        <Box sx={{ py: 1, px: 1, bgcolor: '#fafafa' }}>
                             <Table size="small" sx={{ bgcolor: 'white', border: '1px solid #e2e8f0', borderRadius: 1 }}>
                                 <TableHead>
                                     <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                                        <TableCell sx={{ fontWeight: 800, fontSize: '0.65rem', width: 50 }} align="center">NO</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, fontSize: '0.65rem' }}>NAMA KARYAWAN</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, fontSize: '0.65rem' }} align="center">PTRJ ID</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, fontSize: '0.65rem' }} align="center">HARI SPL</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, fontSize: '0.65rem', width: 40 }} align="center">NO</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, fontSize: '0.65rem' }}>KARYAWAN</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, fontSize: '0.65rem' }} align="center">AKUMULASI</TableCell>
                                         <TableCell sx={{ fontWeight: 800, fontSize: '0.65rem' }} align="center">TOTAL JAM SPL</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, fontSize: '0.65rem' }} align="center" />
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
                                     {employees.map((emp, idx) => (
-                                        <TableRow key={emp.id} hover>
-                                            <TableCell align="center" sx={{ fontSize: '0.7rem', color: '#94a3b8' }}>{idx + 1}</TableCell>
-                                            <TableCell>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Avatar sx={{ width: 22, height: 22, fontSize: '0.65rem', bgcolor: '#7c3aed', fontWeight: 700 }}>
-                                                        {emp.name?.charAt(0) || '?'}
-                                                    </Avatar>
-                                                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#1e293b' }}>{emp.name}</Typography>
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell align="center" sx={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>
-                                                {emp.ptrjEmployeeID || '-'}
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <Chip
-                                                    label={emp.totalOvertimeDays}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: '#FEF3C7',
-                                                        color: '#B45309',
-                                                        fontWeight: 700,
-                                                        height: 20,
-                                                        fontSize: '0.65rem',
-                                                        minWidth: 32
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <Chip
-                                                    label={`${emp.totalOvertimeHours.toFixed(2)} Jam`}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: '#F3E8FF',
-                                                        color: '#7B1FA2',
-                                                        fontWeight: 700,
-                                                        height: 20,
-                                                        fontSize: '0.65rem',
-                                                        minWidth: 70
-                                                    }}
-                                                />
-                                            </TableCell>
-                                        </TableRow>
+                                        <EmployeeRow key={emp.id} emp={emp} index={idx + 1} minHours={minHours} maxHours={maxHours} />
                                     ))}
                                     {/* Subtotal Row */}
                                     <TableRow sx={{ bgcolor: '#1e293b' }}>
@@ -183,14 +302,12 @@ const StationRow = ({ station, employees, stats, open: controlledOpen, onToggle 
                                             SUBTOTAL {station.toUpperCase()}
                                         </TableCell>
                                         <TableCell align="center" sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#fbbf24' }}>
-                                            {employees.length} org
-                                        </TableCell>
-                                        <TableCell align="center" sx={{ fontSize: '0.75rem', fontWeight: 800, color: '#fbbf24' }}>
                                             {stats.totalDays} Hari
                                         </TableCell>
                                         <TableCell align="center" sx={{ fontSize: '0.75rem', fontWeight: 800, color: '#fbbf24' }}>
                                             {stats.totalHours.toFixed(2)} Jam
                                         </TableCell>
+                                        <TableCell />
                                     </TableRow>
                                 </TableBody>
                             </Table>
@@ -215,7 +332,6 @@ const OvertimeReport = ({ data = [] }) => {
 
     // Calculate and group by station
     const { stationData, grandStats } = useMemo(() => {
-        // Step 1: Calculate per-employee SPL totals - only from days that pass filter
         const min = minHours === '' ? 0 : Number(minHours);
         const max = maxHours === '' ? Infinity : Number(maxHours);
 
@@ -225,7 +341,6 @@ const OvertimeReport = ({ data = [] }) => {
             if (emp.attendance) {
                 Object.values(emp.attendance).forEach(day => {
                     const ot = Number(day.overtimeHours) || 0;
-                    // Only count if SPL per day passes the filter range
                     if (ot > 0 && ot >= min && ot <= max) {
                         filteredOtHours += ot;
                         filteredOtDays++;
@@ -240,11 +355,8 @@ const OvertimeReport = ({ data = [] }) => {
             };
         });
 
-        // Step 2: Apply search filter, then only show employees with at least 1 filtered day
         const filtered = withTotals.filter(emp => {
-            // Must have at least one day passing the range filter
             if (emp.totalOvertimeDays === 0) return false;
-            // Search filter
             if (searchTerm) {
                 const s = searchTerm.toLowerCase();
                 if (!(emp.name || '').toLowerCase().includes(s) &&
@@ -253,7 +365,6 @@ const OvertimeReport = ({ data = [] }) => {
             return true;
         });
 
-        // Step 3: Group by station
         const stationMap = {};
         filtered.forEach(emp => {
             if (!stationMap[emp.station]) {
@@ -269,7 +380,6 @@ const OvertimeReport = ({ data = [] }) => {
             stationMap[emp.station].stats.totalEmployees++;
         });
 
-        // Step 4: Grand total
         const grand = {
             totalEmployees: 0,
             totalDays: 0,
@@ -336,50 +446,86 @@ const OvertimeReport = ({ data = [] }) => {
             doc.text(`${st.stats.totalDays} Hari | ${st.stats.totalHours.toFixed(2)} Jam`, 180, y, { align: 'right' });
             y += 8;
 
-            // Employee rows
-            const rows = st.employees.map((e, i) => [
-                i + 1,
-                e.name,
-                e.ptrjEmployeeID || '-',
-                e.totalOvertimeDays,
-                `${e.totalOvertimeHours.toFixed(2)}`
-            ]);
-            rows.push([
+            // Employee + day detail rows
+            const bodyRows = [];
+            st.employees.forEach((emp, ei) => {
+                // Employee row
+                bodyRows.push([
+                    ei + 1,
+                    emp.name + (emp.ptrjEmployeeID ? ` (${emp.ptrjEmployeeID})` : ''),
+                    `${emp.totalOvertimeDays} Hari`,
+                    `${emp.totalOvertimeHours.toFixed(2)} Jam`
+                ]);
+
+                // Day detail rows
+                const min = minHours === '' ? 0 : Number(minHours);
+                const max = maxHours === '' ? Infinity : Number(maxHours);
+                if (emp.attendance) {
+                    Object.entries(emp.attendance)
+                        .sort((a, b) => Number(a[0]) - Number(b[0]))
+                        .forEach(([dayNum, day]) => {
+                            const ot = Number(day.overtimeHours) || 0;
+                            if (ot > 0 && ot >= min && ot <= max) {
+                                bodyRows.push([
+                                    '',
+                                    `   ${day.date} (${day.dayName || ''})`,
+                                    '',
+                                    `SPL: ${ot.toFixed(2)} Jam`
+                                ]);
+                            }
+                        });
+                }
+
+                // Employee subtotal
+                bodyRows.push([
+                    '',
+                    `   ► SUBTOTAL ${emp.name}`,
+                    emp.totalOvertimeDays,
+                    emp.totalOvertimeHours.toFixed(2)
+                ]);
+            });
+
+            // Station subtotal
+            bodyRows.push([
                 '',
                 `SUBTOTAL ${st.station.toUpperCase()}`,
-                `${st.employees.length} org`,
                 st.stats.totalDays,
                 st.stats.totalHours.toFixed(2)
             ]);
 
             autoTable(doc, {
-                head: [['No', 'Karyawan', 'PTRJ ID', 'Hari SPL', 'Total Jam SPL']],
-                body: rows,
+                body: bodyRows,
                 startY: y,
                 theme: 'grid',
                 margin: { left: 14, right: 14 },
-                headStyles: {
-                    fillColor: [100, 116, 139],
-                    textColor: 255,
-                    fontStyle: 'bold',
-                    fontSize: 8
-                },
-                bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
-                alternateRowStyles: { fillColor: [248, 250, 252] },
+                styles: { fontSize: 8, textColor: [30, 41, 59], cellPadding: 2 },
                 columnStyles: {
                     0: { halign: 'center', cellWidth: 12 },
-                    1: { cellWidth: 80 },
+                    1: { cellWidth: 100 },
                     2: { halign: 'center', cellWidth: 30 },
-                    3: { halign: 'center', cellWidth: 20 },
-                    4: { halign: 'center', cellWidth: 25 }
+                    3: { halign: 'center', cellWidth: 25 }
                 },
                 didParseCell: function (data) {
-                    // Bold and color subtotal row
-                    if (data.row.index === rows.length - 1) {
+                    const row = data.row;
+                    const isEmployeeRow = data.row.index === bodyRows.findIndex((_, i) => {
+                        // find index of first day row
+                        return false;
+                    });
+                    const cellText = String(row.cells[1]?.text?.[0] || '');
+                    if (cellText.includes('► SUBTOTAL')) {
                         data.cell.styles.fillColor = [124, 58, 237];
                         data.cell.styles.textColor = [255, 255, 255];
                         data.cell.styles.fontStyle = 'bold';
-                        data.cell.styles.fontSize = 8;
+                    } else if (cellText.startsWith('   20') || cellText.startsWith('   2')) {
+                        data.cell.styles.fillColor = [248, 250, 252];
+                        data.cell.styles.fontStyle = 'italic';
+                        data.cell.styles.textColor = [100, 116, 139];
+                    }
+                    // Station subtotal row (last row)
+                    if (row.index === bodyRows.length - 1) {
+                        data.cell.styles.fillColor = [30, 41, 59];
+                        data.cell.styles.textColor = [251, 191, 36];
+                        data.cell.styles.fontStyle = 'bold';
                     }
                 },
                 didDrawPage: function (pageData) {
@@ -504,6 +650,11 @@ const OvertimeReport = ({ data = [] }) => {
                         </Button>
                     )}
                 </Box>
+
+                {/* Hint */}
+                <Typography sx={{ fontSize: '0.6rem', color: '#94a3b8', mt: 0.5, fontStyle: 'italic' }}>
+                    Klik baris stasiun untuk expand karyawan &bull; Klik baris karyawan untuk lihat detail SPL harian
+                </Typography>
             </Box>
 
             {/* Table */}
@@ -511,16 +662,17 @@ const OvertimeReport = ({ data = [] }) => {
                 <Table stickyHeader size="small">
                     <TableHead>
                         <TableRow sx={{ bgcolor: '#1e293b' }}>
-                            <TableCell sx={{ width: 50, bgcolor: '#1e293b', color: 'white', borderRight: '1px solid rgba(255,255,255,0.1)' }} />
+                            <TableCell sx={{ width: 40, bgcolor: '#1e293b', color: 'white', borderRight: '1px solid rgba(255,255,255,0.1)' }} />
                             <TableCell sx={{ bgcolor: '#1e293b', color: 'white', fontWeight: 800, fontSize: '0.75rem', borderRight: '1px solid rgba(255,255,255,0.1)' }}>STASIUN / DEPARTEMEN</TableCell>
-                            <TableCell align="center" sx={{ bgcolor: '#1e293b', color: 'white', fontWeight: 800, fontSize: '0.75rem', borderRight: '1px solid rgba(255,255,255,0.1)' }}>HARI SPL</TableCell>
+                            <TableCell align="center" sx={{ bgcolor: '#1e293b', color: 'white', fontWeight: 800, fontSize: '0.75rem', borderRight: '1px solid rgba(255,255,255,0.1)' }}>AKUMULASI HARI</TableCell>
                             <TableCell align="center" sx={{ bgcolor: '#1e293b', color: 'white', fontWeight: 800, fontSize: '0.75rem' }}>TOTAL JAM SPL</TableCell>
+                            <TableCell sx={{ width: 30, bgcolor: '#1e293b' }} />
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {stationData.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={4} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                                <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                                         <FilterAltIcon sx={{ fontSize: 40, color: 'text.disabled', opacity: 0.5 }} />
                                         <Typography>Tidak ada data SPL yang sesuai filter.</Typography>
@@ -534,6 +686,8 @@ const OvertimeReport = ({ data = [] }) => {
                                     station={st.station}
                                     employees={st.employees}
                                     stats={st.stats}
+                                    minHours={minHours}
+                                    maxHours={maxHours}
                                 />
                             ))
                         )}
@@ -578,6 +732,7 @@ const OvertimeReport = ({ data = [] }) => {
                                         }}
                                     />
                                 </TableCell>
+                                <TableCell />
                             </TableRow>
                         )}
                     </TableBody>
