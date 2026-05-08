@@ -34,7 +34,19 @@
       "Bash(curl -I --max-time 10 \"http://millwarep3.rebinmas.com:8003/\")",
       "Bash(Get-ChildItem \"D:\\\\Gawean Rebinmas\\\\Autofill Venus Millware\\\\Rollback Venus Rekap Web\\\\venus_autofill_rekap_web\\\\Refactor_web_Rekap_Absen\\\\browser-automation-engine\\\\chrome_data\" -ErrorAction SilentlyContinue)",
       "Bash(Format-Table Name, Mode)",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Gawean Rebinmas\\\\Autofill Venus Millware\\\\Rollback Venus Rekap Web\\\\venus_autofill_rekap_web\\\\Refactor_web_Rekap_Absen\\\\browser-automation-engine\" -Recurse -File)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "PowerShell(Get-ChildItem -Recurse -Directory \"D:\\\\Gawean Rebinmas\\\\Browser_Auto_key_in new\\\\Auto Key In Refactor\\\\runner\\\\src\" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Recurse -Directory \"D:\\\\Gawean Rebinmas\\\\Browser_Auto_key_in new\\\\Auto Key In Refactor\\\\app\" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"D:\\\\Gawean Rebinmas\\\\Browser_Auto_key_in new\\\\Auto Key In Refactor\\\\Clean Runner\" -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"D:\\\\Gawean Rebinmas\\\\Browser_Auto_key_in new\\\\Auto Key In Refactor\\\\configs\" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"D:\\\\Gawean Rebinmas\\\\Browser_Auto_key_in new\\\\Auto Key In Refactor\\\\docs\" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"D:\\\\Gawean Rebinmas\\\\Browser_Auto_key_in new\\\\Auto Key In Refactor\\\\Clean Runner\" -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\nbgmf\" -Directory -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(Out-String)"
     ]
   }
 }

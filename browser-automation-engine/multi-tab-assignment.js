@@ -72,9 +72,56 @@ function findCrossTabEmployeeSplits(assignedTabs) {
     return [...splits].sort();
 }
 
+/**
+ * Detect duplicate input rows before browser automation begins.
+ * Two rows are considered duplicates if they have the same employee + date key.
+ *
+ * Returns an array of duplicate keys (sorted).
+ */
+function duplicateInputRowKeys(employees) {
+    const seen = new Map();
+    const duplicates = [];
+
+    for (const emp of employees || []) {
+        const key = employeeInputIdentityKey(emp);
+        if (seen.has(key)) {
+            if (!duplicates.includes(key)) {
+                duplicates.push(key);
+            }
+        } else {
+            seen.set(key, true);
+        }
+    }
+
+    return duplicates.sort();
+}
+
+/**
+ * Build a unique identity key for an employee record.
+ * Combines: employee ID + date (yyyy-MM-dd) for attendance automation.
+ */
+function employeeInputIdentityKey(employee) {
+    const empId = String(
+        employee?.PTRJEmployeeID ||
+        employee?.ptrjEmployeeID ||
+        employee?.EmployeeID ||
+        employee?.id ||
+        ''
+    ).trim().toUpperCase();
+
+    const date = employee?.Date ||
+        employee?.Tanggal ||
+        employee?.date ||
+        '';
+
+    return `${empId}|${date}`;
+}
+
 module.exports = {
     assignEmployeesToTabs,
     calculateActualTabCount,
     employeeAssignmentKey,
-    findCrossTabEmployeeSplits
+    findCrossTabEmployeeSplits,
+    duplicateInputRowKeys,
+    employeeInputIdentityKey
 };
