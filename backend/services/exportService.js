@@ -100,7 +100,8 @@ const exportToJSON = async (startDate, endDate, employeeIds) => {
     // Fetch in parallel or sequence? Sequence is safer for memory if many months.
     for (const period of monthsToFetch) {
         console.log(`Fetching data for export: ${period.month}/${period.year}`);
-        const monthData = await fetchAttendanceData(period.month, period.year);
+        // Always pass showStaff: true. The employeeIds array will accurately filter down to only what the user requested.
+        const monthData = await fetchAttendanceData(period.month, period.year, { showStaff: true });
 
         // Filter and process
         const processed = monthData

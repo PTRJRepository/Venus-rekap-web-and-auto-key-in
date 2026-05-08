@@ -7,6 +7,7 @@ const { fetchAttendanceData, fetchAttendanceDataOvertimeOnly } = require('./serv
 const stagingService = require('./services/stagingService');
 const { getChargeJobsForMonth } = require('./services/chargeJobService'); // Still useful for monthly view
 const { executeQuery } = require('./services/gateway'); // Direct query if needed
+const { getLatestAttendancePeriod } = require('./services/latestPeriodService');
 const { getPTRJMapping, matchPTRJEmployeeId } = require('./services/mappingService');
 const exportService = require('./services/exportService');
 const { updateEmployee, getAllEmployees, upsertEmployee } = require('./services/employeeMillService');
@@ -86,25 +87,8 @@ app.get('/api/months', async (req, res) => {
 
 app.get('/api/latest-period', async (req, res) => {
     try {
-        // Get the absolute latest date available in the attendance system
-        const sql = `SELECT MAX(TADate) as LatestDate FROM [VenusHR14].[dbo].[HR_T_TAMachine_Summary]`;
-        const result = await executeQuery(sql);
-
-        if (result && result.length > 0 && result[0].LatestDate) {
-            const latestDate = new Date(result[0].LatestDate);
-            res.json({
-                success: true,
-                month: latestDate.getMonth() + 1,
-                year: latestDate.getFullYear()
-            });
-        } else {
-            // Fallback to current date minus logic if no data exists
-            const today = new Date();
-            let m = today.getMonth() + 1;
-            let y = today.getFullYear();
-            if (today.getDate() < 15) { m -= 1; if (m === 0) { m = 12; y -= 1; } }
-            res.json({ success: true, month: m, year: y });
-        }
+        const period = await getLatestAttendancePeriod(executeQuery);
+        res.json({ success: true, ...period });
     } catch (error) {
         console.error("Error fetching latest period:", error);
         res.status(500).json({ success: false, error: error.message });
@@ -112,17 +96,18 @@ app.get('/api/latest-period', async (req, res) => {
 });
 
 app.get('/api/attendance', async (req, res) => {
-    const { month, year } = req.query;
+    const { month, year, showStaff } = req.query;
     const noAttendance = process.env.NO_ATTENDANCE === 'true';
-    console.log(`Received request for attendance: ${month}/${year} (no-attendance: ${noAttendance})`);
+    const showStaffFlag = showStaff === 'true';
+    console.log(`Received request for attendance: ${month}/${year} (no-attendance: ${noAttendance}, showStaff: ${showStaffFlag})`);
 
     if (!month || !year) return res.status(400).json({ error: 'Month and Year required' });
 
     try {
         // Use overtime-only mode if NO_ATTENDANCE is enabled
         const data = noAttendance
-            ? await fetchAttendanceDataOvertimeOnly(parseInt(month), parseInt(year))
-            : await fetchAttendanceData(parseInt(month), parseInt(year));
+            ? await fetchAttendanceDataOvertimeOnly(parseInt(month), parseInt(year), { showStaff: showStaffFlag })
+            : await fetchAttendanceData(parseInt(month), parseInt(year), { showStaff: showStaffFlag });
 
         // Format response to match frontend expectations
         res.json({
@@ -221,17 +206,18 @@ app.get('/api/wages/periods', async (req, res) => {
 
 // Enhanced monthly grid endpoint that matches the original Python application
 app.get('/api/monthly-grid', async (req, res) => {
-    const { month, year, bus_code } = req.query;
+    const { month, year, bus_code, showStaff } = req.query;
     const noAttendance = process.env.NO_ATTENDANCE === 'true';
-    console.log(`Received request for monthly grid: ${month}/${year}, bus_code: ${bus_code} (no-attendance: ${noAttendance})`);
+    const showStaffFlag = showStaff === 'true';
+    console.log(`Received request for monthly grid: ${month}/${year}, bus_code: ${bus_code} (no-attendance: ${noAttendance}, showStaff: ${showStaffFlag})`);
 
     if (!month || !year) return res.status(400).json({ error: 'Month and Year required' });
 
     try {
         // Use overtime-only mode if NO_ATTENDANCE is enabled
         const data = noAttendance
-            ? await fetchAttendanceDataOvertimeOnly(parseInt(month), parseInt(year))
-            : await fetchAttendanceData(parseInt(month), parseInt(year));
+            ? await fetchAttendanceDataOvertimeOnly(parseInt(month), parseInt(year), { showStaff: showStaffFlag })
+            : await fetchAttendanceData(parseInt(month), parseInt(year), { showStaff: showStaffFlag });
 
         // Process data into grid format
         const daysInMonth = new Date(year, month, 0).getDate();
@@ -319,14 +305,15 @@ app.get('/api/monthly-grid', async (req, res) => {
 // --- Monthly Grid Overtime-Only Mode ---
 // Same as monthly-grid but uses only Overtime table for attendance data
 app.get('/api/monthly-grid-overtime-only', async (req, res) => {
-    const { month, year } = req.query;
-    console.log(`[OVERTIME-ONLY GRID] Received request: ${month}/${year}`);
+    const { month, year, showStaff } = req.query;
+    const showStaffFlag = showStaff === 'true';
+    console.log(`[OVERTIME-ONLY GRID] Received request: ${month}/${year} (showStaff: ${showStaffFlag})`);
 
     if (!month || !year) return res.status(400).json({ error: 'Month and Year required' });
 
     try {
         // Use overtime-only data fetcher
-        const data = await fetchAttendanceDataOvertimeOnly(parseInt(month), parseInt(year));
+        const data = await fetchAttendanceDataOvertimeOnly(parseInt(month), parseInt(year), { showStaff: showStaffFlag });
 
         // Process data into grid format
         const daysInMonth = new Date(year, month, 0).getDate();

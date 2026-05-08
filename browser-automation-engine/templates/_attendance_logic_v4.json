@@ -107,15 +107,15 @@
                                 "condition": "attendance.regularHours > 0 || (attendance.status || '').toUpperCase() === 'HADIR' || (attendance.status || '').toUpperCase() === 'PARTIAL IN'",
                                 "thenSteps": [
                                   {
-                                    "comment": "═══ SKIP REGULAR IF onlyOvertime MODE ═══",
+                                    "comment": "═══ SKIP REGULAR IF onlyOvertime MODE OR REGULAR ALREADY MATCHED ═══",
                                     "action": "if",
                                     "params": {
-                                      "condition": "metadata.onlyOvertime === true",
+                                      "condition": "metadata.onlyOvertime === true || attendance.skipRegular === true",
                                       "thenSteps": [
                                         {
                                           "action": "log",
                                           "params": {
-                                            "message": "    ⏭️ SKIP REGULAR: onlyOvertime mode is active"
+                                            "message": "    ⏭️ SKIP REGULAR: onlyOvertime active or regular already matched"
                                           }
                                         }
                                       ],
@@ -148,15 +148,15 @@
                                     }
                                   },
                                   {
-                                    "comment": "═══ SKIP OVERTIME IF syncRegularOnly MODE ═══",
+                                    "comment": "═══ SKIP OVERTIME IF syncRegularOnly MODE OR OVERTIME ALREADY MATCHED ═══",
                                     "action": "if",
                                     "params": {
-                                      "condition": "metadata.syncRegularOnly === true",
+                                      "condition": "metadata.syncRegularOnly === true || attendance.skipOvertime === true",
                                       "thenSteps": [
                                         {
                                           "action": "log",
                                           "params": {
-                                            "message": "    ⏭️ SKIP OVERTIME: syncRegularOnly mode is active (only input regular hours)"
+                                            "message": "    ⏭️ SKIP OVERTIME: syncRegularOnly active or overtime already matched"
                                           }
                                         }
                                       ],

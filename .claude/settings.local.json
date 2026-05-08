@@ -15,7 +15,12 @@
       "Bash(test:*)",
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(npx eslint:*)",
+      "Bash(npx vite:*)",
+      "Bash(netstat -aon)",
+      "Bash(taskkill:*)",
+      "Bash(git add *)"
     ]
   }
 }

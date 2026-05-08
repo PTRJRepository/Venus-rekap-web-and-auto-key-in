@@ -6,7 +6,8 @@ const { compareWithTaskReg } = require('./comparisonService');
 // Define paths
 const ENGINE_DIR = path.resolve(__dirname, '../../browser-automation-engine');
 const DATA_DIR = path.join(ENGINE_DIR, 'testing_data');
-const RUNNER_SCRIPT = path.join(ENGINE_DIR, 'parallel-runner.js');
+const ATTENDANCE_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'multi-tab-runner.js');
+const PAYROLL_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'parallel-runner.js');
 
 const ensureDataDir = () => {
     if (!fs.existsSync(DATA_DIR)) {
@@ -316,22 +317,22 @@ const saveAutomationData = async (data) => {
 /**
  * Spawns the automation process
  * Uses current_data.json automatically (no file path needed)
- * Reads AUTOMATION_INSTANCES from .env to control parallel execution
+ * Uses multi-tab runner by default with 8 concurrent tabs.
  */
 const startAutomationProcess = () => {
     const env = {
         ...process.env,
         AUTO_CLOSE: process.env.AUTO_CLOSE || 'true',
         HEADLESS: process.env.HEADLESS || 'false',
-        AUTOMATION_INSTANCES: process.env.AUTOMATION_INSTANCES || '2',
+        MULTI_TAB_CONCURRENCY: process.env.MULTI_TAB_CONCURRENCY || '8',
         ENGINE_START_DELAY: process.env.ENGINE_START_DELAY || '2000'
     };
 
-    const instances = env.AUTOMATION_INSTANCES;
-    console.log(`[Automation] Starting runner with ${instances} instance(s): node ${RUNNER_SCRIPT}`);
+    const tabs = env.MULTI_TAB_CONCURRENCY;
+    console.log(`[Automation] Starting multi-tab runner with ${tabs} tab(s): node ${ATTENDANCE_RUNNER_SCRIPT}`);
 
     // No need to pass data file path - runner uses current_data.json by default
-    const child = spawn('node', [RUNNER_SCRIPT], {
+    const child = spawn('node', [ATTENDANCE_RUNNER_SCRIPT], {
         env,
         cwd: ENGINE_DIR,
         stdio: ['ignore', 'pipe', 'pipe']
@@ -383,12 +384,12 @@ const startPayrollAutomationProcess = () => {
     };
 
     const instances = env.AUTOMATION_INSTANCES;
-    console.log(`[PayrollAutomation] Starting runner with ${instances} instance(s): node ${RUNNER_SCRIPT}`);
+    console.log(`[PayrollAutomation] Starting runner with ${instances} instance(s): node ${PAYROLL_RUNNER_SCRIPT}`);
 
     // Use payroll-ad-input template
     const template = 'payroll-ad-input';
 
-    const child = spawn('node', [RUNNER_SCRIPT, template], {
+    const child = spawn('node', [PAYROLL_RUNNER_SCRIPT, template], {
         cwd: ENGINE_DIR,
         env,
         stdio: ['ignore', 'pipe', 'pipe']

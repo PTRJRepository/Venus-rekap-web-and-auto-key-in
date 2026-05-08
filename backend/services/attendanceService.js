@@ -195,7 +195,7 @@ const fetchVenusEmployeeNames = async (employeeIds) => {
 };
 
 // --- Main Data Fetcher ---
-const fetchAttendanceData = async (month, year) => {
+const fetchAttendanceData = async (month, year, options = { showStaff: false }) => {
     const startDate = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
     const endDate = format(endOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
 
@@ -308,9 +308,13 @@ const fetchAttendanceData = async (month, year) => {
     console.log(`[FILTER] Pre-filter: ${nonKaryawanCount} non-karyawan, ${staffCount} STAFF`);
 
     employees = employees.filter(emp => {
+        // If showStaff is true, include everyone (bypass both STAFF and non-karyawan filters)
+        if (options.showStaff) return true;
+
         // Skip if is_karyawan is explicitly false or 0 (from employee_mill table)
         // Note: undefined means employee not in employee_mill yet - keep them for now
         if (emp.is_karyawan === false || emp.is_karyawan === 0 || emp.is_karyawan === '0') return false;
+        
         const job = (emp.charge_job || '').toUpperCase();
         return !job.includes('STAFF');
     });
@@ -723,7 +727,7 @@ const formatTime = (dateVal) => {
  * If an employee has overtime on a date, they are considered "Hadir" with regularHours=7.
  * Useful when HR_T_TAMachine_Summary data is not yet available.
  */
-const fetchAttendanceDataOvertimeOnly = async (month, year) => {
+const fetchAttendanceDataOvertimeOnly = async (month, year, options = { showStaff: false }) => {
     const startDate = format(startOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
     const endDate = format(endOfMonth(new Date(year, month - 1)), 'yyyy-MM-dd');
 
@@ -853,6 +857,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year) => {
     // FILTER: Exclude "STAFF"
     const initialCount = activeEmployees.length;
     activeEmployees = activeEmployees.filter(emp => {
+        if (options.showStaff) return true;
         const job = (emp.charge_job || '').toUpperCase();
         return !job.includes('STAFF');
     });

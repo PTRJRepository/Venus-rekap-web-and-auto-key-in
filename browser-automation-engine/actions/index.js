@@ -1,6 +1,7 @@
 const { waitForElement, safeType, safeTypeAtIndex } = require('../utils/selectors');
 const fs = require('fs');
 const path = require('path');
+const { getLoopJitterDelay, scaleDelay, sleep } = require('../utils/timing');
 
 // Directory untuk menyimpan failed employee CSV
 const FAILED_EMP_DIR = path.join(__dirname, 'logs', 'emp_failed');
@@ -39,7 +40,7 @@ const ensureFailedEmpDir = () => {
 const _waitForPageStable = async (page, timeoutMs = 3000) => {
     try {
         await page.waitForFunction(() => document.readyState === 'complete', { timeout: timeoutMs });
-        await new Promise(r => setTimeout(r, 500)); // Extra stabilization
+        await sleep(500); // Extra stabilization
     } catch (e) {
         // Timeout is ok
     }
@@ -60,6 +61,13 @@ const safeEvaluate = async (page, fn, ...args) => {
         }
     }
     return null;
+};
+
+const cleanChargeJobInputValue = (value) => {
+    return String(value || '')
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 };
 
 /**
@@ -567,7 +575,7 @@ const actions = {
             // Click 3 times to select all, then backspace
             await elementHandle.click({ clickCount: 3 });
             await elementHandle.press('Backspace');
-            await new Promise(r => setTimeout(r, 200));
+            await sleep(200);
 
             // 3. Type character by character and check dropdown
             let foundSingleOption = false;
@@ -578,7 +586,7 @@ const actions = {
                 // Start checking immediately (even after 1st char if possible) but usually need 2+
                 // Lowered threshold to i >= 0 to be more aggressive if needed, but sticking to i >= 1 safe
                 if (i >= 0) {
-                    await new Promise(r => setTimeout(r, 250)); // Reduced wait for UI update
+                    await sleep(250); // Reduced wait for UI update
 
                     // Check dropdown count - Robust Version
                     const { optionCount, debugMsg } = await page.evaluate(() => {
@@ -618,7 +626,7 @@ const actions = {
             }
 
             // 4. Select Option
-            await new Promise(r => setTimeout(r, 500)); // Stabilize UI before selection
+            await sleep(500); // Stabilize UI before selection
 
             // Ensure focus is still on the input
             if (elementHandle) await elementHandle.focus();
@@ -626,19 +634,19 @@ const actions = {
             if (foundSingleOption) {
                 console.log("  ⌨️  Selecting single option with ArrowDown + Enter...");
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 300)); // Increased delay for stability
+                await sleep(300); // Delay for stability
                 await page.keyboard.press('Enter');
             } else {
                 // Fallback: If we finished typing and never found a single option (or 0 options),
                 // we try to select the first one anyway if available.
                 console.log(`  ⚠️  Finished typing without isolating single option. Selecting first available.`);
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 300)); // Increased delay for stability
+                await sleep(300); // Delay for stability
                 await page.keyboard.press('Enter');
             }
 
             // Additional wait to ensure UI settles
-            await new Promise(r => setTimeout(r, 500));
+            await sleep(500);
 
         } else {
             // Standard behavior for non-autocomplete fields
@@ -685,7 +693,7 @@ const actions = {
         }
 
         // Wait a bit before any JS click (prevent double-click)
-        await new Promise(r => setTimeout(r, 300));
+        await sleep(300);
 
         // For submit buttons, SKIP JS click to prevent double submission
         if (isSubmitButton) {
@@ -718,8 +726,9 @@ const actions = {
      */
     wait: async (page, params) => {
         const duration = params.duration || 1000;
-        console.log(`💤 Menunggu selama ${duration}ms`);
-        await new Promise(resolve => setTimeout(resolve, duration));
+        const actualDuration = params.scale === false ? duration : scaleDelay(duration);
+        console.log(`💤 Menunggu selama ${actualDuration}ms (template: ${duration}ms)`);
+        await sleep(duration, { scale: params.scale !== false });
     },
 
     /**
@@ -829,9 +838,10 @@ const actions = {
     },
 
     /**
-     * Parse ChargeJob string to extract parts separated by '/'
+     * Parse ChargeJob string to extract parts separated by '/'.
+     * Text inside parentheses is ignored before inputting to Millware autocomplete.
      * Example: "(GA9010) VEHICLE RUNNING / BE001 (...) / 11 (...)"
-     * Results: part1="VEHICLE RUNNING", part2="BE001 (...)", part3="11 (...)"
+     * Results: part1="VEHICLE RUNNING", part2="BE001", part3="11"
      * Also stores: chargeJobPartsCount, hasChargeJobPart2, hasChargeJobPart3
      * NEW: Also creates chargeJobPartsArray for dynamic task code filling
      */
@@ -839,9 +849,10 @@ const actions = {
         const chargeJob = params.chargeJob || params.value || '';
         console.log(`🔍 Parsing ChargeJob: "${chargeJob}"`);
 
-        // Split by '/' and filter out empty/whitespace parts
-        // A valid part must have at least 2 meaningful characters
-        const parts = chargeJob.split('/').map(p => p.trim()).filter(p => p.length >= 2);
+        // Split by '/' and remove descriptions/codes in parentheses before input.
+        // A valid part must have at least 2 meaningful characters after cleanup.
+        const rawParts = chargeJob.split('/').map(p => p.trim()).filter(p => p.length >= 2);
+        const parts = rawParts.map(cleanChargeJobInputValue).filter(p => p.length >= 2);
 
         // Store parts count for conditional logic (excluding Employee field)
         context.chargeJobPartsCount = parts.length;
@@ -849,17 +860,16 @@ const actions = {
         // This is used by retryInputWithValidation to skip waiting for non-existent fields
         context.expectedFieldCount = parts.length + 1;
         console.log(`  📊 Total VALID parts found: ${parts.length}, Expected fields: ${context.expectedFieldCount}`);
-        console.log(`  📋 Parts: ${JSON.stringify(parts)}`);
+        console.log(`  📋 Raw parts: ${JSON.stringify(rawParts)}`);
+        console.log(`  📋 Clean parts: ${JSON.stringify(parts)}`);
 
         // Store DIRECTLY in context (top-level) for easy access
         // Part 1: Task Code
         if (parts.length > 0 && parts[0] && parts[0].length >= 2) {
-            const rawPart1 = parts[0];
+            const rawPart1 = rawParts[0] || parts[0];
             context.chargeJobPart1 = rawPart1;
-
-            // Clean version: Remove (...) prefix
-            context.chargeJobPart1Clean = rawPart1.replace(/^\([^)]+\)\s*/, '').trim();
-            console.log(`  Part 1 (Full) : "${rawPart1}"`);
+            context.chargeJobPart1Clean = parts[0];
+            console.log(`  Part 1 (Raw)  : "${rawPart1}"`);
             console.log(`  Part 1 (Clean): "${context.chargeJobPart1Clean}"`);
         } else {
             context.chargeJobPart1 = "";
@@ -868,7 +878,7 @@ const actions = {
 
         // Part 2: Resource/Equipment
         if (parts.length > 1 && parts[1] && parts[1].length >= 2) {
-            context.chargeJobPart2 = parts[1].trim();
+            context.chargeJobPart2 = parts[1];
             context.hasChargeJobPart2 = true;
             console.log(`  Part 2: "${context.chargeJobPart2}"`);
         } else {
@@ -878,7 +888,7 @@ const actions = {
 
         // Part 3: Cost Center
         if (parts.length > 2 && parts[2] && parts[2].length >= 2) {
-            context.chargeJobPart3 = parts[2].trim();
+            context.chargeJobPart3 = parts[2];
             context.hasChargeJobPart3 = true;
             console.log(`  Part 3: "${context.chargeJobPart3}"`);
         } else {
@@ -888,7 +898,7 @@ const actions = {
 
         // Part 4
         if (parts.length > 3 && parts[3] && parts[3].length >= 2) {
-            context.chargeJobPart4 = parts[3].trim();
+            context.chargeJobPart4 = parts[3];
             context.hasChargeJobPart4 = true;
             console.log(`  Part 4: "${context.chargeJobPart4}"`);
         } else {
@@ -898,7 +908,7 @@ const actions = {
 
         // Part 5
         if (parts.length > 4 && parts[4] && parts[4].length >= 2) {
-            context.chargeJobPart5 = parts[4].trim();
+            context.chargeJobPart5 = parts[4];
             context.hasChargeJobPart5 = true;
             console.log(`  Part 5: "${context.chargeJobPart5}"`);
         } else {
@@ -908,13 +918,7 @@ const actions = {
 
         // NEW: Create chargeJobPartsArray for dynamic task code filling
         // This array contains all parts (cleaned) for fillAllTaskCodes action
-        context.chargeJobPartsArray = parts.map((part, index) => {
-            if (index === 0) {
-                // Part 1: Clean version (remove prefix)
-                return part.replace(/^\([^)]+\)\s*/, '').trim();
-            }
-            return part;
-        });
+        context.chargeJobPartsArray = parts;
         console.log(`  📦 chargeJobPartsArray: ${JSON.stringify(context.chargeJobPartsArray)}`);
         console.log(`  ✅ ChargeJob parsed - ${parts.length} parts (hasP2: ${context.hasChargeJobPart2}, hasP3: ${context.hasChargeJobPart3}, hasP4: ${context.hasChargeJobPart4}, hasP5: ${context.hasChargeJobPart5})`);
     },
@@ -1054,11 +1058,11 @@ const actions = {
             // --- OPTIMIZATION 1: BROWSER RECYCLING ---
             // Restart browser setiap 20 item untuk mencegah Memory Leak (Chrome melambat seiring waktu)
             // Hanya restart jika bukan item pertama dan engine tersedia
-            if (i > 0 && i % 20 === 0 && engine) {
+            if (i > 0 && i % 20 === 0 && engine && !engine.disableBrowserRecycle) {
                 console.log(`\n♻️  MEMORY OPTIMIZATION: Recycling Browser (Item ${i})...`);
                 try {
                     await engine.closeBrowser();
-                    await new Promise(r => setTimeout(r, 2000)); // Cool down
+                    await sleep(2000); // Cool down
                     await engine.launch();
                     console.log(`✅  Browser Refreshed!`);
 
@@ -1075,9 +1079,11 @@ const actions = {
             }
 
             // --- OPTIMIZATION 2: JITTER (LOAD BALANCING) ---
-            // Tambahkan delay acak (500ms - 2000ms) agar engine tidak "menyerang" server bersamaan
-            const jitter = Math.floor(Math.random() * 1500) + 500;
-            await new Promise(r => setTimeout(r, jitter));
+            // Default kecil agar multi-tab lebih cepat; naikkan lewat env jika server lambat.
+            const jitter = getLoopJitterDelay();
+            if (jitter > 0) {
+                await sleep(jitter, { scale: false });
+            }
 
             const item = items[i];
             const itemLabel = item.EmployeeName || item.PTRJEmployeeID || `Item ${i + 1}`;
@@ -1453,8 +1459,8 @@ const actions = {
                     if (radio) {
                         await radio.click();
                         const waitTime = field.waitAfter || 3000;
-                        console.log(`    ⏳ Waiting ${waitTime}ms for radio button postback...`);
-                        await new Promise(r => setTimeout(r, waitTime));
+                        console.log(`    ⏳ Waiting ${scaleDelay(waitTime)}ms for radio button postback (template: ${waitTime}ms)...`);
+                        await sleep(waitTime);
                     } else {
                         console.log(`    ⚠️ Radio button not found: ${field.selector}`);
                     }
@@ -1482,7 +1488,7 @@ const actions = {
                 });
 
                 // Extra stabilization wait
-                await new Promise(r => setTimeout(r, 500));
+                await sleep(500);
 
                 if (field.index !== undefined) {
                     // Retry loop to find element (it may not be visible immediately after postback)
@@ -1502,7 +1508,7 @@ const actions = {
                             elementHandle = visibleElements[field.index];
                             break;
                         }
-                        await new Promise(r => setTimeout(r, 500));
+                        await sleep(500);
                     }
                 } else {
                     elementHandle = await page.$(field.selector);
@@ -1515,14 +1521,14 @@ const actions = {
 
                 // Focus first
                 await elementHandle.click();
-                await new Promise(r => setTimeout(r, 300));
+                await sleep(300);
 
                 // Clear with Ctrl+A + Delete
                 await page.keyboard.down('Control');
                 await page.keyboard.press('a');
                 await page.keyboard.up('Control');
                 await page.keyboard.press('Delete');
-                await new Promise(r => setTimeout(r, 200));
+                await sleep(200);
 
                 // Try JavaScript-based autocomplete trigger first
                 const triggerResult = await safeEvaluate((sel, idx, val) => {
@@ -1554,13 +1560,13 @@ const actions = {
                 console.log(`    📋 Autocomplete trigger: ${triggerResult.method}`);
 
                 // Wait for dropdown to appear
-                await new Promise(r => setTimeout(r, 800));
+                await sleep(800);
 
                 // Select from dropdown
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 300));
+                await sleep(300);
                 await page.keyboard.press('Enter');
-                await new Promise(r => setTimeout(r, 1500)); // Wait longer for page update
+                await sleep(1500); // Wait for page update
 
                 // Verify field was filled
                 const verifyResult = await elementHandle.evaluate(el => el.value || '');
@@ -1598,7 +1604,7 @@ const actions = {
 
                     if (!elementHandle) {
                         // Element not found, wait and retry
-                        await new Promise(r => setTimeout(r, 500));
+                        await sleep(500);
                         continue;
                     }
 
@@ -1606,7 +1612,7 @@ const actions = {
                     return { hasValue: inputValue.trim().length > 0, value: inputValue.trim() };
                 } catch (e) {
                     // Wait and retry
-                    await new Promise(r => setTimeout(r, 500));
+                    await sleep(500);
                 }
             }
             return { hasValue: false, value: '' };
@@ -1735,7 +1741,7 @@ const actions = {
                     }
                 } catch (e) { }
 
-                await new Promise(r => setTimeout(r, 200));
+                await sleep(200);
             }
 
             console.log(`  ⚠️ Element [${idx}] not ready after ${timeoutMs}ms`);
@@ -1764,7 +1770,7 @@ const actions = {
         const waitForPageStable = async (timeoutMs = 3000) => {
             try {
                 await page.waitForFunction(() => document.readyState === 'complete', { timeout: timeoutMs });
-                await new Promise(r => setTimeout(r, 500)); // Extra stabilization
+                await sleep(500); // Extra stabilization
             } catch (e) {
                 // Timeout is ok, continue
             }
@@ -1808,7 +1814,7 @@ const actions = {
                         () => document.querySelector('#MainContent_tblSelection') !== null,
                         { timeout: 5000 }
                     ).catch(() => { });
-                    await new Promise(r => setTimeout(r, 500));
+                    await sleep(500);
 
                     // Check each previous field
                     let allFieldsFilled = true;
@@ -1839,7 +1845,7 @@ const actions = {
                                 await reInputField(field);
                             }
                         }
-                        await new Promise(r => setTimeout(r, 1500));
+                        await sleep(1500);
                     } else {
                         previousFieldsValid = true;
                         console.log(`  ✅ All previous fields verified as filled`);
@@ -1919,7 +1925,7 @@ const actions = {
                         const freshElements = await page.$$(selector);
                         throw new Error(`Element at index ${index} not found. Found ${freshElements.length} found (some might be hidden).`);
                     }
-                    await new Promise(r => setTimeout(r, 500));
+                    await sleep(500);
                 }
             } else {
                 await waitForElement(page, selector);
@@ -1932,12 +1938,12 @@ const actions = {
             try {
                 // Click to focus (may fail if stale, that's ok)
                 await elementHandle.click();
-                await new Promise(r => setTimeout(r, 200));
+                await sleep(200);
             } catch (e) {
                 // Element stale, get fresh one
                 elementHandle = await getFreshElement(selector, index);
                 if (elementHandle) await elementHandle.click();
-                await new Promise(r => setTimeout(r, 200));
+                await sleep(200);
             }
 
             // Use page.keyboard and JavaScript for clearing (more reliable)
@@ -1945,7 +1951,7 @@ const actions = {
             await page.keyboard.press('a');
             await page.keyboard.up('Control');
             await page.keyboard.press('Delete');
-            await new Promise(r => setTimeout(r, 200));
+            await sleep(200);
 
             // 3. Smart Incremental Typing with Autocomplete Triggering
             console.log("  ⌨️ Smart Typing...");
@@ -2001,7 +2007,7 @@ const actions = {
             console.log(`  📋 Autocomplete trigger: ${JSON.stringify(triggerAutocomplete)}`);
 
             // Wait for dropdown to appear (and page to stabilize)
-            await new Promise(r => setTimeout(r, 800));
+            await sleep(800);
             await waitForPageStable(2000);
 
             // Check if dropdown appeared (using safe evaluate for navigation handling)
@@ -2024,14 +2030,14 @@ const actions = {
                     elementHandle = await getFreshElement(selector, index);
                     if (elementHandle) await elementHandle.click();
                 } catch (e) { }
-                await new Promise(r => setTimeout(r, 200));
+                await sleep(200);
 
                 // Clear first
                 await page.keyboard.down('Control');
                 await page.keyboard.press('a');
                 await page.keyboard.up('Control');
                 await page.keyboard.press('Delete');
-                await new Promise(r => setTimeout(r, 200));
+                await sleep(200);
 
                 // Type each character using page.keyboard (more reliable)
                 for (let i = 0; i < value.length; i++) {
@@ -2051,7 +2057,7 @@ const actions = {
                         }
                     }, selector, index);
 
-                    await new Promise(r => setTimeout(r, 150));
+                    await sleep(150);
 
                     // Check for dropdown
                     const dropdown = await page.evaluate(() => {
@@ -2079,7 +2085,7 @@ const actions = {
             }
 
             // 4. Confirm Selection
-            await new Promise(r => setTimeout(r, 500)); // Stabilize
+            await sleep(500); // Stabilize
 
             // Check if dropdown is visible before selecting
             const dropdownCheck = await page.evaluate(() => {
@@ -2104,7 +2110,7 @@ const actions = {
                 elementHandle = await getFreshElement(selector, index);
                 if (elementHandle) await elementHandle.click();
             } catch (e) { }
-            await new Promise(r => setTimeout(r, 200));
+            await sleep(200);
 
             let selectionSuccess = false;
             if (dropdownCheck.visible) {
@@ -2137,12 +2143,12 @@ const actions = {
             } else {
                 console.log("  ⌨️  Click failed/unavailable. Using ArrowDown + Enter...");
                 await page.keyboard.press('ArrowDown');
-                await new Promise(r => setTimeout(r, 300));
+                await sleep(300);
                 await page.keyboard.press('Enter');
             }
 
             // 5. Wait for potential error or success
-            await new Promise(r => setTimeout(r, 2000));
+            await sleep(2000);
 
             // 6. Check validation - now using comprehensive check
             const postCheck = await checkForValidationErrors();
@@ -2189,7 +2195,7 @@ const actions = {
             }
             console.log(`  └─────────────────────────\n`);
 
-            await new Promise(r => setTimeout(r, 1000));
+            await sleep(1000);
         }
 
         // ═══ FAIL-FORWARD BEHAVIOR ═══
@@ -2351,7 +2357,7 @@ const actions = {
                     console.log(`  → Navigating directly to detail page...`);
                     await page.goto('http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx');
                     await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => { });
-                    await new Promise(r => setTimeout(r, 2000));
+                    await sleep(2000);
 
                     console.log(`✅ Now on detail page - form should be ready`);
                     context.formNotReady = false;

@@ -10,15 +10,25 @@ const apiClient = axios.create({
     },
 });
 
-export const fetchAttendanceData = async (month, year) => {
+export const fetchAttendanceData = async (month, year, showStaff = false) => {
     try {
         const response = await apiClient.get('/attendance', {
-            params: { month, year },
+            params: { month, year, showStaff },
         });
         // Backend returns { success: true, data: [...] }
         return response.data.data;
     } catch (error) {
         console.error('Error fetching attendance data:', error);
+        throw error;
+    }
+};
+
+export const fetchLatestPeriod = async () => {
+    try {
+        const response = await apiClient.get('/latest-period');
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching latest period:', error);
         throw error;
     }
 };
@@ -109,4 +119,3 @@ export const fetchComparisonData = async (startDate, endDate, empCodes = null, o
 };
 
 export default apiClient;
-

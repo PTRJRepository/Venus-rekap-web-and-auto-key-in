@@ -27,7 +27,8 @@ import ComparisonDialog from './components/ComparisonDialog';
 import AttendanceSummaryBar from './components/AttendanceSummaryBar';
 import AttendanceFilterBar from './components/AttendanceFilterBar';
 import LoginPage from './components/LoginPage';
-import { fetchAttendanceData, exportAttendanceJSON } from './services/api';
+import { fetchAttendanceData, exportAttendanceJSON, fetchLatestPeriod } from './services/api';
+import { getFallbackAttendancePeriod, getYearOptions, normalizeAttendancePeriod } from './utils/period';
 
 const App = () => {
     // Auth State
@@ -38,12 +39,14 @@ const App = () => {
     const [viewMode, setViewMode] = useState('attendance');
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState(null);
-    const [selectedMonth, setSelectedMonth] = useState(3);
-    const [selectedYear, setSelectedYear] = useState(2026);
+    const [selectedMonth, setSelectedMonth] = useState(null);
+    const [selectedYear, setSelectedYear] = useState(null);
+    const [periodLoading, setPeriodLoading] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
     const [isComparing, setIsComparing] = useState(false);
     const [syncTargetMode, setSyncTargetMode] = useState('all');
     const [isEditMode, setIsEditMode] = useState(false);
+    const [showStaff, setShowStaff] = useState(false);
 
     // Filter State
     const [filterMode, setFilterMode] = useState('all'); 
@@ -63,7 +66,7 @@ const App = () => {
 
     const DRAWER_WIDTH = 340;
     const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    const years = [2024, 2025, 2026];
+    const years = useMemo(() => getYearOptions(selectedYear), [selectedYear]);
 
     const handleLogin = (status) => {
         setIsAuthenticated(status);
@@ -75,13 +78,52 @@ const App = () => {
         localStorage.removeItem('venus_auth');
     };
 
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        let isCancelled = false;
+
+        const loadLatestPeriod = async () => {
+            setPeriodLoading(true);
+            try {
+                const latestPeriod = normalizeAttendancePeriod(await fetchLatestPeriod());
+                if (!latestPeriod) throw new Error('Periode absensi terakhir tidak valid');
+
+                if (!isCancelled) {
+                    setSelectedMonth(latestPeriod.month);
+                    setSelectedYear(latestPeriod.year);
+                }
+            } catch (error) {
+                const fallbackPeriod = getFallbackAttendancePeriod();
+                if (!isCancelled) {
+                    setSelectedMonth(fallbackPeriod.month);
+                    setSelectedYear(fallbackPeriod.year);
+                    setSnackbar({
+                        open: true,
+                        message: `Gagal mengambil periode absensi terakhir: ${error.message}`,
+                        severity: 'warning'
+                    });
+                }
+            } finally {
+                if (!isCancelled) setPeriodLoading(false);
+            }
+        };
+
+        loadLatestPeriod();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [isAuthenticated]);
+
     const handleFetchData = async () => {
         if (!selectedMonth || !selectedYear || !isAuthenticated) return;
         setLoading(true);
         setData(null);
         try {
-            const result = await fetchAttendanceData(selectedMonth, selectedYear);
-            const filteredResult = result?.filter(emp => emp.isKaryawan !== false) || null;
+            const result = await fetchAttendanceData(selectedMonth, selectedYear, showStaff);
+            // Frontend also needs to bypass isKaryawan filter if showStaff is true
+            const filteredResult = result?.filter(emp => showStaff || emp.isKaryawan !== false) || null;
             setData(filteredResult);
             showSnackbar('Data berhasil dimuat', 'success');
         } catch (error) {
@@ -98,7 +140,7 @@ const App = () => {
             setComparisonData(null);
             setCompareMode('off');
         }
-    }, [selectedMonth, selectedYear, isAuthenticated]);
+    }, [selectedMonth, selectedYear, isAuthenticated, showStaff]);
 
     const handleDataUpdate = (updateInfo) => {
         if (!updateInfo || typeof updateInfo === 'function') {
@@ -396,14 +438,19 @@ const App = () => {
                         {/* Period Selector */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'rgba(255,255,255,0.08)', px: 1.5, py: 0.5, borderRadius: 2 }}>
                             <CalendarIcon sx={{ fontSize: 16, color: 'secondary.light' }} />
-                            <Select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} variant="standard" disableUnderline sx={{ color: '#fff', fontSize: '0.85rem', fontWeight: 700 }}>
+                            <Select value={selectedMonth || ''} onChange={(e) => setSelectedMonth(Number(e.target.value))} variant="standard" disableUnderline disabled={periodLoading} sx={{ color: '#fff', fontSize: '0.85rem', fontWeight: 700 }}>
                                 {monthNames.map((name, idx) => <MenuItem key={idx} value={idx + 1}>{name}</MenuItem>)}
                             </Select>
-                            <Select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} variant="standard" disableUnderline sx={{ color: '#fff', fontSize: '0.85rem', fontWeight: 700 }}>
+                            <Select value={selectedYear || ''} onChange={(e) => setSelectedYear(Number(e.target.value))} variant="standard" disableUnderline disabled={periodLoading} sx={{ color: '#fff', fontSize: '0.85rem', fontWeight: 700 }}>
                                 {years.map(year => <MenuItem key={year} value={year}>{year}</MenuItem>)}
                             </Select>
+                            <FormControlLabel
+                                control={<Switch checked={showStaff} onChange={(e) => setShowStaff(e.target.checked)} color="info" size="small" />}
+                                label={<Typography sx={{ fontWeight: 700, fontSize: '0.75rem', color: '#fff', whiteSpace: 'nowrap' }}>Tampilkan Staff</Typography>}
+                                sx={{ ml: 1, mr: 0 }}
+                            />
                         </Box>
-                        <IconButton onClick={handleFetchData} size="small" sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)' }}>
+                        <IconButton onClick={handleFetchData} size="small" disabled={periodLoading} sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)' }}>
                             {loading ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : <RefreshIcon sx={{ fontSize: 18 }} />}
                         </IconButton>
                         
