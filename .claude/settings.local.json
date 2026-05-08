@@ -30,7 +30,11 @@
       "Bash(Sort-Object LastWriteTime -Descending)",
       "Bash(Select-Object -First 20)",
       "Bash(Format-Table -AutoSize)",
-      "PowerShell(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('D:/Gawean Rebinmas/Autofill Venus Millware/Rollback Venus Rekap Web/venus_autofill_rekap_web/Refactor_web_Rekap_Absen/browser-automation-engine/templates/_charge_job_input.json', 'utf8'\\)\\); console.log\\('Valid JSON'\\)\")"
+      "PowerShell(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('D:/Gawean Rebinmas/Autofill Venus Millware/Rollback Venus Rekap Web/venus_autofill_rekap_web/Refactor_web_Rekap_Absen/browser-automation-engine/templates/_charge_job_input.json', 'utf8'\\)\\); console.log\\('Valid JSON'\\)\")",
+      "Bash(curl -I --max-time 10 \"http://millwarep3.rebinmas.com:8003/\")",
+      "Bash(Get-ChildItem \"D:\\\\Gawean Rebinmas\\\\Autofill Venus Millware\\\\Rollback Venus Rekap Web\\\\venus_autofill_rekap_web\\\\Refactor_web_Rekap_Absen\\\\browser-automation-engine\\\\chrome_data\" -ErrorAction SilentlyContinue)",
+      "Bash(Format-Table Name, Mode)",
+      "Bash(powershell *)"
     ]
   }
 }

@@ -197,11 +197,40 @@ const updateFailedEmployeeCSV = async (failedRecords, context) => {
 
 const actions = {
     /**
-     * Navigasi ke URL
+     * Navigasi ke URL dengan retry logic
+     * waitUntil: 'domcontentloaded' lebih reliable untuk server internal/corporate
+     * yang mungkin punya background polling atau koneksi persistent.
      */
     navigate: async (page, params) => {
-        console.log(`🔄 Navigasi ke: ${params.url}`);
-        await page.goto(params.url, { waitUntil: 'networkidle2', timeout: 60000 });
+        const waitStrategy = params.waitUntil || 'domcontentloaded';
+        const gotoTimeout = params.gotoTimeout || 60000;
+        const maxRetries = params.retries !== undefined ? params.retries : 3;
+        const retryDelay = params.retryDelay || 3000;
+
+        console.log(`🔄 Navigasi ke: ${params.url} (wait: ${waitStrategy}, timeout: ${gotoTimeout}ms)`);
+
+        let lastError;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                await page.goto(params.url, { waitUntil: waitStrategy, timeout: gotoTimeout });
+                console.log(`✅ [Navigasi berhasil] URL: ${params.url}`);
+                return;
+            } catch (error) {
+                lastError = error;
+                const isTimeout = error.message.includes('TIMED_OUT') || error.message.includes('Timeout');
+
+                if (attempt < maxRetries) {
+                    const delay = retryDelay * attempt; // Exponential backoff
+                    console.log(`⚠️ [Attempt ${attempt}/${maxRetries}] ${isTimeout ? 'TIMEOUT' : 'ERROR'}: ${error.message}`);
+                    console.log(`   ⏳ Retry dalam ${delay}ms...`);
+                    await new Promise(r => setTimeout(r, delay));
+                } else {
+                    console.error(`❌ [Navigasi GAGAL setelah ${maxRetries} percobaan]`);
+                    console.error(`   💥 Error: ${error.message}`);
+                    throw error;
+                }
+            }
+        }
     },
 
     /**

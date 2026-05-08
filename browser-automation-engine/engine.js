@@ -261,6 +261,9 @@ class AutomationEngine {
                 '--no-first-run',
                 '--no-zygote',
                 '--disable-extensions', // Matikan ekstensi yang memakan RAM
+                // ==================== NETWORK/FIREWALL OPTIMIZATION ====================
+                '--no-proxy-server', // Jangan gunakan proxy (penting untuk server internal)
+                '--proxy-server=direct://', // Direct connection bypass proxy
                 '--disable-background-networking',
                 '--disable-background-timer-throttling',
                 '--disable-backgrounding-occluded-windows',
@@ -283,7 +286,11 @@ class AutomationEngine {
                 '--disable-client-side-phishing-detection',
                 '--disable-component-update',
                 '--disable-domain-reliability',
-                '--disable-features=AudioServiceOutOfProcess,MediaRecorder'
+                '--disable-features=AudioServiceOutOfProcess,MediaRecorder',
+                // ==================== SSL/TLS SETTINGS ====================
+                '--ignore-certificate-errors', // Abaikan error sertifikat SSL
+                '--ignore-ssl-errors', // Abaikan error SSL
+                '--allow-running-insecure-content', // Allow HTTP content
             ]
         };
 
