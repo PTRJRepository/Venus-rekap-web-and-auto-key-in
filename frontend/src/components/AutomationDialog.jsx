@@ -1,70 +1,80 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Box, LinearProgress, Switch, FormControlLabel, Radio, RadioGroup, FormControl, FormLabel } from '@mui/material';
+import {
+    Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography,
+    Box, LinearProgress, Switch, FormControlLabel, Radio, RadioGroup,
+    FormControl, FormLabel, TextField, Divider, Chip, Alert, Paper
+} from '@mui/material';
 import PlayIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import StopIcon from '@mui/icons-material/Stop';
 import RobotIcon from '@mui/icons-material/SmartToy';
 import DownloadIcon from '@mui/icons-material/Download';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import { alpha } from '@mui/material/styles';
+
+const DARK = {
+    bg: '#0F172A',       // Slate 900
+    surface: '#1E293B',   // Slate 800
+    card: '#283548',      // Elevated
+    border: '#334155',     // Slate 700
+    text: '#CBD5E1',      // Slate 300
+    muted: '#64748B',      // Slate 500
+    accent: '#3B82F6',    // Blue 500
+    green: '#10B981',      // Emerald 500
+    red: '#EF4444',        // Red 500
+    amber: '#F59E0B',      // Amber 500
+    violet: '#8B5CF6',     // Violet 500
+};
 
 const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compareMode, syncTargetMode, comparisonData, onRefresh }) => {
     const [logs, setLogs] = useState([]);
     const [status, setStatus] = useState('idle');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [onlyOvertime, setOnlyOvertime] = useState(false); // Legacy state for backend flag
+    const [onlyOvertime, setOnlyOvertime] = useState(false);
     const [filterSynced, setFilterSynced] = useState(true);
-    const [targetMode, setTargetMode] = useState('all'); // all, regular, overtime
+    const [targetMode, setTargetMode] = useState('all');
     const logEndRef = useRef(null);
 
-    // Auto-set Target Mode based on prop
     useEffect(() => {
         if (open) {
-            // Priority 1: syncTargetMode from category-specific button
             if (syncTargetMode) {
                 setTargetMode(syncTargetMode);
                 setOnlyOvertime(syncTargetMode === 'overtime');
-            }
-            // Priority 2: compareMode fallback
-            else if (compareMode === 'overtime') {
+            } else if (compareMode === 'overtime') {
                 setTargetMode('overtime');
                 setOnlyOvertime(true);
             } else {
-                setTargetMode('all'); // Default to all (mismatches)
+                setTargetMode('all');
                 setOnlyOvertime(false);
             }
         }
     }, [open, compareMode, syncTargetMode]);
 
-    // Sync onlyOvertime flag when targetMode changes
     useEffect(() => {
         if (targetMode === 'overtime') setOnlyOvertime(true);
         else setOnlyOvertime(false);
     }, [targetMode]);
 
-    // Auto-Refresh when completed
     useEffect(() => {
         if (status === 'completed' && onRefresh) {
-            addLog('info', '🔄 Auto-Refreshing Comparison Data...');
+            addLog('info', 'Auto-Refreshing Comparison Data...');
             onRefresh();
         }
     }, [status, onRefresh]);
 
     useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs]);
 
-    // FILTER LOGIC
     const filterEmployees = (isExport = false) => {
-        // Only filter if compareMode is active AND filterSynced is TRUE
         if (!compareMode || compareMode === 'off' || !comparisonData || !filterSynced) {
             return { filtered: selectedEmployees, modeLog: (!filterSynced ? ' (Filter Disabled)' : '') };
         }
 
-        if (!isExport) addLog('info', `🔍 STRICT FILTERING: Keeping only ${targetMode.toUpperCase()} Mismatches...`);
+        if (!isExport) addLog('info', `Filtering: Keeping only ${targetMode.toUpperCase()} Mismatches...`);
 
         const employeesToProcess = selectedEmployees.map(emp => {
             const ptrjId = emp.ptrjEmployeeID;
             if (!ptrjId || ptrjId === 'N/A') return null;
-
-            // Clone attendance map to filter it
             const filteredAttendance = {};
             let hasMismatch = false;
 
@@ -72,83 +82,50 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                 const dateStr = day.date;
                 const key = `${ptrjId}_${dateStr}`;
                 const millwareRecord = comparisonData[key];
-
-                // Date range filter (if applied)
                 if (startDate && dateStr < startDate) return;
                 if (endDate && dateStr > endDate) return;
-
                 let shouldInclude = false;
-                let reason = "";
-
+                let reason = '';
                 const statusUpper = (day.status || '').toUpperCase();
 
-                // 1. Initial Inclusion based on Status
                 if (!millwareRecord) {
-                    // Record missing in Millware
-                    shouldInclude = true;
-                    reason = `Missing in Millware`;
+                    shouldInclude = true; reason = `Missing in Millware`;
                 } else if (millwareRecord.status === 'MISS') {
-                    // Record exists but mismatch
-                    shouldInclude = true;
-                    reason = `Mismatch detected`;
+                    shouldInclude = true; reason = `Mismatch detected`;
                 }
 
-                // ENHANCED LOGGING: Show Millware record details
                 if (!isExport && shouldInclude && millwareRecord) {
-                    addLog('debug', `   🔎 [${dateStr}] ${ptrjId}:`);
-                    addLog('debug', `      Millware OT=0 record: ${millwareRecord.regularMatched ? 'EXISTS' : 'MISSING'} (${millwareRecord.normal || 0}h)`);
-                    addLog('debug', `      Millware OT=1 record: ${millwareRecord.otMatched ? 'EXISTS' : 'MISSING'} (${millwareRecord.ot || 0}h)`);
+                    addLog('debug', `   [${dateStr}] ${ptrjId}:`);
+                    addLog('debug', `      Millware OT=0: ${millwareRecord.regularMatched ? 'EXISTS' : 'MISSING'} (${millwareRecord.normal || 0}h)`);
+                    addLog('debug', `      Millware OT=1: ${millwareRecord.otMatched ? 'EXISTS' : 'MISSING'} (${millwareRecord.ot || 0}h)`);
                     addLog('debug', `      Venus: Reg=${day.regularHours || 0}h, OT=${day.overtimeHours || 0}h`);
                 }
 
-                // 2. REFINE SELECTION BASED ON TARGET MODE (Critical cleanup)
                 if (shouldInclude) {
-                    // Check if it's REALLY missing based on backend 'status' property
                     if (millwareRecord && millwareRecord.status !== 'MISS') {
-                        shouldInclude = false;
-                        reason = `Backend status is not MISS (${millwareRecord.status})`;
+                        shouldInclude = false; reason = `Backend status is not MISS (${millwareRecord.status})`;
                     } else {
-                        // --- Target: REGULAR ---
                         if (targetMode === 'regular') {
                             if (millwareRecord && millwareRecord.details?.hasRegularRecord === true) {
+                                shouldInclude = false; reason = `Regular record actually exists`;
+                            } else if (!millwareRecord && (day.regularHours || 0) === 0 && !(['HADIR', 'PARTIAL IN', 'S', 'SAKIT', 'C', 'CUTI', 'I', 'IZIN', 'SD', 'SICK', 'CT'].some(s => statusUpper.startsWith(s)))) {
                                 shouldInclude = false;
-                                reason = `Regular record actually exists`;
-                            }
-                            else if (!millwareRecord && (day.regularHours || 0) === 0 && !(['HADIR', 'PARTIAL IN', 'S', 'SAKIT', 'C', 'CUTI', 'I', 'IZIN', 'SD', 'SICK', 'CT'].some(s => statusUpper.startsWith(s)))) {
-                                // If missing entirely, BUT Venus has 0 regular AND it's not a payable status, don't include
-                                shouldInclude = false;
-                            } else {
-                                reason = `Regular Missing (Venus: ${day.regularHours}h)`;
-                            }
-                        }
-                        // --- Target: OVERTIME ---
-                        else if (targetMode === 'overtime') {
+                            } else { reason = `Regular Missing (Venus: ${day.regularHours}h)`; }
+                        } else if (targetMode === 'overtime') {
                             if (millwareRecord && millwareRecord.details?.hasOTRecord === true) {
+                                shouldInclude = false; reason = `OT record actually exists`;
+                            } else if ((day.overtimeHours || 0) === 0) {
                                 shouldInclude = false;
-                                reason = `OT record actually exists`;
-                            }
-                            else if ((day.overtimeHours || 0) === 0) {
-                                shouldInclude = false; // Missing but Venus 0 OT => Not a mismatch
-                            } else {
-                                reason = `Overtime Missing (Venus:${day.overtimeHours})`;
-                            }
+                            } else { reason = `Overtime Missing (Venus:${day.overtimeHours})`; }
                         }
                     }
                 }
 
-                // Extra check for "Overtime Only" mode from prop (legacy compatibility)
-                if (compareMode === 'overtime' && targetMode !== 'overtime') {
-                    // If visual mode is QT, but user selected 'Regular', force skip OT matched?
-                    // Actually, if compareMode is OT, we usually only care about OT.
-                    // But user explicit selection overrides.
-                }
-
+                if (compareMode === 'overtime' && targetMode !== 'overtime') { /* legacy compat */ }
 
                 if (shouldInclude) {
-                    // --- FALLBACK LOGIC FOR ZERO HOURS ---
                     let finalRegularHours = day.regularHours || 0;
-                    const isAnnualLeave = day.isAnnualLeave || ['CT', 'CUTI', 'I', 'IZIN', 'S', 'SAKIT', 'SD', 'SICK'].some(s => statusUpper.startsWith(s));
-
+                    const isAnnualLeave = ['CT', 'CUTI', 'I', 'IZIN', 'S', 'SAKIT', 'SD', 'SICK'].some(s => statusUpper.startsWith(s));
                     if (finalRegularHours === 0 && (statusUpper === 'HADIR' || statusUpper === 'PARTIAL IN' || isAnnualLeave)) {
                         const dateObj = new Date(dateStr);
                         const dayNum = dateObj.getDay();
@@ -157,10 +134,8 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                             reason += ` (Auto-fixed 0h -> ${finalRegularHours}h)`;
                         }
                     }
-
                     const fixedDay = { ...day, regularHours: finalRegularHours };
-                    if (!isExport) addLog('info', `   • [${dateStr}] ${reason} -> Reg:${finalRegularHours}h, OT:${day.overtimeHours}h`);
-
+                    if (!isExport) addLog('info', `   [${dateStr}] ${reason} -> Reg:${finalRegularHours}h, OT:${day.overtimeHours}h`);
                     filteredAttendance[new Date(dateStr).getDate()] = fixedDay;
                     hasMismatch = true;
                 }
@@ -174,104 +149,52 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
     };
 
     const handleExportMiss = async () => {
-        addLog('info', '📤 Preparing to Export Miss Only Data...');
+        addLog('info', 'Preparing to Export Miss Only Data...');
         const { filtered: employeesToProcess } = filterEmployees(true);
-
-        if (employeesToProcess.length === 0) {
-            addLog('info', '✅ No filtered data to export!');
-            return;
-        }
-
+        if (employeesToProcess.length === 0) { addLog('info', 'No filtered data to export!'); return; }
         addLog('info', `Sending ${employeesToProcess.length} records to export service...`);
-
         try {
             const response = await fetch('/api/export/miss-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     employees: employeesToProcess,
-                    startDate: startDate || `${year}-${String(month).padStart(2, '0')}-01`, // Default to full month if empty
+                    startDate: startDate || `${year}-${String(month).padStart(2, '0')}-01`,
                     endDate: endDate || `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`,
-                    options: {
-                        onlyOvertime: targetMode === 'overtime',
-                        syncRegularOnly: targetMode === 'regular'
-                    }
+                    options: { onlyOvertime: targetMode === 'overtime', syncRegularOnly: targetMode === 'regular' }
                 })
             });
-
-            if (!response.ok) {
-                const err = await response.json();
-                addLog('error', `Export failed: ${err.error}`);
-                return;
-            }
-
+            if (!response.ok) { const err = await response.json(); addLog('error', `Export failed: ${err.error}`); return; }
             const data = await response.json();
-            if (data.success && data.data) {
-                if (data.data.filename) {
-                    addLog('info', `✅ Export generated: ${data.data.filename}`);
-                    // Trigger Download
-                    window.open(`/api/export/download/${data.data.filename}`, '_blank');
-                } else if (data.data.count === 0) {
-                    addLog('info', `✅ No mismatched data found on server (Strict Filter applied).`);
-                } else {
-                    addLog('error', 'Export response invalid (missing filename)');
-                }
-            } else {
-                addLog('error', 'Export response unsuccessfull');
-            }
-
-        } catch (e) {
-            addLog('error', `Export error: ${e.message}`);
-        }
+            if (data.success && data.data?.filename) {
+                addLog('info', `Export generated: ${data.data.filename}`);
+                window.open(`/api/export/download/${data.data.filename}`, '_blank');
+            } else if (data.data?.count === 0) {
+                addLog('info', 'No mismatched data found on server.');
+            } else { addLog('error', 'Export response invalid'); }
+        } catch (e) { addLog('error', `Export error: ${e.message}`); }
     };
 
     const handleRun = async () => {
-        setLogs([]);
-        setStatus('running');
-
+        setLogs([]); setStatus('running');
         const { filtered: employeesToProcess, modeLog } = filterEmployees(false);
-
         if (employeesToProcess.length === 0 && filterSynced) {
-            addLog('info', '✅ All selected records are already synced! Nothing to do.');
-            setStatus('completed');
-            return;
+            addLog('info', 'All selected records are already synced! Nothing to do.'); setStatus('completed'); return;
         }
-
         addLog('info', `Starting automation for ${employeesToProcess.length} employees (${month}/${year})${modeLog}`);
         if (startDate && endDate) addLog('info', `Date Filter: ${startDate} to ${endDate}`);
-        if (targetMode === 'overtime') addLog('info', `Mode: Only Overtime (skipping regular attendance)`);
-        if (targetMode === 'regular') addLog('info', `Mode: Only Regular (skipping matched regular hours)`);
-
+        if (targetMode === 'overtime') addLog('info', 'Mode: Only Overtime (skipping regular attendance)');
+        if (targetMode === 'regular') addLog('info', 'Mode: Only Regular (skipping matched regular hours)');
         try {
             const response = await fetch('/api/automation/run', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    employees: employeesToProcess,
-                    month,
-                    year,
-                    startDate,
-                    endDate,
-                    onlyOvertime: targetMode === 'overtime',
-                    syncMismatchesOnly: filterSynced,
-                    syncRegularOnly: targetMode === 'regular'
-                })
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ employees: employeesToProcess, month, year, startDate, endDate, onlyOvertime: targetMode === 'overtime', syncMismatchesOnly: filterSynced, syncRegularOnly: targetMode === 'regular' })
             });
-
-            if (!response.ok) {
-                const err = await response.json();
-                addLog('error', err.error || 'Failed to start');
-                setStatus('failed');
-                return;
-            }
-
+            if (!response.ok) { const err = await response.json(); addLog('error', err.error || 'Failed to start'); setStatus('failed'); return; }
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
                 const text = decoder.decode(value);
                 for (const line of text.split('\n')) {
                     if (line.startsWith('data: ')) {
@@ -287,163 +210,184 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                     }
                 }
             }
-        } catch (e) {
-            addLog('error', `Connection error: ${e.message}`);
-            setStatus('failed');
-        }
+        } catch (e) { addLog('error', `Connection error: ${e.message}`); setStatus('failed'); }
     };
 
-    const addLog = (type, message) => {
-        setLogs(prev => [...prev, { type, message, time: new Date().toLocaleTimeString() }]);
-    };
+    const addLog = (type, message) => setLogs(prev => [...prev, { type, message, time: new Date().toLocaleTimeString() }]);
 
     const handleStop = async () => {
         try {
             await fetch('/api/automation/stop', { method: 'POST' });
-            addLog('info', '🛑 Stopping automation process...');
-            setStatus('stopped');
-        } catch (e) {
-            addLog('error', 'Failed to stop process');
-        }
+            addLog('info', 'Stopping automation process...'); setStatus('stopped');
+        } catch (e) { addLog('error', 'Failed to stop process'); }
     };
 
+    const STATUS_COLORS = { idle: DARK.muted, running: DARK.accent, completed: DARK.green, failed: DARK.red, stopped: DARK.amber };
+    const STATUS_LABELS = { idle: 'READY', running: 'RUNNING', completed: 'COMPLETED', failed: 'FAILED', stopped: 'STOPPED' };
+
     return (
-        <Dialog open={open} onClose={status === 'running' ? undefined : onClose} maxWidth="md" fullWidth PaperProps={{ sx: { minHeight: '60vh', bgcolor: '#1e1e1e', color: '#e0e0e0' } }}>
-            <DialogTitle sx={{ borderBottom: '1px solid #333', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <RobotIcon sx={{ color: '#4caf50' }} />
-                <Typography component="span" variant="h6" sx={{ flexGrow: 1 }}>Automation Console</Typography>
-                {status === 'running' && <Typography component="span" variant="caption" sx={{ color: '#fb8c00', border: '1px solid #fb8c00', px: 1, borderRadius: 1 }}>RUNNING</Typography>}
-                {status === 'completed' && <Typography component="span" variant="caption" sx={{ color: '#4caf50', border: '1px solid #4caf50', px: 1, borderRadius: 1 }}>COMPLETED</Typography>}
-                {status === 'failed' && <Typography component="span" variant="caption" sx={{ color: '#f44336', border: '1px solid #f44336', px: 1, borderRadius: 1 }}>FAILED</Typography>}
+        <Dialog
+            open={open}
+            onClose={status === 'running' ? undefined : onClose}
+            maxWidth="md"
+            fullWidth
+            PaperProps={{ sx: {
+                minHeight: '60vh', bgcolor: DARK.bg, color: DARK.text,
+                border: `1px solid ${DARK.border}`, borderRadius: 3,
+            } }}
+        >
+            {/* Header */}
+            <DialogTitle sx={{ borderBottom: `1px solid ${DARK.border}`, display: 'flex', alignItems: 'center', gap: 1.5, py: 2 }}>
+                <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: alpha(DARK.green, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <RobotIcon sx={{ color: DARK.green, fontSize: 20 }} />
+                </Box>
+                <Box sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#fff', fontSize: '1rem' }}>
+                        Automation Console
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: DARK.muted }}>
+                        Attendance Sync — Venus HR to Millware
+                    </Typography>
+                </Box>
+                <Chip
+                    label={STATUS_LABELS[status]}
+                    size="small"
+                    sx={{
+                        fontWeight: 800, fontSize: '0.65rem', letterSpacing: '0.08em',
+                        bgcolor: alpha(STATUS_COLORS[status], 0.15),
+                        color: STATUS_COLORS[status],
+                        border: `1px solid ${alpha(STATUS_COLORS[status], 0.4)}`,
+                    }}
+                />
             </DialogTitle>
 
-            {/* Sync Mode Indicator Banner */}
+            {/* Sync Mode Banner */}
             <Box sx={{
-                px: 2,
-                py: 0.75,
-                bgcolor: targetMode === 'regular' ? 'rgba(220, 38, 38, 0.15)' : (targetMode === 'overtime' ? 'rgba(124, 58, 237, 0.15)' : 'rgba(25, 118, 210, 0.15)'),
-                borderBottom: `1px solid ${targetMode === 'regular' ? '#DC2626' : (targetMode === 'overtime' ? '#7C3AED' : '#1976D2')}`,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
+                px: 2.5, py: 1,
+                bgcolor: alpha(targetMode === 'regular' ? DARK.red : (targetMode === 'overtime' ? DARK.violet : DARK.accent), 0.1),
+                borderBottom: `1px solid ${alpha(targetMode === 'regular' ? DARK.red : (targetMode === 'overtime' ? DARK.violet : DARK.accent), 0.2)}`,
+                display: 'flex', alignItems: 'center', gap: 1.5,
             }}>
+                <FilterListIcon sx={{ fontSize: 15, color: targetMode === 'regular' ? DARK.red : (targetMode === 'overtime' ? DARK.violet : DARK.accent) }} />
                 <Typography variant="caption" sx={{
-                    fontWeight: 900,
-                    fontSize: '0.7rem',
-                    color: targetMode === 'regular' ? '#DC2626' : (targetMode === 'overtime' ? '#7C3AED' : '#1976D2'),
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em'
+                    fontWeight: 800, fontSize: '0.7rem', color: targetMode === 'regular' ? DARK.red : (targetMode === 'overtime' ? DARK.violet : DARK.accent),
+                    textTransform: 'uppercase', letterSpacing: '0.08em',
                 }}>
                     {targetMode === 'regular' ? 'SINKRONISASI ABSENSI SAJA' : (targetMode === 'overtime' ? 'SINKRONISASI OVERTIME SAJA' : 'SINKRONISASI ABSENSI + OVERTIME')}
                 </Typography>
             </Box>
-            <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
-                <Box sx={{ p: 2, bgcolor: '#252526', borderBottom: '1px solid #333' }}>
-                    <Typography variant="body2" sx={{ color: '#aaa', mb: 1 }}>Target: <strong>{selectedEmployees.length} Karyawan</strong> | Periode: <strong>{month}/{year}</strong></Typography>
 
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1, flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <label style={{ fontSize: '0.75rem', color: '#888' }}>Start Date</label>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                style={{ background: '#333', border: '1px solid #555', color: 'white', padding: '4px', borderRadius: '4px' }}
-                            />
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <label style={{ fontSize: '0.75rem', color: '#888' }}>End Date</label>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                style={{ background: '#333', border: '1px solid #555', color: 'white', padding: '4px', borderRadius: '4px' }}
-                            />
-                        </div>
-
-                        {/* Target Mode Selector */}
-                        <FormControl component="fieldset" sx={{ ml: 2, border: '1px solid #444', borderRadius: 1, px: 1, py: 0.5 }}>
-                            <FormLabel component="legend" sx={{ fontSize: '0.7rem', color: '#AAA' }}>Filter Mode</FormLabel>
-                            <RadioGroup
-                                row
-                                value={targetMode}
-                                onChange={(e) => setTargetMode(e.target.value)}
-                            >
-                                <FormControlLabel
-                                    value="all"
-                                    control={<Radio size="small" sx={{ color: '#aaa', '&.Mui-checked': { color: '#90caf9' } }} />}
-                                    label={<Typography variant="caption" sx={{ color: '#ddd' }}>All Mismatches</Typography>}
-                                />
-                                <FormControlLabel
-                                    value="regular"
-                                    control={<Radio size="small" sx={{ color: '#aaa', '&.Mui-checked': { color: '#ce93d8' } }} />}
-                                    label={<Typography variant="caption" sx={{ color: '#ddd' }}>Regular Only</Typography>}
-                                />
-                                <FormControlLabel
-                                    value="overtime"
-                                    control={<Radio size="small" sx={{ color: '#aaa', '&.Mui-checked': { color: '#ffcc80' } }} />}
-                                    label={<Typography variant="caption" sx={{ color: '#ddd' }}>Overtime Only</Typography>}
-                                />
-                            </RadioGroup>
-                        </FormControl>
-
-                        {comparisonData && (
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={filterSynced}
-                                        onChange={(e) => setFilterSynced(e.target.checked)}
-                                        color="error"
-                                        size="small"
-                                    />
-                                }
-                                label={<Typography variant="caption" sx={{ color: filterSynced ? '#f44336' : '#888', fontWeight: filterSynced ? 'bold' : 'normal' }}>Filter Synced</Typography>}
-                                sx={{ ml: 1 }}
-                            />
+            <DialogContent sx={{ p: 0 }}>
+                {/* Controls Panel */}
+                <Box sx={{ p: 2.5, bgcolor: DARK.surface, borderBottom: `1px solid ${DARK.border}` }}>
+                    {/* Target Info */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <Chip label={`${selectedEmployees.length} Karyawan`} size="small" sx={{ bgcolor: alpha(DARK.accent, 0.15), color: DARK.accent, fontWeight: 700, fontSize: '0.75rem' }} />
+                        <Chip label={`Periode: ${month}/${year}`} size="small" sx={{ bgcolor: alpha(DARK.muted, 0.15), color: DARK.text, fontWeight: 700, fontSize: '0.75rem' }} />
+                        {filterSynced && comparisonData && (
+                            <Chip label="Filter: Synced Records" size="small" icon={<FilterListIcon sx={{ fontSize: 13 }} />} sx={{ bgcolor: alpha(DARK.amber, 0.15), color: DARK.amber, fontWeight: 700, fontSize: '0.75rem' }} />
                         )}
                     </Box>
 
-                    {status === 'running' && <LinearProgress color="success" sx={{ mt: 1 }} />}
+                    {/* Controls */}
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                        <TextField
+                            type="date" label="Start" value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            size="small" sx={{ minWidth: 160 }}
+                            InputLabelProps={{ shrink: true }}
+                            inputProps={{ style: { color: DARK.text, backgroundColor: DARK.card, borderRadius: 6, fontSize: '0.85rem' } }}
+                        />
+                        <TextField
+                            type="date" label="End" value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            size="small" sx={{ minWidth: 160 }}
+                            InputLabelProps={{ shrink: true }}
+                            inputProps={{ style: { color: DARK.text, backgroundColor: DARK.card, borderRadius: 6, fontSize: '0.85rem' } }}
+                        />
+                        <FormControl component="fieldset" size="small">
+                            <FormLabel component="legend" sx={{ fontSize: '0.65rem', color: DARK.muted, mb: 0.5 }}>Filter Mode</FormLabel>
+                            <RadioGroup row value={targetMode} onChange={(e) => setTargetMode(e.target.value)}>
+                                {[
+                                    { value: 'all', label: 'All', color: DARK.accent },
+                                    { value: 'regular', label: 'Regular', color: DARK.red },
+                                    { value: 'overtime', label: 'OT Only', color: DARK.violet },
+                                ].map(({ value, label, color }) => (
+                                    <FormControlLabel
+                                        key={value} value={value}
+                                        control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color } }} />}
+                                        label={<Typography variant="caption" sx={{ color: DARK.text, fontWeight: 600 }}>{label}</Typography>}
+                                    />
+                                ))}
+                            </RadioGroup>
+                        </FormControl>
+                        {comparisonData && (
+                            <FormControlLabel
+                                control={<Switch checked={filterSynced} onChange={(e) => setFilterSynced(e.target.checked)} size="small" sx={{ '& .Mui-checked': { color: DARK.red }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: alpha(DARK.red, 0.5) } }} />}
+                                label={<Typography variant="caption" sx={{ color: filterSynced ? DARK.red : DARK.muted, fontWeight: 700 }}>Filter Synced</Typography>}
+                            />
+                        )}
+                    </Box>
                 </Box>
-                <Box sx={{ flexGrow: 1, p: 2, overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.85rem', maxHeight: 400 }}>
-                    {logs.length === 0 && status === 'idle' && <Typography sx={{ color: '#666', textAlign: 'center', mt: 4 }}>Klik "Run" untuk memulai</Typography>}
+
+                {/* Log Console */}
+                <Box sx={{ flexGrow: 1, p: 2, overflowY: 'auto', maxHeight: 380 }}>
+                    {logs.length === 0 && status === 'idle' && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 200, gap: 1 }}>
+                            <RobotIcon sx={{ fontSize: 40, color: alpha(DARK.muted, 0.5) }} />
+                            <Typography sx={{ color: DARK.muted, textAlign: 'center', fontSize: '0.875rem' }}>
+                                Click "Run" to start automation
+                            </Typography>
+                        </Box>
+                    )}
                     {logs.map((log, i) => (
-                        <Box key={i} sx={{ display: 'flex', gap: 1, mb: 0.5 }}>
-                            <span style={{ color: '#666', minWidth: 70 }}>[{log.time}]</span>
-                            <span style={{ color: log.type === 'error' ? '#ff5252' : '#d4d4d4' }}>{log.message}</span>
+                        <Box key={i} sx={{ display: 'flex', gap: 1.5, mb: 0.5, fontFamily: '"Fira Code", "Cascadia Code", monospace', fontSize: '0.82rem' }}>
+                            <Typography component="span" sx={{ color: alpha(DARK.muted, 0.6), minWidth: 70, fontSize: '0.75rem', mt: '1px' }}>
+                                {log.time}
+                            </Typography>
+                            <Typography component="span" sx={{
+                                color: log.type === 'error' ? DARK.red : (log.type === 'debug' ? DARK.muted : DARK.text),
+                                fontFamily: 'inherit',
+                            }}>
+                                {log.message}
+                            </Typography>
                         </Box>
                     ))}
                     <div ref={logEndRef} />
                 </Box>
-            </DialogContent >
-            <DialogActions sx={{ borderTop: '1px solid #333', p: 2 }}>
-                <Button onClick={onClose} disabled={status === 'running'} sx={{ color: '#aaa', mr: 'auto' }}>Close</Button>
+            </DialogContent>
 
+            <DialogActions sx={{ borderTop: `1px solid ${DARK.border}`, p: 2, bgcolor: DARK.surface }}>
+                <Button onClick={onClose} disabled={status === 'running'} sx={{ color: DARK.muted, mr: 'auto' }}>
+                    Close
+                </Button>
                 {status !== 'running' && (
                     <Button
-                        variant="outlined"
-                        color="primary"
+                        variant="outlined" size="small"
                         startIcon={<DownloadIcon />}
                         onClick={handleExportMiss}
                         disabled={!comparisonData || !filterSynced}
-                        sx={{ mr: 1 }}
+                        sx={{ borderColor: DARK.border, color: DARK.text, mr: 1 }}
                     >
-                        Export Miss Only
+                        Export Miss
                     </Button>
                 )}
-
-                {status === 'running' && (
-                    <Button variant="contained" color="error" startIcon={<StopIcon />} onClick={handleStop}>
+                {status === 'running' ? (
+                    <Button variant="contained" size="small" color="error" startIcon={<StopIcon />} onClick={handleStop}>
                         Stop
                     </Button>
-                )}
-                {status !== 'running' && (
-                    <Button variant="contained" color="success" startIcon={status === 'idle' ? <PlayIcon /> : <RefreshIcon />} onClick={handleRun}>
-                        {status === 'idle' ? 'Run' : 'Rerun'}
+                ) : (
+                    <Button
+                        variant="contained" size="small"
+                        startIcon={status === 'idle' ? <PlayIcon /> : <RefreshIcon />}
+                        onClick={handleRun}
+                        sx={{ bgcolor: DARK.green, '&:hover': { bgcolor: '#059669' } }}
+                    >
+                        {status === 'idle' ? 'Run' : 'Re-run'}
                     </Button>
                 )}
             </DialogActions>
-        </Dialog >
+        </Dialog>
     );
 };
 

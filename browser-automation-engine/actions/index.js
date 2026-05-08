@@ -2399,11 +2399,11 @@ const actions = {
         } = params;
 
         // Get values from context if not provided
-        finalPtrjId = ptrjEmployeeID || context.employee?.PTRJEmployeeID || '';
-        finalName = employeeName || context.employee?.EmployeeName || '';
-        finalDate = date || context.attendance?.date || '';
-        finalRegHours = regularHours !== undefined ? regularHours : (context.attendance?.regularHours || 0);
-        finalOTHours = overtimeHours !== undefined ? overtimeHours : (context.attendance?.overtimeHours || 0);
+        const finalPtrjId = ptrjEmployeeID || context.employee?.PTRJEmployeeID || '';
+        const finalName = employeeName || context.employee?.EmployeeName || '';
+        const finalDate = date || context.attendance?.date || '';
+        const finalRegHours = regularHours !== undefined ? regularHours : (context.attendance?.regularHours || 0);
+        const finalOTHours = overtimeHours !== undefined ? overtimeHours : (context.attendance?.overtimeHours || 0);
 
         // Fire-and-forget: Don't await the validation API call
         // This prevents validation from slowing down the automation
@@ -2567,6 +2567,7 @@ const actions = {
      */
     fillAllTaskCodes: async (page, params, context) => {
         console.log(`⚠️ fillAllTaskCodes is disabled - charge job must be input individually due to page refresh`);
+        return true;
     },
 };
 

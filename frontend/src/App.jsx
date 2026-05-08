@@ -470,32 +470,34 @@ const App = () => {
 
             <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
                 <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <Paper elevation={0} sx={{ zIndex: 11, borderBottom: '1px solid #DFE1E6', px: 3, py: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Paper elevation={0} sx={{ zIndex: 11, borderBottom: '1px solid #DFE1E6', px: 2.5, py: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 800 }}>{activeTab.toUpperCase()} VIEW</Typography>
+                            <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 800 }}>{activeTab.toUpperCase()}</Typography>
                             {activeTab === 'matrix' && (
                                 <ToggleButtonGroup value={viewMode} exclusive onChange={(e, v) => v && setViewMode(v)} size="small" sx={{ height: 32 }}>
-                                    <ToggleButton value="attendance">Presence</ToggleButton>
-                                    <ToggleButton value="overtime">Overtime</ToggleButton>
-                                    <ToggleButton value="detail">Detail</ToggleButton>
+                                    <ToggleButton value="attendance" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Presence</ToggleButton>
+                                    <ToggleButton value="overtime" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Overtime</ToggleButton>
+                                    <ToggleButton value="detail" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Detail</ToggleButton>
                                 </ToggleButtonGroup>
                             )}
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             {activeTab === 'matrix' && (
                                 <>
                                     <FormControlLabel
                                         control={<Switch checked={isEditMode} onChange={(e) => setIsEditMode(e.target.checked)} color="warning" size="small" />}
-                                        label={<Typography sx={{ fontWeight: 700, fontSize: '0.75rem' }}>EDIT MODE</Typography>}
+                                        label={<Typography sx={{ fontWeight: 700, fontSize: '0.72rem', color: isEditMode ? '#D97706' : 'text.secondary' }}>EDIT</Typography>}
                                     />
-                                    <Button variant={compareMode !== 'off' ? "contained" : "outlined"} size="small" color={compareMode !== 'off' ? "secondary" : "inherit"} startIcon={isComparing ? <CircularProgress size={14} /> : <CompareIcon />} onClick={handleCompareToggle} disabled={isComparing} sx={{ height: 32, fontWeight: 800 }}>
+                                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                                    <Button variant={compareMode !== 'off' ? "contained" : "outlined"} size="small" color={compareMode !== 'off' ? "secondary" : "inherit"} startIcon={isComparing ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <CompareIcon />} onClick={handleCompareToggle} disabled={isComparing} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
                                         {isComparing ? 'Syncing...' : 'COMPARE'}
                                     </Button>
-                                    <Button variant="contained" size="small" color="success" startIcon={<SyncIcon />} onClick={() => openSyncDialog('all')} disabled={!data || data.length === 0} sx={{ height: 32, fontWeight: 800, bgcolor: '#2E7D32', '&:hover': { bgcolor: '#1B5E20' } }}>
+                                    <Button variant="contained" size="small" color="success" startIcon={<SyncIcon />} onClick={() => openSyncDialog('all')} disabled={!data || data.length === 0} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
                                         Sinkron ({selectedEmployeeIds.length > 0 ? selectedEmployeeIds.length : (data ? data.length : 0)})
                                     </Button>
-                                    <Button variant="contained" size="small" color="primary" startIcon={<FilterListIcon />} onClick={() => setIsSidebarOpen(true)} sx={{ height: 32, fontWeight: 800, ml: 1 }}>
-                                        PARAMETER & KPI
+                                    <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                                    <Button variant="outlined" size="small" startIcon={<FilterListIcon />} onClick={() => setIsSidebarOpen(true)} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
+                                        PARAMETER
                                     </Button>
                                 </>
                             )}
@@ -508,14 +510,43 @@ const App = () => {
                                 <AttendanceSummaryBar data={filteredData} isFiltered={isFilterActive} />
                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, px: 0.5 }}>
                                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                        <Chip size="small" label={`Match Karyawan: ${filteredData.length}`} color="primary" sx={{ fontWeight: 800 }} />
+                                        <Chip
+                                            size="small"
+                                            label={`${filteredData.length} Karyawan`}
+                                            sx={{
+                                                fontWeight: 800, fontSize: '0.75rem',
+                                                bgcolor: '#EFF6FF', color: '#0052CC',
+                                                border: '1px solid #BFDBFE',
+                                                height: 26
+                                            }}
+                                        />
                                         {isFilterActive && (
-                                            <Chip size="small" label="FILTER AKTIF" sx={{ bgcolor: '#7c3aed', color: 'white', fontWeight: 900, px: 1 }} />
+                                            <Chip
+                                                size="small"
+                                                label="FILTER AKTIF"
+                                                sx={{ bgcolor: '#7C3AED', color: '#fff', fontWeight: 900, fontSize: '0.7rem', px: 1, height: 26 }}
+                                            />
                                         )}
                                     </Box>
                                     <Box sx={{ display: 'flex', gap: 1 }}>
-                                        <Button size="small" startIcon={<FileDownloadIcon />} onClick={handleExportExcel}>Excel</Button>
-                                        <Button size="small" startIcon={<FileDownloadIcon />} onClick={handleExportCSV}>CSV</Button>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<FileDownloadIcon />}
+                                            onClick={handleExportExcel}
+                                            sx={{ fontWeight: 700, fontSize: '0.78rem', height: 32, borderColor: '#DFE1E6', color: '#42526E' }}
+                                        >
+                                            Excel
+                                        </Button>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<FileDownloadIcon />}
+                                            onClick={handleExportCSV}
+                                            sx={{ fontWeight: 700, fontSize: '0.78rem', height: 32, borderColor: '#DFE1E6', color: '#42526E' }}
+                                        >
+                                            CSV
+                                        </Button>
                                     </Box>
                                 </Box>
                                 <AttendanceMatrix
@@ -530,18 +561,93 @@ const App = () => {
                         {activeTab === 'report' && (
                             <Box sx={{ height: '100%' }}>
                                 {!reportType ? (
-                                    <Box sx={{ display: 'flex', gap: 4, justifyContent: 'center', mt: 10 }}>
-                                        <Paper sx={{ p: 5, width: 250, textAlign: 'center', cursor: 'pointer' }} onClick={() => setReportType('attendance')}>
-                                            <AssessmentIcon sx={{ fontSize: 48, mb: 2 }} />
-                                            <Typography variant="h6">Report Absensi</Typography>
+                                    <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', mt: 8 }}>
+                                        <Paper
+                                            onClick={() => setReportType('attendance')}
+                                            sx={{
+                                                p: 4, width: 260, textAlign: 'center', cursor: 'pointer',
+                                                border: '2px solid transparent',
+                                                background: 'linear-gradient(135deg, #fff 0%, #f8fafc 100%)',
+                                                transition: 'all 0.25s ease',
+                                                '&:hover': {
+                                                    border: '2px solid #0052CC',
+                                                    transform: 'translateY(-4px)',
+                                                    boxShadow: '0 12px 30px rgba(0,82,204,0.15)',
+                                                },
+                                            }}
+                                        >
+                                            <Box sx={{
+                                                width: 56, height: 56, borderRadius: 3, bgcolor: '#EFF6FF',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                mx: 'auto', mb: 2
+                                            }}>
+                                                <AssessmentIcon sx={{ fontSize: 28, color: '#0052CC' }} />
+                                            </Box>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: '#172B4D' }}>Report Absensi</Typography>
+                                            <Typography variant="body2" sx={{ color: '#5E6C84' }}>
+                                                Ringkasan kehadiran karyawan per stasiun
+                                            </Typography>
+                                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 1 }}>
+                                                <Chip label="Grouped by Station" size="small" variant="outlined" />
+                                            </Box>
                                         </Paper>
-                                        <Paper sx={{ p: 5, width: 250, textAlign: 'center', cursor: 'pointer' }} onClick={() => setReportType('overtime')}>
-                                            <HourglassIcon sx={{ fontSize: 48, mb: 2 }} />
-                                            <Typography variant="h6">Report Lembur</Typography>
+                                        <Paper
+                                            onClick={() => setReportType('overtime')}
+                                            sx={{
+                                                p: 4, width: 260, textAlign: 'center', cursor: 'pointer',
+                                                border: '2px solid transparent',
+                                                background: 'linear-gradient(135deg, #fff 0%, #f8fafc 100%)',
+                                                transition: 'all 0.25s ease',
+                                                '&:hover': {
+                                                    border: '2px solid #7C3AED',
+                                                    transform: 'translateY(-4px)',
+                                                    boxShadow: '0 12px 30px rgba(124,58,237,0.15)',
+                                                },
+                                            }}
+                                        >
+                                            <Box sx={{
+                                                width: 56, height: 56, borderRadius: 3, bgcolor: '#F5F3FF',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                mx: 'auto', mb: 2
+                                            }}>
+                                                <HourglassIcon sx={{ fontSize: 28, color: '#7C3AED' }} />
+                                            </Box>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: '#172B4D' }}>Report Lembur</Typography>
+                                            <Typography variant="body2" sx={{ color: '#5E6C84' }}>
+                                                Detail SPL (Surat Perintah Lembur) per karyawan
+                                            </Typography>
+                                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 1 }}>
+                                                <Chip label="SPL Breakdown" size="small" variant="outlined" />
+                                            </Box>
                                         </Paper>
-                                        <Paper sx={{ p: 5, width: 250, textAlign: 'center', cursor: 'pointer', border: '2px solid #7c3aed' }} onClick={() => setReportType('range_ot')}>
-                                            <FilterListIcon sx={{ fontSize: 48, mb: 2, color: '#7c3aed' }} />
-                                            <Typography variant="h6" sx={{ color: '#7c3aed' }}>Report Range OT</Typography>
+                                        <Paper
+                                            onClick={() => setReportType('range_ot')}
+                                            sx={{
+                                                p: 4, width: 260, textAlign: 'center', cursor: 'pointer',
+                                                border: '2px solid transparent',
+                                                background: 'linear-gradient(135deg, #fff 0%, #f8fafc 100%)',
+                                                transition: 'all 0.25s ease',
+                                                '&:hover': {
+                                                    border: '2px solid #059669',
+                                                    transform: 'translateY(-4px)',
+                                                    boxShadow: '0 12px 30px rgba(5,150,105,0.15)',
+                                                },
+                                            }}
+                                        >
+                                            <Box sx={{
+                                                width: 56, height: 56, borderRadius: 3, bgcolor: '#ECFDF5',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                mx: 'auto', mb: 2
+                                            }}>
+                                                <FilterListIcon sx={{ fontSize: 28, color: '#059669' }} />
+                                            </Box>
+                                            <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: '#172B4D' }}>Report Range OT</Typography>
+                                            <Typography variant="body2" sx={{ color: '#5E6C84' }}>
+                                                Filter kehadiran berdasarkan range jam lembur
+                                            </Typography>
+                                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 1 }}>
+                                                <Chip label="Custom Range" size="small" variant="outlined" sx={{ borderColor: '#059669', color: '#059669' }} />
+                                            </Box>
                                         </Paper>
                                     </Box>
                                 ) : (
@@ -558,19 +664,39 @@ const App = () => {
                     </Box>
                 </Box>
 
-                <Drawer anchor="right" open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} PaperProps={{ sx: { width: DRAWER_WIDTH, p: 3, bgcolor: '#F4F5F7' } }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 800 }}>PARAMETER & KPI</Typography>
-                        <IconButton onClick={() => setIsSidebarOpen(false)}><CloseIcon /></IconButton>
+                <Drawer
+                    anchor="right"
+                    open={isSidebarOpen}
+                    onClose={() => setIsSidebarOpen(false)}
+                    PaperProps={{ sx: { width: DRAWER_WIDTH, bgcolor: '#fff', borderLeft: '1px solid #DFE1E6' } }}
+                >
+                    <Box sx={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        px: 3, py: 2.5, borderBottom: '1px solid #DFE1E6',
+                        bgcolor: 'linear-gradient(135deg, #fff 0%, #f8fafc 100%)',
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{ width: 32, height: 32, borderRadius: 1.5, bgcolor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <FilterListIcon sx={{ fontSize: 18, color: '#0052CC' }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: '0.95rem', lineHeight: 1 }}>Parameter &amp; KPI</Typography>
+                                <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>Filter &amp; Statistik Kehadiran</Typography>
+                            </Box>
+                        </Box>
+                        <IconButton onClick={() => setIsSidebarOpen(false)} size="small" sx={{ bgcolor: '#F4F5F7' }}>
+                            <CloseIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
                     </Box>
-                    <Divider sx={{ mb: 3 }} />
-                    <AttendanceFilterBar
-                        data={filteredData} filter={attendanceFilter} onFilterChange={setAttendanceFilter}
-                        overtimeMin={overtimeMin} overtimeMax={overtimeMax} onOvertimeMinChange={setOvertimeMin} onOvertimeMaxChange={setOvertimeMax}
-                        onReset={() => { setAttendanceFilter('all'); setOvertimeMin(''); setOvertimeMax(''); }}
-                        onExportPdf={handleExportAttendancePDF}
-                        onApplyFilter={() => { setIsSidebarOpen(false); showSnackbar('Parameter diterapkan ke Matrix', 'success'); }}
-                    />
+                    <Box sx={{ p: 3 }}>
+                        <AttendanceFilterBar
+                            data={filteredData} filter={attendanceFilter} onFilterChange={setAttendanceFilter}
+                            overtimeMin={overtimeMin} overtimeMax={overtimeMax} onOvertimeMinChange={setOvertimeMin} onOvertimeMaxChange={setOvertimeMax}
+                            onReset={() => { setAttendanceFilter('all'); setOvertimeMin(''); setOvertimeMax(''); }}
+                            onExportPdf={handleExportAttendancePDF}
+                            onApplyFilter={() => { setIsSidebarOpen(false); showSnackbar('Parameter diterapkan ke Matrix', 'success'); }}
+                        />
+                    </Box>
                 </Drawer>
             </Box>
 

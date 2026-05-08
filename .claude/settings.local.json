@@ -22,7 +22,15 @@
       "Bash(taskkill:*)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Gawean Rebinmas\\\\Autofill Venus Millware\\\\Rollback Venus Rekap Web\\\\venus_autofill_rekap_web\\\\Refactor_web_Rekap_Absen\\\\backend\" -Filter \"*.js\" -Recurse -File -Exclude node_modules,*.min.js)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem \"D:\\\\Gawean Rebinmas\\\\Autofill Venus Millware\\\\Rollback Venus Rekap Web\\\\venus_autofill_rekap_web\\\\Refactor_web_Rekap_Absen\\\\browser-automation-engine\\\\logs\\\\errors\")",
+      "Bash(Select-Object Name, Length, LastWriteTime)",
+      "Bash(Sort-Object LastWriteTime -Descending)",
+      "Bash(Select-Object -First 20)",
+      "Bash(Format-Table -AutoSize)",
+      "PowerShell(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('D:/Gawean Rebinmas/Autofill Venus Millware/Rollback Venus Rekap Web/venus_autofill_rekap_web/Refactor_web_Rekap_Absen/browser-automation-engine/templates/_charge_job_input.json', 'utf8'\\)\\); console.log\\('Valid JSON'\\)\")"
     ]
   }
 }

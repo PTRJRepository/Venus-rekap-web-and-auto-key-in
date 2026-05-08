@@ -2,13 +2,29 @@ import React, { useState } from 'react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions, Button,
     Typography, Box, Table, TableHead, TableRow, TableCell, TableBody,
-    Chip, CircularProgress, Alert, TextField, FormControlLabel, Radio, RadioGroup, FormControl, FormLabel,
-    Tabs, Tab, Paper
+    Chip, CircularProgress, Alert, TextField, FormControlLabel, Radio,
+    RadioGroup, FormControl, FormLabel, Tabs, Tab, Paper, Divider
 } from '@mui/material';
 import CompareIcon from '@mui/icons-material/Compare';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import WarningIcon from '@mui/icons-material/Warning';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
+import { alpha } from '@mui/material/styles';
+
+const DARK = {
+    bg: '#0F172A',
+    surface: '#1E293B',
+    card: '#283548',
+    border: '#334155',
+    text: '#CBD5E1',
+    muted: '#64748B',
+    accent: '#3B82F6',
+    green: '#10B981',
+    red: '#EF4444',
+    amber: '#F59E0B',
+    violet: '#8B5CF6',
+};
 
 const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, onComparisonComplete, inline = false }) => {
     const [loading, setLoading] = useState(false);
@@ -16,7 +32,7 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
     const [error, setError] = useState(null);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [compareMode, setCompareMode] = useState('all'); // 'all', 'regular', 'overtime'
+    const [compareMode, setCompareMode] = useState('all');
     const [tabIndex, setTabIndex] = useState(0);
 
     React.useEffect(() => {
@@ -24,91 +40,45 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
             const lastDay = new Date(year, month, 0).getDate();
             const start = `${year}-${String(month).padStart(2, '0')}-01`;
             const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-            setStartDate(start);
-            setEndDate(end);
+            setStartDate(start); setEndDate(end);
         }
     }, [open, inline, month, year]);
 
     const handleCompare = async () => {
-        if (!startDate || !endDate) {
-            setError('Please select start and end dates');
-            return;
-        }
-
-        setLoading(true);
-        setError(null);
-
+        if (!startDate || !endDate) { setError('Please select start and end dates'); return; }
+        setLoading(true); setError(null);
         try {
             const options = {};
             if (compareMode === 'regular') options.onlyRegular = true;
             if (compareMode === 'overtime') options.onlyOvertime = true;
-
             const response = await fetch('/api/comparison/compare', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    employees: selectedEmployees,
-                    startDate,
-                    endDate,
-                    options
-                })
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ employees: selectedEmployees, startDate, endDate, options })
             });
-
             const data = await response.json();
             if (data.success) {
                 setResults(data);
-                if (onComparisonComplete) {
-                    onComparisonComplete(data, startDate, endDate, options);
-                }
-            } else {
-                setError(data.error || 'Comparison failed');
-            }
-        } catch (e) {
-            setError(`Error: ${e.message}`);
-        } finally {
-            setLoading(false);
-        }
+                if (onComparisonComplete) onComparisonComplete(data, startDate, endDate, options);
+            } else { setError(data.error || 'Comparison failed'); }
+        } catch (e) { setError(`Error: ${e.message}`); }
+        finally { setLoading(false); }
     };
 
     const getSyncIcon = (status) => {
-        switch (status) {
-            case 'synced': return <CheckCircleIcon sx={{ color: '#4caf50', fontSize: 18 }} />;
-            case 'not_synced': return <CancelIcon sx={{ color: '#f44336', fontSize: 18 }} />;
-            case 'mismatch': return <WarningIcon sx={{ color: '#ff9800', fontSize: 18 }} />;
-            default: return null;
-        }
-    };
-
-    const getSyncChip = (status) => {
-        const colors = { synced: 'success', not_synced: 'error', mismatch: 'warning' };
-        const labels = { synced: 'Synced', not_synced: 'Not Synced', mismatch: 'Mismatch' };
-        return <Chip size="small" color={colors[status]} label={labels[status]} icon={getSyncIcon(status)} />;
-    };
-
-    const handleTabChange = (event, newValue) => {
-        setTabIndex(newValue);
+        const icons = { synced: <CheckCircleIcon sx={{ fontSize: 16 }} />, not_synced: <CancelIcon sx={{ fontSize: 16 }} />, mismatch: <WarningIcon sx={{ fontSize: 16 }} /> };
+        const colors = { synced: DARK.green, not_synced: DARK.red, mismatch: DARK.amber };
+        return <Box sx={{ color: colors[status], display: 'flex' }}>{icons[status]}</Box>;
     };
 
     const globalSummary = React.useMemo(() => {
-        if (!results || !results.results) return null;
-        const sum = {
-            totalCuti: 0,
-            totalSakit: 0,
-            totalHadir: 0,
-            totalAlfa: 0,
-            totalJamRegularVenus: 0,
-            totalJamRegularMillware: 0,
-            totalJamLemburVenus: 0,
-            totalJamLemburMillware: 0,
-        };
-
+        if (!results?.results) return null;
+        const sum = { totalCuti: 0, totalSakit: 0, totalHadir: 0, totalAlfa: 0, totalJamRegularVenus: 0, totalJamRegularMillware: 0, totalJamLemburVenus: 0, totalJamLemburMillware: 0 };
         results.results.forEach(row => {
             const status = (row.venusStatus || '').toUpperCase();
             if (status.includes('CT') || status.includes('CUTI') || status === 'I' || status === 'IZIN') sum.totalCuti++;
             else if (status === 'S' || status.includes('SAKIT') || status === 'SD') sum.totalSakit++;
             else if (status === 'A' || status.includes('ALFA')) sum.totalAlfa++;
             else if (status !== 'OFF' && status !== 'LIBUR') sum.totalHadir++;
-
             sum.totalJamRegularVenus += row.venusRegularHours || 0;
             sum.totalJamLemburVenus += row.venusOvertimeHours || 0;
             if (row.details) {
@@ -116,319 +86,242 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
                 sum.totalJamLemburMillware += row.details.millwareOT || 0;
             }
         });
-
         return {
             ...sum,
             totalJamRegularVenus: Number(sum.totalJamRegularVenus.toFixed(2)),
             totalJamLemburVenus: Number(sum.totalJamLemburVenus.toFixed(2)),
             totalJamRegularMillware: Number(sum.totalJamRegularMillware.toFixed(2)),
-            totalJamLemburMillware: Number(sum.totalJamLemburMillware.toFixed(2))
+            totalJamLemburMillware: Number(sum.totalJamLemburMillware.toFixed(2)),
         };
     }, [results]);
 
     const employeeSummary = results ? results.results.reduce((acc, row) => {
-        if (!acc[row.ptrjId]) {
-            acc[row.ptrjId] = {
-                ptrjId: row.ptrjId,
-                employeeName: row.employeeName,
-                synced: 0,
-                mismatch: 0,
-                venusRegularHours: 0,
-                venusOvertimeHours: 0,
-                millwareRegularHours: 0,
-                millwareOvertimeHours: 0,
-            };
-        }
+        if (!acc[row.ptrjId]) acc[row.ptrjId] = { ptrjId: row.ptrjId, employeeName: row.employeeName, synced: 0, mismatch: 0, venusRegularHours: 0, venusOvertimeHours: 0, millwareRegularHours: 0, millwareOvertimeHours: 0 };
         if (row.syncStatus === 'synced') acc[row.ptrjId].synced += 1;
         else acc[row.ptrjId].mismatch += 1;
-
         acc[row.ptrjId].venusRegularHours = Number((acc[row.ptrjId].venusRegularHours + (row.venusRegularHours || 0)).toFixed(2));
         acc[row.ptrjId].venusOvertimeHours = Number((acc[row.ptrjId].venusOvertimeHours + (row.venusOvertimeHours || 0)).toFixed(2));
         if (row.details) {
             acc[row.ptrjId].millwareRegularHours = Number((acc[row.ptrjId].millwareRegularHours + (row.details.millwareNormal || 0)).toFixed(2));
             acc[row.ptrjId].millwareOvertimeHours = Number((acc[row.ptrjId].millwareOvertimeHours + (row.details.millwareOT || 0)).toFixed(2));
         }
-
         return acc;
     }, {}) : {};
 
     const summaryArray = Object.values(employeeSummary);
 
-    const StatCard = ({ title, value, color = '#2196f3', subvalue }) => (
-        <Paper elevation={0} sx={{ p: 1.5, border: '1px solid #333', borderRadius: 2, minWidth: 120, bgcolor: 'rgba(255,255,255,0.02)' }}>
-            <Typography variant="caption" sx={{ color: '#aaa', display: 'block', mb: 0.5 }}>{title}</Typography>
-            <Typography variant="h6" sx={{ color, fontWeight: 'bold', lineHeight: 1 }}>{value}</Typography>
-            {subvalue && <Typography variant="caption" sx={{ color: '#888', display: 'block', mt: 0.5 }}>{subvalue}</Typography>}
+    const StatCard = ({ title, value, color = DARK.accent, subvalue }) => (
+        <Paper elevation={0} sx={{
+            p: 1.5, border: `1px solid ${alpha(color, 0.2)}`, borderRadius: 2,
+            minWidth: 110, bgcolor: alpha(color, 0.05), flex: 1,
+        }}>
+            <Typography variant="caption" sx={{ color: DARK.muted, display: 'block', mb: 0.5, fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {title}
+            </Typography>
+            <Typography variant="body2" sx={{ color, fontWeight: 800, lineHeight: 1.2, fontSize: '0.95rem' }}>{value}</Typography>
+            {subvalue && <Typography variant="caption" sx={{ color: DARK.muted, display: 'block', mt: 0.3, fontSize: '0.68rem' }}>{subvalue}</Typography>}
         </Paper>
     );
 
     const content = (
-        <>
-            <Box sx={{ p: inline ? 0 : 2, display: 'flex', flexDirection: 'column', height: inline ? '100%' : 'auto' }}>
-                {!inline && (
-                    <Box sx={{ borderBottom: '1px solid #333', display: 'flex', alignItems: 'center', gap: 1, pb: 2, mb: 2 }}>
-                        <CompareIcon sx={{ color: '#2196f3' }} />
-                        <Typography component="span" variant="h6" sx={{ flexGrow: 1 }}>Sync Comparison - PR_TASKREGLN</Typography>
+        <Box sx={{ p: inline ? 0 : 2, display: 'flex', flexDirection: 'column', height: inline ? '100%' : 'auto' }}>
+            {!inline && (
+                <Box sx={{ borderBottom: `1px solid ${DARK.border}`, display: 'flex', alignItems: 'center', gap: 1.5, pb: 2, mb: 2 }}>
+                    <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: alpha(DARK.accent, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CompareIcon sx={{ color: DARK.accent, fontSize: 20 }} />
                     </Box>
-                )}
-                {/* Controls */}
-                <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <TextField
-                        type="date"
-                        label="Start Date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        size="small"
-                        sx={{ '& input': { color: 'white' }, '& label': { color: '#888' } }}
-                    />
-                    <TextField
-                        type="date"
-                        label="End Date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        size="small"
-                        sx={{ '& input': { color: 'white' }, '& label': { color: '#888' } }}
-                    />
-
-                    <FormControl sx={{ minWidth: 200 }}>
-                        <FormLabel sx={{ color: '#aaa', fontSize: '0.75rem' }}>Compare Mode</FormLabel>
-                        <RadioGroup
-                            row
-                            value={compareMode}
-                            onChange={(e) => setCompareMode(e.target.value)}
-                            sx={{ '& .MuiRadio-root': { py: 0 } }}
-                        >
-                            <FormControlLabel
-                                value="all"
-                                control={<Radio size="small" sx={{ color: '#aaa' }} />}
-                                label={<Typography sx={{ fontSize: '0.75rem', color: '#ccc' }}>All</Typography>}
-                            />
-                            <FormControlLabel
-                                value="regular"
-                                control={<Radio size="small" sx={{ color: '#aaa' }} />}
-                                label={<Typography sx={{ fontSize: '0.75rem', color: '#ccc' }}>Regular Only</Typography>}
-                            />
-                            <FormControlLabel
-                                value="overtime"
-                                control={<Radio size="small" sx={{ color: '#aaa' }} />}
-                                label={<Typography sx={{ fontSize: '0.75rem', color: '#ccc' }}>Overtime Only</Typography>}
-                            />
-                        </RadioGroup>
-                    </FormControl>
-
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleCompare}
-                        disabled={loading}
-                        startIcon={loading ? <CircularProgress size={16} /> : <CompareIcon />}
-                    >
-                        {loading ? 'Comparing...' : 'Compare'}
-                    </Button>
-                    <Typography variant="body2" sx={{ color: '#888' }}>
-                        {selectedEmployees.length} employees
-                    </Typography>
+                    <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#fff', fontSize: '1rem' }}>Sync Comparison</Typography>
+                        <Typography variant="caption" sx={{ color: DARK.muted }}>PR_TASKREGLN — Venus vs Millware</Typography>
+                    </Box>
                 </Box>
+            )}
 
-                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-                {/* Summary Metrics */}
-                {results && globalSummary && (
-                    <Box sx={{ mb: 3 }}>
-                        <Typography variant="subtitle2" sx={{ color: '#ccc', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <CompareIcon fontSize="small" /> Ringkasan Global ({results.summary.total} records)
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-                            <StatCard title="✅ Synced" value={results.summary.synced} color="#4caf50" />
-                            <StatCard title="❌ Mismatch" value={results.summary.mismatch} color="#f44336" />
-                            <StatCard title="🏃 Hadir" value={`${globalSummary.totalHadir} Hari`} color="#e0e0e0" />
-                            <StatCard title="🏖️ Cuti/Izin" value={`${globalSummary.totalCuti} Hari`} color="#ff9800" />
-                            <StatCard title="🏥 Sakit" value={`${globalSummary.totalSakit} Hari`} color="#2196f3" />
-                            <StatCard title="⏱️ Total Jam Reguler" value={`${globalSummary.totalJamRegularVenus}h`} color="#00bcd4" subvalue={`Millware: ${globalSummary.totalJamRegularMillware}h`} />
-                            <StatCard title="⏳ Total Jam Lembur" value={`${globalSummary.totalJamLemburVenus}h`} color="#9c27b0" subvalue={`Millware: ${globalSummary.totalJamLemburMillware}h`} />
-                        </Box>
-                    </Box>
-                )}
-
-                {/* Tabs for View Selection */}
-                {results && (
-                    <Box sx={{ borderBottom: 1, borderColor: '#333', mb: 2 }}>
-                        <Tabs value={tabIndex} onChange={handleTabChange} textColor="inherit" indicatorColor="primary">
-                            <Tab label="Detail (Per Day)" sx={{ color: tabIndex === 0 ? '#2196f3' : '#aaa' }} />
-                            <Tab label="Summary (Per Name)" sx={{ color: tabIndex === 1 ? '#2196f3' : '#aaa' }} />
-                        </Tabs>
-                    </Box>
-                )}
-
-                {/* Results Table (Detailed) */}
-                {results && tabIndex === 0 && results.results.length > 0 && (
-                    <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Status</TableCell>
-                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>PTRJ ID</TableCell>
-                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Name</TableCell>
-                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Date</TableCell>
-                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Venus Status</TableCell>
-                                    {compareMode === 'overtime' ? (
-                                        <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Venus OT</TableCell>
-                                    ) : (
-                                        <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Venus Regular</TableCell>
-                                    )}
-                                    {compareMode === 'overtime' ? (
-                                        <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Millware OT</TableCell>
-                                    ) : (
-                                        <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Millware Regular</TableCell>
-                                    )}
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {results.results.map((row, idx) => (
-                                    <TableRow key={idx} sx={{
-                                        bgcolor: row.syncStatus === 'synced' ? 'rgba(76,175,80,0.15)' :
-                                            row.syncStatus === 'not_synced' || row.status === 'MISS' ? 'rgba(244,67,54,0.15)' :
-                                                'rgba(255,152,0,0.15)'
-                                    }}>
-                                        <TableCell>{getSyncChip(row.syncStatus)}</TableCell>
-                                        <TableCell sx={{ color: '#e0e0e0', fontFamily: 'monospace' }}>{row.ptrjId}</TableCell>
-                                        <TableCell sx={{ color: '#e0e0e0' }}>{row.employeeName}</TableCell>
-                                        <TableCell sx={{ color: '#e0e0e0' }}>{row.date}</TableCell>
-                                        <TableCell sx={{ color: '#e0e0e0' }}>{row.venusStatus}</TableCell>
-                                        {compareMode === 'overtime' ? (
-                                            <>
-                                                <TableCell sx={{ color: '#e0e0e0', fontWeight: 'bold' }}>{row.venusOvertimeHours}h</TableCell>
-                                                <TableCell sx={{ color: row.details?.otMatched ? '#4caf50' : '#ff9800' }}>
-                                                    {row.details ? `${row.details.millwareOT}h` : '-'}
-                                                    {row.details?.otMatched ? ' ✓' : (
-                                                        row.details ? ` ⚠ (Selisih: ${row.details.millwareOT - row.venusOvertimeHours}h)` : ' ⚠'
-                                                    )}
-                                                </TableCell>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <TableCell sx={{ color: '#e0e0e0', fontWeight: 'bold' }}>{row.venusRegularHours}h</TableCell>
-                                                <TableCell sx={{ color: row.details?.regularMatched ? '#4caf50' : '#ff9800' }}>
-                                                    {row.details ? `${row.details.millwareNormal}h` : '-'}
-                                                    {row.details?.regularMatched ? ' ✓' : ' ⚠'}
-                                                </TableCell>
-                                            </>
-                                        )}
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </Box>
-                )}
-
-                {/* Summary Table (Per Name) */}
-                {results && tabIndex === 1 && summaryArray.length > 0 && (
-                    <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Status</TableCell>
-                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>PTRJ ID</TableCell>
-                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Name</TableCell>
-                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Synced Days</TableCell>
-                                    <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Miss Days</TableCell>
-                                    {(compareMode === 'all' || compareMode === 'regular') && (
-                                        <>
-                                            <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Venus Regular (Total)</TableCell>
-                                            <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Millware Regular (Total)</TableCell>
-                                        </>
-                                    )}
-                                    {(compareMode === 'all' || compareMode === 'overtime') && (
-                                        <>
-                                            <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Venus OT (Total)</TableCell>
-                                            <TableCell sx={{ bgcolor: '#252526', color: '#aaa' }}>Millware OT (Total)</TableCell>
-                                        </>
-                                    )}
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {summaryArray.map((row, idx) => {
-                                    const isPerfectMatch = row.mismatch === 0;
-                                    return (
-                                        <TableRow key={idx} sx={{
-                                            bgcolor: isPerfectMatch ? 'rgba(76,175,80,0.15)' : 'rgba(244,67,54,0.15)'
-                                        }}>
-                                            <TableCell>
-                                                {isPerfectMatch
-                                                    ? <Chip size="small" color="success" label="All Synced" icon={<CheckCircleIcon />} />
-                                                    : <Chip size="small" color="error" label="Has Mismatch" icon={<CancelIcon />} />
-                                                }
-                                            </TableCell>
-                                            <TableCell sx={{ color: '#e0e0e0', fontFamily: 'monospace' }}>{row.ptrjId}</TableCell>
-                                            <TableCell sx={{ color: '#e0e0e0' }}>{row.employeeName}</TableCell>
-                                            <TableCell sx={{ color: '#4caf50', fontWeight: 'bold' }}>{row.synced}</TableCell>
-                                            <TableCell sx={{ color: row.mismatch > 0 ? '#f44336' : '#e0e0e0', fontWeight: row.mismatch > 0 ? 'bold' : 'normal' }}>
-                                                {row.mismatch}
-                                            </TableCell>
-
-                                            {(compareMode === 'all' || compareMode === 'regular') && (
-                                                <>
-                                                    <TableCell sx={{ color: '#e0e0e0' }}>{row.venusRegularHours}h</TableCell>
-                                                    <TableCell sx={{ color: row.venusRegularHours === row.millwareRegularHours ? '#4caf50' : '#ff9800' }}>
-                                                        {row.millwareRegularHours}h
-                                                    </TableCell>
-                                                </>
-                                            )}
-
-                                            {(compareMode === 'all' || compareMode === 'overtime') && (
-                                                <>
-                                                    <TableCell sx={{ color: '#e0e0e0' }}>{row.venusOvertimeHours}h</TableCell>
-                                                    <TableCell sx={{ color: row.venusOvertimeHours === row.millwareOvertimeHours ? '#4caf50' : '#ff9800' }}>
-                                                        {row.millwareOvertimeHours}h
-                                                        {row.venusOvertimeHours !== row.millwareOvertimeHours && (
-                                                            <span style={{ fontSize: '0.7em', marginLeft: 4 }}>
-                                                                (Selisih: {(row.millwareOvertimeHours - row.venusOvertimeHours).toFixed(2)}h)
-                                                            </span>
-                                                        )}
-                                                    </TableCell>
-                                                </>
-                                            )}
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
-                    </Box>
-                )}
-
-                {results && results.results.length === 0 && (
-                    <Typography sx={{ textAlign: 'center', color: '#666', mt: 4 }}>
-                        No records to compare (employees may not have PTRJ IDs mapped)
-                    </Typography>
-                )}
-
-                {!results && !loading && (
-                    <Typography sx={{ textAlign: 'center', color: '#666', mt: 4 }}>
-                        Select date range and click "Compare" to check sync status
-                    </Typography>
-                )}
+            {/* Controls */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <TextField type="date" label="Start Date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                    InputLabelProps={{ shrink: true }} size="small"
+                    inputProps={{ style: { color: DARK.text, backgroundColor: DARK.card, borderRadius: 6, fontSize: '0.85rem' } }}
+                />
+                <TextField type="date" label="End Date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                    InputLabelProps={{ shrink: true }} size="small"
+                    inputProps={{ style: { color: DARK.text, backgroundColor: DARK.card, borderRadius: 6, fontSize: '0.85rem' } }}
+                />
+                <FormControl size="small">
+                    <FormLabel sx={{ color: DARK.muted, fontSize: '0.65rem', mb: 0.5 }}>Compare Mode</FormLabel>
+                    <RadioGroup row value={compareMode} onChange={(e) => setCompareMode(e.target.value)}>
+                        {[['all', 'All', DARK.accent], ['regular', 'Regular', DARK.green], ['overtime', 'OT Only', DARK.violet]].map(([v, l, c]) => (
+                            <FormControlLabel key={v} value={v}
+                                control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: c } }} />}
+                                label={<Typography sx={{ fontSize: '0.78rem', color: DARK.text, fontWeight: 600 }}>{l}</Typography>}
+                            />
+                        ))}
+                    </RadioGroup>
+                </FormControl>
+                <Button variant="contained" onClick={handleCompare} disabled={loading} startIcon={loading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <CompareIcon />}
+                    sx={{ bgcolor: DARK.accent, '&:hover': { bgcolor: '#2563EB' }, height: 36 }}>
+                    {loading ? 'Comparing...' : 'Compare'}
+                </Button>
+                <Chip label={`${selectedEmployees.length} employees`} size="small" sx={{ bgcolor: alpha(DARK.muted, 0.15), color: DARK.muted, fontWeight: 700 }} />
             </Box>
-        </>
+
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+            {/* Summary Metrics */}
+            {results && globalSummary && (
+                <Box sx={{ mb: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                        <FilterAltIcon sx={{ fontSize: 15, color: DARK.accent }} />
+                        <Typography variant="caption" sx={{ color: DARK.muted, fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            Summary ({results.summary.total} records)
+                        </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <StatCard title="Synced" value={results.summary.synced} color={DARK.green} />
+                        <StatCard title="Mismatch" value={results.summary.mismatch} color={DARK.red} />
+                        <StatCard title="Hadir" value={`${globalSummary.totalHadir} Hari`} color={DARK.text} />
+                        <StatCard title="Cuti/Izin" value={`${globalSummary.totalCuti} Hari`} color={DARK.amber} />
+                        <StatCard title="Sakit" value={`${globalSummary.totalSakit} Hari`} color={DARK.accent} />
+                        <StatCard title="Jam Reguler" value={`${globalSummary.totalJamRegularVenus}h`} color={DARK.violet} subvalue={`MW: ${globalSummary.totalJamRegularMillware}h`} />
+                        <StatCard title="Jam Lembur" value={`${globalSummary.totalJamLemburVenus}h`} color={DARK.amber} subvalue={`MW: ${globalSummary.totalJamLemburMillware}h`} />
+                    </Box>
+                </Box>
+            )}
+
+            {/* Tabs */}
+            {results && (
+                <Box sx={{ borderBottom: `1px solid ${DARK.border}`, mb: 2 }}>
+                    <Tabs value={tabIndex} onChange={(e, v) => setTabIndex(v)} textColor="inherit" indicatorColor="primary">
+                        <Tab label={<Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: tabIndex === 0 ? DARK.accent : DARK.muted }}>Per Day</Typography>} />
+                        <Tab label={<Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: tabIndex === 1 ? DARK.accent : DARK.muted }}>Per Employee</Typography>} />
+                    </Tabs>
+                </Box>
+            )}
+
+            {/* Per Day Table */}
+            {results && tabIndex === 0 && results.results.length > 0 && (
+                <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+                    <Table size="small" stickyHeader>
+                        <TableHead>
+                            <TableRow>
+                                {['Status', 'PTRJ ID', 'Name', 'Date', 'Venus Status', 'Venus Hours', 'Millware Hours'].map(h => (
+                                    <TableCell key={h} sx={{ bgcolor: DARK.surface, color: DARK.muted, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 }}>{h}</TableCell>
+                                ))}
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {results.results.map((row, idx) => (
+                                <TableRow key={idx} sx={{ bgcolor: row.syncStatus === 'synced' ? alpha(DARK.green, 0.08) : (row.syncStatus === 'not_synced' || row.status === 'MISS' ? alpha(DARK.red, 0.08) : alpha(DARK.amber, 0.08)) }}>
+                                    <TableCell sx={{ py: 1 }}>{getSyncIcon(row.syncStatus)}</TableCell>
+                                    <TableCell sx={{ color: DARK.text, fontFamily: 'monospace', fontSize: '0.82rem', py: 1 }}>{row.ptrjId}</TableCell>
+                                    <TableCell sx={{ color: DARK.text, fontSize: '0.82rem', py: 1 }}>{row.employeeName}</TableCell>
+                                    <TableCell sx={{ color: DARK.muted, fontSize: '0.82rem', py: 1 }}>{row.date}</TableCell>
+                                    <TableCell sx={{ color: DARK.text, fontSize: '0.82rem', py: 1 }}>{row.venusStatus}</TableCell>
+                                    {compareMode === 'overtime' ? (
+                                        <>
+                                            <TableCell sx={{ color: DARK.text, fontWeight: 700, py: 1 }}>{row.venusOvertimeHours}h</TableCell>
+                                            <TableCell sx={{ color: row.details?.otMatched ? DARK.green : DARK.amber, py: 1 }}>
+                                                {row.details ? `${row.details.millwareOT}h` : '-'}
+                                                {row.details?.otMatched ? '' : ` (${row.details?.millwareOT - row.venusOvertimeHours}h)`}
+                                            </TableCell>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <TableCell sx={{ color: DARK.text, fontWeight: 700, py: 1 }}>{row.venusRegularHours}h</TableCell>
+                                            <TableCell sx={{ color: row.details?.regularMatched ? DARK.green : DARK.amber, py: 1 }}>
+                                                {row.details ? `${row.details.millwareNormal}h` : '-'}
+                                                {row.details?.regularMatched ? '' : ' ⚠'}
+                                            </TableCell>
+                                        </>
+                                    )}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </Box>
+            )}
+
+            {/* Per Employee Table */}
+            {results && tabIndex === 1 && summaryArray.length > 0 && (
+                <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+                    <Table size="small" stickyHeader>
+                        <TableHead>
+                            <TableRow>
+                                {['Status', 'PTRJ ID', 'Name', 'Synced', 'Miss', 'Venus Reg', 'MW Reg', 'Venus OT', 'MW OT'].map(h => (
+                                    <TableCell key={h} sx={{ bgcolor: DARK.surface, color: DARK.muted, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 }}>{h}</TableCell>
+                                ))}
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {summaryArray.map((row, idx) => {
+                                const isPerfectMatch = row.mismatch === 0;
+                                return (
+                                    <TableRow key={idx} sx={{ bgcolor: isPerfectMatch ? alpha(DARK.green, 0.08) : alpha(DARK.red, 0.08) }}>
+                                        <TableCell sx={{ py: 1 }}>
+                                            <Chip size="small" label={isPerfectMatch ? 'Synced' : 'Mismatch'}
+                                                sx={{ bgcolor: isPerfectMatch ? alpha(DARK.green, 0.15) : alpha(DARK.red, 0.15), color: isPerfectMatch ? DARK.green : DARK.red, fontWeight: 700, fontSize: '0.7rem', height: 22 }}
+                                            />
+                                        </TableCell>
+                                        <TableCell sx={{ color: DARK.text, fontFamily: 'monospace', fontSize: '0.82rem', py: 1 }}>{row.ptrjId}</TableCell>
+                                        <TableCell sx={{ color: DARK.text, fontSize: '0.82rem', py: 1 }}>{row.employeeName}</TableCell>
+                                        <TableCell sx={{ color: DARK.green, fontWeight: 700, py: 1 }}>{row.synced}</TableCell>
+                                        <TableCell sx={{ color: row.mismatch > 0 ? DARK.red : DARK.text, fontWeight: row.mismatch > 0 ? 700 : 400, py: 1 }}>{row.mismatch}</TableCell>
+                                        {(compareMode === 'all' || compareMode === 'regular') && [
+                                            <TableCell key="vr" sx={{ color: DARK.text, py: 1 }}>{row.venusRegularHours}h</TableCell>,
+                                            <TableCell key="mr" sx={{ color: row.venusRegularHours === row.millwareRegularHours ? DARK.green : DARK.amber, py: 1 }}>{row.millwareRegularHours}h</TableCell>,
+                                        ]}
+                                        {(compareMode === 'all' || compareMode === 'overtime') && [
+                                            <TableCell key="vo" sx={{ color: DARK.text, py: 1 }}>{row.venusOvertimeHours}h</TableCell>,
+                                            <TableCell key="mo" sx={{ color: row.venusOvertimeHours === row.millwareOvertimeHours ? DARK.green : DARK.amber, py: 1 }}>
+                                                {row.millwareOvertimeHours}h
+                                                {row.venusOvertimeHours !== row.millwareOvertimeHours && (
+                                                    <Typography component="span" sx={{ fontSize: '0.7em', ml: 0.5, color: DARK.amber }}>
+                                                        ({(row.millwareOvertimeHours - row.venusOvertimeHours).toFixed(2)}h)
+                                                    </Typography>
+                                                )}
+                                            </TableCell>,
+                                        ]}
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </Box>
+            )}
+
+            {results && results.results.length === 0 && (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <CompareIcon sx={{ fontSize: 48, color: alpha(DARK.muted, 0.3), mb: 2 }} />
+                    <Typography sx={{ color: DARK.muted }}>No records to compare</Typography>
+                </Box>
+            )}
+            {!results && !loading && (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <CompareIcon sx={{ fontSize: 48, color: alpha(DARK.muted, 0.3), mb: 2 }} />
+                    <Typography sx={{ color: DARK.muted }}>Select date range and click "Compare"</Typography>
+                </Box>
+            )}
+        </Box>
     );
 
     if (inline) {
-        return (
-            <Paper elevation={0} sx={{ height: '100%', bgcolor: '#ffffff', color: '#1e1e1e', overflowY: 'auto', p: 2 }}>
-                {content}
-            </Paper>
-        );
+        return <Paper elevation={0} sx={{ height: '100%', bgcolor: '#ffffff', overflowY: 'auto', p: 2 }}>{content}</Paper>;
     }
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth
-            PaperProps={{ sx: { minHeight: '70vh', bgcolor: '#1e1e1e', color: '#e0e0e0' } }}>
-            <DialogContent sx={{ p: 0 }}>
-                {content}
-            </DialogContent>
-            <DialogActions sx={{ borderTop: '1px solid #333', p: 2 }}>
-                <Button onClick={onClose} sx={{ color: '#aaa' }}>Close</Button>
+        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth PaperProps={{ sx: { minHeight: '70vh', bgcolor: DARK.bg, color: DARK.text, border: `1px solid ${DARK.border}`, borderRadius: 3 } }}>
+            <DialogTitle sx={{ borderBottom: `1px solid ${DARK.border}`, display: 'flex', alignItems: 'center', gap: 1.5, py: 2 }}>
+                <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: alpha(DARK.accent, 0.15), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <CompareIcon sx={{ color: DARK.accent, fontSize: 20 }} />
+                </Box>
+                <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#fff', fontSize: '1rem' }}>Sync Comparison</Typography>
+                    <Typography variant="caption" sx={{ color: DARK.muted }}>PR_TASKREGLN — Venus vs Millware</Typography>
+                </Box>
+            </DialogTitle>
+            <DialogContent sx={{ p: 0 }}>{content}</DialogContent>
+            <DialogActions sx={{ borderTop: `1px solid ${DARK.border}`, p: 2, bgcolor: DARK.surface }}>
+                <Button onClick={onClose} sx={{ color: DARK.muted }}>Close</Button>
             </DialogActions>
         </Dialog>
     );
