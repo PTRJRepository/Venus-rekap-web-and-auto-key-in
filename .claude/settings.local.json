@@ -47,7 +47,8 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\nbgmf\" -Directory -ErrorAction SilentlyContinue)",
       "Bash(Select-Object -ExpandProperty Name)",
       "Bash(Out-String)",
-      "Bash(npx playwright *)"
+      "Bash(npx playwright *)",
+      "Bash(Get-ChildItem *)"
     ]
   }
 }

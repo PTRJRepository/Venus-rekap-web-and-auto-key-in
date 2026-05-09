@@ -66,6 +66,8 @@
                             "validationSelector": "#MainContent_MultiDimAcc_reqValSubBlk",
                             "maxRetries": 1,
                             "expectedFieldCount": "${expectedFieldCount}",
+                            "fallbackValue": "LABOUR COST",
+                            "fallbackSearchValue": "LABOUR",
                             "forceInput": true,
                             "checkIfAlreadyFilled": false
                         }

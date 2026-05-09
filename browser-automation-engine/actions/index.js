@@ -348,6 +348,58 @@ const setInputValueByDom = async (page, selector, index = 0, value, options = {}
     }));
 };
 
+const readInputValueByDom = async (page, selector, index = 0) => {
+    return safeEvaluate(page, ({ selector, index }) => {
+        const isVisible = (el) => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none'
+                && style.visibility !== 'hidden'
+                && el.offsetParent !== null
+                && !el.disabled;
+        };
+        const elements = Array.from(document.querySelectorAll(selector)).filter(isVisible);
+        const el = elements[index] || elements[0];
+        if (!el) {
+            return { exists: false, value: '', reason: `element not found (${selector}[${index}])`, count: elements.length };
+        }
+        return {
+            exists: true,
+            id: el.id || '',
+            name: el.name || '',
+            value: el.value || ''
+        };
+    }, { selector, index: index || 0 }).catch((error) => ({
+        exists: false,
+        value: '',
+        reason: error.message
+    }));
+};
+
+const normalizeDateComparable = (value) => {
+    const text = String(value ?? '').trim();
+    let match = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    if (match) {
+        const [, day, month, year] = match;
+        return `${year}-${String(Number(month)).padStart(2, '0')}-${String(Number(day)).padStart(2, '0')}`;
+    }
+
+    match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (match) {
+        const [, year, month, day] = match;
+        return `${year}-${String(Number(month)).padStart(2, '0')}-${String(Number(day)).padStart(2, '0')}`;
+    }
+
+    return '';
+};
+
+const inputValuesEquivalent = (actual, expected) => {
+    const actualDate = normalizeDateComparable(actual);
+    const expectedDate = normalizeDateComparable(expected);
+    if (actualDate && expectedDate) return actualDate === expectedDate;
+    return domValuesMatch(actual, expected);
+};
+
 const clickElementByDom = async (page, selector, index = 0) => {
     const result = await safeEvaluate(page, ({ selector, index }) => {
         const isVisible = (el) => {
@@ -1902,6 +1954,25 @@ const actions = {
                 throw error;
             }
             const noPostback = params.noPostback === true;
+            if (params.skipIfSame === true) {
+                const currentInput = await readInputValueByDom(page, params.selector, index);
+                if (currentInput.exists && String(currentInput.value || '').trim() && inputValuesEquivalent(currentInput.value, params.value)) {
+                    console.log(`  ↷ Skip input: ${params.selector} already equals "${params.value}" (current="${currentInput.value}")`);
+                    context.__lastInputTarget = { selector: params.selector, index };
+                    registerDomValuePair(context, {
+                        kind: 'input',
+                        selector: params.selector,
+                        index,
+                        value: params.value,
+                        actualValue: currentInput.value,
+                        label: params.label || params.selector,
+                        restoreBeforeAdd: params.restoreBeforeAdd === true || params.selector === '#MainContent_txtHours' || params.selector === '#MainContent_txtAmount',
+                        requiredBeforeAdd: params.requiredBeforeAdd !== false,
+                        noPostback
+                    });
+                    return;
+                }
+            }
             const result = await setInputValueByDom(page, params.selector, index, params.value, {
                 blur: noPostback ? false : params.blur !== false,
                 dispatchChange: noPostback ? false : params.dispatchChange !== false,

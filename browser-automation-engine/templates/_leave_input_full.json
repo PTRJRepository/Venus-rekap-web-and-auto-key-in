@@ -43,7 +43,9 @@
             "action": "typeInput",
             "params": {
                 "selector": "#MainContent_txtDocDate",
-                "value": "${formattedDateLeave}"
+                "value": "${formattedDateLeave}",
+                "label": "Document Date",
+                "skipIfSame": true
             }
         },
         {
@@ -57,7 +59,9 @@
             "action": "typeInput",
             "params": {
                 "selector": "#MainContent_txtTrxDate",
-                "value": "${formattedDateLeave}"
+                "value": "${formattedDateLeave}",
+                "label": "Transaction Date",
+                "skipIfSame": true
             }
         },
         {

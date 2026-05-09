@@ -104,7 +104,9 @@
             "action": "typeInput",
             "params": {
                 "selector": "#MainContent_txtDocDate",
-                "value": "${formattedDate}"
+                "value": "${formattedDate}",
+                "label": "Document Date",
+                "skipIfSame": true
             }
         },
         {
@@ -118,7 +120,9 @@
             "action": "typeInput",
             "params": {
                 "selector": "#MainContent_txtTrxDate",
-                "value": "${formattedDate}"
+                "value": "${formattedDate}",
+                "label": "Transaction Date",
+                "skipIfSame": true
             }
         },
         {
