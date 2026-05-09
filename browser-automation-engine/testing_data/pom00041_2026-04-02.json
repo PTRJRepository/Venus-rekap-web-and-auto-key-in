@@ -1,0 +1,59 @@
+{
+  "metadata": {
+    "export_date": "2026-05-09T00:00:00.000Z",
+    "period_start": "2026-04-02",
+    "period_end": "2026-04-02",
+    "total_employees": 1,
+    "source": "codex_live_test",
+    "onlyOvertime": false,
+    "syncMismatchesOnly": true,
+    "syncRegularOnly": false
+  },
+  "data": [
+    {
+      "EmployeeID": "PTRJ.241000002",
+      "EmployeeName": "Adi Apriadi",
+      "PTRJEmployeeID": "POM00041",
+      "ChargeJob": "(PROSES 2) / (OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "Attendance": {
+        "2026-04-02": {
+          "date": "2026-04-02",
+          "dayName": "Kam",
+          "status": "Hadir",
+          "display": "✓ +4.0h",
+          "class": "hours-normal-overtime",
+          "checkIn": "07:27",
+          "checkOut": "19:00",
+          "regularHours": 7,
+          "overtimeHours": 4,
+          "isHoliday": false,
+          "holidayName": null,
+          "isSunday": false,
+          "isAnnualLeave": false,
+          "isSickLeave": false,
+          "leaveTaskCode": null,
+          "leaveDescription": null,
+          "useNormalChargeJob": true,
+          "calculatedLeaveHours": 7,
+          "syncStatus": "MISS",
+          "syncDetail": "mismatch",
+          "millwareInfo": {
+            "millwareHours": 0,
+            "millwareNormal": 0,
+            "millwareOT": 0,
+            "venusHours": 11,
+            "venusNormal": 7,
+            "venusOT": 4,
+            "records": 0,
+            "regularMatched": false,
+            "otMatched": false,
+            "hasRegularRecord": false,
+            "hasOTRecord": false
+          },
+          "skipRegular": false,
+          "skipOvertime": false
+        }
+      }
+    }
+  ]
+}

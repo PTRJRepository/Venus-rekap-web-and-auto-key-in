@@ -826,7 +826,7 @@ app.get('/api/comparison/summary', async (req, res) => {
 // --- Automation Routes ---
 
 app.post('/api/automation/run', async (req, res) => {
-    const { employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly } = req.body;
+    const { employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly, syncRegularOnly } = req.body;
     if (!employees || !Array.isArray(employees)) {
         return res.status(400).json({ error: 'Invalid data format. Expected { employees: [] }' });
     }
@@ -835,10 +835,11 @@ app.post('/api/automation/run', async (req, res) => {
         console.log(`[Automation] Request to run for ${employees.length} employees (${month}/${year})`);
         if (startDate && endDate) console.log(`[Automation] Date Filter: ${startDate} to ${endDate}`);
         if (onlyOvertime) console.log(`[Automation] Mode: ONLY OVERTIME`);
+        if (syncRegularOnly) console.log(`[Automation] Mode: REGULAR ONLY`);
         if (syncMismatchesOnly) console.log(`[Automation] Mode: SYNC MISMATCHES ONLY`);
 
         // Save data to current_data.json (fixed filename)
-        await saveAutomationData({ employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly });
+        await saveAutomationData({ employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly, syncRegularOnly });
         console.log(`[Automation] Data saved to current_data.json`);
 
         // Start process (uses current_data.json automatically)
@@ -868,25 +869,78 @@ app.post('/api/automation/run', async (req, res) => {
         sendChunk('status', 'starting');
         sendChunk('info', `Process started with ${employees.length} employees`);
 
-        child.stdout.on('data', (data) => {
-            data.toString().split('\n').forEach(line => {
-                if (line.trim()) {
+        const parseRunnerLine = (line) => {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null;
+            try {
+                const parsed = JSON.parse(trimmed);
+                return parsed && parsed.event ? parsed : null;
+            } catch (_) {
+                return null;
+            }
+        };
+
+        const eventMessages = {
+            'run.started': (event) => `Runner started: ${event.employee_count} employee(s), ${event.actual_tabs} tab(s), stagger ${event.stagger_delay_ms}ms`,
+            'session.login.done': () => 'Fresh login completed, session saved',
+            'session.reused': () => 'Session restored from disk',
+            'tab.assigned': (event) => `Tab ${event.tab_index + 1}: ${event.employee_count} employee(s) assigned (${event.first_emp_id} → ${event.last_emp_id})`,
+            'tab.triggered': (event) => `Tab ${event.tab_index + 1} triggered`,
+            'tab.started': (event) => `Tab ${event.tab_index + 1} started`,
+            'tab.submit.started': (event) => `Tab ${event.tab_index + 1}: saving ${event.added_rows} added row(s)`,
+            'tab.submit.completed': (event) => `Tab ${event.tab_index + 1}: Save confirmed (${event.status})`,
+            'tab.completed': (event) => `Tab ${event.tab_index + 1}: ${event.status}`,
+            'run.completed': (event) => `Run completed: ${event.total_processed} employee(s) processed`
+        };
+
+        let stdoutBuffer = '';
+        let stderrBuffer = '';
+
+        const handleStdoutLine = (line) => {
+            if (line.trim()) {
+                const runnerEvent = parseRunnerLine(line);
+                if (runnerEvent) {
+                    console.log(`[AutoEngine Event] ${runnerEvent.event}`);
+                    sendChunk('event', runnerEvent);
+                    const message = eventMessages[runnerEvent.event]?.(runnerEvent);
+                    if (message) sendChunk('info', message);
+                } else {
                     console.log(`[AutoEngine] ${line.trim()}`);
                     sendChunk('log', line.trim());
                 }
-            });
+            }
+        };
+
+        const handleStderrLine = (line) => {
+            if (line.trim()) {
+                console.error(`[AutoEngine Err] ${line.trim()}`);
+                sendChunk('error', line.trim());
+            }
+        };
+
+        child.stdout.on('data', (data) => {
+            stdoutBuffer += data.toString();
+            const lines = stdoutBuffer.split(/\r?\n/);
+            stdoutBuffer = lines.pop() || '';
+            lines.forEach(handleStdoutLine);
         });
 
         child.stderr.on('data', (data) => {
-            data.toString().split('\n').forEach(line => {
-                if (line.trim()) {
-                    console.error(`[AutoEngine Err] ${line.trim()}`);
-                    sendChunk('error', line.trim());
-                }
-            });
+            stderrBuffer += data.toString();
+            const lines = stderrBuffer.split(/\r?\n/);
+            stderrBuffer = lines.pop() || '';
+            lines.forEach(handleStderrLine);
         });
 
         child.on('close', (code) => {
+            if (stdoutBuffer.trim()) {
+                handleStdoutLine(stdoutBuffer);
+                stdoutBuffer = '';
+            }
+            if (stderrBuffer.trim()) {
+                handleStderrLine(stderrBuffer);
+                stderrBuffer = '';
+            }
             console.log(`[Automation] Process exited with code ${code}`);
             sendChunk('status', code === 0 ? 'completed' : 'failed');
             sendChunk('done', { code });
@@ -921,6 +975,7 @@ app.post('/api/automation/stop', (req, res) => {
 const { triggerPayrollAutomation } = require('./services/payrollAutomationService');
 const { startPayrollAutomationProcess, stopPayrollAutomationProcess } = require('./services/automationService');
 const wagesService = require('./services/wagesService');
+const playwrightAutomationService = require('./services/playwrightAutomationService');
 
 app.post('/api/payroll/automation/run', async (req, res) => {
     const { month, year } = req.body;
@@ -1016,6 +1071,115 @@ app.post('/api/payroll/automation/stop', (req, res) => {
         res.json({ success: true, stopped });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Playwright Automation Routes ---
+
+// Run attendance automation with Playwright
+app.post('/api/automation/playwright/attendance', (req, res) => {
+    try {
+        const { employees, data, headless } = req.body;
+
+        if (!employees || !Array.isArray(employees) || employees.length === 0) {
+            return res.status(400).json({ success: false, error: 'Employees array is required' });
+        }
+
+        if (!data || !data.month || !data.year) {
+            return res.status(400).json({ success: false, error: 'data.month and data.year are required' });
+        }
+
+        console.log(`[Playwright Attendance API] Running for ${employees.length} employees (${data.month}/${data.year})`);
+
+        const result = playwrightAutomationService.runAttendance({
+            employees,
+            data,
+            headless,
+        });
+
+        res.json({
+            success: true,
+            payloadId: result.payloadId,
+            status: result.status,
+            employeeCount: result.employeeCount,
+        });
+    } catch (error) {
+        console.error('[Playwright Attendance API] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Run payroll automation with Playwright
+app.post('/api/automation/playwright/payroll', (req, res) => {
+    try {
+        const { employees, data, headless } = req.body;
+
+        if (!data || !data.components || !Array.isArray(data.components)) {
+            return res.status(400).json({ success: false, error: 'data.components array is required' });
+        }
+
+        if (data.components.length === 0) {
+            return res.status(400).json({ success: false, error: 'data.components cannot be empty' });
+        }
+
+        console.log(`[Playwright Payroll API] Running for ${data.components.length} components`);
+
+        const result = playwrightAutomationService.runPayroll({
+            employees,
+            data,
+            headless,
+        });
+
+        res.json({
+            success: true,
+            payloadId: result.payloadId,
+            status: result.status,
+            componentCount: data.components.length,
+        });
+    } catch (error) {
+        console.error('[Playwright Payroll API] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get Playwright automation status
+app.get('/api/automation/playwright/status/:payloadId', (req, res) => {
+    try {
+        const { payloadId } = req.params;
+        const status = playwrightAutomationService.getStatus(payloadId);
+
+        if (status.status === 'not_found') {
+            return res.status(404).json({ success: false, error: 'Automation not found' });
+        }
+
+        res.json({ success: true, ...status });
+    } catch (error) {
+        console.error('[Playwright Status API] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Stop Playwright automation
+app.post('/api/automation/playwright/stop/:payloadId', (req, res) => {
+    try {
+        const { payloadId } = req.params;
+        const stopped = playwrightAutomationService.stop(payloadId);
+
+        res.json({ success: true, stopped });
+    } catch (error) {
+        console.error('[Playwright Stop API] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// List all active Playwright automations
+app.get('/api/automation/playwright/list', (req, res) => {
+    try {
+        const list = playwrightAutomationService.listActive();
+        res.json({ success: true, count: list.length, automations: list });
+    } catch (error) {
+        console.error('[Playwright List API] Error:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

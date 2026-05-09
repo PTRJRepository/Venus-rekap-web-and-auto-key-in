@@ -166,9 +166,11 @@
                                 },
                                 {
                                     "comment": "═══ CLICK ADD BUTTON ═══",
-                                    "action": "click",
+                                    "action": "clickAndWaitForReload",
                                     "params": {
-                                        "selector": "#MainContent_btnAdd"
+                                        "selector": "#MainContent_btnAdd",
+                                        "timeout": 15000,
+                                        "maxAttempts": 3
                                     }
                                 },
                                 {
@@ -214,9 +216,11 @@
                                                 }
                                             },
                                             {
-                                                "action": "click",
+                                                "action": "clickAndWaitForReload",
                                                 "params": {
-                                                    "selector": "#MainContent_btnAdd"
+                                                    "selector": "#MainContent_btnAdd",
+                                                    "timeout": 15000,
+                                                    "maxAttempts": 3
                                                 }
                                             },
                                             {

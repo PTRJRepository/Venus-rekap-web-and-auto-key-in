@@ -4,6 +4,7 @@ const path = require('path');
 const actions = require('./actions');
 const { captureErrorScreenshot } = require('./utils/selectors');
 const RecoveryManager = require('./utils/recovery');
+const { MILLWARE_CONFIG } = require('./browser-session');
 
 class AutomationEngine {
     constructor(options = {}) {
@@ -19,6 +20,7 @@ class AutomationEngine {
         this.heartbeatInterval = null;
         this.browserDisconnected = false; // Track disconnect state
         this.lastDisconnectReason = null; // Track why disconnect occurred
+        this.session = options.session || null;
     }
 
     /**
@@ -71,7 +73,12 @@ class AutomationEngine {
                     // More aggressive keepalive - juga cek apakah page focused
                     await this.page.evaluate(() => {
                         // Keep page alive even when not focused
-                        document.hasFocus();
+                        Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
+                        Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true });
+                        Object.defineProperty(document, 'hasFocus', { value: () => true, configurable: true });
+                        if (typeof Document !== 'undefined' && Document.prototype) {
+                            Object.defineProperty(Document.prototype, 'hasFocus', { value: () => true, configurable: true });
+                        }
                         Date.now();
                     });
                 } catch (e) {
@@ -129,6 +136,27 @@ class AutomationEngine {
             return true;
         } catch (error) {
             console.log(`❌ [${this.engineId}] Reconnection failed: ${error.message}`);
+            return false;
+        }
+    }
+
+    async recoverMillwareSession(reason = 'unknown') {
+        if (!this.session || !this.page) {
+            return false;
+        }
+
+        const targetUrl = MILLWARE_CONFIG.baseUrl.replace(/\/$/, '') + MILLWARE_CONFIG.taskRegisterPage;
+        console.log(`🔐 [${this.engineId}] Recovering Millware session (${reason})...`);
+
+        try {
+            await this.session.recoverPageSession(this.page, targetUrl);
+            await this.page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 20000 });
+            this.browserDisconnected = false;
+            this.lastDisconnectReason = null;
+            console.log(`✅ [${this.engineId}] Millware session recovered`);
+            return true;
+        } catch (error) {
+            console.error(`❌ [${this.engineId}] Millware session recovery failed: ${error.message}`);
             return false;
         }
     }
@@ -312,8 +340,13 @@ class AutomationEngine {
         // ═══ PREVENT FOCUS/VISIBILITY THROTTLING ═══
         // Inject script to override visibility state so the page always thinks it is active
         await this.page.evaluateOnNewDocument(() => {
-            Object.defineProperty(document, 'hidden', { get: () => false });
-            Object.defineProperty(document, 'visibilityState', { get: () => 'visible' });
+            Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
+            Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true });
+            Object.defineProperty(document, 'hasFocus', { value: () => true, configurable: true });
+            if (typeof Document !== 'undefined' && Document.prototype) {
+                Object.defineProperty(Document.prototype, 'hasFocus', { value: () => true, configurable: true });
+            }
+            window.focus = () => true;
 
             // Override RequestAnimationFrame to use standard setTimeout if throttled
             let lastTime = 0;
@@ -542,10 +575,15 @@ class AutomationEngine {
             if (this.page && criticalActions.includes(step.action)) {
                 const isAlive = await this.isConnectionAlive();
                 if (!isAlive) {
+                    const recovered = await this.recoverMillwareSession(`before ${step.action}`);
+                    if (recovered) {
+                        console.log(`${prefix}✅ Session recovered before step ${i + 1} (${step.action}), continuing.`);
+                    } else {
                     const errorMsg = `Browser connection lost before step ${i + 1} (${step.action})`;
                     console.error(`${prefix}❌ ${errorMsg}`);
                     console.error(`${prefix}   Last disconnect reason: ${this.lastDisconnectReason || 'unknown'}`);
                     throw new Error(errorMsg);
+                }
                 }
             }
             // ═══ END CONNECTION CHECK ═══
@@ -555,13 +593,16 @@ class AutomationEngine {
             if (this.page) {
                 const currentUrl = this.page.url();
                 if (currentUrl.includes('ACCESS_CONTROLLER_ERR') ||
-                    currentUrl.includes('frmErrorMessage.aspx')) {
+                    currentUrl.includes('frmErrorMessage.aspx') ||
+                    currentUrl.includes('chrome-error://chromewebdata')) {
 
-                    const errorMsg = '🛑 SESSION EXPIRED / DATABASE ERROR detected! Triggering auto-restart to re-login.';
+                    const errorMsg = '🛑 SESSION EXPIRED / REDIRECT ERROR detected! Triggering re-login recovery.';
                     console.error(`${prefix}${errorMsg}`);
 
-                    // Forcefully throw an error that signals the watchdog to restart this worker
-                    throw new Error('SESSION_EXPIRED_AUTO_RESTART');
+                    const recovered = await this.recoverMillwareSession('error page detected');
+                    if (!recovered) {
+                        throw new Error('SESSION_EXPIRED_AUTO_RESTART');
+                    }
                 }
             }
             // ═══ END ERROR CHECK ═══
@@ -653,7 +694,8 @@ class AutomationEngine {
      * Check if browser connection is still alive
      */
     async isConnectionAlive() {
-        try {
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
             if (!this.browser || !this.browser.isConnected()) {
                 console.log(`⚠️ [E${this.engineId}] Browser not connected`);
                 return false;
@@ -664,13 +706,27 @@ class AutomationEngine {
                 return false;
             }
 
+                const currentUrl = this.page.url();
+                if (currentUrl.includes('chrome-error://chromewebdata')) {
+                    console.log(`⚠️ [E${this.engineId}] Page is Chrome error page`);
+                    return false;
+                }
+
             // Quick health check: simple evaluate
             await this.page.evaluate(() => true);
             return true;
         } catch (error) {
+                if (attempt < 2 && /Execution context was destroyed|navigation|Cannot find context/i.test(error.message)) {
+                    console.log(`⚠️ [E${this.engineId}] Page is navigating, retrying health check...`);
+                    await new Promise(resolve => setTimeout(resolve, 1200));
+                    continue;
+                }
             console.log(`⚠️ [E${this.engineId}] Connection check failed:`, error.message);
             return false;
         }
+        }
+
+        return false;
     }
 
     /**

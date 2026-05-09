@@ -46,7 +46,8 @@
       "PowerShell(Get-ChildItem \"D:\\\\Gawean Rebinmas\\\\Browser_Auto_key_in new\\\\Auto Key In Refactor\\\\Clean Runner\" -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\nbgmf\" -Directory -ErrorAction SilentlyContinue)",
       "Bash(Select-Object -ExpandProperty Name)",
-      "Bash(Out-String)"
+      "Bash(Out-String)",
+      "Bash(npx playwright *)"
     ]
   }
 }

@@ -58,6 +58,14 @@ const queryTaskRegData = async (startDate, endDate, empCodes = null, otFilter = 
     }
 };
 
+const normalizeVenusEmployee = (emp = {}) => ({
+    ...emp,
+    id: emp.id ?? emp.EmployeeID,
+    name: emp.name ?? emp.EmployeeName,
+    ptrjEmployeeID: emp.ptrjEmployeeID ?? emp.PTRJEmployeeID,
+    attendance: emp.attendance ?? emp.Attendance ?? {}
+});
+
 /**
  * Compare Venus attendance data with Millware PR_TASKREGLN
  * @param {Array} venusData - Attendance data from Venus (with ptrjEmployeeID and attendance by date)
@@ -67,10 +75,13 @@ const queryTaskRegData = async (startDate, endDate, empCodes = null, otFilter = 
  */
 const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) => {
     const { onlyOvertime = false, onlyRegular = false } = options;
+    const normalizedVenusData = Array.isArray(venusData)
+        ? venusData.map(normalizeVenusEmployee)
+        : [];
 
     // DEBUG: Log all employees' ptrjEmployeeID
-    console.log('[Compare Service] Received venusData:', venusData.length, 'employees');
-    const sampleEmp = venusData[0];
+    console.log('[Compare Service] Received venusData:', normalizedVenusData.length, 'employees');
+    const sampleEmp = normalizedVenusData[0];
     if (sampleEmp) {
         console.log('[Compare Service] Sample emp keys:', Object.keys(sampleEmp));
         console.log('[Compare Service] Sample emp ptrjEmployeeID:', sampleEmp.ptrjEmployeeID);
@@ -79,7 +90,7 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
     }
 
     // Get PTRJ IDs from Venus data
-    const ptrjIds = venusData
+    const ptrjIds = normalizedVenusData
         .filter(emp => emp.ptrjEmployeeID && emp.ptrjEmployeeID !== 'N/A')
         .map(emp => emp.ptrjEmployeeID);
 
@@ -113,13 +124,13 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
     const results = [];
     let synced = 0, mismatch = 0;
 
-    console.log(`[Compare] Processing ${venusData.length} employees, date range: ${startDate} to ${endDate}`);
+    console.log(`[Compare] Processing ${normalizedVenusData.length} employees, date range: ${startDate} to ${endDate}`);
 
     let processedRecords = 0;
     let skippedAlfa = 0;
     let skippedOutOfRange = 0;
 
-    venusData.forEach(emp => {
+    normalizedVenusData.forEach(emp => {
         const ptrjId = emp.ptrjEmployeeID;
         if (!ptrjId || ptrjId === 'N/A') {
             console.log(`[Compare] Skipping employee with no PTRJ ID: ${emp.name}`);

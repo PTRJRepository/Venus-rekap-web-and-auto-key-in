@@ -86,6 +86,7 @@
                             "validationSelector": "#MainContent_MultiDimAcc_reqValExpCode",
                             "maxRetries": 1,
                             "expectedFieldCount": "${expectedFieldCount}",
+                            "fallbackValue": "LABOUR",
                             "forceInput": true,
                             "checkIfAlreadyFilled": false
                         }

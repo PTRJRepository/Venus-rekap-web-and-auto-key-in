@@ -1,4 +1,4 @@
-const { waitForElement, safeType, safeTypeAtIndex } = require('../utils/selectors');
+const { waitForElement } = require('../utils/selectors');
 const fs = require('fs');
 const path = require('path');
 const { getLoopJitterDelay, scaleDelay, sleep } = require('../utils/timing');
@@ -28,6 +28,11 @@ const formatDate = (date, formatStr) => {
     return `${y}-${M}-${d}`;
 };
 
+const isNavigationTransientError = (error) => {
+    const message = error?.message || String(error || '');
+    return /execution context was destroyed|cannot find context|navigation|frame was detached/i.test(message);
+};
+
 // Ensure directory exists
 const ensureFailedEmpDir = () => {
     if (!fs.existsSync(FAILED_EMP_DIR)) {
@@ -52,7 +57,7 @@ const safeEvaluate = async (page, fn, ...args) => {
         try {
             return await page.evaluate(fn, ...args);
         } catch (e) {
-            if (e.message.includes('context was destroyed') || e.message.includes('navigation')) {
+            if (isNavigationTransientError(e)) {
                 console.log(`  ⚠️ Page navigated, waiting for stability...`);
                 await _waitForPageStable(page);
             } else {
@@ -68,6 +73,1237 @@ const cleanChargeJobInputValue = (value) => {
         .replace(/\([^)]*\)/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+};
+
+const EXPENSE_CODE_INPUT_VALUES = {
+    C: 'CONTRACTOR',
+    L: 'LABOUR',
+    M: 'MATERIAL',
+    O: 'OTHERS',
+    V: 'VRA'
+};
+
+const normalizeExpenseCodeInputValue = (rawValue, cleanValue) => {
+    const raw = String(rawValue || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    const clean = String(cleanValue || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    const knownText = Object.values(EXPENSE_CODE_INPUT_VALUES).find((text) => clean === text);
+    if (knownText) return knownText;
+
+    if (EXPENSE_CODE_INPUT_VALUES[clean]) return EXPENSE_CODE_INPUT_VALUES[clean];
+
+    const leadingCode = raw.match(/^([CLMOV])(?:\s|\(|$)/);
+    if (leadingCode && EXPENSE_CODE_INPUT_VALUES[leadingCode[1]]) {
+        return EXPENSE_CODE_INPUT_VALUES[leadingCode[1]];
+    }
+
+    const exactText = raw.match(/\((CONTRACTOR|LABOUR|MATERIAL|OTHERS|VRA)\)/);
+    return exactText ? exactText[1] : '';
+};
+
+const normalizeDomComparable = (value) => String(value ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
+const compactDomComparable = (value) => normalizeDomComparable(value).replace(/[^0-9A-Z]/g, '');
+
+const domValuesMatch = (actual, expected) => {
+    const actualText = normalizeDomComparable(actual);
+    const expectedText = normalizeDomComparable(expected);
+    if (!expectedText) return true;
+    if (!actualText) return false;
+
+    const actualNumber = Number(String(actual).replace(',', '.'));
+    const expectedNumber = Number(String(expected).replace(',', '.'));
+    if (Number.isFinite(actualNumber) && Number.isFinite(expectedNumber)) {
+        return Math.abs(actualNumber - expectedNumber) < 0.001;
+    }
+
+    if (actualText === expectedText || actualText.includes(expectedText) || expectedText.includes(actualText)) {
+        return true;
+    }
+
+    const actualCompact = compactDomComparable(actual);
+    const expectedCompact = compactDomComparable(expected);
+    return Boolean(
+        expectedCompact &&
+        (actualCompact === expectedCompact || actualCompact.includes(expectedCompact) || expectedCompact.includes(actualCompact))
+    );
+};
+
+const registerDomValuePair = (context, pair) => {
+    if (!context || !pair?.selector) return;
+
+    if (!Array.isArray(context.__domValuePairs)) {
+        context.__domValuePairs = [];
+    }
+
+    const index = pair.index ?? 0;
+    const kind = pair.kind || 'input';
+    const key = pair.key || `${kind}:${pair.selector}:${index}`;
+    const nextPair = {
+        key,
+        kind,
+        selector: pair.selector,
+        index,
+        value: pair.value === undefined || pair.value === null ? '' : String(pair.value),
+        actualValue: pair.actualValue === undefined || pair.actualValue === null ? '' : String(pair.actualValue),
+        label: pair.label || pair.selector,
+        restoreBeforeAdd: Boolean(pair.restoreBeforeAdd),
+        requiredBeforeAdd: pair.requiredBeforeAdd !== false,
+        updatedAt: Date.now()
+    };
+
+    const existingIndex = context.__domValuePairs.findIndex((item) => item.key === key);
+    if (existingIndex >= 0) {
+        context.__domValuePairs[existingIndex] = { ...context.__domValuePairs[existingIndex], ...nextPair };
+    } else {
+        context.__domValuePairs.push(nextPair);
+    }
+
+    console.log(`  🧾 DOM pair: ${nextPair.label} => "${nextPair.value}"`);
+};
+
+const readDomValuePair = async (page, pair) => {
+    if (!pair?.selector) return { exists: false, value: '', text: '', reason: 'missing pair selector' };
+
+    return safeEvaluate(page, (pair) => {
+        const visible = (el) => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null && !el.disabled;
+        };
+
+        if (pair.kind === 'select' || pair.kind === 'expense') {
+            const select = document.querySelector(pair.selector);
+            if (!select) return { exists: false, value: '', text: '', reason: 'select not found' };
+            const selected = select.options?.[select.selectedIndex];
+            return {
+                exists: true,
+                value: select.value || '',
+                text: (selected?.textContent || '').trim(),
+                visible: visible(select)
+            };
+        }
+
+        const elements = Array.from(document.querySelectorAll(pair.selector));
+        const visibleElements = elements.filter(visible);
+        const el = visibleElements[pair.index || 0] || elements[pair.index || 0] || elements[0];
+        if (!el) return { exists: false, value: '', text: '', reason: 'element not found', count: elements.length };
+        return {
+            exists: true,
+            value: el.value || '',
+            text: (el.textContent || '').trim(),
+            visible: visible(el),
+            count: elements.length
+        };
+    }, pair).catch((error) => ({
+        exists: false,
+        value: '',
+        text: '',
+        reason: error.message
+    }));
+};
+
+const restoreDomValuePair = async (page, pair) => {
+    if (pair.kind === 'select' || pair.kind === 'expense') {
+        return selectExpenseCodeByDom(page, pair.value, {
+            selector: pair.selector,
+            fallbackValue: pair.value || 'LABOUR',
+            settleTimeout: 5000,
+            quietMs: 400
+        });
+    }
+
+    const noPostback = pair.noPostback === true
+        || pair.selector === '#MainContent_txtHours'
+        || pair.selector === '#MainContent_txtAmount';
+
+    return setInputValueByDom(page, pair.selector, pair.index || 0, pair.value, {
+        blur: !noPostback,
+        dispatchChange: !noPostback,
+        triggerJquery: !noPostback
+    });
+};
+
+const verifyAndRestoreDomPairsBeforeAdd = async (page, context) => {
+    const pairs = Array.isArray(context.__domValuePairs)
+        ? context.__domValuePairs.filter((pair) => pair.requiredBeforeAdd !== false)
+        : [];
+
+    if (!pairs.length) {
+        console.log(`  🧾 DOM/value pairs: none registered before Add`);
+        return { ok: true, checked: 0, problems: [] };
+    }
+
+    console.log(`  🧾 Checking ${pairs.length} DOM/value pair(s) before Add...`);
+    const problems = [];
+
+    for (const pair of pairs) {
+        const current = await readDomValuePair(page, pair);
+        const actual = current.text || current.value || '';
+        const missing = !current.exists || !String(actual).trim();
+        const changed = !missing && !domValuesMatch(actual, pair.value);
+        const status = missing ? 'KOSONG' : changed ? 'BERUBAH' : 'OK';
+        console.log(`  │ ${status}: ${pair.label} expected="${pair.value}" actual="${actual}"`);
+
+        if (!missing && !changed) continue;
+
+        if (!pair.restoreBeforeAdd) {
+            problems.push({ pair, current, status });
+            continue;
+        }
+
+        console.log(`  │ ↻ Restoring ${pair.label} before Add`);
+        const restoreResult = await restoreDomValuePair(page, pair);
+        if (!restoreResult.success) {
+            console.log(`  │ ⚠️ Restore failed for ${pair.label}: ${restoreResult.reason || 'unknown'}`);
+            problems.push({ pair, current, status, restoreResult });
+            continue;
+        }
+
+        await waitForAspNetQuiet(page, 3000, 300);
+        const after = await readDomValuePair(page, pair);
+        const afterActual = after.text || after.value || '';
+        if (after.exists && String(afterActual).trim() && domValuesMatch(afterActual, pair.value)) {
+            console.log(`  │ ✅ Restored ${pair.label}: "${afterActual}"`);
+        } else {
+            console.log(`  │ ⚠️ Still not matched ${pair.label}: "${afterActual}"`);
+            problems.push({ pair, current: after, status: 'RESTORE_NOT_MATCHED', restoreResult });
+        }
+    }
+
+    if (!context.metadata) context.metadata = {};
+    context.metadata.beforeAddDomPairProblems = problems.map(({ pair, current, status }) => ({
+        key: pair.key,
+        label: pair.label,
+        expected: pair.value,
+        actual: current?.text || current?.value || '',
+        status
+    }));
+
+    return { ok: problems.length === 0, checked: pairs.length, problems };
+};
+
+const setInputValueByDom = async (page, selector, index = 0, value, options = {}) => {
+    return safeEvaluate(page, ({ selector, index, value, blur, dispatchChange, dispatchKeyup, triggerJquery }) => {
+        const isVisible = (el) => {
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none'
+                && style.visibility !== 'hidden'
+                && el.offsetParent !== null
+                && !el.disabled;
+        };
+        const elements = Array.from(document.querySelectorAll(selector)).filter(isVisible);
+        const el = elements[index] || elements[0];
+        if (!el) {
+            return { success: false, reason: `element not found (${selector}[${index}])`, count: elements.length };
+        }
+
+        const nextValue = value === undefined || value === null ? '' : String(value);
+        const setNativeValue = (target, targetValue) => {
+            const prototype = Object.getPrototypeOf(target);
+            const descriptor = prototype && Object.getOwnPropertyDescriptor(prototype, 'value');
+            if (descriptor && descriptor.set) {
+                descriptor.set.call(target, targetValue);
+            } else {
+                target.value = targetValue;
+            }
+        };
+        const dispatch = (target, eventName, eventInit = {}) => {
+            target.dispatchEvent(new Event(eventName, { bubbles: true, cancelable: true, ...eventInit }));
+        };
+
+        if (typeof el.focus === 'function') el.focus();
+        setNativeValue(el, '');
+        dispatch(el, 'input');
+        setNativeValue(el, nextValue);
+        dispatch(el, 'input');
+        if (dispatchKeyup !== false) dispatch(el, 'keyup');
+        if (dispatchChange !== false) dispatch(el, 'change');
+
+        if (triggerJquery !== false && window.jQuery) {
+            try {
+                const jq = window.jQuery(el).val(nextValue).trigger('input');
+                if (dispatchKeyup !== false) jq.trigger('keyup');
+                if (dispatchChange !== false) jq.trigger('change');
+            } catch (_) { }
+        }
+
+        if (blur !== false && typeof el.blur === 'function') el.blur();
+
+        return {
+            success: true,
+            id: el.id || '',
+            name: el.name || '',
+            value: el.value || ''
+        };
+    }, {
+        selector,
+        index: index || 0,
+        value,
+        blur: options.blur !== false,
+        dispatchChange: options.dispatchChange !== false,
+        dispatchKeyup: options.dispatchKeyup !== false,
+        triggerJquery: options.triggerJquery !== false
+    }).catch((error) => ({
+        success: false,
+        reason: error.message
+    }));
+};
+
+const clickElementByDom = async (page, selector, index = 0) => {
+    const result = await safeEvaluate(page, ({ selector, index }) => {
+        const isVisible = (el) => {
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none'
+                && style.visibility !== 'hidden'
+                && el.offsetParent !== null
+                && !el.disabled;
+        };
+        const elements = Array.from(document.querySelectorAll(selector));
+        const visibleElements = elements.filter(isVisible);
+        const el = visibleElements[index] || elements[index] || elements[0];
+        if (!el) return { success: false, reason: `element not found (${selector}[${index}])` };
+
+        if (typeof el.focus === 'function') el.focus();
+        if (el.type === 'radio' || el.type === 'checkbox') {
+            el.checked = true;
+            el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+        }
+
+        const view = window;
+        el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view }));
+        el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view }));
+        el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view }));
+        if (typeof el.click === 'function') {
+            el.click();
+        } else {
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view }));
+        }
+
+        return {
+            success: true,
+            id: el.id || '',
+            name: el.name || '',
+            checked: Boolean(el.checked)
+        };
+    }, { selector, index: index || 0 }).catch((error) => ({
+        success: false,
+        reason: error.message
+    }));
+
+    return result || { success: true, transientNavigation: true };
+};
+
+const dispatchKeyByDom = async (page, key = 'Enter', target = null) => {
+    return safeEvaluate(page, ({ key, target }) => {
+        const keyCodeMap = {
+            Enter: 13,
+            Tab: 9,
+            Escape: 27,
+            ArrowDown: 40,
+            ArrowUp: 38
+        };
+        const isVisible = (el) => {
+            if (!el || el === document.body || el === document.documentElement) return false;
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null;
+        };
+        const findTarget = () => {
+            if (target && target.selector) {
+                const matches = Array.from(document.querySelectorAll(target.selector)).filter(isVisible);
+                return matches[target.index || 0] || matches[0];
+            }
+            return isVisible(document.activeElement) ? document.activeElement : document.body;
+        };
+
+        const el = findTarget();
+        if (!el) return { success: false, reason: 'target not found' };
+        if (typeof el.focus === 'function') el.focus();
+
+        const keyCode = keyCodeMap[key] || (key && key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0);
+        const eventInit = {
+            key,
+            code: key,
+            keyCode,
+            which: keyCode,
+            bubbles: true,
+            cancelable: true
+        };
+        el.dispatchEvent(new KeyboardEvent('keydown', eventInit));
+        el.dispatchEvent(new KeyboardEvent('keypress', eventInit));
+        el.dispatchEvent(new KeyboardEvent('keyup', eventInit));
+
+        return {
+            success: true,
+            id: el.id || '',
+            name: el.name || '',
+            tagName: el.tagName
+        };
+    }, { key, target }).catch((error) => ({
+        success: false,
+        reason: error.message
+    }));
+};
+
+const selectFirstAutocompleteOptionByDom = async (page) => {
+    return safeEvaluate(page, () => {
+        const lists = Array.from(document.querySelectorAll('ul.ui-autocomplete'));
+        for (const list of lists) {
+            const style = window.getComputedStyle(list);
+            const visible = style.display !== 'none' && style.visibility !== 'hidden' && list.offsetParent !== null;
+            if (!visible) continue;
+
+            const item = list.querySelector('li.ui-menu-item');
+            if (!item) continue;
+
+            const target = item.querySelector('div, a') || item;
+            const view = window;
+            target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view }));
+            target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view }));
+            target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view }));
+            target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view }));
+            if (window.jQuery) {
+                try {
+                    window.jQuery(target)
+                        .trigger('mouseenter')
+                        .trigger('mousedown')
+                        .trigger('mouseup')
+                        .trigger('click');
+                } catch (_) { }
+            }
+
+            return {
+                success: true,
+                optionClicked: true,
+                text: (target.textContent || item.textContent || '').trim(),
+                itemCount: list.querySelectorAll('li.ui-menu-item').length
+            };
+        }
+
+        return { success: false, reason: 'visible autocomplete option not found' };
+    }).catch((error) => ({
+        success: false,
+        reason: error.message
+    }));
+};
+
+const emptyAspNetFormState = (overrides = {}) => ({
+    url: '',
+    readyState: '',
+    asyncPostback: false,
+    employeeValue: '',
+    amountValue: '',
+    addExists: false,
+    addDisabled: false,
+    totalText: '',
+    lineRowCount: 0,
+    lineRows: [],
+    validationTexts: [],
+    transientNavigation: false,
+    ...overrides
+});
+
+const isResetInputValue = (value) => {
+    const text = String(value ?? '').trim();
+    return !text || text === '0' || text === '0.0' || text === '0.00';
+};
+
+const getAspNetFormState = async (page, totalHoursSelector = '') => {
+    const state = await safeEvaluate(page, (totalHoursSelector) => {
+        const visible = (el) => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetHeight > 0;
+        };
+        const textOf = (selector) => document.querySelector(selector)?.textContent?.trim() || '';
+        const valueOf = (selector) => document.querySelector(selector)?.value?.trim() || '';
+        const lineRows = Array.from(document.querySelectorAll('#MainContent_gvLine tr.mr-l'))
+            .map((row) => Array.from(row.querySelectorAll('td')).map((cell) => cell.textContent.replace(/\s+/g, ' ').trim()))
+            .filter((cells) => cells.length > 0);
+        const validationTexts = Array.from(document.querySelectorAll('span[id*="RFV"], span[style*="color:Red"], span[style*="color: red"], span.RedText'))
+            .filter(visible)
+            .map((el) => el.textContent.trim())
+            .filter((text) => text && text !== '*' && /please|required|select|invalid|harus|wajib/i.test(text));
+
+        let asyncPostback = false;
+        try {
+            const prm = window.Sys?.WebForms?.PageRequestManager?.getInstance?.();
+            asyncPostback = Boolean(prm?.get_isInAsyncPostBack?.());
+        } catch (_) { }
+
+        return {
+            url: window.location.href,
+            readyState: document.readyState,
+            asyncPostback,
+            employeeValue: valueOf('.ui-autocomplete-input.CBOBox'),
+            amountValue: valueOf('#MainContent_txtHours') || valueOf('#MainContent_txtAmount'),
+            addExists: Boolean(document.querySelector('#MainContent_btnAdd')),
+            addDisabled: Boolean(document.querySelector('#MainContent_btnAdd')?.disabled),
+            totalText: totalHoursSelector ? textOf(totalHoursSelector) : '',
+            lineRowCount: lineRows.length,
+            lineRows,
+            validationTexts
+        };
+    }, totalHoursSelector).catch((error) => emptyAspNetFormState({
+        error: error.message,
+        url: typeof page.url === 'function' ? page.url() : '',
+        readyState: isNavigationTransientError(error) ? 'loading' : 'error',
+        asyncPostback: isNavigationTransientError(error),
+        transientNavigation: isNavigationTransientError(error)
+    }));
+
+    return state || emptyAspNetFormState({
+        url: typeof page.url === 'function' ? page.url() : '',
+        readyState: 'loading',
+        asyncPostback: true,
+        transientNavigation: true
+    });
+};
+
+const waitForAspNetIdle = async (page, timeoutMs = 8000, minWaitMs = 300) => {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        const state = await getAspNetFormState(page);
+        const elapsed = Date.now() - start;
+        if (elapsed >= minWaitMs && state.readyState !== 'loading' && !state.asyncPostback) {
+            return { success: true, status: 'idle', elapsedMs: elapsed };
+        }
+        await sleep(200);
+    }
+    return { success: false, status: 'timeout', elapsedMs: Date.now() - start };
+};
+
+const waitForAspNetQuiet = async (page, timeoutMs = 10000, quietMs = 700) => {
+    const start = Date.now();
+    let quietSince = 0;
+    let lastState = null;
+
+    while (Date.now() - start < timeoutMs) {
+        const state = await getAspNetFormState(page);
+        lastState = state;
+        const busy = state.transientNavigation || state.readyState === 'loading' || state.asyncPostback;
+
+        if (busy) {
+            quietSince = 0;
+        } else if (!quietSince) {
+            quietSince = Date.now();
+        } else if (Date.now() - quietSince >= quietMs) {
+            return {
+                success: true,
+                status: 'quiet',
+                elapsedMs: Date.now() - start,
+                quietMs: Date.now() - quietSince,
+                state
+            };
+        }
+
+        await sleep(busy ? 150 : 100);
+    }
+
+    return {
+        success: false,
+        status: 'timeout',
+        elapsedMs: Date.now() - start,
+        lastState
+    };
+};
+
+const waitForTaskRegisterDetailReady = async (page, timeoutMs = 15000, minWaitMs = 500) => {
+    const start = Date.now();
+    let lastState = null;
+
+    while (Date.now() - start < timeoutMs) {
+        const state = await safeEvaluate(page, () => {
+            const visible = (el) => {
+                if (!el) return false;
+                const style = window.getComputedStyle(el);
+                return style.display !== 'none'
+                    && style.visibility !== 'hidden'
+                    && el.offsetParent !== null
+                    && !el.disabled;
+            };
+
+            let asyncPostback = false;
+            try {
+                const prm = window.Sys?.WebForms?.PageRequestManager?.getInstance?.();
+                asyncPostback = Boolean(prm?.get_isInAsyncPostBack?.());
+            } catch (_) { }
+
+            return {
+                url: window.location.href,
+                readyState: document.readyState,
+                asyncPostback,
+                hasDocDate: visible(document.querySelector('#MainContent_txtDocDate')),
+                hasTrxDate: visible(document.querySelector('#MainContent_txtTrxDate')),
+                hasAddButton: visible(document.querySelector('#MainContent_btnAdd')),
+                visibleComboCount: Array.from(document.querySelectorAll('.ui-autocomplete-input.CBOBox')).filter(visible).length,
+                employeeValue: document.querySelector('.ui-autocomplete-input.CBOBox')?.value?.trim() || '',
+                hoursValue: document.querySelector('#MainContent_txtHours')?.value?.trim() || ''
+            };
+        }).catch((error) => ({
+            url: typeof page.url === 'function' ? page.url() : '',
+            readyState: isNavigationTransientError(error) ? 'loading' : 'error',
+            asyncPostback: isNavigationTransientError(error),
+            hasDocDate: false,
+            hasTrxDate: false,
+            hasAddButton: false,
+            visibleComboCount: 0,
+            error: error.message
+        }));
+
+        lastState = state;
+        const elapsedMs = Date.now() - start;
+        if (
+            elapsedMs >= minWaitMs &&
+            state.readyState !== 'loading' &&
+            !state.asyncPostback &&
+            state.hasTrxDate &&
+            state.hasAddButton &&
+            state.visibleComboCount > 0 &&
+            !state.employeeValue &&
+            isResetInputValue(state.hoursValue)
+        ) {
+            return { success: true, status: 'detail-ready-empty-inputs', elapsedMs, ...state };
+        }
+
+        await sleep(state.asyncPostback ? 150 : 250);
+    }
+
+    return {
+        success: false,
+        status: 'detail-not-ready',
+        elapsedMs: Date.now() - start,
+        lastState
+    };
+};
+
+const waitForAddCompletion = async (page, beforeState, options = {}) => {
+    const timeoutMs = options.timeout || 8000;
+    const totalHoursSelector = options.totalHoursSelector || '';
+    const start = Date.now();
+    let navigationObserved = false;
+
+    while (Date.now() - start < timeoutMs) {
+        const state = await getAspNetFormState(page, totalHoursSelector);
+        const elapsedMs = Date.now() - start;
+
+        if (state.transientNavigation || state.readyState === 'loading') {
+            await sleep(150);
+            continue;
+        }
+
+        if (state.validationTexts?.length) {
+            return {
+                success: false,
+                status: 'validation',
+                message: state.validationTexts.join(' | '),
+                elapsedMs
+            };
+        }
+
+        if (beforeState.url && state.url && state.url !== beforeState.url) {
+            navigationObserved = true;
+        }
+
+        if (state.lineRowCount > beforeState.lineRowCount) {
+            return {
+                success: true,
+                status: 'grid-row-added',
+                lineRowCount: state.lineRowCount,
+                previousLineRowCount: beforeState.lineRowCount,
+                latestRow: state.lineRows?.[state.lineRows.length - 1] || [],
+                elapsedMs
+            };
+        }
+
+        if (
+            state.addExists &&
+            beforeState.employeeValue &&
+            beforeState.amountValue &&
+            !state.employeeValue &&
+            isResetInputValue(state.amountValue)
+        ) {
+            return {
+                success: true,
+                status: 'inputs-empty-ready',
+                lineRowCount: state.lineRowCount,
+                previousLineRowCount: beforeState.lineRowCount,
+                navigationObserved,
+                elapsedMs
+            };
+        }
+
+        if (beforeState.employeeValue && !state.employeeValue) {
+            return { success: true, status: 'employee-input-empty', navigationObserved, elapsedMs };
+        }
+
+        if (beforeState.amountValue && isResetInputValue(state.amountValue)) {
+            return { success: true, status: 'hours-input-empty', navigationObserved, elapsedMs };
+        }
+
+        if (totalHoursSelector && state.totalText && state.totalText !== beforeState.totalText) {
+            return {
+                success: true,
+                status: 'total-hours-updated',
+                totalText: state.totalText,
+                elapsedMs
+            };
+        }
+
+        if (totalHoursSelector && !beforeState.totalText && state.totalText && state.totalText !== '0' && state.totalText !== '0.00') {
+            return {
+                success: true,
+                status: 'total-hours-populated',
+                totalText: state.totalText,
+                elapsedMs
+            };
+        }
+
+        await sleep(state.asyncPostback ? 150 : 250);
+    }
+
+    return {
+        success: navigationObserved,
+        status: navigationObserved ? 'navigation-no-empty-confirmation' : 'timeout',
+        message: navigationObserved
+            ? `Navigation observed but inputs did not become empty within ${timeoutMs}ms`
+            : `Add not confirmed within ${timeoutMs}ms`,
+        elapsedMs: Date.now() - start
+    };
+};
+
+const clickVisibleAutocompleteOptionByIndex = async (page, optionIndex = 0) => {
+    return safeEvaluate(page, ({ optionIndex }) => {
+        const visibleItems = [];
+        const lists = Array.from(document.querySelectorAll('ul.ui-autocomplete'));
+        for (const list of lists) {
+            const style = window.getComputedStyle(list);
+            const visible = style.display !== 'none' && style.visibility !== 'hidden' && list.offsetParent !== null;
+            if (!visible) continue;
+            visibleItems.push(...Array.from(list.querySelectorAll('li.ui-menu-item')));
+        }
+
+        const item = visibleItems[optionIndex];
+        if (!item) return { success: false, reason: `autocomplete option ${optionIndex} not found`, count: visibleItems.length };
+
+        const target = item.querySelector('div, a') || item;
+        const view = window;
+        target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view }));
+        target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view }));
+        target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view }));
+        target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view }));
+        if (window.jQuery) {
+            try {
+                window.jQuery(target)
+                    .trigger('mouseenter')
+                    .trigger('mousedown')
+                    .trigger('mouseup')
+                    .trigger('click');
+            } catch (_) { }
+        }
+
+        return {
+            success: true,
+            optionClicked: true,
+            text: (target.textContent || item.textContent || '').trim(),
+            itemCount: visibleItems.length
+        };
+    }, { optionIndex }).catch((error) => ({
+        success: false,
+        reason: error.message
+    }));
+};
+
+const selectMatchingAutocompleteOptionByDom = async (page, value) => {
+    return safeEvaluate(page, ({ value }) => {
+        const normalize = (text) => String(text || '').toUpperCase().replace(/\s+/g, ' ').trim();
+        const compact = (text) => normalize(text).replace(/[^0-9A-Z]/g, '');
+        const wanted = normalize(value);
+        const wantedCompact = compact(value);
+        const matches = (text) => {
+            const normalizedText = normalize(text);
+            const compactText = compact(text);
+            return Boolean(
+                normalizedText === wanted ||
+                normalizedText.includes(wanted) ||
+                wanted.includes(normalizedText) && normalizedText.length > 2 ||
+                wantedCompact && (compactText === wantedCompact || compactText.includes(wantedCompact))
+            );
+        };
+
+        const visibleItems = [];
+        const lists = Array.from(document.querySelectorAll('ul.ui-autocomplete'));
+        for (const list of lists) {
+            const style = window.getComputedStyle(list);
+            const visible = style.display !== 'none' && style.visibility !== 'hidden' && list.offsetParent !== null;
+            if (!visible) continue;
+            visibleItems.push(...Array.from(list.querySelectorAll('li.ui-menu-item')));
+        }
+
+        for (let index = 0; index < visibleItems.length; index++) {
+            const item = visibleItems[index];
+            const target = item.querySelector('div, a') || item;
+            const text = (target.textContent || item.textContent || '').trim();
+            if (!text || !matches(text)) continue;
+
+            const view = window;
+            target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view }));
+            target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view }));
+            target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view }));
+            target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view }));
+            if (window.jQuery) {
+                try {
+                    window.jQuery(target)
+                        .trigger('mouseenter')
+                        .trigger('mousedown')
+                        .trigger('mouseup')
+                        .trigger('click');
+                } catch (_) { }
+            }
+
+            return {
+                success: true,
+                optionClicked: true,
+                text,
+                optionIndex: index,
+                itemCount: visibleItems.length
+            };
+        }
+
+        return {
+            success: false,
+            reason: 'matching autocomplete option not found',
+            itemCount: visibleItems.length,
+            sample: visibleItems.slice(0, 8).map((item) => (item.textContent || '').trim())
+        };
+    }, { value }).catch((error) => ({
+        success: false,
+        reason: error.message
+    }));
+};
+
+const singleRemainingVisibleAutocompleteOptionIndex = async (page) => {
+    return safeEvaluate(page, () => {
+        const normalize = (text) => String(text || '').toUpperCase().replace(/\s+/g, ' ').trim();
+        const visibleItems = [];
+        const lists = Array.from(document.querySelectorAll('ul.ui-autocomplete'));
+        for (const list of lists) {
+            const style = window.getComputedStyle(list);
+            const visible = style.display !== 'none' && style.visibility !== 'hidden' && list.offsetParent !== null;
+            if (!visible) continue;
+            visibleItems.push(...Array.from(list.querySelectorAll('li.ui-menu-item')));
+        }
+
+        const selectable = visibleItems
+            .map((item, index) => ({ index, text: normalize(item.textContent || '') }))
+            .filter((item) => Boolean(item.text));
+
+        return selectable.length === 1
+            ? { success: true, optionIndex: selectable[0].index, text: selectable[0].text, itemCount: visibleItems.length }
+            : { success: false, reason: `visible selectable count ${selectable.length}`, itemCount: visibleItems.length };
+    }).catch((error) => ({
+        success: false,
+        reason: error.message
+    }));
+};
+
+const triggerAutocompleteSearchByDom = async (page, selector, index, value, key = '') => {
+    return safeEvaluate(page, ({ selector, index, value, key }) => {
+        const isVisible = (el) => {
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none'
+                && style.visibility !== 'hidden'
+                && el.offsetParent !== null
+                && !el.disabled;
+        };
+        const inputs = Array.from(document.querySelectorAll(selector)).filter(isVisible);
+        const el = inputs[index] || inputs[0];
+        if (!el) return { success: false, reason: 'input not found' };
+
+        const setNativeValue = (target, targetValue) => {
+            const prototype = Object.getPrototypeOf(target);
+            const descriptor = prototype && Object.getOwnPropertyDescriptor(prototype, 'value');
+            if (descriptor && descriptor.set) {
+                descriptor.set.call(target, targetValue);
+            } else {
+                target.value = targetValue;
+            }
+        };
+
+        if (typeof el.focus === 'function') el.focus();
+        setNativeValue(el, value);
+
+        const keyCode = key ? key.toUpperCase().charCodeAt(0) : 0;
+        const keyboardInit = { key, code: key, keyCode, which: keyCode, bubbles: true, cancelable: true };
+        if (key) el.dispatchEvent(new KeyboardEvent('keydown', keyboardInit));
+        el.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+        if (key) el.dispatchEvent(new KeyboardEvent('keyup', keyboardInit));
+        el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+
+        let method = 'events';
+        if (window.jQuery) {
+            try {
+                const $el = window.jQuery(el);
+                $el.val(value).trigger('input').trigger('keyup');
+                if ($el.autocomplete) {
+                    $el.autocomplete('search', value);
+                    method = 'jquery-autocomplete';
+                }
+            } catch (error) {
+                method = `jquery-failed:${error.message}`;
+            }
+        }
+
+        return { success: true, method, value: el.value || '' };
+    }, { selector, index: index || 0, value, key }).catch((error) => ({
+        success: false,
+        reason: error.message
+    }));
+};
+
+const typeAutocompleteSlowlyAndChooseSingleRemainingByDom = async (page, selector, index = 0, value, options = {}) => {
+    await setInputValueByDom(page, selector, index, '', { blur: false });
+    await sleep(options.initialWait || 300);
+
+    let partial = '';
+    for (const character of String(value || '')) {
+        partial += character;
+        const triggerResult = await triggerAutocompleteSearchByDom(page, selector, index, partial, character);
+        if (!triggerResult.success) return triggerResult;
+
+        await sleep(options.keyDelay || 350);
+        const singleResult = await singleRemainingVisibleAutocompleteOptionIndex(page);
+        if (singleResult.success) {
+            const clickResult = await clickVisibleAutocompleteOptionByIndex(page, singleResult.optionIndex);
+            if (clickResult.success) {
+                await sleep(options.afterSelectWait || 700);
+                return {
+                    ...clickResult,
+                    method: 'slow-single-remaining',
+                    typedValue: partial
+                };
+            }
+        }
+    }
+
+    await sleep(options.finalWait || 1000);
+    const singleResult = await singleRemainingVisibleAutocompleteOptionIndex(page);
+    if (singleResult.success) {
+        const clickResult = await clickVisibleAutocompleteOptionByIndex(page, singleResult.optionIndex);
+        if (clickResult.success) {
+            await sleep(options.afterSelectWait || 700);
+            return {
+                ...clickResult,
+                method: 'slow-single-remaining-final',
+                typedValue: partial
+            };
+        }
+    }
+
+    return {
+        success: false,
+        optionClicked: false,
+        reason: `no unique autocomplete option remained for ${value}`
+    };
+};
+
+const setAutocompleteInputByDom = async (page, selector, index = 0, value, options = {}) => {
+    const inputResult = await setInputValueByDom(page, selector, index, value, { blur: false });
+    if (!inputResult.success) return inputResult;
+
+    const searchResult = await safeEvaluate(page, ({ selector, index, value }) => {
+        const isVisible = (el) => {
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none'
+                && style.visibility !== 'hidden'
+                && el.offsetParent !== null
+                && !el.disabled;
+        };
+        const inputs = Array.from(document.querySelectorAll(selector)).filter(isVisible);
+        const el = inputs[index] || inputs[0];
+        if (!el) return { success: false, reason: 'input not found' };
+
+        let method = 'events';
+        if (window.jQuery) {
+            try {
+                const $el = window.jQuery(el);
+                $el.val(value).trigger('input').trigger('keydown').trigger('keyup');
+                if ($el.autocomplete) {
+                    $el.autocomplete('search', value);
+                    method = 'jquery-autocomplete';
+                }
+            } catch (error) {
+                method = `jquery-failed:${error.message}`;
+            }
+        }
+
+        ['focus', 'input', 'keydown', 'keyup', 'change'].forEach((eventName) => {
+            el.dispatchEvent(new Event(eventName, { bubbles: true, cancelable: true }));
+        });
+
+        return { success: true, method, value: el.value || '' };
+    }, { selector, index: index || 0, value }).catch((error) => ({
+        success: false,
+        reason: error.message
+    }));
+
+    await sleep(options.dropdownWait || 800);
+    const optionResult = await selectMatchingAutocompleteOptionByDom(page, options.matchValue || value);
+    if (optionResult.success) {
+        await sleep(options.afterSelectWait || 700);
+        return { ...optionResult, method: searchResult.method || 'dom', inputValue: inputResult.value };
+    }
+
+    if (options.slowUntilSingle === true) {
+        console.log(`  🔎 No matching option. Slow typing until one option remains: "${options.slowValue || value}"`);
+        const slowResult = await typeAutocompleteSlowlyAndChooseSingleRemainingByDom(
+            page,
+            selector,
+            index,
+            options.slowValue || value,
+            {
+                keyDelay: options.slowKeyDelay || 350,
+                afterSelectWait: options.afterSelectWait || 700
+            }
+        );
+        if (slowResult.success) {
+            return { ...slowResult, inputValue: inputResult.value };
+        }
+    }
+
+    if (options.allowFirstOption === true) {
+        const firstOptionResult = await selectFirstAutocompleteOptionByDom(page);
+        if (firstOptionResult.success) {
+            await sleep(options.afterSelectWait || 700);
+            return { ...firstOptionResult, method: 'first-option', inputValue: inputResult.value };
+        }
+    }
+
+    if (options.requireOption === true) {
+        return {
+            success: false,
+            method: searchResult.method || 'value-only',
+            inputValue: inputResult.value,
+            optionClicked: false,
+            reason: optionResult.reason || 'autocomplete option not selected',
+            sample: optionResult.sample || []
+        };
+    }
+
+    return {
+        success: true,
+        method: searchResult.method || 'value-only',
+        inputValue: inputResult.value,
+        optionClicked: false,
+        optionReason: optionResult.reason
+    };
+};
+
+const selectPairedHiddenSelect = async (page, inputSelector, index = 0, value) => {
+    if (!inputSelector || value === undefined || value === null) {
+        return { success: false, reason: 'missing selector/value' };
+    }
+
+    return page.evaluate(({ inputSelector, index, value }) => {
+        const normalize = (text) => String(text || '').toUpperCase().replace(/\s+/g, ' ').trim();
+        const compact = (text) => normalize(text).replace(/[^0-9A-Z]/g, '');
+        const wanted = normalize(value);
+        const wantedCompact = compact(value);
+
+        const visibleInputs = Array.from(document.querySelectorAll(inputSelector))
+            .filter((el) => el.offsetParent !== null && !el.disabled);
+        const input = visibleInputs[index] || visibleInputs[0];
+        if (!input) return { success: false, reason: 'input not found' };
+
+        const candidates = [];
+        const addSelects = (root) => {
+            if (!root) return;
+            if (root.tagName === 'SELECT') candidates.push(root);
+            if (root.querySelectorAll) {
+                candidates.push(...Array.from(root.querySelectorAll('select')));
+            }
+        };
+
+        addSelects(input.previousElementSibling);
+        addSelects(input.parentElement);
+        addSelects(input.closest('td'));
+        addSelects(input.closest('tr'));
+
+        const select = candidates.find((candidate) => candidate && candidate.options && candidate.options.length > 0);
+        if (!select) return { success: false, reason: 'paired select not found' };
+
+        const options = Array.from(select.options || []);
+        const matched = options.find((option) => normalize(option.value) === wanted)
+            || options.find((option) => normalize(option.textContent) === wanted)
+            || options.find((option) => compact(option.value) === wantedCompact && wantedCompact)
+            || options.find((option) => compact(option.textContent) === wantedCompact && wantedCompact)
+            || options.find((option) => normalize(option.value).includes(wanted) && wanted.length > 2)
+            || options.find((option) => normalize(option.textContent).includes(wanted) && wanted.length > 2)
+            || options.find((option) => wanted.includes(normalize(option.textContent)) && normalize(option.textContent).length > 2);
+
+        if (!matched || !matched.value) {
+            return {
+                success: false,
+                reason: 'matching option not found',
+                selectId: select.id || '',
+                optionCount: options.length,
+                sample: options.slice(0, 8).map((option) => `${option.value}:${option.textContent || ''}`)
+            };
+        }
+
+        select.value = matched.value;
+        input.value = (matched.textContent || matched.value || '').trim();
+
+        const dispatch = (target, eventName) => {
+            target.dispatchEvent(new Event(eventName, { bubbles: true, cancelable: true }));
+        };
+
+        dispatch(input, 'focus');
+        dispatch(input, 'input');
+        dispatch(input, 'change');
+        dispatch(select, 'input');
+        dispatch(select, 'change');
+        if (typeof select.onchange === 'function') {
+            select.onchange(new Event('change', { bubbles: true, cancelable: true }));
+        }
+        if (window.jQuery) {
+            try { window.jQuery(select).trigger('change'); } catch (_) {}
+            try { window.jQuery(input).trigger('input').trigger('change'); } catch (_) {}
+        }
+        dispatch(input, 'blur');
+
+        return {
+            success: true,
+            selectId: select.id || '',
+            optionValue: matched.value,
+            optionText: (matched.textContent || '').trim()
+        };
+    }, { inputSelector, index, value }).catch((error) => ({
+        success: false,
+        reason: error.message
+    }));
+};
+
+const selectExpenseCodeByDom = async (page, value, options = {}) => {
+    const selector = options.selector || '#MainContent_MultiDimAcc_ddlExpCode';
+    const fallbackValue = options.fallbackValue || 'LABOUR';
+    const timeout = options.timeout || 12000;
+    const start = Date.now();
+
+    while (Date.now() - start < timeout) {
+        const state = await safeEvaluate(page, (selector) => {
+            const select = document.querySelector(selector);
+            if (!select) return { exists: false, ready: false, reason: 'expense select not found' };
+            const row = select.closest('tr');
+            const input = (select.parentElement && select.parentElement.querySelector('input.ui-autocomplete-input.CBOBox'))
+                || (row && row.querySelector('input.ui-autocomplete-input.CBOBox'));
+            return {
+                exists: true,
+                ready: !select.disabled,
+                disabled: Boolean(select.disabled),
+                rowVisible: row ? row.offsetParent !== null : true,
+                inputVisible: input ? input.offsetParent !== null && !input.disabled : false
+            };
+        }, selector).catch((error) => ({ exists: false, ready: false, reason: error.message }));
+
+        if (state?.exists && state.ready) break;
+        await sleep(300);
+    }
+
+    const result = await safeEvaluate(page, ({ selector, value, fallbackValue }) => {
+        const normalize = (text) => String(text || '').toUpperCase().replace(/\s+/g, ' ').trim();
+        const compact = (text) => normalize(text).replace(/[^0-9A-Z]/g, '');
+        const aliases = {
+            C: 'CONTRACTOR',
+            L: 'LABOUR',
+            M: 'MATERIAL',
+            O: 'OTHERS',
+            V: 'VRA'
+        };
+        const normalizeWanted = (input) => {
+            const wanted = normalize(input);
+            if (!wanted) return '';
+            if (aliases[wanted]) return aliases[wanted];
+            const leading = wanted.match(/^([CLMOV])(?:\s|\(|$)/);
+            if (leading && aliases[leading[1]]) return aliases[leading[1]];
+            return wanted;
+        };
+
+        const select = document.querySelector(selector);
+        if (!select) return { success: false, reason: 'expense select not found' };
+
+        const options = Array.from(select.options || []);
+        const wantedValues = [value, fallbackValue, 'LABOUR', 'L']
+            .map(normalizeWanted)
+            .filter(Boolean)
+            .filter((item, index, array) => array.indexOf(item) === index);
+
+        const matchOption = (wanted) => {
+            const wantedCompact = compact(wanted);
+            return options.find((option) => normalize(option.value) === wanted)
+                || options.find((option) => normalize(option.textContent) === wanted)
+                || options.find((option) => compact(option.value) === wantedCompact && wantedCompact)
+                || options.find((option) => compact(option.textContent) === wantedCompact && wantedCompact)
+                || options.find((option) => normalize(option.textContent).includes(wanted) && wanted.length > 1)
+                || options.find((option) => normalize(option.value).includes(wanted) && wanted.length > 1);
+        };
+
+        let matched = null;
+        let matchedFrom = '';
+        for (const wanted of wantedValues) {
+            matched = matchOption(wanted);
+            if (matched && matched.value) {
+                matchedFrom = wanted;
+                break;
+            }
+        }
+
+        if (!matched || !matched.value) {
+            return {
+                success: false,
+                reason: 'expense option not found',
+                wantedValues,
+                optionCount: options.length,
+                sample: options.slice(0, 8).map((option) => `${option.value}:${option.textContent || ''}`)
+            };
+        }
+
+        const row = select.closest('tr');
+        const input = (select.parentElement && select.parentElement.querySelector('input.ui-autocomplete-input.CBOBox'))
+            || (row && row.querySelector('input.ui-autocomplete-input.CBOBox'));
+        const optionText = (matched.textContent || matched.value || '').trim();
+        const dispatch = (target, eventName) => {
+            target.dispatchEvent(new Event(eventName, { bubbles: true, cancelable: true }));
+        };
+
+        select.value = matched.value;
+        if (input) {
+            input.value = optionText;
+            dispatch(input, 'focus');
+            dispatch(input, 'input');
+            dispatch(input, 'change');
+            dispatch(input, 'blur');
+        }
+        dispatch(select, 'input');
+        dispatch(select, 'change');
+
+        return {
+            success: true,
+            selectId: select.id || '',
+            optionValue: matched.value,
+            optionText,
+            matchedFrom,
+            inputVisible: input ? input.offsetParent !== null && !input.disabled : false
+        };
+    }, { selector, value, fallbackValue }).catch((error) => ({
+        success: false,
+        reason: error.message
+    }));
+
+    if (!result.success) return result;
+
+    const idleResult = await waitForAspNetQuiet(page, options.settleTimeout || 10000, options.quietMs || 900);
+    await sleep(300);
+    return { ...result, settleStatus: idleResult.status, settleElapsedMs: idleResult.elapsedMs };
 };
 
 /**
@@ -304,6 +1540,7 @@ const actions = {
 
         // Execute steps with merged context
         await engine.executeSteps(template.steps, mergedContext, 1);
+        Object.assign(context, mergedContext);
     },
 
     /**
@@ -451,7 +1688,24 @@ const actions = {
      * params.valueSource: dot-notation path to get value from context (e.g., "attendance.regularHours")
      */
     setContext: async (page, params, context, engine) => {
-        const { key, value, valueSource } = params;
+        const { key, value, valueSource, regularFullHours } = params;
+
+        if (regularFullHours) {
+            const attendance = context.attendance || {};
+            const rawDate = attendance.date || context.date || '';
+            const dayName = String(attendance.dayName || attendance.day || attendance.hari || '').trim().toLowerCase();
+            let isSaturday = ['sab', 'sabtu', 'sat', 'saturday'].includes(dayName);
+
+            if (!isSaturday && /^\d{4}-\d{2}-\d{2}/.test(String(rawDate))) {
+                const [year, month, day] = String(rawDate).slice(0, 10).split('-').map(Number);
+                isSaturday = new Date(Date.UTC(year, month - 1, day)).getUTCDay() === 6;
+            }
+
+            const regularHours = isSaturday ? 5 : 7;
+            context[key] = regularHours;
+            console.log(`💾 setContext: ${key} = ${regularHours} (normal full hours, ${isSaturday ? 'Saturday' : 'weekday/default'})`);
+            return;
+        }
 
         if (valueSource) {
             // Get value from context using dot notation
@@ -547,7 +1801,7 @@ const actions = {
     /**
      * Mengetik input text
      */
-    typeInput: async (page, params) => {
+    typeInput: async (page, params, context = {}) => {
         // DEBUG: Log received params
         console.log(`📋 [typeInput] Received params:`);
         console.log(`   selector: ${params.selector}`);
@@ -566,136 +1820,148 @@ const actions = {
             console.log(`⌨️  Smart Typing "${params.value}" ke elemen: ${params.selector} (Index: ${params.index || 0})`);
 
             const selector = params.selector;
-            const index = params.index;
+            const index = params.index || 0;
             const value = params.value;
+            const restoreBeforeAdd = params.restoreBeforeAdd === true;
+            const requiredBeforeAdd = params.requiredBeforeAdd !== false;
+            context.__lastInputTarget = { selector, index };
 
-            // 1. Get Element Handle (similar to safeTypeAtIndex)
-            let elementHandle;
-            if (index !== undefined) {
-                try {
-                    await page.waitForFunction(
-                        (sel, idx) => {
-                            const els = document.querySelectorAll(sel);
-                            let count = 0;
-                            for (const el of els) if (el.offsetParent !== null) count++;
-                            return count >= idx + 1;
-                        },
-                        { timeout: 5000 }, selector, index
-                    );
-                } catch (e) { /* ignore timeout */ }
+            const pairedSelectResult = await selectPairedHiddenSelect(page, selector, index, value);
+            if (pairedSelectResult.success) {
+                console.log(`  ✅ Selected paired hidden select (${pairedSelectResult.selectId || 'unknown'}): "${pairedSelectResult.optionText || value}"`);
+                registerDomValuePair(context, {
+                    kind: 'autocomplete',
+                    selector,
+                    index,
+                    value,
+                    actualValue: pairedSelectResult.optionText || value,
+                    label: params.label || `Autocomplete ${index}`,
+                    restoreBeforeAdd,
+                    requiredBeforeAdd
+                });
+                await sleep(800);
+                return;
+            }
+            console.log(`  ℹ️ Paired hidden select unavailable: ${pairedSelectResult.reason}`);
 
-                const elements = await page.$$(selector);
-                const visibleElements = [];
-                for (const el of elements) {
-                    const isVisible = await el.evaluate(node => node.offsetParent !== null);
-                    if (isVisible) visibleElements.push(el);
-                }
+            const autocompleteResult = await setAutocompleteInputByDom(page, selector, index, value, {
+                dropdownWait: 800,
+                afterSelectWait: 700,
+                allowFirstOption: true
+            });
+            if (!autocompleteResult.success) {
+                throw new Error(`DOM autocomplete input failed: ${autocompleteResult.reason}`);
+            }
 
-                if (visibleElements.length <= index) {
-                    throw new Error(`Element at index ${index} not found. Found ${visibleElements.length} visible.`);
-                }
-                elementHandle = visibleElements[index];
+            if (autocompleteResult.optionClicked === false) {
+                console.log(`  ⚠️ Autocomplete option not clicked (${autocompleteResult.optionReason || 'unknown'}). Value set by DOM.`);
             } else {
-                await waitForElement(page, selector);
-                elementHandle = await page.$(selector);
+                console.log(`  ✅ Autocomplete selected via DOM (${autocompleteResult.method || 'dom'})`);
             }
-
-            // 2. Clear Input
-            // Click 3 times to select all, then backspace
-            await elementHandle.click({ clickCount: 3 });
-            await elementHandle.press('Backspace');
-            await sleep(200);
-
-            // 3. Type character by character and check dropdown
-            let foundSingleOption = false;
-
-            for (let i = 0; i < value.length; i++) {
-                await elementHandle.type(value[i]);
-
-                // Start checking immediately (even after 1st char if possible) but usually need 2+
-                // Lowered threshold to i >= 0 to be more aggressive if needed, but sticking to i >= 1 safe
-                if (i >= 0) {
-                    await sleep(250); // Reduced wait for UI update
-
-                    // Check dropdown count - Robust Version
-                    const { optionCount, debugMsg } = await page.evaluate(() => {
-                        const lists = document.querySelectorAll('ul.ui-autocomplete');
-                        let activeList = null;
-
-                        // Find the visible list
-                        for (const list of lists) {
-                            if (list.style.display !== 'none' && list.offsetParent !== null) {
-                                activeList = list;
-                                break;
-                            }
-                        }
-
-                        if (!activeList) {
-                            return { optionCount: -1, debugMsg: `Found ${lists.length} lists, none visible` };
-                        }
-
-                        // Count items
-                        const items = activeList.querySelectorAll('li.ui-menu-item'); // Standard jQuery UI
-                        // Fallback selector if needed? usually li is enough
-
-                        return {
-                            optionCount: items.length,
-                            debugMsg: `Visible list found. Items: ${items.length}`
-                        };
-                    });
-
-                    // console.log(`     [${value.substring(0, i+1)}] -> ${debugMsg}`);
-
-                    if (optionCount === 1) {
-                        console.log(`  ✨ Single option found after typing "${value.substring(0, i + 1)}". Clicking it!`);
-                        foundSingleOption = true;
-                        break;
-                    }
-                }
-            }
-
-            // 4. Select Option
-            await sleep(500); // Stabilize UI before selection
-
-            // Ensure focus is still on the input
-            if (elementHandle) await elementHandle.focus();
-
-            if (foundSingleOption) {
-                console.log("  ⌨️  Selecting single option with ArrowDown + Enter...");
-                await page.keyboard.press('ArrowDown');
-                await sleep(300); // Delay for stability
-                await page.keyboard.press('Enter');
-            } else {
-                // Fallback: If we finished typing and never found a single option (or 0 options),
-                // we try to select the first one anyway if available.
-                console.log(`  ⚠️  Finished typing without isolating single option. Selecting first available.`);
-                await page.keyboard.press('ArrowDown');
-                await sleep(300); // Delay for stability
-                await page.keyboard.press('Enter');
-            }
-
-            // Additional wait to ensure UI settles
-            await sleep(500);
+            registerDomValuePair(context, {
+                kind: 'autocomplete',
+                selector,
+                index,
+                value,
+                actualValue: autocompleteResult.text || autocompleteResult.inputValue || value,
+                label: params.label || `Autocomplete ${index}`,
+                restoreBeforeAdd,
+                requiredBeforeAdd
+            });
 
         } else {
-            // Standard behavior for non-autocomplete fields
-            if (params.index !== undefined) {
-                console.log(`⌨️  Mengetik "${params.value}" ke elemen: ${params.selector} (Index: ${params.index})`);
-                await safeTypeAtIndex(page, params.selector, params.index, params.value);
-            } else {
-                console.log(`⌨️  Mengetik "${params.value}" ke elemen: ${params.selector}`);
-                await safeType(page, params.selector, params.value);
+            const index = params.index || 0;
+            console.log(`⌨️  Set value via DOM "${params.value}" ke elemen: ${params.selector}${params.index !== undefined ? ` (Index: ${params.index})` : ''}`);
+            const inputTimeout = params.timeout || (params.selector === '#MainContent_txtDocDate' ? 3000 : 15000);
+            try {
+                await waitForElement(page, params.selector, inputTimeout);
+            } catch (error) {
+                if (params.selector === '#MainContent_txtDocDate') {
+                    const fallbackState = await safeEvaluate(page, () => {
+                        const visible = (el) => {
+                            if (!el) return false;
+                            const style = window.getComputedStyle(el);
+                            return style.display !== 'none'
+                                && style.visibility !== 'hidden'
+                                && el.offsetParent !== null
+                                && !el.disabled;
+                        };
+                        return {
+                            docDateVisible: visible(document.querySelector('#MainContent_txtDocDate')),
+                            trxDateVisible: visible(document.querySelector('#MainContent_txtTrxDate')),
+                            addVisible: visible(document.querySelector('#MainContent_btnAdd')),
+                            url: window.location.href
+                        };
+                    }).catch(() => null);
+
+                    if (fallbackState?.trxDateVisible && fallbackState?.addVisible) {
+                        console.log(`  ℹ️ #MainContent_txtDocDate not visible after postback; continuing with transaction date field.`);
+                        return;
+                    }
+                }
+                throw error;
             }
+            const noPostback = params.noPostback === true;
+            const result = await setInputValueByDom(page, params.selector, index, params.value, {
+                blur: noPostback ? false : params.blur !== false,
+                dispatchChange: noPostback ? false : params.dispatchChange !== false,
+                dispatchKeyup: params.dispatchKeyup !== false,
+                triggerJquery: noPostback ? false : params.triggerJquery !== false
+            });
+            if (!result.success) {
+                if (params.selector === '#MainContent_txtDocDate') {
+                    const fallbackState = await safeEvaluate(page, () => {
+                        const visible = (el) => {
+                            if (!el) return false;
+                            const style = window.getComputedStyle(el);
+                            return style.display !== 'none'
+                                && style.visibility !== 'hidden'
+                                && el.offsetParent !== null
+                                && !el.disabled;
+                        };
+                        return {
+                            docDateVisible: visible(document.querySelector('#MainContent_txtDocDate')),
+                            trxDateVisible: visible(document.querySelector('#MainContent_txtTrxDate')),
+                            addVisible: visible(document.querySelector('#MainContent_btnAdd')),
+                            visibleComboCount: Array.from(document.querySelectorAll('.ui-autocomplete-input.CBOBox')).filter(visible).length,
+                            url: window.location.href
+                        };
+                    }).catch(() => null);
+
+                    if (fallbackState?.trxDateVisible && fallbackState?.addVisible && fallbackState.visibleComboCount > 0) {
+                        console.log(`  ℹ️ #MainContent_txtDocDate missing on ready detail page; continuing with transaction date field.`);
+                        return;
+                    }
+                }
+                throw new Error(`DOM input failed for ${params.selector}: ${result.reason}`);
+            }
+            context.__lastInputTarget = { selector: params.selector, index };
+            console.log(`  ✅ Value set: "${result.value}"`);
+            registerDomValuePair(context, {
+                kind: 'input',
+                selector: params.selector,
+                index,
+                value: params.value,
+                actualValue: result.value,
+                label: params.label || params.selector,
+                restoreBeforeAdd: params.restoreBeforeAdd === true || params.selector === '#MainContent_txtHours' || params.selector === '#MainContent_txtAmount',
+                requiredBeforeAdd: params.requiredBeforeAdd !== false,
+                noPostback
+            });
         }
     },
 
     /**
      * Alias for pressKey
      */
-    press: async (page, params) => {
+    press: async (page, params, context = {}) => {
         const key = params.key || 'Enter';
         console.log(`⌨️  Menekan tombol: ${key}`);
-        await page.keyboard.press(key);
+        const result = await dispatchKeyByDom(page, key, params.selector ? { selector: params.selector, index: params.index || 0 } : context.__lastInputTarget);
+        if (!result.success) {
+            console.log(`  ⚠️ DOM key dispatch failed (${result.reason}), fallback keyboard.`);
+            await page.keyboard.press(key);
+        }
     },
 
     /**
@@ -705,41 +1971,16 @@ const actions = {
         console.log(`🖱️  Mengklik elemen: ${params.selector}`);
         await waitForElement(page, params.selector, params.timeout || 10000);
 
-        // IMPORTANT: Don't disable button - it prevents the click from working!
-        // Just skip JS click for submit buttons to prevent double submission
-
-        const isSubmitButton = params.selector && (
-            params.selector.includes('btnAdd') ||
-            params.selector.includes('btnSave') ||
-            params.selector.includes('btnSubmit')
-        );
-
-        // Try standard click first
-        try {
+        const result = await clickElementByDom(page, params.selector, params.index || 0);
+        if (!result.success) {
+            console.log(`  ⚠️ DOM click failed (${result.reason}), fallback page.click.`);
             await page.click(params.selector);
-        } catch (e) {
-            console.log(`  ⚠️ Standard click failed, trying JS click...`);
         }
-
-        // Wait a bit before any JS click (prevent double-click)
+        if (params.waitForAspNet !== false && params.selector && /rblOT|Radio|radio/i.test(params.selector)) {
+            const idle = await waitForAspNetIdle(page, params.timeout ? Math.min(params.timeout, 5000) : 5000, 400);
+            console.log(`  ${idle.success ? '✅' : '⚠️'} Radio ASP.NET settle: ${idle.status} (${idle.elapsedMs}ms)`);
+        }
         await sleep(300);
-
-        // For submit buttons, SKIP JS click to prevent double submission
-        if (isSubmitButton) {
-            console.log(`  ⏭️  Skipping JS click for submit button (prevents double submission)`);
-        } else {
-            // For non-submit buttons, use JS click as fallback
-            await safeEvaluate(page, (sel) => {
-                const el = document.querySelector(sel);
-                if (el) {
-                    el.click();
-                    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-                    el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-                    return true;
-                }
-                return false;
-            }, params.selector);
-        }
     },
 
     /**
@@ -815,26 +2056,40 @@ const actions = {
     /**
      * Tekan tombol keyboard (Enter, Tab, Escape, dll)
      */
-    pressKey: async (page, params) => {
+    pressKey: async (page, params, context = {}) => {
         const key = params.key || 'Enter';
         console.log(`⌨️  Menekan tombol: ${key}`);
-        await page.keyboard.press(key);
+        const result = await dispatchKeyByDom(page, key, params.selector ? { selector: params.selector, index: params.index || 0 } : context.__lastInputTarget);
+        if (!result.success) {
+            console.log(`  ⚠️ DOM key dispatch failed (${result.reason}), fallback keyboard.`);
+            await page.keyboard.press(key);
+        }
     },
 
     /**
      * Tekan tombol keyboard (Enter) dan tunggu halaman reload (berguna untuk ASP.NET postbacks)
      */
-    pressKeyAndWaitForReload: async (page, params) => {
+    pressKeyAndWaitForReload: async (page, params, context = {}) => {
         const key = params.key || 'Enter';
         const timeout = params.timeout || 30000;
-        console.log(`⌨️🔄 Menekan tombol: ${key} dan menunggu reload...`);
+        const settleTimeout = Math.min(timeout, params.settleTimeout || 8000);
+        console.log(`⌨️🔄 Menekan tombol: ${key} dan menunggu ASP.NET settle...`);
 
         try {
-            await Promise.all([
-                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout }),
-                page.keyboard.press(key)
-            ]);
-            console.log(`✅ Reload halaman selesai`);
+            const navigationPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: settleTimeout })
+                .then(() => ({ success: true, status: 'navigation' }))
+                .catch(() => null);
+            const idlePromise = waitForAspNetIdle(page, settleTimeout, 500);
+
+            await dispatchKeyByDom(page, key, params.selector ? { selector: params.selector, index: params.index || 0 } : context.__lastInputTarget);
+            const result = await Promise.race([navigationPromise, idlePromise]);
+            await sleep(300);
+
+            if (result?.success) {
+                console.log(`✅ ASP.NET settle selesai (${result.status}, ${result.elapsedMs || 0}ms)`);
+            } else {
+                console.log(`⚠️ ASP.NET settle timeout ${settleTimeout}ms, lanjut ke wait selector berikutnya`);
+            }
         } catch (error) {
             console.warn(`⚠️ Warning saat pressKeyAndWaitForReload: ${error.message}`);
         }
@@ -879,23 +2134,60 @@ const actions = {
         console.log(`🔍 Parsing ChargeJob: "${chargeJob}"`);
 
         // Split by '/' and remove descriptions/codes in parentheses before input.
-        // A valid part must have at least 2 meaningful characters after cleanup.
+        // Expense code is special: source usually comes as "L (LABOUR)", where
+        // cleanup leaves a single "L". Keep it as LABOUR so the required field runs.
         const rawParts = chargeJob.split('/').map(p => p.trim()).filter(p => p.length >= 2);
-        const parts = rawParts.map(cleanChargeJobInputValue).filter(p => p.length >= 2);
+        const parts = [];
+        const partRawValues = [];
+        let expenseFallbackApplied = false;
+
+        for (const rawPart of rawParts) {
+            const cleanPart = cleanChargeJobInputValue(rawPart);
+            const expenseValue = normalizeExpenseCodeInputValue(rawPart, cleanPart);
+
+            if (expenseValue) {
+                while (parts.length < 3) {
+                    parts.push('');
+                    partRawValues.push('');
+                }
+                parts[3] = expenseValue;
+                partRawValues[3] = rawPart;
+                continue;
+            }
+
+            if (cleanPart.length >= 2) {
+                parts.push(cleanPart);
+                partRawValues.push(rawPart);
+            }
+        }
+
+        if (!parts[3]) {
+            while (parts.length < 3) {
+                parts.push('');
+                partRawValues.push('');
+            }
+            parts[3] = 'LABOUR';
+            partRawValues[3] = 'LABOUR';
+            expenseFallbackApplied = true;
+        }
 
         // Store parts count for conditional logic (excluding Employee field)
-        context.chargeJobPartsCount = parts.length;
+        context.chargeJobPartsCount = parts.filter(p => p && p.length >= 2).length;
         // Expected field count = parts.length + 1 (for Employee field at index 0)
         // This is used by retryInputWithValidation to skip waiting for non-existent fields
         context.expectedFieldCount = parts.length + 1;
-        console.log(`  📊 Total VALID parts found: ${parts.length}, Expected fields: ${context.expectedFieldCount}`);
+        context.chargeJobExpenseFallbackApplied = expenseFallbackApplied;
+        console.log(`  📊 Total VALID parts found: ${context.chargeJobPartsCount}, Expected fields: ${context.expectedFieldCount}`);
         console.log(`  📋 Raw parts: ${JSON.stringify(rawParts)}`);
         console.log(`  📋 Clean parts: ${JSON.stringify(parts)}`);
+        if (expenseFallbackApplied) {
+            console.log(`  ⚠️ Expense Code missing from ChargeJob. Fallback set to "LABOUR"`);
+        }
 
         // Store DIRECTLY in context (top-level) for easy access
         // Part 1: Task Code
         if (parts.length > 0 && parts[0] && parts[0].length >= 2) {
-            const rawPart1 = rawParts[0] || parts[0];
+            const rawPart1 = partRawValues[0] || parts[0];
             context.chargeJobPart1 = rawPart1;
             context.chargeJobPart1Clean = parts[0];
             console.log(`  Part 1 (Raw)  : "${rawPart1}"`);
@@ -1154,7 +2446,12 @@ const actions = {
                     const currentUrl = page.url();
                     console.log(`  🔄 RECOVERY: Current URL is ${currentUrl}`);
 
-                    if (currentUrl.includes('frmPrTrxTaskRegisterDet.aspx')) {
+                    if (currentUrl.includes('chrome-error://chromewebdata') || currentUrl.includes('SessionExpire')) {
+                        console.log(`  🔐 RECOVERY: Browser/session error page detected. Re-login on current tab...`);
+                        if (!engine?.recoverMillwareSession || !(await engine.recoverMillwareSession('loop recovery error page'))) {
+                            throw new Error('Session recovery failed from browser error page');
+                        }
+                    } else if (currentUrl.includes('frmPrTrxTaskRegisterDet.aspx')) {
                         console.log(`  🔄 RECOVERY: On Input/Detail Page. Reloading...`);
                         await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
                     } else if (currentUrl.includes('frmPrTrxTaskRegisterList.aspx')) {
@@ -1181,6 +2478,14 @@ const actions = {
                     console.log(`  ✅ RECOVERY: Ready to continue.`);
                     console.log(`  └─────────────────────────\n`);
                 } catch (recoveryError) {
+                    if (/ERR_TOO_MANY_REDIRECTS|chrome-error/i.test(recoveryError.message || '') && engine?.recoverMillwareSession) {
+                        console.log(`  🔐 RECOVERY: Redirect loop detected. Clearing cookies and re-login...`);
+                        if (await engine.recoverMillwareSession('redirect loop during recovery')) {
+                            console.log(`  ✅ RECOVERY: Ready after re-login.`);
+                            console.log(`  └─────────────────────────\n`);
+                            continue;
+                        }
+                    }
                     console.error(`  ❌ RECOVERY FAILED: ${recoveryError.message}`);
                     console.log(`  Attempting to continue anyway...`);
                     console.log(`  └─────────────────────────\n`);
@@ -1264,7 +2569,12 @@ const actions = {
                     const currentUrl = page.url();
                     console.log(`  🔄 RECOVERY: Current URL is ${currentUrl}`);
 
-                    if (currentUrl.includes('frmPrTrxTaskRegisterDet.aspx')) {
+                    if (currentUrl.includes('chrome-error://chromewebdata') || currentUrl.includes('SessionExpire')) {
+                        console.log(`  🔐 RECOVERY: Browser/session error page detected. Re-login on current tab...`);
+                        if (!engine?.recoverMillwareSession || !(await engine.recoverMillwareSession('loop recovery error page'))) {
+                            throw new Error('Session recovery failed from browser error page');
+                        }
+                    } else if (currentUrl.includes('frmPrTrxTaskRegisterDet.aspx')) {
                         console.log(`  🔄 RECOVERY: On Input/Detail Page. Reloading...`);
                         await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
                     } else if (currentUrl.includes('frmPrTrxTaskRegisterList.aspx')) {
@@ -1291,6 +2601,14 @@ const actions = {
                     console.log(`  ✅ RECOVERY: Ready to continue.`);
                     console.log(`  └─────────────────────────\n`);
                 } catch (recoveryError) {
+                    if (/ERR_TOO_MANY_REDIRECTS|chrome-error/i.test(recoveryError.message || '') && engine?.recoverMillwareSession) {
+                        console.log(`  🔐 RECOVERY: Redirect loop detected. Clearing cookies and re-login...`);
+                        if (await engine.recoverMillwareSession('redirect loop during recovery')) {
+                            console.log(`  ✅ RECOVERY: Ready after re-login.`);
+                            console.log(`  └─────────────────────────\n`);
+                            continue;
+                        }
+                    }
                     console.error(`  ❌ RECOVERY FAILED: ${recoveryError.message}`);
                     console.log(`  Attempting to continue anyway...`);
                     console.log(`  └─────────────────────────\n`);
@@ -1305,6 +2623,10 @@ const actions = {
                 console.log(`   - ${item.key}: ${item.error}`);
             });
             console.log('');
+            context.employeeFailed = true;
+            if (!context.metadata) context.metadata = {};
+            context.metadata.employeeFailed = true;
+            context.failedAttendanceItems = failedItems;
         }
     },
 
@@ -1411,7 +2733,7 @@ const actions = {
     /**
      * checkEmployeeInputSuccess - Check if employee input succeeded
      * Verifies that the employee dropdown selection worked by checking if expected form elements appear
-     * Sets context.employeeInputFailed flag for conditional processing
+     * Sets metadata.employeeInputFailed flag for conditional processing
      * params.successSelector: selector to check for (default: #MainContent_ddlShift)
      * params.timeout: how long to wait for success indicator (default: 3000ms)
      */
@@ -1423,6 +2745,14 @@ const actions = {
             console.log(`✅ Employee input successful - ${successSelector} found`);
             if (!context.metadata) context.metadata = {};
             context.metadata.employeeInputFailed = false;
+            const lastFailed = context.metadata.lastFailedInput || {};
+            const failedSelector = String(lastFailed.selector || '');
+            const failedIndex = lastFailed.index || 0;
+            const wasEmployeeInput = failedIndex === 0 || failedSelector.includes('employee') || failedSelector.includes('Employee');
+            if (wasEmployeeInput) {
+                context.metadata.inputFailed = false;
+                delete context.metadata.lastFailedInput;
+            }
             return true;
         } catch (error) {
             console.log(`⚠️ Employee input likely failed - ${successSelector} not found within ${timeout}ms`);
@@ -1446,7 +2776,67 @@ const actions = {
      *   Each field: { selector, value, index?, isDropdown? }
      */
     retryInputWithValidation: async (page, params, context, engine) => {
-        const { selector, value, index, validationSelector, maxRetries = 1, formReentryFields = [], stopConditionSelector, expectedFieldCount, forceInput = false, checkIfAlreadyFilled = true } = params;
+        const {
+            selector,
+            value,
+            index,
+            validationSelector,
+            maxRetries = 1,
+            formReentryFields = [],
+            stopConditionSelector,
+            expectedFieldCount,
+            forceInput = false,
+            checkIfAlreadyFilled = true,
+            fallbackValue,
+            fallbackSearchValue
+        } = params;
+
+        const isExpenseCodeField = params.expenseCode === true
+            || validationSelector === '#MainContent_MultiDimAcc_reqValExpCode';
+
+        if (isExpenseCodeField) {
+            const requestedExpense = String(value || '').trim() || String(fallbackValue || 'LABOUR').trim();
+            const expenseFallback = String(fallbackValue || 'LABOUR').trim();
+            console.log(`🔁 Input Expense Code via hidden select: "${requestedExpense}" (fallback: "${expenseFallback}")`);
+
+            const expenseResult = await selectExpenseCodeByDom(page, requestedExpense, {
+                fallbackValue: expenseFallback,
+                selector: params.expenseSelector || '#MainContent_MultiDimAcc_ddlExpCode',
+                timeout: params.timeout || 12000,
+                settleTimeout: params.settleTimeout || 8000
+            });
+
+            if (expenseResult.success) {
+                console.log(`  ✅ Expense Code selected: "${expenseResult.optionText || requestedExpense}" (${expenseResult.optionValue})`);
+                registerDomValuePair(context, {
+                    kind: 'expense',
+                    selector: params.expenseSelector || '#MainContent_MultiDimAcc_ddlExpCode',
+                    index: 0,
+                    value: requestedExpense,
+                    actualValue: expenseResult.optionText || requestedExpense,
+                    label: 'Expense Code',
+                    restoreBeforeAdd: true,
+                    requiredBeforeAdd: true
+                });
+                console.log(`  └─────────────────────────\n`);
+                return;
+            }
+
+            console.log(`  ❌ Expense Code input failed: ${expenseResult.reason || 'unknown error'}`);
+            if (expenseResult.sample) {
+                console.log(`  📋 Expense option sample: ${JSON.stringify(expenseResult.sample)}`);
+            }
+            console.log(`⏭️  FAIL-FORWARD: continuing so Add can show Millware validation if needed\n`);
+            if (!context.metadata) context.metadata = {};
+            context.metadata.inputFailed = true;
+            context.metadata.lastFailedInput = {
+                selector: params.expenseSelector || '#MainContent_MultiDimAcc_ddlExpCode',
+                index,
+                value: requestedExpense,
+                timestamp: Date.now()
+            };
+            return;
+        }
 
         // CRITICAL: If expectedFieldCount is provided and target index is >= expectedFieldCount, skip immediately
         // This prevents waiting 20s for fields that don't exist (e.g., index 3 when only 2 jobs in charge job)
@@ -1484,14 +2874,13 @@ const actions = {
             if (field.action === 'clickRadioButton') {
                 console.log(`    🔘 Re-clicking radio button: ${field.selector}`);
                 try {
-                    const radio = await page.$(field.selector);
-                    if (radio) {
-                        await radio.click();
+                    const clickResult = await clickElementByDom(page, field.selector, field.index || 0);
+                    if (clickResult.success) {
                         const waitTime = field.waitAfter || 3000;
                         console.log(`    ⏳ Waiting ${scaleDelay(waitTime)}ms for radio button postback (template: ${waitTime}ms)...`);
                         await sleep(waitTime);
                     } else {
-                        console.log(`    ⚠️ Radio button not found: ${field.selector}`);
+                        console.log(`    ⚠️ Radio button not clicked: ${field.selector} (${clickResult.reason})`);
                     }
                 } catch (e) {
                     console.log(`    ⚠️ Failed to click radio button: ${e.message}`);
@@ -1548,53 +2937,23 @@ const actions = {
                     return;
                 }
 
-                // Focus first
-                await elementHandle.click();
-                await sleep(300);
-
-                // Clear with Ctrl+A + Delete
-                await page.keyboard.down('Control');
-                await page.keyboard.press('a');
-                await page.keyboard.up('Control');
-                await page.keyboard.press('Delete');
-                await sleep(200);
-
-                // Try JavaScript-based autocomplete trigger first
-                const triggerResult = await safeEvaluate((sel, idx, val) => {
-                    const elements = document.querySelectorAll(sel);
-                    const visibleElements = [];
-                    for (const el of elements) {
-                        if (el.offsetParent !== null) visibleElements.push(el);
-                    }
-                    if (visibleElements.length <= idx) return { success: false };
-
-                    const el = visibleElements[idx];
-                    el.value = val;
-
-                    // Try jQuery autocomplete
-                    if (window.jQuery && window.jQuery(el).autocomplete) {
-                        try {
-                            window.jQuery(el).autocomplete('search', val);
-                            return { success: true, method: 'jquery' };
-                        } catch (e) { }
-                    }
-
-                    // Fallback: dispatch events
-                    ['focus', 'input', 'keydown', 'keyup', 'change'].forEach(evt => {
-                        el.dispatchEvent(new Event(evt, { bubbles: true }));
+                const fieldIndex = field.index || 0;
+                const isCascadingChargeJobField = field.selector.includes('CBOBox') && Number(fieldIndex) > 0;
+                const pairedSelectResult = isCascadingChargeJobField
+                    ? { success: false, reason: 'skipped for cascading Charge Job field' }
+                    : await selectPairedHiddenSelect(page, field.selector, fieldIndex, field.value);
+                if (pairedSelectResult.success) {
+                    console.log(`    ✅ Re-entry via paired select: "${pairedSelectResult.optionText || field.value}"`);
+                } else {
+                    const autocompleteResult = await setAutocompleteInputByDom(page, field.selector, fieldIndex, field.value, {
+                        dropdownWait: 800,
+                        afterSelectWait: 700,
+                        requireOption: isCascadingChargeJobField,
+                        slowUntilSingle: isCascadingChargeJobField,
+                        slowValue: field.value
                     });
-                    return { success: true, method: 'events' };
-                }, field.selector, field.index, field.value) || { success: false, method: 'failed' };
-
-                console.log(`    📋 Autocomplete trigger: ${triggerResult.method}`);
-
-                // Wait for dropdown to appear
-                await sleep(800);
-
-                // Select from dropdown
-                await page.keyboard.press('ArrowDown');
-                await sleep(300);
-                await page.keyboard.press('Enter');
+                    console.log(`    📋 DOM autocomplete: ${autocompleteResult.method || autocompleteResult.reason || 'unknown'}`);
+                }
                 await sleep(1500); // Wait for page update
 
                 // Verify field was filled
@@ -1805,6 +3164,36 @@ const actions = {
             }
         };
 
+        const waitForVisibleInputCount = async (sel, minCount, timeoutMs = 15000) => {
+            try {
+                await page.waitForFunction(
+                    (selector, expectedCount) => {
+                        const elements = Array.from(document.querySelectorAll(selector));
+                        const visibleCount = elements.filter((el) => {
+                            const style = window.getComputedStyle(el);
+                            return style.display !== 'none'
+                                && style.visibility !== 'hidden'
+                                && el.offsetParent !== null
+                                && !el.disabled;
+                        }).length;
+                        return visibleCount >= expectedCount;
+                    },
+                    { timeout: timeoutMs },
+                    sel,
+                    minCount
+                );
+                return true;
+            } catch (_) {
+                return false;
+            }
+        };
+
+        const resolveExpectedFieldCount = () => {
+            const raw = expectedFieldCount !== undefined ? expectedFieldCount : context.expectedFieldCount;
+            const resolved = Number(raw);
+            return Number.isFinite(resolved) ? resolved : undefined;
+        };
+
         // Helper: Safe evaluate that handles navigation errors
         const safeEvaluate = async (fn, ...args) => {
             for (let retry = 0; retry < 3; retry++) {
@@ -1961,219 +3350,129 @@ const actions = {
                 elementHandle = await page.$(selector);
             }
 
-            // 2. Ensure proper focus and clear input using JavaScript (more reliable)
-            console.log(`  🔍 Focusing and clearing element...`);
+            // Reference runner pattern: prefer setting the hidden select paired to the
+            // autocomplete input. This is target-page DOM work and does not rely on
+            // the browser tab being foreground/focused.
+            const isCascadingChargeJobField = selector.includes('CBOBox') && Number(index) > 0;
+            if (isCascadingChargeJobField) {
+                console.log(`  ℹ️ Charge Job cascade field detected (index ${index}). Using autocomplete select, not hidden select.`);
+            } else {
+                const pairedSelectResult = await selectPairedHiddenSelect(page, selector, index || 0, value);
+                if (pairedSelectResult.success) {
+                    console.log(`  ✅ Paired hidden select selected (${pairedSelectResult.selectId || 'unknown'}): "${pairedSelectResult.optionText || value}"`);
+                    await sleep(1200);
+                    await waitForPageStable(3000);
 
-            try {
-                // Click to focus (may fail if stale, that's ok)
-                await elementHandle.click();
-                await sleep(200);
-            } catch (e) {
-                // Element stale, get fresh one
-                elementHandle = await getFreshElement(selector, index);
-                if (elementHandle) await elementHandle.click();
-                await sleep(200);
+                    const postCheck = await checkForValidationErrors();
+                    const fieldValue = await verifyInputValue(selector, index);
+                    if (!postCheck.hasError && fieldValue.hasValue) {
+                        console.log(`  ✅ Input Success via paired select: "${fieldValue.value}"`);
+                        registerDomValuePair(context, {
+                            kind: 'autocomplete',
+                            selector,
+                            index: index || 0,
+                            value,
+                            actualValue: fieldValue.value,
+                            label: params.label || `Field ${index || 0}`,
+                            restoreBeforeAdd: params.restoreBeforeAdd === true,
+                            requiredBeforeAdd: params.requiredBeforeAdd !== false
+                        });
+                        console.log(`  └─────────────────────────\n`);
+                        return;
+                    }
+
+                    console.log(`  ⚠️ Paired select did not fully validate (hasError=${postCheck.hasError}, hasValue=${fieldValue.hasValue}). Falling back to autocomplete typing.`);
+                } else {
+                    console.log(`  ℹ️ Paired hidden select unavailable: ${pairedSelectResult.reason}`);
+                }
             }
 
-            // Use page.keyboard and JavaScript for clearing (more reliable)
-            await page.keyboard.down('Control');
-            await page.keyboard.press('a');
-            await page.keyboard.up('Control');
-            await page.keyboard.press('Delete');
-            await sleep(200);
-
-            // 3. Smart Incremental Typing with Autocomplete Triggering
-            console.log("  ⌨️ Smart Typing...");
-            let foundSingleOption = false;
-
-            // OPTIMIZATION: Truncate value by 3 characters ONLY for Charge Job fields (index > 0)
-            // Employee/PTRJ ID (index 0) must be typed in FULL
-            let truncatedValue;
+            // 2. DOM autocomplete fallback. This avoids page.keyboard/page.click so
+            // background tabs can keep processing independently.
+            let searchValue;
             if (index === 0) {
-                // Employee field - type FULL value
-                truncatedValue = value;
-                console.log(`  📝 Typing FULL value (Employee): "${truncatedValue}"`);
+                searchValue = value;
+                console.log(`  📝 DOM search FULL value (Employee): "${searchValue}"`);
             } else {
-                // Charge Job fields - truncate last 3 characters
-                truncatedValue = value.length > 3 ? value.slice(0, -3) : value;
-                console.log(`  📝 Typing truncated value (Charge Job): "${truncatedValue}" (original: "${value}")`);
+                searchValue = value.length > 3 ? value.slice(0, -3) : value;
+                console.log(`  📝 DOM search truncated value (Charge Job): "${searchValue}" (original: "${value}")`);
             }
 
-            // First, try to trigger autocomplete using JavaScript (more reliable)
-            const triggerAutocomplete = await safeEvaluate((sel, idx, val) => {
-                const elements = document.querySelectorAll(sel);
-                const visibleElements = [];
-                for (const el of elements) {
-                    if (el.offsetParent !== null) visibleElements.push(el);
-                }
-                if (visibleElements.length <= idx) return { success: false, error: 'Element not found' };
-
-                const el = visibleElements[idx];
-
-                // Set value (truncated)
-                el.value = val;
-
-                // Trigger all the events that jQuery UI autocomplete listens for
-                const events = ['focus', 'input', 'keydown', 'keyup', 'change'];
-                events.forEach(eventType => {
-                    const event = new Event(eventType, { bubbles: true, cancelable: true });
-                    el.dispatchEvent(event);
-                });
-
-                // Also try jQuery trigger if jQuery is available
-                if (window.jQuery && window.jQuery(el).autocomplete) {
-                    try {
-                        window.jQuery(el).autocomplete('search', val);
-                        return { success: true, method: 'jquery-autocomplete' };
-                    } catch (e) {
-                        // Fall through to keyboard approach
-                    }
-                }
-
-                return { success: true, method: 'events' };
-            }, selector, index, truncatedValue) || { success: false, method: 'failed' };
-
-            console.log(`  📋 Autocomplete trigger: ${JSON.stringify(triggerAutocomplete)}`);
-
-            // Wait for dropdown to appear (and page to stabilize)
-            await sleep(800);
-            await waitForPageStable(2000);
-
-            // Check if dropdown appeared (using safe evaluate for navigation handling)
-            const dropdownAfterTrigger = await safeEvaluate(() => {
-                const lists = document.querySelectorAll('ul.ui-autocomplete');
-                for (const list of lists) {
-                    if (list.style.display !== 'none' && list.offsetParent !== null) {
-                        const items = list.querySelectorAll('li.ui-menu-item');
-                        return { visible: true, itemCount: items.length };
-                    }
-                }
-                return { visible: false, itemCount: 0 };
-            }) || { visible: false, itemCount: 0 };
-
-            if (!dropdownAfterTrigger.visible) {
-                console.log(`  ⚠️ Dropdown not visible after JavaScript trigger. Trying keyboard approach...`);
-
-                // Fallback: Re-focus and type character by character
-                try {
-                    elementHandle = await getFreshElement(selector, index);
-                    if (elementHandle) await elementHandle.click();
-                } catch (e) { }
-                await sleep(200);
-
-                // Clear first
-                await page.keyboard.down('Control');
-                await page.keyboard.press('a');
-                await page.keyboard.up('Control');
-                await page.keyboard.press('Delete');
-                await sleep(200);
-
-                // Type each character using page.keyboard (more reliable)
-                for (let i = 0; i < value.length; i++) {
-                    await page.keyboard.type(value[i]);
-
-                    // Dispatch input event after each character
-                    await page.evaluate((sel, idx) => {
-                        const elements = document.querySelectorAll(sel);
-                        const visibleElements = [];
-                        for (const el of elements) {
-                            if (el.offsetParent !== null) visibleElements.push(el);
-                        }
-                        if (visibleElements.length > idx) {
-                            const el = visibleElements[idx];
-                            el.dispatchEvent(new Event('input', { bubbles: true }));
-                            el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-                        }
-                    }, selector, index);
-
-                    await sleep(150);
-
-                    // Check for dropdown
-                    const dropdown = await page.evaluate(() => {
-                        const lists = document.querySelectorAll('ul.ui-autocomplete');
-                        for (const list of lists) {
-                            if (list.style.display !== 'none' && list.offsetParent !== null) {
-                                const items = list.querySelectorAll('li.ui-menu-item');
-                                return items.length;
-                            }
-                        }
-                        return 0;
-                    });
-
-                    if (dropdown === 1) {
-                        console.log(`  ✨ Single option found after typing \"${value.substring(0, i + 1)}\"`);
-                        foundSingleOption = true;
-                        break;
-                    } else if (dropdown > 0) {
-                        console.log(`  📋 Dropdown visible with ${dropdown} options after "${value.substring(0, i + 1)}"`);
-                    }
-                }
-            } else {
-                console.log(`  📋 Dropdown appeared with ${dropdownAfterTrigger.itemCount} items`);
-                if (dropdownAfterTrigger.itemCount === 1) foundSingleOption = true;
-            }
-
-            // 4. Confirm Selection
-            await sleep(500); // Stabilize
-
-            // Check if dropdown is visible before selecting
-            const dropdownCheck = await page.evaluate(() => {
-                const lists = document.querySelectorAll('ul.ui-autocomplete');
-                for (const list of lists) {
-                    if (list.style.display !== 'none' && list.offsetParent !== null) {
-                        const items = list.querySelectorAll('li.ui-menu-item');
-                        return { visible: true, itemCount: items.length };
-                    }
-                }
-                return { visible: false, itemCount: 0 };
+            let autocompleteSelectionFailed = false;
+            let nextChargeJobBranchMissing = false;
+            const configuredFallbackValue = fallbackValue === undefined || fallbackValue === null
+                ? ''
+                : String(fallbackValue).trim();
+            const configuredFallbackSearchValue = fallbackSearchValue === undefined || fallbackSearchValue === null
+                ? configuredFallbackValue
+                : String(fallbackSearchValue).trim();
+            let autocompleteResult = await setAutocompleteInputByDom(page, selector, index || 0, searchValue, {
+                dropdownWait: 900,
+                afterSelectWait: 900,
+                requireOption: true,
+                slowUntilSingle: isCascadingChargeJobField,
+                slowValue: value
             });
 
-            if (!dropdownCheck.visible) {
-                console.log(`  ⚠️ No dropdown visible after typing. Will try ArrowDown anyway.`);
+            if (!autocompleteResult.success) {
+                console.log(`  ⚠️ DOM autocomplete failed: ${autocompleteResult.reason}`);
+                autocompleteSelectionFailed = true;
+            } else if (autocompleteResult.optionClicked === false) {
+                console.log(`  ⚠️ DOM autocomplete set value only (${autocompleteResult.optionReason || 'no visible option'})`);
+                autocompleteSelectionFailed = true;
             } else {
-                console.log(`  📋 Dropdown visible with ${dropdownCheck.itemCount} items.`);
+                console.log(`  ✅ DOM autocomplete selected option: "${autocompleteResult.text || value}"`);
             }
 
-            // Ensure focus before selecting (with stale handle protection)
-            try {
-                elementHandle = await getFreshElement(selector, index);
-                if (elementHandle) await elementHandle.click();
-            } catch (e) { }
-            await sleep(200);
-
-            let selectionSuccess = false;
-            if (dropdownCheck.visible) {
-                console.log("  🖱️ Attempting to click dropdown option directly...");
-                // Try clicking the first item directly via JS
-                selectionSuccess = await safeEvaluate(() => {
-                    const lists = document.querySelectorAll('ul.ui-autocomplete');
-                    for (const list of lists) {
-                        if (list.style.display !== 'none' && list.offsetParent !== null) {
-                            const item = list.querySelector('li.ui-menu-item');
-                            if (item) {
-                                // jQuery UI often puts the click listener on the inner DIV or A tag
-                                const target = item.querySelector('div, a') || item;
-
-                                // Simulate full mouse event sequence including mouseover
-                                target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view: window }));
-                                target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-                                target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
-                                target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-                                return true;
-                            }
-                        }
+            if (autocompleteSelectionFailed && configuredFallbackValue) {
+                console.log(`  🔁 Fallback autocomplete: "${value}" not selected, trying "${configuredFallbackValue}"`);
+                const fallbackResult = await setAutocompleteInputByDom(
+                    page,
+                    selector,
+                    index || 0,
+                    configuredFallbackSearchValue,
+                    {
+                        dropdownWait: 900,
+                        afterSelectWait: 900,
+                        requireOption: true,
+                        slowUntilSingle: true,
+                        slowValue: configuredFallbackValue,
+                        matchValue: configuredFallbackValue
                     }
-                    return false;
-                });
+                );
+
+                if (fallbackResult.success && fallbackResult.optionClicked !== false) {
+                    autocompleteResult = {
+                        ...fallbackResult,
+                        fallbackFrom: value,
+                        fallbackValue: configuredFallbackValue
+                    };
+                    autocompleteSelectionFailed = false;
+                    console.log(`  ✅ Fallback selected option: "${fallbackResult.text || configuredFallbackValue}"`);
+                } else {
+                    console.log(`  ⚠️ Fallback "${configuredFallbackValue}" failed: ${fallbackResult.reason || fallbackResult.optionReason || 'option not selected'}`);
+                }
             }
 
-            if (selectionSuccess) {
-                console.log("  ✅ Clicked dropdown option successfully");
-            } else {
-                console.log("  ⌨️  Click failed/unavailable. Using ArrowDown + Enter...");
-                await page.keyboard.press('ArrowDown');
-                await sleep(300);
-                await page.keyboard.press('Enter');
+            await waitForPageStable(2000);
+
+            const resolvedExpectedFieldCount = resolveExpectedFieldCount();
+            const currentIndex = Number(index);
+            const shouldWaitForNextChargeJobBranch = isCascadingChargeJobField
+                && Number.isFinite(resolvedExpectedFieldCount)
+                && Number.isFinite(currentIndex)
+                && currentIndex + 1 < resolvedExpectedFieldCount;
+
+            if (shouldWaitForNextChargeJobBranch) {
+                const requiredVisibleCount = currentIndex + 2;
+                console.log(`  ⏳ Waiting staged Charge Job branch: need ${requiredVisibleCount} visible CBOBox field(s)...`);
+                const branchReady = await waitForVisibleInputCount(selector, requiredVisibleCount, 15000);
+                if (branchReady) {
+                    console.log(`  ✅ Next Charge Job branch is ready`);
+                } else {
+                    console.log(`  ⚠️ Next Charge Job branch did not appear yet`);
+                    nextChargeJobBranchMissing = true;
+                }
             }
 
             // 5. Wait for potential error or success
@@ -2184,6 +3483,14 @@ const actions = {
 
             // Also check specific validation selector if provided
             let hasSpecificError = false;
+            if (isCascadingChargeJobField && autocompleteSelectionFailed) {
+                console.log(`  ⚠️ Charge Job option was not selected from autocomplete`);
+                hasSpecificError = true;
+            }
+            if (nextChargeJobBranchMissing) {
+                console.log(`  ⚠️ Charge Job cascade did not advance to the next field`);
+                hasSpecificError = true;
+            }
             if (validationSelector) {
                 try {
                     const errorEl = await page.$(validationSelector);
@@ -2204,14 +3511,28 @@ const actions = {
             // 7. Verify the current field actually has a value
             const fieldValue = await verifyInputValue(selector, index);
             if (!fieldValue.hasValue) {
-                console.log(`  ⚠️ Field is empty after input attempt`);
-                hasSpecificError = true;
+                if (isCascadingChargeJobField && autocompleteResult.success && autocompleteResult.optionClicked !== false) {
+                    console.log(`  ℹ️ Field not readable after cascade postback, but autocomplete option was selected`);
+                } else {
+                    console.log(`  ⚠️ Field is empty after input attempt`);
+                    hasSpecificError = true;
+                }
             } else {
                 console.log(`  📋 Field value: "${fieldValue.value}"`);
             }
 
             if (!postCheck.hasError && !hasSpecificError) {
                 console.log(`  ✅ Input Success`);
+                registerDomValuePair(context, {
+                    kind: 'autocomplete',
+                    selector,
+                    index: index || 0,
+                    value: autocompleteResult.fallbackValue || value,
+                    actualValue: fieldValue.value || autocompleteResult.text || autocompleteResult.inputValue || value,
+                    label: params.label || `Field ${index || 0}`,
+                    restoreBeforeAdd: params.restoreBeforeAdd === true,
+                    requiredBeforeAdd: params.requiredBeforeAdd !== false
+                });
                 console.log(`  └─────────────────────────\n`);
                 return; // Success!
             }
@@ -2322,30 +3643,169 @@ const actions = {
      * params.selector: button selector to click
      * params.timeout: max time to wait for navigation (default 15000ms)
      */
-    clickAndWaitForReload: async (page, params) => {
-        const { selector, timeout = 15000 } = params;
+    clickAndWaitForReload: async (page, params, context = {}) => {
+        const { selector, timeout = 8000 } = params;
+        const totalHoursSelector = params.totalHoursSelector || context.totalHoursSelector || '';
+        const maxAttempts = params.maxAttempts || 1;
 
-        console.log(`🖱️ Clicking ${selector} and waiting for page reload...`);
+        console.log(`🖱️ Clicking ${selector} once and waiting for Millware auto-refresh...`);
 
-        try {
-            // Start navigation wait BEFORE clicking (important for race condition)
-            const navigationPromise = page.waitForNavigation({
-                waitUntil: 'domcontentloaded',
-                timeout: timeout
-            });
-
-            // Click the button (DON'T disable - it prevents the click from working!)
-            await page.click(selector);
-
-            // Wait for navigation to complete
-            await navigationPromise;
-
-            console.log(`  ✅ Click + reload successful`);
-            return true;
-        } catch (e) {
-            console.log(`  ⚠️ Click or navigation failed: ${e.message}`);
-            return false;
+        if (context.metadata?.inputFailed) {
+            console.log(`  ⚠️ Previous input was flagged failed, but Add will still be clicked: ${JSON.stringify(context.metadata.lastFailedInput || {})}`);
         }
+
+        await waitForElement(page, selector, timeout);
+        if (params.skipPreAddQuiet === true) {
+            console.log(`  ⚡ Fast Add: skip pre-Add quiet wait; clicking after DOM/value check.`);
+        } else {
+            const quietBeforeAdd = await waitForAspNetQuiet(page, params.preAddQuietTimeout || 10000, params.preAddQuietMs || 800);
+            if (quietBeforeAdd.success) {
+                console.log(`  ✅ Form quiet before Add (${quietBeforeAdd.elapsedMs}ms)`);
+            } else {
+                console.log(`  ⚠️ Form was not fully quiet before Add; continuing without page refresh`);
+            }
+        }
+        const pairCheck = await verifyAndRestoreDomPairsBeforeAdd(page, context);
+        if (!pairCheck.ok) {
+            console.log(`  ⚠️ ${pairCheck.problems.length} DOM/value pair(s) still not matching before Add. Add will be clicked once so Millware validation can respond.`);
+        }
+
+        let lastResult = null;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            let beforeState = await getAspNetFormState(page, totalHoursSelector);
+            console.log(`  ┌─ Add click attempt ${attempt}/${maxAttempts}`);
+            console.log(`  │ Before: emp="${beforeState.employeeValue}" hours="${beforeState.amountValue}" total="${beforeState.totalText || '-'}" gridRows=${beforeState.lineRowCount}`);
+
+            if (!String(beforeState.employeeValue || '').trim()) {
+                console.log(`  ⚠️ Employee field is empty before Add; clicking Add anyway so Millware validation is triggered.`);
+            }
+
+            if (!String(beforeState.amountValue || '').trim()) {
+                const hoursValue = String(context.hoursValue ?? params.hoursValue ?? '').trim();
+                if (hoursValue) {
+                    console.log(`  ⚠️ Hours was empty after cascade auto-refresh. Re-filling hours="${hoursValue}" before Add.`);
+                    const hoursResult = await setInputValueByDom(page, '#MainContent_txtHours', 0, hoursValue, {
+                        blur: false,
+                        dispatchChange: false,
+                        triggerJquery: false
+                    });
+                    if (hoursResult.success) {
+                        await sleep(100);
+                        beforeState = await getAspNetFormState(page, totalHoursSelector);
+                        console.log(`  │ After hours refill: hours="${beforeState.amountValue}"`);
+                    } else {
+                        console.log(`  ⚠️ Failed to refill hours before Add: ${hoursResult.reason}`);
+                    }
+                } else {
+                    console.log(`  ⚠️ Hours/amount field is empty before Add; clicking Add anyway so Millware validation is triggered.`);
+                }
+            }
+
+            const navigationPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: Math.min(timeout, 5000) })
+                .then(() => ({ success: true, status: 'navigation' }))
+                .catch(() => null);
+            let clickResult;
+            if (attempt === 1) {
+                clickResult = await clickElementByDom(page, selector, params.index || 0)
+                    .catch((error) => {
+                        if (isNavigationTransientError(error)) {
+                            return { success: true, transientNavigation: true };
+                        }
+                        return { success: false, reason: error.message };
+                    });
+            } else {
+                console.log(`  │ Retrying Add with native page.click()`);
+                clickResult = await page.click(selector, { delay: 20 })
+                    .then(() => ({ success: true, method: 'page.click' }))
+                    .catch((error) => {
+                        if (isNavigationTransientError(error)) {
+                            return { success: true, transientNavigation: true, method: 'page.click' };
+                        }
+                        return { success: false, reason: error.message, method: 'page.click' };
+                    });
+            }
+            if (!clickResult.success) {
+                console.log(`  │ ⚠️ Add click failed (${clickResult.method || 'dom'}): ${clickResult.reason}`);
+                if (attempt === maxAttempts) {
+                    throw new Error(`Add button click failed: ${clickResult.reason}`);
+                }
+                await sleep(500);
+                continue;
+            }
+
+            lastResult = await waitForAddCompletion(page, beforeState, { timeout, totalHoursSelector });
+            if (!lastResult.success) {
+                const navigationResult = await navigationPromise;
+                if (navigationResult?.success) {
+                    console.log(`  │ Navigation happened, waiting once more for grid/form state after auto-refresh...`);
+                    lastResult = await waitForAddCompletion(page, beforeState, { timeout: params.postNavigationTimeout || 6000, totalHoursSelector });
+                    if (!lastResult.success) {
+                        lastResult = navigationResult;
+                    }
+                }
+            }
+
+            if (lastResult.success) {
+                console.log(`  ✅ Add confirmed: ${lastResult.status}${lastResult.totalText ? ` total=${lastResult.totalText}` : ''}${lastResult.lineRowCount !== undefined ? ` gridRows=${lastResult.previousLineRowCount}->${lastResult.lineRowCount}` : ''} (${lastResult.elapsedMs || 0}ms)`);
+                if (lastResult.latestRow?.length) {
+                    console.log(`  ✅ Grid latest row: ${JSON.stringify(lastResult.latestRow)}`);
+                }
+                if (!context.metadata) context.metadata = {};
+                context.metadata.addedRows = (context.metadata.addedRows || 0) + 1;
+                context.lastAddResult = lastResult;
+                const readyResult = await waitForTaskRegisterDetailReady(page, params.readyTimeout || 5000, 200);
+                context.lastAddReadyResult = readyResult;
+                if (readyResult.success) {
+                    console.log(`  ✅ Detail form ready after Add: inputs empty (${readyResult.elapsedMs}ms)`);
+                } else {
+                    console.log(`  ⚠️ Detail form not fully empty after Add: ${JSON.stringify(readyResult.lastState || {})}`);
+                }
+                context.__domValuePairs = [];
+                return true;
+            }
+
+            console.log(`  ⚠️ Add not confirmed: ${lastResult.status}${lastResult.message ? ` - ${lastResult.message}` : ''}`);
+            if (lastResult.status === 'validation') {
+                if (!context.metadata) context.metadata = {};
+                context.metadata.inputFailed = true;
+                context.metadata.lastFailedInput = {
+                    selector,
+                    value: beforeState.amountValue,
+                    reason: lastResult.message,
+                    timestamp: Date.now()
+                };
+                console.log(`  ⏭️ Validation shown after Add. No manual refresh; continuing to next data.`);
+                context.__domValuePairs = [];
+                return false;
+            }
+
+            if (attempt < maxAttempts) {
+                await sleep(600);
+            }
+        }
+
+        console.log(`  ⚠️ Add click was sent but confirmation was unclear: ${lastResult?.message || 'no confirmation'}`);
+        const readyResult = await waitForTaskRegisterDetailReady(page, params.readyTimeout || 5000, 200);
+        context.lastAddReadyResult = readyResult;
+        if (!context.metadata) context.metadata = {};
+        context.lastAddResult = lastResult || { success: false, status: 'unclear' };
+        if (readyResult.success) {
+            context.metadata.addedRows = (context.metadata.addedRows || 0) + 1;
+            console.log(`  ✅ Detail form ready after Add auto-refresh (${readyResult.elapsedMs}ms). Continuing without extra refresh.`);
+            context.__domValuePairs = [];
+            return true;
+        } else {
+            context.metadata.inputFailed = true;
+            context.metadata.lastFailedInput = {
+                selector,
+                value: context.hoursValue ?? '',
+                reason: lastResult?.message || 'Add click was not confirmed and form did not reset',
+                timestamp: Date.now()
+            };
+            console.log(`  🛑 Add was not accepted/confirmed; form still not reset. Not counting this row as added.`);
+        }
+        context.__domValuePairs = [];
+        return false;
     },
 
     /**

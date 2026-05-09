@@ -33,7 +33,35 @@ const {
 const DEFAULT_TEMPLATE_NAME = 'attendance-input-loop';
 const DEFAULT_DATA_FILE = path.join(__dirname, 'testing_data', 'current_data.json');
 const DEFAULT_MAX_TABS = 8;
-const TAB_STAGGER_DELAY = 1000; // 1 detik jeda antar tab saat activate
+const parsePositiveInt = (value, fallback) => {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const TAB_STAGGER_DELAY = parsePositiveInt(process.env.MULTI_TAB_STAGGER_DELAY, 1000); // 1 detik jeda trigger antar tab
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function isNavigationTransientError(error) {
+    const message = error?.message || String(error || '');
+    return /execution context was destroyed|cannot find context|navigation|frame was detached/i.test(message);
+}
+
+function safePageUrl(page) {
+    try {
+        return typeof page.url === 'function' ? page.url() : '';
+    } catch (_) {
+        return '';
+    }
+}
+
+function useIsolatedTabSessions() {
+    return process.env.MULTI_TAB_ISOLATED_SESSIONS === 'true';
+}
+
+function shouldBringTabToFrontOnTrigger() {
+    return process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER === 'true';
+}
 
 function resolveTemplateAndData(argv = process.argv.slice(2)) {
     let templateName = DEFAULT_TEMPLATE_NAME;
@@ -130,18 +158,99 @@ function engineOptions(engineId) {
 }
 
 /**
- * Activate a tab by bringing it to front.
- * Chrome membutuhkan tab di-foreground untuk dapat menerima event/input secara reliable.
+ * Activate a tab using CDP to prevent Chrome from throttling it.
+ *
+ * CRITICAL INSIGHT:
+ * bringToFront() makes ONE tab the foreground tab and THROTTLES all others.
+ * This causes tabs to run SEQUENTIALLY (Tab 1 waits while Tab 0 is throttled).
+ *
+ * Solution: DO NOT call bringToFront(). Instead, use CDP to force each tab
+ * to appear "active" so Chrome doesn't throttle it.
+ *
+ * The visibility override + keep-alive loop (injected via browser-session.js)
+ * already prevent Chrome's background tab throttling for JavaScript execution.
+ * CDP calls here add an extra layer to prevent scheduling throttling.
  */
 async function activateTab(page, tabIndex) {
-    try {
-        await page.bringToFront();
-        await new Promise((r) => setTimeout(r, 200));
-        emit('tab.activated', { tab_index: tabIndex });
-    } catch (e) {
-        console.warn(`⚠️  [Tab ${tabIndex + 1}] Gagal bringToFront: ${e.message}`);
-        emit('tab.activate.failed', { tab_index: tabIndex, message: e.message });
+    if (shouldBringTabToFrontOnTrigger()) {
+        try {
+            await page.bringToFront();
+            await new Promise((resolve) => setTimeout(resolve, 150));
+        } catch (_) { /* not critical */ }
     }
+
+    try {
+        const cdp = await page.createCDPSession();
+
+        // Try to disable scheduling throttling via CDP
+        try {
+            await cdp.send('Page.setWebKitForcePageScheduling', { pageId: 1, force: true });
+        } catch (_) { /* not critical */ }
+
+        // Make Chrome route focus-sensitive APIs for this target as if focused.
+        try {
+            await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+        } catch (_) { /* not critical */ }
+
+        // Patch visibility + signal active state
+        try {
+            await cdp.send('Runtime.evaluate', {
+                expression: `
+                    (function () {
+                        // Keep visibility override active
+                        Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
+                        Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true });
+                        Object.defineProperty(document, 'hasFocus', { value: () => true, configurable: true });
+                        if (typeof Document !== 'undefined' && Document.prototype) {
+                            Object.defineProperty(Document.prototype, 'hasFocus', { value: () => true, configurable: true });
+                        }
+                        window.focus = () => true;
+                        document.__activeTab = true;
+                        window.dispatchEvent(new Event('focus'));
+                        document.dispatchEvent(new Event('visibilitychange'));
+                        if (document.body) {
+                            document.body.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+                        }
+                        // Touch DOM to signal activity
+                        if (document.body) document.body.offsetHeight;
+                        return true;
+                    })();
+                `,
+                returnByValue: true
+            });
+        } catch (_) { /* not critical */ }
+
+        await cdp.detach().catch(() => { });
+    } catch (e) { /* ignore */ }
+
+    emit('tab.activated', {
+        tab_index: tabIndex,
+        method: shouldBringTabToFrontOnTrigger() ? 'front+cdp' : 'cdp'
+    });
+}
+
+async function openTabPage(session, tabIndex, targetUrl) {
+    const page = tabIndex === 0 && session.page && !session.page.isClosed?.()
+        ? session.page
+        : await session.newPage();
+
+    if (tabIndex === 0) {
+        session.page = page;
+    }
+
+    console.log(`🧭 [Tab ${tabIndex + 1}] Membuka: ${targetUrl}`);
+    emit('tab.open.started', { tab_index: tabIndex });
+
+    try {
+        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        console.log(`✅ [Tab ${tabIndex + 1}] Halaman dimuat`);
+        emit('tab.open.done', { tab_index: tabIndex });
+    } catch (e) {
+        console.warn(`⚠️  [Tab ${tabIndex + 1}] Gagal muat: ${e.message}`);
+        emit('tab.open.failed', { tab_index: tabIndex, message: e.message });
+    }
+
+    return page;
 }
 
 /**
@@ -149,40 +258,195 @@ async function activateTab(page, tabIndex) {
  * The first tab is the one already open from setup.
  */
 async function openTabPages(session, tabCount, targetUrl) {
-    // First tab: reuse the page already logged in (session.page)
-    // Subsequent tabs: create new pages in the same browser
-    const pages = [session.page];
+    return Promise.all(
+        Array.from({ length: tabCount }, (_, tabIndex) => openTabPage(session, tabIndex, targetUrl))
+    );
+}
 
-    const additionalTabPromises = [];
-    for (let i = 1; i < tabCount; i++) {
-        additionalTabPromises.push(
-            (async () => {
-                const page = await session.newPage();
-                console.log(`🧭 [Tab ${i + 1}] Membuka: ${targetUrl}`);
-                emit('tab.open.started', { tab_index: i });
+async function startTabSession(sessionId, freshLogin, tabIndex) {
+    const session = new MillwareSession({
+        sessionId,
+        freshLoginFirst: freshLogin,
+        loginFallback: true,
+        headless: process.env.HEADLESS === 'true',
+        slowMo: parseInt(process.env.SLOW_MO || '0', 10)
+    });
 
-                try {
-                    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-                    console.log(`✅ [Tab ${i + 1}] Halaman dimuat`);
-                    emit('tab.open.done', { tab_index: i });
-                } catch (e) {
-                    console.warn(`⚠️  [Tab ${i + 1}] Gagal muat: ${e.message}`);
-                    emit('tab.open.failed', { tab_index: i, message: e.message });
-                }
+    emit('session.starting', { session_id: sessionId, fresh_login: freshLogin, tab_index: tabIndex });
+    await session.start();
 
-                return page;
-            })()
-        );
+    if (session.sessionReused) {
+        console.log(`♻️  [SESSION Tab ${tabIndex + 1}] Session restored from disk`);
+        emit('session.reused', { session_id: sessionId, session_path: session.getSessionPath(), tab_index: tabIndex });
+    } else {
+        console.log(`✅ [SESSION Tab ${tabIndex + 1}] Fresh login completed, session saved`);
+        emit('session.login.done', { session_id: sessionId, session_path: session.getSessionPath(), tab_index: tabIndex });
     }
 
-    const newPages = await Promise.all(additionalTabPromises);
-    return [...pages, ...newPages];
+    return session;
+}
+
+async function startIsolatedTabSessions(baseSessionId, tabCount, freshLogin) {
+    const sessions = [];
+
+    for (let tabIndex = 0; tabIndex < tabCount; tabIndex++) {
+        const sessionId = `${baseSessionId}-tab-${tabIndex + 1}`;
+        sessions.push(await startTabSession(sessionId, freshLogin, tabIndex));
+        if (tabIndex < tabCount - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+    }
+
+    return sessions;
+}
+
+async function submitTaskRegisterTab(page, tabIndex, addedRows = 0) {
+    if (!addedRows) {
+        console.log(`💾 [Tab ${tabIndex + 1}] Save skipped: no new Add row recorded`);
+        emit('tab.submit.skipped', { tab_index: tabIndex, reason: 'no_added_rows' });
+        return { submitted: false, reason: 'no_added_rows' };
+    }
+
+    const selectors = ['#MainContent_btnSave', '#btnSave', 'input[id*="btnSave"]', 'button[id*="Save"]'];
+    console.log(`💾 [Tab ${tabIndex + 1}] Saving ${addedRows} added row(s)...`);
+    emit('tab.submit.started', { tab_index: tabIndex, added_rows: addedRows });
+
+    const buttonInfo = await page.evaluate((selectors) => {
+        const isVisible = (el) => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none'
+                && style.visibility !== 'hidden'
+                && el.offsetParent !== null
+                && !el.disabled;
+        };
+        for (const selector of selectors) {
+            const el = Array.from(document.querySelectorAll(selector)).find(isVisible);
+            if (el) {
+                return {
+                    found: true,
+                    selector,
+                    id: el.id || '',
+                    value: el.value || '',
+                    text: el.textContent || ''
+                };
+            }
+        }
+        return { found: false };
+    }, selectors).catch((error) => ({
+        found: false,
+        error: error.message,
+        transientNavigation: isNavigationTransientError(error)
+    }));
+
+    if (!buttonInfo.found) {
+        const message = `Save button not found/enabled after ${addedRows} Add row(s)`;
+        console.warn(`⚠️  [Tab ${tabIndex + 1}] ${message}`);
+        emit('tab.submit.failed', { tab_index: tabIndex, message, button_info: buttonInfo });
+        throw new Error(message);
+    }
+
+    const start = Date.now();
+    const timeout = parseInt(process.env.TAB_SAVE_TIMEOUT || '30000', 10);
+    const navigationPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout })
+        .then(() => ({ success: true, status: 'navigation', elapsed_ms: Date.now() - start }))
+        .catch(() => null);
+
+    const clickResult = await page.evaluate((selector) => {
+        const el = document.querySelector(selector);
+        if (!el) return { success: false, reason: 'button disappeared' };
+        const view = window;
+        if (typeof el.focus === 'function') el.focus();
+        el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view }));
+        el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view }));
+        if (typeof el.click === 'function') el.click();
+        else el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view }));
+        return { success: true };
+    }, buttonInfo.selector).catch((error) => {
+        if (isNavigationTransientError(error)) {
+            return { success: true, transientNavigation: true };
+        }
+        return { success: false, reason: error.message };
+    });
+
+    if (!clickResult.success) {
+        const message = `Save click failed: ${clickResult.reason}`;
+        emit('tab.submit.failed', { tab_index: tabIndex, message });
+        throw new Error(message);
+    }
+
+    const idlePromise = (async () => {
+        while (Date.now() - start < timeout) {
+            const state = await page.evaluate(() => {
+                let asyncPostback = false;
+                try {
+                    const prm = window.Sys?.WebForms?.PageRequestManager?.getInstance?.();
+                    asyncPostback = Boolean(prm?.get_isInAsyncPostBack?.());
+                } catch (_) { }
+                const validationTexts = Array.from(document.querySelectorAll('span[id*="RFV"], span[style*="color:Red"], span[style*="color: red"], span.RedText'))
+                    .filter((el) => {
+                        const style = window.getComputedStyle(el);
+                        return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetHeight > 0;
+                    })
+                    .map((el) => el.textContent.trim())
+                    .filter((text) => text && text !== '*' && /please|required|select|invalid|harus|wajib/i.test(text));
+                return {
+                    readyState: document.readyState,
+                    asyncPostback,
+                    url: window.location.href,
+                    validationTexts
+                };
+            }).catch((error) => {
+                if (isNavigationTransientError(error)) {
+                    return {
+                        readyState: 'loading',
+                        asyncPostback: true,
+                        validationTexts: [],
+                        transientNavigation: true,
+                        url: safePageUrl(page),
+                        message: error.message
+                    };
+                }
+                return {
+                    readyState: 'error',
+                    asyncPostback: false,
+                    validationTexts: [error.message],
+                    url: safePageUrl(page)
+                };
+            });
+
+            if (state.validationTexts?.length) {
+                return {
+                    success: false,
+                    status: 'validation',
+                    message: state.validationTexts.join(' | '),
+                    elapsed_ms: Date.now() - start
+                };
+            }
+            if (state.readyState !== 'loading' && !state.asyncPostback && Date.now() - start > 1200) {
+                return { success: true, status: 'idle', url: state.url, elapsed_ms: Date.now() - start };
+            }
+            await sleep(250);
+        }
+        return { success: false, status: 'timeout', message: `Save not confirmed within ${timeout}ms`, elapsed_ms: Date.now() - start };
+    })();
+
+    const result = await Promise.race([navigationPromise, idlePromise]) || await idlePromise;
+    if (!result.success) {
+        const message = result.message || `Save failed: ${result.status}`;
+        console.warn(`⚠️  [Tab ${tabIndex + 1}] ${message}`);
+        emit('tab.submit.failed', { tab_index: tabIndex, message, status: result.status });
+        throw new Error(message);
+    }
+
+    console.log(`✅ [Tab ${tabIndex + 1}] Save confirmed (${result.status}, ${result.elapsed_ms || 0}ms)`);
+    emit('tab.submit.completed', { tab_index: tabIndex, status: result.status, elapsed_ms: result.elapsed_ms || 0 });
+    return { submitted: true, ...result };
 }
 
 /**
  * Execute automation for a single tab.
- * Staggered activation: tab 0 = 0ms delay, tab 1 = 1000ms, tab 2 = 2000ms.
- * All tabs run in parallel after their individual stagger delay.
+ * Execute one tab. Trigger timing is controlled by runTabsWithInterval().
  */
 async function runTab(tabIndex, employees, page, data, split, session, templateName) {
     if (employees.length === 0) {
@@ -193,26 +457,19 @@ async function runTab(tabIndex, employees, page, data, split, session, templateN
     const engine = new AutomationEngine(engineOptions(`tab_${tabIndex + 1}`));
     engine.browser = session.browser;
     engine.page = page;
+    engine.session = session;
     engine.disableBrowserRecycle = true;
     engine.recoveryManager.clearState();
 
     const tabData = {
         ...data,
-        metadata: data.metadata || {},
+        metadata: { ...(data.metadata || {}) },
         data: employees
     };
     const tabContext = {
         data: tabData,
         metadata: tabData.metadata
     };
-
-    // === STAGGERED ACTIVATION ===
-    const staggerDelay = tabIndex * TAB_STAGGER_DELAY;
-    if (tabIndex > 0) {
-        console.log(`⏳ [Tab ${tabIndex + 1}] Menunggu ${staggerDelay}ms sebelum activate...`);
-        emit('tab.waiting', { tab_index: tabIndex, stagger_ms: staggerDelay });
-        await new Promise((r) => setTimeout(r, staggerDelay));
-    }
 
     await activateTab(page, tabIndex);
 
@@ -224,10 +481,12 @@ async function runTab(tabIndex, employees, page, data, split, session, templateN
 
     try {
         await engine.executeSteps([split.loopStep], tabContext);
+        const addedRows = Number(tabContext.metadata?.addedRows || 0);
+        await submitTaskRegisterTab(page, tabIndex, addedRows);
         tabStats.done = employees.length;
         console.log(`✅ [Tab ${tabIndex + 1}] ✅ Selesai (${employees.length} employee(s))`);
-        emit('tab.completed', { tab_index: tabIndex, status: 'completed', ...tabStats });
-        return { tabIndex, employees: employees.length, status: 'completed' };
+        emit('tab.completed', { tab_index: tabIndex, status: 'completed', added_rows: addedRows, ...tabStats });
+        return { tabIndex, employees: employees.length, status: 'completed', addedRows };
     } catch (err) {
         tabStats.failed = employees.length;
         console.error(`❌ [Tab ${tabIndex + 1}] ❌ Gagal: ${err.message}`);
@@ -236,10 +495,44 @@ async function runTab(tabIndex, employees, page, data, split, session, templateN
     }
 }
 
+async function runTabsWithInterval({ assignedTabs, pages, data, split, sessions, templateName, intervalMs = TAB_STAGGER_DELAY }) {
+    const runningTabs = [];
+
+    for (let tabIndex = 0; tabIndex < assignedTabs.length; tabIndex++) {
+        if (tabIndex > 0) {
+            console.log(`⏳ [Scheduler] Menunggu ${intervalMs}ms sebelum trigger Tab ${tabIndex + 1}...`);
+            emit('tab.waiting', { tab_index: tabIndex, interval_ms: intervalMs });
+            await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        }
+
+        console.log(`🚦 [Scheduler] Trigger Tab ${tabIndex + 1}/${assignedTabs.length}`);
+        emit('tab.triggered', {
+            tab_index: tabIndex,
+            trigger_order: tabIndex + 1,
+            interval_ms: intervalMs
+        });
+
+        runningTabs.push(
+            runTab(
+                tabIndex,
+                assignedTabs[tabIndex],
+                pages[tabIndex],
+                data,
+                split,
+                sessions[tabIndex] || sessions[0],
+                templateName
+            )
+        );
+    }
+
+    return Promise.all(runningTabs);
+}
+
 async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit }) {
     const data = loadJson(dataFilePath || DEFAULT_DATA_FILE);
     const maxTabs = DEFAULT_MAX_TABS;
     const plan = buildMultiTabRunPlan({ data, requestedTabs, maxTabs, rowLimit });
+    const isolatedSessions = useIsolatedTabSessions();
 
     if (plan.employees.length === 0) {
         throw new Error('Data tidak memiliki employee untuk diproses.');
@@ -252,7 +545,8 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
         max_tabs: maxTabs,
         employee_count: plan.employees.length,
         actual_tabs: plan.actualTabs,
-        stagger_delay_ms: TAB_STAGGER_DELAY
+        stagger_delay_ms: TAB_STAGGER_DELAY,
+        isolated_sessions: isolatedSessions
     });
 
     // ══════════════════════════════════════════════════════
@@ -286,7 +580,7 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
     // ══════════════════════════════════════════════════════
     // 2. SESSION MANAGEMENT
     // ══════════════════════════════════════════════════════
-    const freshLogin = process.env.FRESH_LOGIN === 'true';
+    const freshLogin = process.env.FRESH_LOGIN !== 'false';
     const sessionId = `millware-${templateName}-${dataFilePath.replace(/[^a-zA-Z0-9]/g, '_').slice(-20)}`;
 
     console.log('\n' + '═'.repeat(70));
@@ -295,34 +589,27 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
     console.log(`📂 Template  : ${templateName}`);
     console.log(`📂 Data     : ${dataFilePath}`);
     console.log(`⚙️  Tabs     : ${plan.actualTabs} (max: ${maxTabs})`);
+    console.log(`⚙️  Isolated : ${isolatedSessions ? 'ON (independent browser session per tab)' : 'OFF (shared browser session)'}`);
     console.log(`⚙️  Stagger  : ${TAB_STAGGER_DELAY}ms antar tab`);
     console.log(`📋 Employees: ${plan.employees.length}`);
     console.log(`🔐 Session  : ${sessionId} (fresh=${freshLogin})`);
     console.log('═'.repeat(70) + '\n');
 
-    emit('session.starting', { session_id: sessionId, fresh_login: freshLogin });
-
     // Load template to get login steps
     const template = loadJson(path.join(__dirname, 'templates', `${templateName}.json`));
     const split = splitTemplateForMultiTab(template);
 
-    const session = new MillwareSession({
-        sessionId,
-        freshLoginFirst: freshLogin,
-        loginFallback: true,
-        headless: process.env.HEADLESS === 'true',
-        slowMo: parseInt(process.env.SLOW_MO || '0', 10)
-    });
+    let sessions = [];
 
     try {
-        await session.start();
+        let pages;
 
-        if (session.sessionReused) {
-            console.log('♻️  [SESSION] Session restored from disk (cookies valid, not expired)');
-            emit('session.reused', { session_id: sessionId, session_path: session.getSessionPath() });
+        if (isolatedSessions) {
+            console.log(`🔐 [SESSION] Menyiapkan ${plan.actualTabs} session mandiri...`);
+            sessions = await startIsolatedTabSessions(sessionId, plan.actualTabs, freshLogin);
         } else {
-            console.log('✅ [SESSION] Fresh login completed, session saved');
-            emit('session.login.done', { session_id: sessionId, session_path: session.getSessionPath() });
+            const session = await startTabSession(sessionId, freshLogin, 0);
+            sessions = [session];
         }
 
         // ══════════════════════════════════════════════════════
@@ -331,13 +618,13 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
         const targetUrl = split.lastSetupNavigateUrl ||
             (MILLWARE_CONFIG.baseUrl.replace(/\/$/, '') + MILLWARE_CONFIG.taskRegisterPage);
 
-        console.log(`🧭 [SETUP] Membuka ${plan.actualTabs - 1} tab tambahan...`);
-
-        // First tab is already open (session.page after login)
-        // Open remaining tabs in the same browser
-        let pages = [session.page];
-        for (let i = 1; i < plan.actualTabs; i++) {
-            pages.push(await session.newPage());
+        console.log(`🧭 [SETUP] Membuka dan menyiapkan ${plan.actualTabs} tab dari session login yang sama...`);
+        if (isolatedSessions) {
+            pages = await Promise.all(
+                sessions.map((session, tabIndex) => openTabPage(session, tabIndex, targetUrl))
+            );
+        } else {
+            pages = await openTabPages(sessions[0], plan.actualTabs, targetUrl);
         }
 
         // Log assignment
@@ -357,15 +644,19 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
         console.log('');
 
         // ══════════════════════════════════════════════════════
-        // 4. RUN ALL TABS IN PARALLEL (STAGGERED ACTIVATION)
+        // 4. TRIGGER TABS SEQUENTIALLY, THEN LET THEM RUN IN PARALLEL
         // ══════════════════════════════════════════════════════
-        console.log('▶️  [RUN] Semua tab dimulai secara PARALEL...\n');
+        console.log(`▶️  [RUN] Trigger tab bertahap: Tab 1 lalu jeda ${TAB_STAGGER_DELAY}ms antar tab...\n`);
 
-        const tabResults = await Promise.all(
-            plan.assignedTabs.map((employees, tabIndex) =>
-                runTab(tabIndex, employees, pages[tabIndex], data, split, session, templateName)
-            )
-        );
+        const tabResults = await runTabsWithInterval({
+            assignedTabs: plan.assignedTabs,
+            pages,
+            data,
+            split,
+            sessions,
+            templateName,
+            intervalMs: TAB_STAGGER_DELAY
+        });
 
         // ══════════════════════════════════════════════════════
         // 5. SUBMIT ALL TABS
@@ -376,7 +667,7 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
 
             // Create a temporary engine for cleanup using the first page
             const cleanupEngine = new AutomationEngine(engineOptions('cleanup'));
-            cleanupEngine.browser = session.browser;
+            cleanupEngine.browser = sessions[0].browser;
             cleanupEngine.page = pages[0];
             cleanupEngine.disableBrowserRecycle = true;
 
@@ -432,7 +723,7 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
 
         return { success: true, tabs: plan.actualTabs, employees: plan.employees.length, results: tabResults };
     } finally {
-        await session.close().catch(() => {});
+        await Promise.all(sessions.map((session) => session.close().catch(() => {})));
     }
 }
 async function runFromCli() {
@@ -475,5 +766,12 @@ module.exports = {
     runMultiTab,
     splitTemplateForMultiTab,
     runTab,
+    runTabsWithInterval,
+    openTabPage,
+    openTabPages,
+    startIsolatedTabSessions,
+    submitTaskRegisterTab,
+    useIsolatedTabSessions,
+    shouldBringTabToFrontOnTrigger,
     activateTab
 };

@@ -6,6 +6,20 @@
     },
     "steps": [
         {
+            "action": "setVariable",
+            "params": {
+                "variable": "metadata.inputFailed",
+                "value": false
+            }
+        },
+        {
+            "action": "setVariable",
+            "params": {
+                "variable": "__domValuePairs",
+                "value": []
+            }
+        },
+        {
             "comment": "═══ SET VARIABLES BASED ON MODE ═══",
             "action": "if",
             "params": {
@@ -22,7 +36,7 @@
                         "action": "setContext",
                         "params": {
                             "key": "hoursValue",
-                            "valueSource": "attendance.regularHours"
+                            "regularFullHours": true
                         }
                     },
                     {
@@ -74,7 +88,7 @@
             "comment": "═══ LOG: Processing ═══",
             "action": "log",
             "params": {
-                "message": "    → Processing ${inputMode.toUpperCase()}: Date=${attendance.date}, Hours=${hoursValue}"
+                "message": "    → Processing ${inputMode}: Date=${attendance.date}, Hours=${hoursValue}"
             }
         },
         {
@@ -96,7 +110,7 @@
         {
             "action": "wait",
             "params": {
-                "duration": 500
+                "duration": 150
             }
         },
         {
@@ -110,7 +124,7 @@
         {
             "action": "wait",
             "params": {
-                "duration": 500
+                "duration": 150
             }
         },
         {
@@ -146,7 +160,7 @@
         {
             "action": "wait",
             "params": {
-                "duration": 2000
+                "duration": 600
             }
         },
         {
@@ -161,7 +175,7 @@
             "comment": "═══ PROCEED IF EMPLOYEE INPUT SUCCESS ═══",
             "action": "if",
             "params": {
-                "condition": "!context.employeeInputFailed",
+                "condition": "metadata.employeeInputFailed !== true",
                 "thenSteps": [
                     {
                         "action": "waitForElement",
@@ -173,7 +187,7 @@
                     {
                         "action": "wait",
                         "params": {
-                            "duration": 500
+                            "duration": 200
                         }
                     },
                     {
@@ -186,7 +200,7 @@
                     {
                         "action": "wait",
                         "params": {
-                            "duration": 3000
+                            "duration": 800
                         }
                     },
                     {
@@ -219,7 +233,7 @@
                                 {
                                     "action": "wait",
                                     "params": {
-                                        "duration": 1000
+                                        "duration": 300
                                     }
                                 },
                                 {
@@ -227,7 +241,10 @@
                                     "action": "typeInput",
                                     "params": {
                                         "selector": "#MainContent_txtHours",
-                                        "value": "${hoursValue}"
+                                        "value": "${hoursValue}",
+                                        "label": "Hours",
+                                        "restoreBeforeAdd": true,
+                                        "noPostback": true
                                     }
                                 },
                                 {
@@ -235,12 +252,9 @@
                                     "action": "clickAndWaitForReload",
                                     "params": {
                                         "selector": "#MainContent_btnAdd",
-                                        "timeout": 15000
+                                        "timeout": 8000,
+                                        "skipPreAddQuiet": true
                                     }
-                                },
-                                {
-                                    "action": "checkPageAndNavigate",
-                                    "params": {}
                                 },
                                 {
                                     "action": "waitForReady",
@@ -275,7 +289,7 @@
                                 {
                                     "action": "wait",
                                     "params": {
-                                        "duration": 2000
+                                        "duration": 800
                                     }
                                 }
                             ]

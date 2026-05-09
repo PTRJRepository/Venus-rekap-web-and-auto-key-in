@@ -6,6 +6,13 @@
     },
     "steps": [
         {
+            "action": "setVariable",
+            "params": {
+                "variable": "__domValuePairs",
+                "value": []
+            }
+        },
+        {
             "action": "log",
             "params": {
                 "message": "    → Input ${leaveType.toUpperCase()} LEAVE: ${attendance.status} (${attendance.leaveDescription})"
@@ -112,7 +119,7 @@
         {
             "action": "if",
             "params": {
-                "condition": "!context.employeeInputFailed",
+                "condition": "metadata.employeeInputFailed !== true",
                 "thenSteps": [
                     {
                         "action": "waitForElement",
@@ -151,7 +158,10 @@
                         "action": "typeInput",
                         "params": {
                             "selector": "#MainContent_txtHours",
-                            "value": "${attendance.regularHours}"
+                            "value": "${attendance.regularHours}",
+                            "label": "Hours",
+                            "restoreBeforeAdd": true,
+                            "noPostback": true
                         }
                     },
                     {
@@ -171,7 +181,8 @@
                                     "action": "clickAndWaitForReload",
                                     "params": {
                                         "selector": "#MainContent_btnAdd",
-                                        "timeout": 15000
+                                        "timeout": 15000,
+                                        "skipPreAddQuiet": true
                                     }
                                 }
                             ],
@@ -194,10 +205,6 @@
                                 }
                             ]
                         }
-                    },
-                    {
-                        "action": "checkPageAndNavigate",
-                        "params": {}
                     },
                     {
                         "action": "waitForReady",

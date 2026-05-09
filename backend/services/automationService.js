@@ -134,7 +134,11 @@ const saveAutomationData = async (data) => {
     // --- INTEGRATE STATUS (MATCH/MISS) ---
     console.log(`[Automation] 🔄 Calculating sync status (MATCH/MISS) for ${transformedData.length} employees...`);
     try {
-        const comparison = await compareWithTaskReg(employees, firstDay, endDay, { onlyOvertime });
+        const comparison = await compareWithTaskReg(employees, firstDay, endDay, {
+            onlyOvertime,
+            syncRegularOnly,
+            onlyRegular: syncRegularOnly
+        });
 
         // Build a lookup map from comparison results: key = "ptrjId_date"
         const statusMap = {};
@@ -324,12 +328,16 @@ const startAutomationProcess = () => {
         ...process.env,
         AUTO_CLOSE: process.env.AUTO_CLOSE || 'true',
         HEADLESS: process.env.HEADLESS || 'false',
+        FRESH_LOGIN: process.env.FRESH_LOGIN || 'true',
         MULTI_TAB_CONCURRENCY: process.env.MULTI_TAB_CONCURRENCY || '8',
+        MULTI_TAB_STAGGER_DELAY: process.env.MULTI_TAB_STAGGER_DELAY || '1000',
+        MULTI_TAB_ISOLATED_SESSIONS: process.env.MULTI_TAB_ISOLATED_SESSIONS || 'false',
+        MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER: process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER || 'false',
         ENGINE_START_DELAY: process.env.ENGINE_START_DELAY || '2000'
     };
 
     const tabs = env.MULTI_TAB_CONCURRENCY;
-    console.log(`[Automation] Starting multi-tab runner with ${tabs} tab(s): node ${ATTENDANCE_RUNNER_SCRIPT}`);
+    console.log(`[Automation] Starting multi-tab runner with ${tabs} tab(s), freshLogin=${env.FRESH_LOGIN}: node ${ATTENDANCE_RUNNER_SCRIPT}`);
 
     // No need to pass data file path - runner uses current_data.json by default
     const child = spawn('node', [ATTENDANCE_RUNNER_SCRIPT], {

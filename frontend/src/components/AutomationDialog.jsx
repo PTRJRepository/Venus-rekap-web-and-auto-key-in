@@ -192,24 +192,32 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
             if (!response.ok) { const err = await response.json(); addLog('error', err.error || 'Failed to start'); setStatus('failed'); return; }
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
+            let buffer = '';
+            const handleMessageLine = (line) => {
+                if (!line.startsWith('data: ')) return;
+                try {
+                    const msg = JSON.parse(line.slice(6));
+                    if (msg.type === 'log' || msg.type === 'info') addLog('info', msg.data);
+                    else if (msg.type === 'error') addLog('error', msg.data);
+                    else if (msg.type === 'event') {
+                        if (msg.data?.event === 'run.completed') setStatus('completed');
+                        if (msg.data?.event === 'run.failed') setStatus('failed');
+                    } else if (msg.type === 'status') {
+                        if (msg.data === 'completed') setStatus('completed');
+                        if (msg.data === 'failed') setStatus('failed');
+                    }
+                } catch (e) { }
+            };
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                const text = decoder.decode(value);
-                for (const line of text.split('\n')) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const msg = JSON.parse(line.slice(6));
-                            if (msg.type === 'log' || msg.type === 'info') addLog('info', msg.data);
-                            else if (msg.type === 'error') addLog('error', msg.data);
-                            else if (msg.type === 'status') {
-                                if (msg.data === 'completed') setStatus('completed');
-                                if (msg.data === 'failed') setStatus('failed');
-                            }
-                        } catch (e) { }
-                    }
-                }
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split(/\r?\n/);
+                buffer = lines.pop() || '';
+                lines.forEach(handleMessageLine);
             }
+            buffer += decoder.decode();
+            if (buffer.trim()) buffer.split(/\r?\n/).forEach(handleMessageLine);
         } catch (e) { addLog('error', `Connection error: ${e.message}`); setStatus('failed'); }
     };
 

@@ -2,7 +2,10 @@ const assert = require('assert/strict');
 
 const {
     buildMultiTabRunPlan,
-    splitTemplateForMultiTab
+    openTabPages,
+    splitTemplateForMultiTab,
+    shouldBringTabToFrontOnTrigger,
+    useIsolatedTabSessions
 } = require('./multi-tab-runner');
 
 function employee(ptrjId) {
@@ -72,3 +75,72 @@ function employee(ptrjId) {
         /forEach.*data\.data/
     );
 }
+
+{
+    const previous = process.env.MULTI_TAB_ISOLATED_SESSIONS;
+
+    delete process.env.MULTI_TAB_ISOLATED_SESSIONS;
+    assert.equal(useIsolatedTabSessions(), false);
+
+    process.env.MULTI_TAB_ISOLATED_SESSIONS = 'true';
+    assert.equal(useIsolatedTabSessions(), true);
+
+    if (previous === undefined) {
+        delete process.env.MULTI_TAB_ISOLATED_SESSIONS;
+    } else {
+        process.env.MULTI_TAB_ISOLATED_SESSIONS = previous;
+    }
+}
+
+{
+    const previous = process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER;
+
+    delete process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER;
+    assert.equal(shouldBringTabToFrontOnTrigger(), false);
+
+    process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER = 'true';
+    assert.equal(shouldBringTabToFrontOnTrigger(), true);
+
+    if (previous === undefined) {
+        delete process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER;
+    } else {
+        process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER = previous;
+    }
+}
+
+async function testOpenTabPagesCreatesAndNavigatesAllTabs() {
+    const navigated = [];
+    let created = 0;
+    const makePage = (name) => ({
+        name,
+        closed: false,
+        isClosed() { return this.closed; },
+        async goto(url) {
+            navigated.push({ name, url });
+        }
+    });
+
+    const session = {
+        page: null,
+        async newPage() {
+            created += 1;
+            return makePage(`created-${created}`);
+        }
+    };
+
+    const pages = await openTabPages(session, 3, 'http://example.test/detail');
+
+    assert.equal(pages.length, 3);
+    assert.equal(created, 3);
+    assert.equal(session.page, pages[0]);
+    assert.deepEqual(navigated.map((item) => item.url), [
+        'http://example.test/detail',
+        'http://example.test/detail',
+        'http://example.test/detail'
+    ]);
+}
+
+testOpenTabPagesCreatesAndNavigatesAllTabs().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
