@@ -1,11 +1,14 @@
 const axios = require('axios');
 require('dotenv').config();
 
-// GATEWAY_URL - localhost:8001 is directly the gateway without /query path
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8001';
+const rawGatewayUrl = process.env.GATEWAY_URL || 'http://localhost:8001';
+const normalizedGatewayUrl = rawGatewayUrl.replace(/\/+$/, '');
+const hasQueryPath = /\/query$/i.test(normalizedGatewayUrl);
+const GATEWAY_URL = hasQueryPath ? normalizedGatewayUrl.replace(/\/query$/i, '') : normalizedGatewayUrl;
+const GATEWAY_QUERY_PATH = hasQueryPath ? '/query' : '/v1/query';
 const API_TOKEN = process.env.API_TOKEN_QUERY;
 const SERVER_PROFILE = process.env.SERVER_PROFILE || 'SERVER_PROFILE_3';
-console.log(`[Gateway] URL: ${GATEWAY_URL}, Profile: ${SERVER_PROFILE}`);
+console.log(`[Gateway] URL: ${GATEWAY_URL}${GATEWAY_QUERY_PATH}, Profile: ${SERVER_PROFILE}`);
 
 const gatewayClient = axios.create({
   baseURL: GATEWAY_URL,
@@ -18,8 +21,7 @@ const gatewayClient = axios.create({
 const executeQuery = async (sql) => {
   try {
     console.log(`Executing SQL on ${SERVER_PROFILE}: ${sql.substring(0, 50)}...`);
-    // Direct query endpoint
-    const response = await gatewayClient.post('/v1/query', {
+    const response = await gatewayClient.post(GATEWAY_QUERY_PATH, {
       sql,
       server_profile: SERVER_PROFILE
     });
