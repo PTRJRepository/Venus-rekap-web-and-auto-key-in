@@ -159,7 +159,7 @@ const App = () => {
         }
     };
 
-    const handleComparisonComplete = (data) => {
+    const handleComparisonComplete = (data, nextCompareMode = null) => {
         const map = {};
         if (data && data.results) {
             data.results.forEach(r => {
@@ -181,10 +181,11 @@ const App = () => {
             });
         }
         setComparisonData(map);
-        if (compareMode === 'off') setCompareMode('presence');
+        if (nextCompareMode) setCompareMode(nextCompareMode);
+        else if (compareMode === 'off') setCompareMode('presence');
     };
 
-    const performComparison = async () => {
+    const performComparison = async (nextCompareMode = null) => {
         if (!data || data.length === 0 || loading) {
             showSnackbar('Tidak ada data untuk dibandingkan', 'warning');
             return;
@@ -212,7 +213,7 @@ const App = () => {
             });
             const result = await response.json();
             if (result.success) {
-                handleComparisonComplete(result);
+                handleComparisonComplete(result, nextCompareMode);
                 const matchCount = result.results?.filter(r => r.status === 'MATCH').length || 0;
                 showSnackbar(`Komparasi selesai! MATCH: ${matchCount}`, 'success');
             } else {
@@ -225,11 +226,20 @@ const App = () => {
         }
     };
 
+    const handleViewModeChange = (nextMode) => {
+        if (!nextMode) return;
+        setViewMode(nextMode);
+        if (nextMode === 'comparison') {
+            setCompareMode('all');
+            if (!comparisonData) performComparison('all');
+        }
+    };
+
     const handleCompareToggle = () => {
         if (loading) return; // Guard: prevent compare during data fetch
         if (compareMode === 'off') {
             setCompareMode('presence');
-            performComparison();
+            performComparison('presence');
         } else if (compareMode === 'presence') {
             setCompareMode('overtime');
             if (!comparisonData) performComparison();
@@ -478,10 +488,11 @@ const App = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                             <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 800 }}>{activeTab.toUpperCase()}</Typography>
                             {activeTab === 'matrix' && (
-                                <ToggleButtonGroup value={viewMode} exclusive onChange={(e, v) => v && setViewMode(v)} size="small" sx={{ height: 32 }}>
+                                <ToggleButtonGroup value={viewMode} exclusive onChange={(e, v) => handleViewModeChange(v)} size="small" sx={{ height: 32 }}>
                                     <ToggleButton value="attendance" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Presence</ToggleButton>
                                     <ToggleButton value="overtime" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Overtime</ToggleButton>
                                     <ToggleButton value="detail" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Detail</ToggleButton>
+                                    <ToggleButton value="comparison" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Komparasi</ToggleButton>
                                 </ToggleButtonGroup>
                             )}
                         </Box>

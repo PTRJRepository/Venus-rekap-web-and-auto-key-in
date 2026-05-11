@@ -26,6 +26,10 @@ const DARK = {
     violet: '#8B5CF6',     // Violet 500
 };
 
+const MIN_WINDOW_COUNT = 1;
+const MAX_WINDOW_COUNT = 6;
+const TABS_PER_WINDOW = 8;
+
 const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compareMode, syncTargetMode, comparisonData, onRefresh }) => {
     const [logs, setLogs] = useState([]);
     const [status, setStatus] = useState('idle');
@@ -34,6 +38,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
     const [onlyOvertime, setOnlyOvertime] = useState(false);
     const [filterSynced, setFilterSynced] = useState(true);
     const [targetMode, setTargetMode] = useState('all');
+    const [windowCount, setWindowCount] = useState('');
     const logEndRef = useRef(null);
 
     useEffect(() => {
@@ -55,6 +60,23 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
         if (targetMode === 'overtime') setOnlyOvertime(true);
         else setOnlyOvertime(false);
     }, [targetMode]);
+
+    const validateWindowCount = (value) => {
+        const text = String(value ?? '').trim();
+        if (!text) return { value: null, error: 'Isi jumlah window' };
+
+        const parsed = Number(text);
+        if (!Number.isInteger(parsed)) return { value: null, error: 'Harus angka bulat' };
+        if (parsed < MIN_WINDOW_COUNT || parsed > MAX_WINDOW_COUNT) {
+            return { value: null, error: `Masukkan ${MIN_WINDOW_COUNT}-${MAX_WINDOW_COUNT}` };
+        }
+
+        return { value: parsed, error: '' };
+    };
+
+    const handleWindowCountChange = (value) => {
+        if (/^\d*$/.test(value)) setWindowCount(value);
+    };
 
     useEffect(() => {
         if (status === 'completed' && onRefresh) {
@@ -183,19 +205,39 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
     };
 
     const handleRun = async () => {
-        setLogs([]); setStatus('running');
+        setLogs([]);
+        const windowValidation = validateWindowCount(windowCount);
+        if (windowValidation.error) {
+            setStatus('idle');
+            addLog('error', `Jumlah window wajib diisi. ${windowValidation.error}.`);
+            return;
+        }
+
+        setStatus('running');
         const { filtered: employeesToProcess, modeLog } = filterEmployees(false);
         if (employeesToProcess.length === 0 && filterSynced) {
             addLog('info', 'All selected records are already synced! Nothing to do.'); setStatus('completed'); return;
         }
         addLog('info', `Starting automation for ${employeesToProcess.length} employees (${month}/${year})${modeLog}`);
+        const normalizedWindowCount = windowValidation.value;
+        addLog('info', `Windows: ${normalizedWindowCount} (${normalizedWindowCount * TABS_PER_WINDOW} max tabs, ${TABS_PER_WINDOW} tabs/window)`);
         if (startDate && endDate) addLog('info', `Date Filter: ${startDate} to ${endDate}`);
         if (targetMode === 'overtime') addLog('info', 'Mode: Only Overtime (skipping regular attendance)');
         if (targetMode === 'regular') addLog('info', 'Mode: Only Regular (skipping matched regular hours)');
         try {
             const response = await fetch('/api/automation/run', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ employees: employeesToProcess, month, year, startDate, endDate, onlyOvertime: targetMode === 'overtime', syncMismatchesOnly: filterSynced, syncRegularOnly: targetMode === 'regular' })
+                body: JSON.stringify({
+                    employees: employeesToProcess,
+                    month,
+                    year,
+                    startDate,
+                    endDate,
+                    onlyOvertime: targetMode === 'overtime',
+                    syncMismatchesOnly: filterSynced,
+                    syncRegularOnly: targetMode === 'regular',
+                    windowCount: normalizedWindowCount,
+                })
             });
             if (!response.ok) { const err = await response.json(); addLog('error', err.error || 'Failed to start'); setStatus('failed'); return; }
             const reader = response.body.getReader();
@@ -246,6 +288,8 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
 
     const STATUS_COLORS = { idle: DARK.muted, running: DARK.accent, completed: DARK.green, failed: DARK.red, stopped: DARK.amber };
     const STATUS_LABELS = { idle: 'READY', running: 'RUNNING', completed: 'COMPLETED', failed: 'FAILED', stopped: 'STOPPED' };
+    const windowValidation = validateWindowCount(windowCount);
+    const windowHelperText = windowValidation.error || `${windowValidation.value * TABS_PER_WINDOW} max tab`;
 
     return (
         <Dialog
@@ -327,6 +371,29 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                             InputLabelProps={{ shrink: true }}
                             inputProps={{ style: { color: DARK.text, backgroundColor: DARK.card, borderRadius: 6, fontSize: '0.85rem' } }}
                         />
+                        <TextField
+                            required
+                            type="number" label="Windows" value={windowCount}
+                            onChange={(e) => handleWindowCountChange(e.target.value)}
+                            size="small" sx={{ width: 120 }}
+                            disabled={status === 'running'}
+                            InputLabelProps={{ shrink: true }}
+                            error={Boolean(windowValidation.error)}
+                            inputProps={{
+                                min: MIN_WINDOW_COUNT,
+                                max: MAX_WINDOW_COUNT,
+                                step: 1,
+                                style: { color: DARK.text, backgroundColor: DARK.card, borderRadius: 6, fontSize: '0.85rem' }
+                            }}
+                            helperText={windowHelperText}
+                            FormHelperTextProps={{
+                                sx: {
+                                    color: windowValidation.error ? DARK.red : DARK.muted,
+                                    mx: 0,
+                                    fontSize: '0.65rem'
+                                }
+                            }}
+                        />
                         <FormControl component="fieldset" size="small">
                             <FormLabel component="legend" sx={{ fontSize: '0.65rem', color: DARK.muted, mb: 0.5 }}>Filter Mode</FormLabel>
                             <RadioGroup row value={targetMode} onChange={(e) => setTargetMode(e.target.value)}>
@@ -403,6 +470,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                         variant="contained" size="small"
                         startIcon={status === 'idle' ? <PlayIcon /> : <RefreshIcon />}
                         onClick={handleRun}
+                        disabled={Boolean(windowValidation.error)}
                         sx={{ bgcolor: DARK.green, '&:hover': { bgcolor: '#059669' } }}
                     >
                         {status === 'idle' ? 'Run' : 'Re-run'}

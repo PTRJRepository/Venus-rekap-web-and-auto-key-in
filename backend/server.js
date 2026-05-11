@@ -11,7 +11,7 @@ const { getLatestAttendancePeriod } = require('./services/latestPeriodService');
 const { getPTRJMapping, matchPTRJEmployeeId } = require('./services/mappingService');
 const exportService = require('./services/exportService');
 const { updateEmployee, getAllEmployees, upsertEmployee } = require('./services/employeeMillService');
-const { saveAutomationData, startAutomationProcess } = require('./services/automationService');
+const { saveAutomationData, startAutomationProcess, stopAutomationProcess } = require('./services/automationService');
 const { queryTaskRegData, compareWithTaskReg, getMissData, getSyncSummaryByEmployee } = require('./services/comparisonService');
 const validationService = require('./services/validationService');
 const { fetchPayrollData } = require('./services/payrollService');
@@ -839,24 +839,32 @@ app.get('/api/comparison/summary', async (req, res) => {
 // --- Automation Routes ---
 
 app.post('/api/automation/run', async (req, res) => {
-    const { employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly, syncRegularOnly } = req.body;
+    const { employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly, syncRegularOnly, windowCount } = req.body;
     if (!employees || !Array.isArray(employees)) {
         return res.status(400).json({ error: 'Invalid data format. Expected { employees: [] }' });
     }
 
+    const maxWindows = parseInt(process.env.MAX_AUTOMATION_WINDOWS || '6', 10);
+    const parsedWindowCount = parseInt(windowCount || '1', 10);
+    const automationWindows = Math.max(1, Math.min(
+        Number.isFinite(maxWindows) && maxWindows > 0 ? maxWindows : 6,
+        Number.isFinite(parsedWindowCount) && parsedWindowCount > 0 ? parsedWindowCount : 1
+    ));
+
     try {
         console.log(`[Automation] Request to run for ${employees.length} employees (${month}/${year})`);
+        console.log(`[Automation] Windows requested: ${automationWindows} (8 tabs/window)`);
         if (startDate && endDate) console.log(`[Automation] Date Filter: ${startDate} to ${endDate}`);
         if (onlyOvertime) console.log(`[Automation] Mode: ONLY OVERTIME`);
         if (syncRegularOnly) console.log(`[Automation] Mode: REGULAR ONLY`);
         if (syncMismatchesOnly) console.log(`[Automation] Mode: SYNC MISMATCHES ONLY`);
 
         // Save data to current_data.json (fixed filename)
-        await saveAutomationData({ employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly, syncRegularOnly });
+        await saveAutomationData({ employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly, syncRegularOnly, windowCount: automationWindows });
         console.log(`[Automation] Data saved to current_data.json`);
 
         // Start process (uses current_data.json automatically)
-        const child = startAutomationProcess();
+        const child = startAutomationProcess({ windowCount: automationWindows });
 
         // Handle spawn errors
         child.on('error', (err) => {
@@ -880,7 +888,7 @@ app.post('/api/automation/run', async (req, res) => {
         };
 
         sendChunk('status', 'starting');
-        sendChunk('info', `Process started with ${employees.length} employees`);
+        sendChunk('info', `Process started with ${employees.length} employees, ${automationWindows} window(s), 8 tab(s)/window`);
 
         const parseRunnerLine = (line) => {
             const trimmed = line.trim();
@@ -893,17 +901,27 @@ app.post('/api/automation/run', async (req, res) => {
             }
         };
 
+        const eventWindowPrefix = (event) => Number.isInteger(event.window_index) ? `Window ${event.window_index + 1}: ` : '';
         const eventMessages = {
-            'run.started': (event) => `Runner started: ${event.employee_count} employee(s), ${event.actual_tabs} tab(s), stagger ${event.stagger_delay_ms}ms`,
-            'session.login.done': () => 'Fresh login completed, session saved',
-            'session.reused': () => 'Session restored from disk',
-            'tab.assigned': (event) => `Tab ${event.tab_index + 1}: ${event.employee_count} employee(s) assigned (${event.first_emp_id} → ${event.last_emp_id})`,
-            'tab.triggered': (event) => `Tab ${event.tab_index + 1} triggered`,
-            'tab.started': (event) => `Tab ${event.tab_index + 1} started`,
-            'tab.submit.started': (event) => `Tab ${event.tab_index + 1}: saving ${event.added_rows} added row(s)`,
-            'tab.submit.completed': (event) => `Tab ${event.tab_index + 1}: Save confirmed (${event.status})`,
-            'tab.completed': (event) => `Tab ${event.tab_index + 1}: ${event.status}`,
-            'run.completed': (event) => `Run completed: ${event.total_processed} employee(s) processed`
+            'multiwindow.started': (event) => `Multi-window runner: ${event.actual_windows} window(s), ${event.tabs_per_window} tab(s)/window, ${event.total_capacity} max tab(s)`,
+            'window.started': (event) => `Window ${event.window_index + 1}/${event.window_count}: started with ${event.employee_count} employee(s), ${event.attendance_count} attendance record(s)`,
+            'window.completed': (event) => `Window ${event.window_index + 1}/${event.window_count}: completed`,
+            'window.failed': (event) => `Window ${event.window_index + 1}/${event.window_count}: failed`,
+            'window.run.started': (event) => `Window ${event.window_index + 1}: runner started (${event.employee_count} employee(s), ${event.actual_tabs} tab(s))`,
+            'window.run.completed': (event) => `Window ${event.window_index + 1}: runner completed (${event.total_processed} employee(s))`,
+            'window.run.failed': (event) => `Window ${event.window_index + 1}: runner failed`,
+            'run.started': (event) => `${eventWindowPrefix(event)}Runner started: ${event.employee_count} employee(s), ${event.actual_tabs} tab(s), stagger ${event.stagger_delay_ms}ms`,
+            'session.login.done': (event) => `${eventWindowPrefix(event)}Fresh login completed, session saved`,
+            'session.reused': (event) => `${eventWindowPrefix(event)}Session restored from disk`,
+            'tab.assigned': (event) => `${eventWindowPrefix(event)}Tab ${event.tab_index + 1}: ${event.employee_count} employee(s) assigned (${event.first_emp_id} → ${event.last_emp_id})`,
+            'tab.triggered': (event) => `${eventWindowPrefix(event)}Tab ${event.tab_index + 1} triggered`,
+            'tab.started': (event) => `${eventWindowPrefix(event)}Tab ${event.tab_index + 1} started`,
+            'tab.submit.started': (event) => `${eventWindowPrefix(event)}Tab ${event.tab_index + 1}: saving ${event.added_rows} added row(s)`,
+            'tab.submit.completed': (event) => `${eventWindowPrefix(event)}Tab ${event.tab_index + 1}: Save confirmed (${event.status})`,
+            'tab.completed': (event) => `${eventWindowPrefix(event)}Tab ${event.tab_index + 1}: ${event.status}`,
+            'run.completed': (event) => event.windows
+                ? `Run completed: ${event.windows} window(s), ${event.attendance_records} attendance record(s) processed`
+                : `Run completed: ${event.total_processed} employee(s) processed`
         };
 
         let stdoutBuffer = '';

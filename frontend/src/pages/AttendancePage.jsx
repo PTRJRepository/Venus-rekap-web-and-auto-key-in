@@ -293,7 +293,7 @@ const AttendancePage = () => {
         setIsAutomationOpen(true);
     };
 
-    const handleComparisonComplete = (data) => {
+    const handleComparisonComplete = (data, nextCompareMode = null) => {
         const map = {};
         if (data && data.results) {
             data.results.forEach(r => {
@@ -318,7 +318,16 @@ const AttendancePage = () => {
         }
         setComparisonData(map);
         // If we just got data and mode was off, set it to presence
-        if (compareMode === 'off') setCompareMode('presence');
+        if (nextCompareMode) setCompareMode(nextCompareMode);
+        else if (compareMode === 'off') setCompareMode('presence');
+    };
+
+    const handleViewModeChange = (nextMode) => {
+        setViewMode(nextMode);
+        if (nextMode === 'comparison') {
+            setCompareMode('all');
+            if (!comparisonData) performComparison().then(() => setCompareMode('all'));
+        }
     };
 
     const handleCompareToggle = () => {
@@ -484,12 +493,13 @@ const AttendancePage = () => {
                                 <Select
                                     size="small"
                                     value={viewMode}
-                                    onChange={(e) => setViewMode(e.target.value)}
+                                    onChange={(e) => handleViewModeChange(e.target.value)}
                                     sx={{ height: 32, fontSize: '0.8rem', minWidth: 100, bgcolor: 'white' }}
                                 >
                                     <MenuItem value="attendance">Attendance</MenuItem>
                                     <MenuItem value="overtime">Overtime Only</MenuItem>
                                     <MenuItem value="detail">Detail (Reg + OT)</MenuItem>
+                                    <MenuItem value="comparison">Komparasi V/M</MenuItem>
                                 </Select>
                             </Box>
                         )}
@@ -590,6 +600,7 @@ const AttendancePage = () => {
                                     >
                                         <MenuItem value="presence">Presence</MenuItem>
                                         <MenuItem value="overtime">Overtime</MenuItem>
+                                        <MenuItem value="all">All</MenuItem>
                                         <MenuItem value="off">Off</MenuItem>
                                     </Select>
                                 )}
@@ -856,5 +867,4 @@ const AttendancePage = () => {
 };
 
 export default AttendancePage;
-
 

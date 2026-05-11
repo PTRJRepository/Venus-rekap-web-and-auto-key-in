@@ -148,6 +148,7 @@ const AttendanceMatrix = ({
     const todayNum = new Date().getDate();
     const daysMap = safeData[0]?.attendance || {};
     const dayNumbers = Object.keys(daysMap).sort((a, b) => Number(a) - Number(b));
+    const dayCellWidth = viewMode === 'comparison' ? 66 : 34;
 
     if (isLoading) {
         return (
@@ -329,7 +330,20 @@ const AttendanceMatrix = ({
         }
     };
 
-    const getCellContent = (d, viewMode, empName = '', dayNum = '') => {
+    const getComparisonRecord = (ptrjId, dateStr) => {
+        if (!comparisonData) return null;
+        const hasValidPtrjId = ptrjId && ptrjId !== 'N/A' && String(ptrjId).trim() !== '';
+        if (!hasValidPtrjId || !dateStr) return null;
+        const cleanDate = String(dateStr).includes('T') ? dateStr.split('T')[0] : dateStr;
+        return comparisonData[`${String(ptrjId).trim()}_${cleanDate}`] || null;
+    };
+
+    const formatHour = (value) => {
+        const number = Number(value) || 0;
+        return Number.isInteger(number) ? String(number) : number.toFixed(2);
+    };
+
+    const getCellContent = (d, viewMode, empName = '', dayNum = '', comparisonRecord = null, comparisonLoaded = false) => {
         if (!d) return null;
         
         const isSunday = new Date(d.date).getDay() === 0;
@@ -406,6 +420,99 @@ const AttendanceMatrix = ({
             }
             return null;
         };
+
+        if (viewMode === 'comparison') {
+            const statusUpper = (d.status || '').toUpperCase();
+            const millwareNormal = comparisonLoaded ? (Number(comparisonRecord?.normal) || 0) : null;
+            const millwareOT = comparisonLoaded ? (Number(comparisonRecord?.ot) || 0) : null;
+            const venusNormal = regHours;
+            const venusOT = otHours;
+            const needsRegular = !['ALFA', 'N/A', 'OFF'].includes(statusUpper);
+            const needsOT = venusOT > 0;
+            const normalOk = comparisonLoaded && (!needsRegular || comparisonRecord?.hasRegularRecord === true);
+            const otOk = comparisonLoaded && (!needsOT || comparisonRecord?.hasOTRecord === true);
+            const allOk = normalOk && otOk;
+            const normalColor = !comparisonLoaded ? '#64748B' : (normalOk ? '#059669' : '#DC2626');
+            const otColor = !comparisonLoaded ? '#64748B' : (otOk ? '#7C3AED' : '#DC2626');
+            const rowBg = !comparisonLoaded ? '#F8FAFC' : (allOk ? '#F0FDF4' : '#FEF2F2');
+
+            return (
+                <ProTooltip
+                    title={
+                        <Box>
+                            <TooltipSection sx={{ bgcolor: rowBg, borderColor: allOk ? '#BBF7D0' : '#FECACA' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, color: comparisonLoaded ? (allOk ? '#059669' : '#DC2626') : '#64748B' }}>
+                                        KOMPARASI ABSEN
+                                    </Typography>
+                                    {comparisonLoaded && !allOk && <WarningIcon sx={{ fontSize: 13, color: '#DC2626' }} />}
+                                </Box>
+                            </TooltipSection>
+                            {!comparisonLoaded ? (
+                                <Box sx={{ px: 1.5, py: 1 }}>
+                                    <Typography sx={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 700 }}>
+                                        Jalankan CHECK SYNC untuk memuat data Millware.
+                                    </Typography>
+                                </Box>
+                            ) : (
+                                <>
+                                    <TooltipRow label="Venus Normal" value={`${formatHour(venusNormal)}h`} valueColor="#0F172A" />
+                                    <TooltipRow
+                                        label="Millware Normal"
+                                        value={`${formatHour(millwareNormal)}h`}
+                                        valueColor={normalColor}
+                                        isWarning={needsRegular && !normalOk}
+                                        isSuccess={normalOk}
+                                        highlight={needsRegular && !normalOk}
+                                    />
+                                    <TooltipRow label="Venus OT" value={`${formatHour(venusOT)}h`} valueColor="#7C3AED" />
+                                    <TooltipRow
+                                        label="Millware OT"
+                                        value={`${formatHour(millwareOT)}h`}
+                                        valueColor={otColor}
+                                        isWarning={needsOT && !otOk}
+                                        isSuccess={otOk}
+                                        highlight={needsOT && !otOk}
+                                    />
+                                    <Box sx={{ px: 1.5, py: 0.5, bgcolor: allOk ? '#F0FDF4' : '#FEF2F2', borderTop: '1px solid', borderColor: 'divider' }}>
+                                        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: allOk ? '#059669' : '#DC2626' }}>
+                                            {allOk ? 'DATA SUDAH MASUK' : 'ADA DATA BELUM MASUK'}
+                                        </Typography>
+                                    </Box>
+                                </>
+                            )}
+                            <TooltipFooter>
+                                <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+                                    V = Venus, M = Millware &bull; {empName} &bull; {d.date}
+                                </Typography>
+                            </TooltipFooter>
+                        </Box>
+                    }
+                    placement="top"
+                >
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0.15, px: 0.35, py: 0.25, lineHeight: 1 }}>
+                        {!comparisonLoaded ? (
+                            <Typography sx={{ fontSize: '0.55rem', fontWeight: 900, color: '#64748B', textAlign: 'center' }}>CHECK</Typography>
+                        ) : (
+                            <>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.4 }}>
+                                    <Typography sx={{ fontSize: '0.48rem', fontWeight: 900, color: normalColor }}>N</Typography>
+                                    <Typography sx={{ fontSize: '0.55rem', fontWeight: 900, color: normalColor }}>
+                                        {formatHour(venusNormal)}/{formatHour(millwareNormal)}
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.4 }}>
+                                    <Typography sx={{ fontSize: '0.48rem', fontWeight: 900, color: otColor }}>OT</Typography>
+                                    <Typography sx={{ fontSize: '0.55rem', fontWeight: 900, color: otColor }}>
+                                        {formatHour(venusOT)}/{formatHour(millwareOT)}
+                                    </Typography>
+                                </Box>
+                            </>
+                        )}
+                    </Box>
+                </ProTooltip>
+            );
+        }
 
         if (viewMode === 'overtime') {
             if (otHours > 0) {
@@ -609,6 +716,34 @@ const AttendanceMatrix = ({
             if (!millwareRecord.otMatched) return { status: 'mismatch', displayOverride: `${vOT}h|${millwareRecord.ot}h`, displayColor: '#FF991F', borderWidth: 2, millwareHours };
             return { status: 'synced', millwareHours, borderWidth: 1 };
         }
+        if (compareMode === 'all') {
+            const vOT = Number(venusOtHours) || 0;
+            const millwareNormal = millwareRecord ? (millwareRecord.normal || 0) : 0;
+            const millwareOT = millwareRecord ? (millwareRecord.ot || 0) : 0;
+            const millwareHours = millwareNormal + millwareOT;
+            const regularOk = millwareRecord?.hasRegularRecord === true;
+            const otOk = vOT <= 0 || millwareRecord?.hasOTRecord === true;
+
+            if (!millwareRecord || !regularOk || !otOk) {
+                return {
+                    status: 'not_synced',
+                    displayOverride: `${venusRegularHours || 0}h|${vOT}h`,
+                    displayColor: '#DE350B',
+                    borderWidth: 2,
+                    millwareHours
+                };
+            }
+            if (!millwareRecord.regularMatched || (vOT > 0 && !millwareRecord.otMatched)) {
+                return {
+                    status: 'mismatch',
+                    displayOverride: `${venusRegularHours || 0}+${vOT}|${millwareNormal}+${millwareOT}`,
+                    displayColor: '#FF991F',
+                    borderWidth: 2,
+                    millwareHours
+                };
+            }
+            return { status: 'synced', millwareHours, isBelowThreshold, borderWidth: 1 };
+        }
         return null;
     };
 
@@ -662,7 +797,7 @@ const AttendanceMatrix = ({
                                 const d = daysMap[day];
                                 const isToday = Number(day) === todayNum;
                                 return (
-                                    <TableCell key={day} align="center" sx={{ width: 34, bgcolor: isToday ? '#E3F2FD' : '#F4F5F7', borderRight: d?.dayName === 'Min' ? '2px solid #C1C7D0 !important' : '1px solid #F0F0F0', boxShadow: isToday ? 'inset 0 -2px 0 #2196F3' : 'none', p: 0 }}>
+                                    <TableCell key={day} align="center" sx={{ width: dayCellWidth, minWidth: dayCellWidth, bgcolor: isToday ? '#E3F2FD' : '#F4F5F7', borderRight: d?.dayName === 'Min' ? '2px solid #C1C7D0 !important' : '1px solid #F0F0F0', boxShadow: isToday ? 'inset 0 -2px 0 #2196F3' : 'none', p: 0 }}>
                                         <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: isToday ? '#1976D2' : 'inherit', lineHeight: 1 }}>{day}</Typography>
                                         <Typography sx={{ fontSize: '0.55rem', fontWeight: 600, opacity: 0.6, lineHeight: 1 }}>{d?.dayName?.substring(0, 2).toUpperCase()}</Typography>
                                     </TableCell>
@@ -887,6 +1022,7 @@ const AttendanceMatrix = ({
                                             const ui = getStatusUI(d.status);
                                             const sync = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.regularHours, d.overtimeHours);
                                             const syncStyle = getSyncStyle(sync, Number(day) === todayNum);
+                                            const comparisonRecord = getComparisonRecord(emp.ptrjEmployeeID, d.date);
                                             
                                             return (
                                                 <TableCell 
@@ -925,13 +1061,13 @@ const AttendanceMatrix = ({
                                                         </Typography>
                                                     )}
                                                     {/* Small Millware Hours Indicator (Top Right) */}
-                                                    {sync && (
+                                                    {viewMode !== 'comparison' && sync && (
                                                         <Typography sx={{ position: 'absolute', top: 0.5, right: 1, fontSize: '0.45rem', fontWeight: 900, color: sync.status === 'synced' ? '#00875A' : '#DE350B', lineHeight: 1, zIndex: 1 }}>
                                                             {sync.millwareHours}h
                                                         </Typography>
                                                     )}
-                                                    {getCellContent(d, viewMode, emp.name, day)}
-                                                    {sync?.displayOverride && <Typography sx={{ position: 'absolute', bottom: 1, left: 0, right: 0, fontSize: '0.55rem', fontWeight: 900, color: sync.displayColor, lineHeight: 1 }}>{sync.displayOverride}</Typography>}
+                                                    {getCellContent(d, viewMode, emp.name, day, comparisonRecord, Boolean(comparisonData))}
+                                                    {viewMode !== 'comparison' && sync?.displayOverride && <Typography sx={{ position: 'absolute', bottom: 1, left: 0, right: 0, fontSize: '0.55rem', fontWeight: 900, color: sync.displayColor, lineHeight: 1 }}>{sync.displayOverride}</Typography>}
                                                 </TableCell>
                                             );
                                         })}

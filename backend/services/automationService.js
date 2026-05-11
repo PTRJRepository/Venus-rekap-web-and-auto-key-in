@@ -7,13 +7,27 @@ const { compareWithTaskReg } = require('./comparisonService');
 const ENGINE_DIR = path.resolve(__dirname, '../../browser-automation-engine');
 const DATA_DIR = path.join(ENGINE_DIR, 'testing_data');
 const ATTENDANCE_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'multi-tab-runner.js');
+const ATTENDANCE_MULTI_WINDOW_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'multi-window-runner.js');
 const PAYROLL_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'parallel-runner.js');
 const PAYROLL_DATA_FILE = path.join(DATA_DIR, 'current_payroll_data.json');
+const TABS_PER_ATTENDANCE_WINDOW = 8;
+const DEFAULT_MAX_ATTENDANCE_WINDOWS = 6;
 
 const ensureDataDir = () => {
     if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
     }
+};
+
+const parsePositiveInt = (value, fallback) => {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const normalizeAttendanceWindowCount = (value) => {
+    const maxWindows = parsePositiveInt(process.env.MAX_AUTOMATION_WINDOWS, DEFAULT_MAX_ATTENDANCE_WINDOWS);
+    const requested = parsePositiveInt(value, 1);
+    return Math.max(1, Math.min(maxWindows, requested));
 };
 
 /**
@@ -123,6 +137,7 @@ const saveAutomationData = async (data) => {
     const onlyOvertime = data.onlyOvertime || false;
     const syncMismatchesOnly = data.syncMismatchesOnly || false;
     const syncRegularOnly = data.syncRegularOnly || false;
+    const automationWindows = normalizeAttendanceWindowCount(data.windowCount || data.automationWindows || 1);
 
     // Transform to engine format with filtering
     let transformedData = transformEmployeeData(employees, month, year, startDate, endDate);
@@ -300,7 +315,9 @@ const saveAutomationData = async (data) => {
             source: 'web_interface',
             onlyOvertime: onlyOvertime,
             syncMismatchesOnly: syncMismatchesOnly,
-            syncRegularOnly: syncRegularOnly
+            syncRegularOnly: syncRegularOnly,
+            automationWindows,
+            tabsPerWindow: TABS_PER_ATTENDANCE_WINDOW
         },
         data: transformedData
     };
@@ -314,7 +331,7 @@ const saveAutomationData = async (data) => {
         }
     });
 
-    console.log(`[Automation] Saving ${transformedData.length} employees${onlyOvertime ? ' (ONLY OVERTIME mode)' : ''}`);
+    console.log(`[Automation] Saving ${transformedData.length} employees${onlyOvertime ? ' (ONLY OVERTIME mode)' : ''}; windows=${automationWindows}, tabs/window=${TABS_PER_ATTENDANCE_WINDOW}`);
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));
     return filePath;
 };
@@ -324,13 +341,18 @@ const saveAutomationData = async (data) => {
  * Uses current_data.json automatically (no file path needed)
  * Uses multi-tab runner by default with 8 concurrent tabs.
  */
-const startAutomationProcess = () => {
+const startAutomationProcess = (options = {}) => {
+    const windowCount = normalizeAttendanceWindowCount(options.windowCount || options.automationWindows || 1);
+    const runnerScript = windowCount > 1 ? ATTENDANCE_MULTI_WINDOW_RUNNER_SCRIPT : ATTENDANCE_RUNNER_SCRIPT;
     const env = {
         ...process.env,
         AUTO_CLOSE: process.env.AUTO_CLOSE || 'true',
         HEADLESS: process.env.HEADLESS || 'false',
         FRESH_LOGIN: process.env.FRESH_LOGIN || 'true',
-        MULTI_TAB_CONCURRENCY: process.env.MULTI_TAB_CONCURRENCY || '8',
+        MULTI_TAB_CONCURRENCY: String(TABS_PER_ATTENDANCE_WINDOW),
+        TABS_PER_WINDOW: String(TABS_PER_ATTENDANCE_WINDOW),
+        AUTOMATION_WINDOWS: String(windowCount),
+        MAX_AUTOMATION_WINDOWS: process.env.MAX_AUTOMATION_WINDOWS || String(DEFAULT_MAX_ATTENDANCE_WINDOWS),
         MULTI_TAB_STAGGER_DELAY: process.env.MULTI_TAB_STAGGER_DELAY || '1000',
         MULTI_TAB_ISOLATED_SESSIONS: process.env.MULTI_TAB_ISOLATED_SESSIONS || 'false',
         MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER: process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER || 'false',
@@ -338,10 +360,11 @@ const startAutomationProcess = () => {
     };
 
     const tabs = env.MULTI_TAB_CONCURRENCY;
-    console.log(`[Automation] Starting multi-tab runner with ${tabs} tab(s), freshLogin=${env.FRESH_LOGIN}: node ${ATTENDANCE_RUNNER_SCRIPT}`);
+    const mode = windowCount > 1 ? 'multi-window' : 'multi-tab';
+    console.log(`[Automation] Starting ${mode} runner with ${windowCount} window(s), ${tabs} tab(s)/window, freshLogin=${env.FRESH_LOGIN}: node ${runnerScript}`);
 
     // No need to pass data file path - runner uses current_data.json by default
-    const child = spawn('node', [ATTENDANCE_RUNNER_SCRIPT], {
+    const child = spawn('node', [runnerScript], {
         env,
         cwd: ENGINE_DIR,
         stdio: ['ignore', 'pipe', 'pipe']
