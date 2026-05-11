@@ -32,6 +32,25 @@ const BPJS_RATES = {
 
 const SPSI_DEFAULT = 5000; // Default SPSI per bulan
 
+const toNumber = (value) => {
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) ? numberValue : 0;
+};
+
+const quoteSql = (value) => `'${String(value).replace(/'/g, "''")}'`;
+
+const getPhyPeriodFromStartDate = (startDate) => {
+    const [yearPart, monthPart] = String(startDate || '').split('-');
+    const phyMonth = parseInt(monthPart, 10);
+    const phyYear = parseInt(yearPart, 10);
+
+    if (!Number.isInteger(phyMonth) || !Number.isInteger(phyYear)) {
+        throw new Error(`Invalid payroll startDate: ${startDate}`);
+    }
+
+    return { phyMonth, phyYear };
+};
+
 /**
  * Hitung Gaji Pokok
  * Formula: HK × Payrate
@@ -109,7 +128,7 @@ const fetchMillwareWagesData = async (ptrjIds, startDate, endDate) => {
     if (!ptrjIds || ptrjIds.length === 0) return {};
 
     try {
-        const empList = ptrjIds.map(id => `'${id}'`).join(',');
+        const empList = ptrjIds.map(quoteSql).join(',');
 
         // Query untuk mengambil semua komponen dari PR_ADTRANS
         const sql = `
@@ -126,7 +145,7 @@ const fetchMillwareWagesData = async (ptrjIds, startDate, endDate) => {
                         WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%JABATAN%' THEN 'tunjangan_jabatan'
                         WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%BERAS%' THEN 'tunjangan_beras'
                         WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%MASA%KERJA%' THEN 'tunjangan_masa_kerja'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%LEMBUR%' THEN 'tunjangan_lembur'
+                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%LEMBUR%' THEN 'ignored_lembur'
                         -- PREMI (Dynamic)
                         WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%PREMI%PANEN%' OR UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%PREMI%AL%' THEN 'premi_panen'
                         WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%PREMI%KINERJA%' THEN 'premi_kinerja'
@@ -261,27 +280,40 @@ const fetchMillwareOvertime = async (ptrjIds, startDate, endDate) => {
     if (!ptrjIds || ptrjIds.length === 0) return {};
 
     try {
-        const empList = ptrjIds.map(id => `'${id}'`).join(',');
+        const empList = ptrjIds.map(quoteSql).join(',');
+        const { phyMonth, phyYear } = getPhyPeriodFromStartDate(startDate);
 
         const sql = `
             SELECT
-                RTRIM(EmpCode) AS emp_code,
+                emp_code,
                 SUM(Hours) AS total_hours,
                 SUM(Amount) AS total_amount
             FROM (
-                SELECT EmpCode, Hours, Amount
-                FROM [db_ptrj_mill].[dbo].PR_TASKREG
-                WHERE RTRIM(EmpCode) IN (${empList})
-                  AND DocDate >= '${startDate}' AND DocDate < '${endDate}'
+                SELECT
+                    RTRIM(L.EmpCode) AS emp_code,
+                    L.Hours,
+                    L.Amount
+                FROM [db_ptrj_mill].[dbo].PR_TASKREG H
+                INNER JOIN [db_ptrj_mill].[dbo].PR_TASKREGLN L ON H.ID = L.MasterID
+                WHERE RTRIM(L.EmpCode) IN (${empList})
+                  AND H.PhyMonth = ${phyMonth}
+                  AND H.PhyYear = ${phyYear}
+                  AND L.OT = 1
 
                 UNION ALL
 
-                SELECT EmpCode, Hours, Amount
-                FROM [db_ptrj_mill].[dbo].PR_TASKREG_ARC
-                WHERE RTRIM(EmpCode) IN (${empList})
-                  AND DocDate >= '${startDate}' AND DocDate < '${endDate}'
+                SELECT
+                    RTRIM(L.EmpCode) AS emp_code,
+                    L.Hours,
+                    L.Amount
+                FROM [db_ptrj_mill].[dbo].PR_TASKREG_ARC H
+                INNER JOIN [db_ptrj_mill].[dbo].PR_TASKREGLN_ARC L ON H.ID = L.MasterID
+                WHERE RTRIM(L.EmpCode) IN (${empList})
+                  AND H.PhyMonth = ${phyMonth}
+                  AND H.PhyYear = ${phyYear}
+                  AND L.OT = 1
             ) t
-            GROUP BY RTRIM(EmpCode);
+            GROUP BY emp_code;
         `;
 
         const data = await executeQuery(sql);
@@ -291,8 +323,8 @@ const fetchMillwareOvertime = async (ptrjIds, startDate, endDate) => {
             const empCode = row.emp_code ? row.emp_code.trim() : null;
             if (empCode) {
                 result[empCode] = {
-                    hours: parseFloat(row.total_hours) || 0,
-                    amount: parseFloat(row.total_amount) || 0
+                    hours: toNumber(row.total_hours),
+                    amount: toNumber(row.total_amount)
                 };
             }
         });
@@ -687,6 +719,8 @@ const fetchWagesData = async (month, year) => {
             const mw = millwareData[ptrjId] || {};
             const mwOvertime = millwareOvertime[ptrjId] || {};
             const mwBrondol = millwareBrondol[ptrjId] || 0;
+            const millwareLemburAmount = toNumber(mwOvertime.amount);
+            const millwareLemburHours = toNumber(mwOvertime.hours);
 
             // Build Venus structure (calculated from base components)
             const venus = {
@@ -735,12 +769,12 @@ const fetchWagesData = async (month, year) => {
                     beras: mw.tunjangan_beras || 0,
                     jabatan: mw.tunjangan_jabatan || 0,
                     masaKerja: mw.tunjangan_masa_kerja || 0,
-                    lembur: mw.tunjangan_lembur || 0
+                    lembur: millwareLemburAmount
                 },
-                // From PR_TASKREG (separate query for Hours)
+                // From PR_TASKREG/PR_TASKREGLN lines where OT = 1
                 overtime: {
-                    hours: mwOvertime.hours || 0,
-                    amount: mwOvertime.amount || 0
+                    hours: millwareLemburHours,
+                    amount: millwareLemburAmount
                 },
                 // From PR_LOOSEFRUIT
                 premi: {

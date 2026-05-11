@@ -24,6 +24,7 @@ const queryTaskRegData = async (startDate, endDate, empCodes = null, otFilter = 
                 TrxDate,
                 TaskCode,
                 Hours,
+                Amount,
                 OT,
                 Status,
                 ChargeTo,
@@ -169,6 +170,7 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
             // Handle BIT/Boolean type from SQL: Use loose equality or Number()
             const normalHours = millwareRecords.filter(r => r.OT == 0).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
             const otHours = millwareRecords.filter(r => r.OT == 1).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
+            const otAmount = millwareRecords.filter(r => r.OT == 1).reduce((sum, r) => sum + (parseFloat(r.Amount) || 0), 0);
             const totalHours = normalHours + otHours;
 
             const venusRegular = (day.regularHours || 0);
@@ -328,6 +330,7 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                 millwareHours: totalHours,
                 millwareNormal: normalHours,
                 millwareOT: otHours,
+                millwareOTAmount: otAmount,
                 venusHours: venusTotal,
                 venusNormal: venusRegular,
                 venusOT: venusOt,
@@ -402,6 +405,7 @@ const getSyncSummaryByEmployee = async (startDate, endDate, empCodes = null) => 
             COUNT(*) as RecordCount,
             SUM(Hours) as TotalHours,
             SUM(CASE WHEN OT = 1 THEN Hours ELSE 0 END) as OvertimeHours,
+            SUM(CASE WHEN OT = 1 THEN Amount ELSE 0 END) as OvertimeAmount,
             MIN(TrxDate) as FirstDate,
             MAX(TrxDate) as LastDate
         FROM [db_ptrj_mill].[dbo].[PR_TASKREGLN]

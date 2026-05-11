@@ -1,5 +1,24 @@
 const { executeQuery } = require('./gateway');
 
+const toNumber = (value) => {
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) ? numberValue : 0;
+};
+
+const quoteSql = (value) => `'${String(value).replace(/'/g, "''")}'`;
+
+const getPhyPeriodFromStartDate = (startDate) => {
+    const [yearPart, monthPart] = String(startDate || '').split('-');
+    const phyMonth = parseInt(monthPart, 10);
+    const phyYear = parseInt(yearPart, 10);
+
+    if (!Number.isInteger(phyMonth) || !Number.isInteger(phyYear)) {
+        throw new Error(`Invalid payroll startDate: ${startDate}`);
+    }
+
+    return { phyMonth, phyYear };
+};
+
 /**
  * Fetch Millware payroll components for a list of employees and date range
  * Aligned with "Daftar Upah" system logic (db_ptrj_mill)
@@ -14,7 +33,8 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
     if (!ptrjIds || ptrjIds.length === 0) return {};
 
     try {
-        const empList = ptrjIds.map(id => `'${id}'`).join(',');
+        const empList = ptrjIds.map(quoteSql).join(',');
+        const { phyMonth, phyYear } = getPhyPeriodFromStartDate(startDate);
 
         // 1. Get PayRate from HR_PAYROLL
         const rateSql = `
@@ -26,24 +46,44 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
         const rateMap = {};
         rates.forEach(r => rateMap[r.emp_code] = r);
 
-        // 2. Get HK and Overtime from TASKREGLN (Live & Archive)
+        // 2. Get HK and Overtime from TASKREG/TASKREGLN (Live & Archive)
         // HK: Unique TrxDate
-        // Overtime: Direct SUM of Amount and Hours where OT = 1
+        // Overtime: Direct SUM of Amount and Hours where OT = 1, filtered by header PhyMonth/PhyYear
         const workSql = `
-            SELECT 
-                RTRIM(trl.EmpCode) as emp_code,
-                COUNT(DISTINCT CAST(trl.TrxDate AS DATE)) as total_hk,
-                SUM(CASE WHEN trl.OT = 1 THEN trl.Amount ELSE 0 END) as total_lembur_amount,
-                SUM(CASE WHEN trl.OT = 1 THEN trl.Hours ELSE 0 END) as total_lembur_hours
-            FROM (
-                SELECT EmpCode, TrxDate, OT, Amount, Hours FROM [db_ptrj_mill].[dbo].PR_TASKREGLN
-                WHERE TrxDate >= '${startDate}' AND TrxDate < '${endDate}'
+            WITH WorkLines AS (
+                SELECT
+                    RTRIM(L.EmpCode) as emp_code,
+                    CAST(L.TrxDate AS DATE) as trx_date,
+                    L.OT,
+                    L.Amount,
+                    L.Hours
+                FROM [db_ptrj_mill].[dbo].PR_TASKREG H
+                INNER JOIN [db_ptrj_mill].[dbo].PR_TASKREGLN L ON H.ID = L.MasterID
+                WHERE H.PhyMonth = ${phyMonth}
+                  AND H.PhyYear = ${phyYear}
+                  AND RTRIM(L.EmpCode) IN (${empList})
+
                 UNION ALL
-                SELECT EmpCode, TrxDate, OT, Amount, Hours FROM [db_ptrj_mill].[dbo].PR_TASKREGLN_ARC
-                WHERE TrxDate >= '${startDate}' AND TrxDate < '${endDate}'
-            ) trl
-            WHERE RTRIM(trl.EmpCode) IN (${empList})
-            GROUP BY RTRIM(trl.EmpCode)
+
+                SELECT
+                    RTRIM(L.EmpCode) as emp_code,
+                    CAST(L.TrxDate AS DATE) as trx_date,
+                    L.OT,
+                    L.Amount,
+                    L.Hours
+                FROM [db_ptrj_mill].[dbo].PR_TASKREG_ARC H
+                INNER JOIN [db_ptrj_mill].[dbo].PR_TASKREGLN_ARC L ON H.ID = L.MasterID
+                WHERE H.PhyMonth = ${phyMonth}
+                  AND H.PhyYear = ${phyYear}
+                  AND RTRIM(L.EmpCode) IN (${empList})
+            )
+            SELECT 
+                emp_code,
+                COUNT(DISTINCT CASE WHEN OT = 0 THEN trx_date END) as total_hk,
+                SUM(CASE WHEN OT = 1 THEN Amount ELSE 0 END) as total_lembur_amount,
+                SUM(CASE WHEN OT = 1 THEN Hours ELSE 0 END) as total_lembur_hours
+            FROM WorkLines
+            GROUP BY emp_code
         `;
         const workData = await executeQuery(workSql);
         const workMap = {};
@@ -118,25 +158,54 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
                 potongan_pph21: 0, potongan_bpjs_kes: 0, potongan_bpjs_pen: 0, potongan_spsi: 0, lainnya: 0
             };
 
-            const gajiPokokCalc = work.total_hk * rate.PayRate;
-            const tunjanganBerasCalc = ad.tunjangan_beras_manual > 0 ? ad.tunjangan_beras_manual : (work.total_hk * rate.RiceRation);
-            const totalPremi = ad.premi_panen + ad.premi_kinerja + ad.premi_brondol + ad.premi_insentif + ad.premi_lain;
-            const totalTunjangan = ad.tunjangan_jabatan + tunjanganBerasCalc + ad.tunjangan_masa_kerja + work.total_lembur_amount;
-            const totalPotongan = ad.potongan_pph21 + ad.potongan_bpjs_kes + ad.potongan_bpjs_pen + ad.potongan_spsi + ad.lainnya;
+            const paidHk = toNumber(work.total_hk);
+            const payRate = toNumber(rate.PayRate);
+            const riceRation = toNumber(rate.RiceRation);
+            const totalLemburAmount = toNumber(work.total_lembur_amount);
+            const totalLemburHours = toNumber(work.total_lembur_hours);
+            const tunjanganJabatan = toNumber(ad.tunjangan_jabatan);
+            const tunjanganBerasManual = toNumber(ad.tunjangan_beras_manual);
+            const tunjanganMasaKerja = toNumber(ad.tunjangan_masa_kerja);
+            const premiPanen = toNumber(ad.premi_panen);
+            const premiKinerja = toNumber(ad.premi_kinerja);
+            const premiBrondol = toNumber(ad.premi_brondol);
+            const premiInsentif = toNumber(ad.premi_insentif);
+            const premiLain = toNumber(ad.premi_lain);
+            const potonganPph21 = toNumber(ad.potongan_pph21);
+            const potonganBpjsKes = toNumber(ad.potongan_bpjs_kes);
+            const potonganBpjsPen = toNumber(ad.potongan_bpjs_pen);
+            const potonganSpsi = toNumber(ad.potongan_spsi);
+            const potonganLain = toNumber(ad.lainnya);
+
+            const gajiPokokCalc = paidHk * payRate;
+            const tunjanganBerasCalc = tunjanganBerasManual > 0 ? tunjanganBerasManual : (paidHk * riceRation);
+            const totalPremi = premiPanen + premiKinerja + premiBrondol + premiInsentif + premiLain;
+            const totalTunjangan = tunjanganJabatan + tunjanganBerasCalc + tunjanganMasaKerja + totalLemburAmount;
+            const totalPotongan = potonganPph21 + potonganBpjsKes + potonganBpjsPen + potonganSpsi + potonganLain;
             const upahBersihCalc = (gajiPokokCalc + totalTunjangan + totalPremi) - totalPotongan;
 
             finalResults[empCode] = {
                 emp_code: empCode,
-                paid_hk: work.total_hk,
-                pay_rate: rate.PayRate,
+                paid_hk: paidHk,
+                pay_rate: payRate,
                 gaji_pokok: gajiPokokCalc,
-                upj: (rate.PayRate * 30) / 173,
-                tunjangan_jabatan: ad.tunjangan_jabatan,
+                upj: (payRate * 30) / 173,
+                tunjangan_jabatan: tunjanganJabatan,
                 tunjangan_beras: tunjanganBerasCalc,
-                tunjangan_masa_kerja: ad.tunjangan_masa_kerja,
-                tunjangan_lembur: work.total_lembur_amount,
-                jam_lembur: work.total_lembur_hours,
+                tunjangan_masa_kerja: tunjanganMasaKerja,
+                tunjangan_lembur: totalLemburAmount,
+                jam_lembur: totalLemburHours,
+                premi_panen: premiPanen,
+                premi_kinerja: premiKinerja,
+                premi_brondol: premiBrondol,
+                premi_insentif: premiInsentif,
+                premi_lain: premiLain,
                 premi_total: totalPremi,
+                potongan_pph21: potonganPph21,
+                potongan_bpjs_kesehatan: potonganBpjsKes,
+                potongan_bpjs_pensiun: potonganBpjsPen,
+                potongan_spsi: potonganSpsi,
+                potongan_lain: potonganLain,
                 potongan_total: totalPotongan,
                 upah_bersih: upahBersihCalc
             };

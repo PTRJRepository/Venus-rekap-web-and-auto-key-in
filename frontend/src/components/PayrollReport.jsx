@@ -107,7 +107,7 @@ const EmployeePayrollRow = ({ row, index, perspective }) => {
                                                         <ListItemIcon><AccessTimeFilledIcon sx={{ color: '#9a3412' }} /></ListItemIcon>
                                                         <ListItemText 
                                                             primary={<Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{mw?.jam_lembur?.toFixed(2) || 0} Jam Lembur</Typography>}
-                                                            secondary="Akumulasi jam dari PR_TASKREG"
+                                                            secondary="Akumulasi Hours dan Amount dari PR_TASKREGLN OT=1"
                                                         />
                                                         <Typography sx={{ fontWeight: 800, color: '#9a3412' }}>{formatCurrency(mw?.tunjangan_lembur || 0)}</Typography>
                                                     </ListItem>

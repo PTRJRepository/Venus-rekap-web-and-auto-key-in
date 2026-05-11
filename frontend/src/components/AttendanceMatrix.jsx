@@ -700,10 +700,11 @@ const AttendanceMatrix = ({
         const isSunday = date.getDay() === 0;
         const isSaturday = date.getDay() === 6;
         const expectedHours = isSunday ? 0 : (isSaturday ? 5 : 7);
+        const millwareNormalHours = millwareRecord ? (millwareRecord.normal || 0) : 0;
+        const isBelowThreshold = !isSunday && millwareNormalHours > 0 && millwareNormalHours < expectedHours;
         
         if (compareMode === 'presence') {
-            const millwareHours = millwareRecord ? (millwareRecord.normal || 0) : 0;
-            const isBelowThreshold = !isSunday && millwareHours > 0 && millwareHours < expectedHours;
+            const millwareHours = millwareNormalHours;
             if (!millwareRecord || !millwareRecord.hasRegularRecord) return { status: 'not_synced', displayOverride: `${venusRegularHours}h`, displayColor: '#DE350B', borderWidth: 2, millwareHours: 0 };
             if (!millwareRecord.regularMatched) return { status: 'mismatch', displayOverride: `${venusRegularHours}h|${millwareRecord.normal}h`, displayColor: '#FF991F', borderWidth: 2, millwareHours, isBelowThreshold };
             return { status: 'synced', millwareHours, isBelowThreshold, borderWidth: 1 };
@@ -849,11 +850,22 @@ const AttendanceMatrix = ({
                             }
 
                             const isSelected = selectedIds.includes(emp.id);
+                            const frozenPaneBg = editingRow === emp.id ? '#FFF9C4' : (isSelected ? '#EAF2FF' : '#FFFFFF');
+                            const frozenPaneHoverBg = editingRow === emp.id ? '#FFF4B8' : (isSelected ? '#DCEBFF' : '#F8FAFC');
 
                             return (
                                 <React.Fragment key={emp.id}>
-                                    <TableRow hover selected={isSelected} sx={{ height: 32, bgcolor: editingRow === emp.id ? '#FFF9C4' : 'inherit' }}>
-                                        <TableCell sx={{ position: 'sticky', left: 0, zIndex: 101, bgcolor: 'inherit', p: 0, width: 64 }} align="center">
+                                    <TableRow
+                                        hover
+                                        selected={isSelected}
+                                        sx={{
+                                            height: 32,
+                                            bgcolor: frozenPaneBg,
+                                            '&:hover': { bgcolor: frozenPaneHoverBg },
+                                            '&:hover .matrix-frozen-cell': { backgroundColor: `${frozenPaneHoverBg} !important` },
+                                        }}
+                                    >
+                                        <TableCell className="matrix-frozen-cell" sx={{ position: 'sticky', left: 0, zIndex: 101, backgroundColor: `${frozenPaneBg} !important`, backgroundClip: 'padding-box', p: 0, width: 64 }} align="center">
                                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                 <Checkbox 
                                                     size="small" 
@@ -866,7 +878,7 @@ const AttendanceMatrix = ({
                                                 </IconButton>
                                             </Box>
                                         </TableCell>
-                                        <TableCell sx={{ position: 'sticky', left: 64, zIndex: 101, bgcolor: 'inherit', borderRight: '2px solid #F0F0F0 !important' }}>
+                                        <TableCell className="matrix-frozen-cell" sx={{ position: 'sticky', left: 64, zIndex: 101, backgroundColor: `${frozenPaneBg} !important`, backgroundClip: 'padding-box', borderRight: '2px solid #F0F0F0 !important' }}>
                                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                     <Avatar sx={{ width: 20, height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: 'primary.light', flexShrink: 0 }}>{emp.name.charAt(0)}</Avatar>
@@ -954,10 +966,10 @@ const AttendanceMatrix = ({
                                                 </Box>
                                             </Box>
                                         </TableCell>
-                                        <TableCell sx={{ position: 'sticky', left: 284, zIndex: 101, bgcolor: editingRow === emp.id ? '#FFF8E1' : 'inherit', borderRight: '2px solid #F0F0F0 !important', cursor: 'pointer' }} onClick={() => handleStartEdit(emp)}>
+                                        <TableCell className="matrix-frozen-cell" sx={{ position: 'sticky', left: 284, zIndex: 101, backgroundColor: `${frozenPaneBg} !important`, backgroundClip: 'padding-box', borderRight: '2px solid #F0F0F0 !important', cursor: 'pointer' }} onClick={() => handleStartEdit(emp)}>
                                             <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: emp.ptrjEmployeeID ? 'secondary.main' : 'text.disabled' }}>{emp.ptrjEmployeeID || 'N/A'}</Typography>
                                         </TableCell>
-                                        <TableCell sx={{ position: 'sticky', left: 364, zIndex: 101, bgcolor: 'inherit', borderRight: '2px solid #C1C7D0 !important' }} align="center">
+                                        <TableCell className="matrix-frozen-cell" sx={{ position: 'sticky', left: 364, zIndex: 101, backgroundColor: `${frozenPaneBg} !important`, backgroundClip: 'padding-box', borderRight: '2px solid #C1C7D0 !important', boxShadow: '2px 0 0 rgba(193,199,208,0.45)' }} align="center">
                                             {(() => {
                                                 const otSummary = calculateOTSummary(emp);
                                                 const hasOT = otSummary.days > 0 && otSummary.hours > 0;
