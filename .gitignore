@@ -9,3 +9,4 @@ browser-automation-engine/chrome_data/
 *.tmp
 *.temp
 cookies
+.worktrees/
