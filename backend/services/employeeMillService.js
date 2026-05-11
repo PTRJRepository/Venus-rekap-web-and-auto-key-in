@@ -1,13 +1,84 @@
-const { executeQuery } = require('./gateway');
 const axios = require('axios');
+const sqlServer = require('mssql');
 require('dotenv').config();
 
 // PTRJ ID and ChargeJob from SERVER_PROFILE_1, database extend_db_ptrj
 const SERVER_PROFILE_PTRJ = 'SERVER_PROFILE_1';
 const DB_PTRJ = 'extend_db_ptrj';
+const LOCAL_EXTEND_DB_ENABLED = process.env.LOCAL_EXTEND_DB_ENABLED !== 'false';
+const DEFAULT_GATEWAY_TIMEOUT = 60000;
+const EXTEND_DB_GATEWAY_TIMEOUT = Number(process.env.EXTEND_DB_GATEWAY_TIMEOUT || 8000);
+
+let localExtendDbPoolPromise;
+
+const parseBooleanEnv = (value, defaultValue) => {
+    if (value === undefined) return defaultValue;
+    return String(value).toLowerCase() === 'true';
+};
+
+const getLocalExtendDbConfig = () => {
+    const config = {
+        server: process.env.LOCAL_EXTEND_DB_SERVER || 'localhost',
+        database: process.env.LOCAL_EXTEND_DB_DATABASE || DB_PTRJ,
+        user: process.env.LOCAL_EXTEND_DB_USER,
+        password: process.env.LOCAL_EXTEND_DB_PASSWORD,
+        connectionTimeout: Number(process.env.LOCAL_EXTEND_DB_CONNECTION_TIMEOUT || 15000),
+        requestTimeout: Number(process.env.LOCAL_EXTEND_DB_REQUEST_TIMEOUT || 60000),
+        options: {
+            encrypt: parseBooleanEnv(process.env.LOCAL_EXTEND_DB_ENCRYPT, false),
+            trustServerCertificate: parseBooleanEnv(process.env.LOCAL_EXTEND_DB_TRUST_CERT, true)
+        }
+    };
+
+    if (process.env.LOCAL_EXTEND_DB_PORT) {
+        config.port = Number(process.env.LOCAL_EXTEND_DB_PORT);
+    } else if (process.env.LOCAL_EXTEND_DB_INSTANCE) {
+        config.options.instanceName = process.env.LOCAL_EXTEND_DB_INSTANCE;
+    }
+
+    return config;
+};
+
+const getLocalExtendDbPool = async () => {
+    if (!LOCAL_EXTEND_DB_ENABLED) {
+        throw new Error('Local extend_db_ptrj fallback is disabled');
+    }
+
+    const config = getLocalExtendDbConfig();
+    if (!config.user || !config.password) {
+        throw new Error('LOCAL_EXTEND_DB_USER and LOCAL_EXTEND_DB_PASSWORD are required for local fallback');
+    }
+
+    if (!localExtendDbPoolPromise) {
+        localExtendDbPoolPromise = new sqlServer.ConnectionPool(config)
+            .connect()
+            .catch(error => {
+                localExtendDbPoolPromise = null;
+                throw error;
+            });
+    }
+
+    return localExtendDbPoolPromise;
+};
+
+const queryLocalExtendDB = async (sql) => {
+    const config = getLocalExtendDbConfig();
+    const target = config.port
+        ? `${config.server},${config.port}`
+        : `${config.server}${process.env.LOCAL_EXTEND_DB_INSTANCE ? `\\${process.env.LOCAL_EXTEND_DB_INSTANCE}` : ''}`;
+    console.log(`[EmployeeMill] Local fallback: ${target}, DB: ${config.database}`);
+
+    const pool = await getLocalExtendDbPool();
+    const result = await pool.request().query(sql);
+    const rows = result.recordset || [];
+    const affected = (result.rowsAffected || []).reduce((total, count) => total + count, 0);
+
+    console.log(`[EmployeeMill] Local fallback success. Rows: ${rows.length}, affected: ${affected}`);
+    return rows;
+};
 
 // Helper to query specific server/database
-const queryWithServer = async (sql, serverProfile, database) => {
+const executeGatewayQuery = async (sql, serverProfile, database) => {
     const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8001';
     const API_TOKEN = process.env.API_TOKEN_QUERY;
 
@@ -18,32 +89,56 @@ const queryWithServer = async (sql, serverProfile, database) => {
     console.log(`[EmployeeMill] Server: ${serverProfile}, DB: ${database}`);
     console.log(`[EmployeeMill] SQL: ${sql.substring(0, 100)}...`);
 
-    try {
-        const response = await axios.post(FINAL_URL, {
-            sql,
-            server: serverProfile,
-            database: database
-        }, {
-            headers: { 'x-api-key': API_TOKEN },
-            timeout: 60000
-        });
+    const timeout = database === DB_PTRJ ? EXTEND_DB_GATEWAY_TIMEOUT : DEFAULT_GATEWAY_TIMEOUT;
 
-        if (response.data.success) {
-            console.log(`[EmployeeMill] Success. Rows: ${response.data.data.recordset ? response.data.data.recordset.length : 0}`);
-            return response.data.data.recordset;
-        } else {
-            console.error('EmployeeMillService Query Error:', response.data.error);
-            return [];
-        }
-    } catch (error) {
-        console.error('EmployeeMillService Request Failed:', error.message);
-        return [];
+    const response = await axios.post(FINAL_URL, {
+        sql,
+        server: serverProfile,
+        database: database
+    }, {
+        headers: { 'x-api-key': API_TOKEN },
+        timeout
+    });
+
+    if (response.data.success) {
+        const rows = response.data.data.recordset || [];
+        console.log(`[EmployeeMill] Gateway success. Rows: ${rows.length}`);
+        return rows;
     }
+
+    throw new Error(response.data.error || 'Gateway query failed');
+};
+
+const queryWithServer = async (sql, serverProfile, database, options = {}) => {
+    const { throwOnFailure = false } = options;
+    let lastError;
+
+    try {
+        return await executeGatewayQuery(sql, serverProfile, database);
+    } catch (error) {
+        lastError = error;
+        console.error('EmployeeMillService Gateway Failed:', error.message);
+    }
+
+    if (database === DB_PTRJ && LOCAL_EXTEND_DB_ENABLED) {
+        try {
+            return await queryLocalExtendDB(sql);
+        } catch (error) {
+            lastError = error;
+            console.error('EmployeeMillService Local Fallback Failed:', error.message);
+        }
+    }
+
+    if (throwOnFailure) {
+        throw lastError;
+    }
+
+    return [];
 };
 
 // Helper to query extend_db_ptrj (for ptrj_employee_id and charge_job)
-const queryExtendDB = async (sql, database = DB_PTRJ) => {
-    return await queryWithServer(sql, SERVER_PROFILE_PTRJ, database);
+const queryExtendDB = async (sql, database = DB_PTRJ, options = {}) => {
+    return await queryWithServer(sql, SERVER_PROFILE_PTRJ, database, options);
 };
 
 /**
@@ -190,27 +285,10 @@ const updateEmployee = async (venusEmployeeId, updates) => {
 
     console.log('[EmployeeMillService] Update SQL:', sql);
 
-    const GATEWAY_URL = (process.env.GATEWAY_URL || 'http://localhost:8001').replace(/\/$/, '');
-    const API_TOKEN = process.env.API_TOKEN_QUERY;
-    const FINAL_URL = `${GATEWAY_URL}/v1/query`;
-
     try {
-        const response = await axios.post(FINAL_URL, {
-            sql,
-            server: SERVER_PROFILE_PTRJ,
-            database: DB_PTRJ
-        }, {
-            headers: { 'x-api-key': API_TOKEN },
-            timeout: 60000
-        });
-
-        if (response.data.success) {
-            console.log(`[EmployeeMillService] Updated employee: ${venusEmployeeId}`);
-            return { success: true, message: 'Employee updated successfully' };
-        } else {
-            console.error('EmployeeMillService Update Error:', response.data.error);
-            return { success: false, message: response.data.error };
-        }
+        await queryExtendDB(sql, DB_PTRJ, { throwOnFailure: true });
+        console.log(`[EmployeeMillService] Updated employee: ${venusEmployeeId}`);
+        return { success: true, message: 'Employee updated successfully' };
     } catch (error) {
         console.error('EmployeeMillService Update Failed:', error.message);
         return { success: false, message: error.message };
@@ -246,27 +324,10 @@ const insertEmployee = async (employeeData) => {
 
     console.log('[EmployeeMillService] Insert SQL:', sql);
 
-    const GATEWAY_URL = (process.env.GATEWAY_URL || 'http://localhost:8001').replace(/\/$/, '');
-    const API_TOKEN = process.env.API_TOKEN_QUERY;
-    const FINAL_URL = `${GATEWAY_URL}/v1/query`;
-
     try {
-        const response = await axios.post(FINAL_URL, {
-            sql,
-            server: SERVER_PROFILE_PTRJ,
-            database: DB_PTRJ
-        }, {
-            headers: { 'x-api-key': API_TOKEN },
-            timeout: 60000
-        });
-
-        if (response.data.success) {
-            console.log(`[EmployeeMillService] Inserted new employee: ${venus_employee_id}`);
-            return { success: true, message: 'Employee inserted successfully' };
-        } else {
-            console.error('EmployeeMillService Insert Error:', response.data.error);
-            return { success: false, message: response.data.error };
-        }
+        await queryExtendDB(sql, DB_PTRJ, { throwOnFailure: true });
+        console.log(`[EmployeeMillService] Inserted new employee: ${venus_employee_id}`);
+        return { success: true, message: 'Employee inserted successfully' };
     } catch (error) {
         console.error('EmployeeMillService Insert Failed:', error.message);
         return { success: false, message: error.message };

@@ -63,6 +63,14 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
         }
     }, [status, onRefresh]);
 
+    // Cleanup logs when dialog closes to free memory
+    useEffect(() => {
+        if (!open) {
+            setLogs([]);
+            setStatus('idle');
+        }
+    }, [open]);
+
     useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs]);
 
     const filterEmployees = (isExport = false) => {
@@ -221,7 +229,13 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
         } catch (e) { addLog('error', `Connection error: ${e.message}`); setStatus('failed'); }
     };
 
-    const addLog = (type, message) => setLogs(prev => [...prev, { type, message, time: new Date().toLocaleTimeString() }]);
+    const MAX_LOGS = 500;
+    const addLog = (type, message) => setLogs(prev => {
+        const newLog = { type, message, time: new Date().toLocaleTimeString() };
+        const updated = [...prev, newLog];
+        // Keep only the last MAX_LOGS entries to prevent memory bloat
+        return updated.length > MAX_LOGS ? updated.slice(-MAX_LOGS) : updated;
+    });
 
     const handleStop = async () => {
         try {

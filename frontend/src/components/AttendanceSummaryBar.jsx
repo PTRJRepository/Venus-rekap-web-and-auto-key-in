@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box, Paper, Typography, Tooltip, Chip } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -10,21 +10,30 @@ import { alpha } from '@mui/material/styles';
 
 const AttendanceSummaryBar = ({ data = [], isFiltered = false }) => {
     const totalEmployees = data.length;
-    let present = 0, absent = 0, leave = 0, sick = 0, totalOt = 0;
 
-    if (totalEmployees > 0) {
-        data.forEach(emp => {
-            Object.values(emp.attendance || {}).forEach(day => {
-                const st = (day?.status || '').toUpperCase();
-                const ot = Number(day?.overtimeHours) || 0;
-                if (st === 'HADIR') present++;
-                else if (st === 'ALFA') absent++;
-                else if (['CT', 'CUTI', 'I', 'IZIN'].includes(st)) leave++;
-                else if (['S', 'SAKIT', 'SD'].includes(st)) sick++;
-                totalOt += ot;
+    // Memoize stats calculation to prevent recalculation on every render
+    const stats = useMemo(() => {
+        let present = 0, absent = 0, leave = 0, sick = 0, totalOt = 0;
+
+        if (totalEmployees > 0) {
+            data.forEach(emp => {
+                Object.values(emp.attendance || {}).forEach(day => {
+                    const st = (day?.status || '').toUpperCase();
+                    const ot = Number(day?.overtimeHours) || 0;
+                    if (st === 'HADIR') present++;
+                    else if (st === 'ALFA') absent++;
+                    else if (['CT', 'CUTI', 'I', 'IZIN'].includes(st)) leave++;
+                    else if (['S', 'SAKIT', 'SD'].includes(st)) sick++;
+                    totalOt += ot;
+                });
             });
-        });
-    }
+        }
+
+        return { present, absent, leave, sick, totalOt };
+    }, [data, totalEmployees]);
+
+    // Destructure memoized stats
+    const { present, absent, leave, sick, totalOt } = stats;
 
     const StatItem = ({ icon, label, value, color, filterLabel }) => (
         <Tooltip title={isFiltered ? `${filterLabel}: ${label}` : label} arrow>
@@ -99,4 +108,4 @@ const AttendanceSummaryBar = ({ data = [], isFiltered = false }) => {
     );
 };
 
-export default AttendanceSummaryBar;
+export default React.memo(AttendanceSummaryBar);

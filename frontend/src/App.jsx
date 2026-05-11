@@ -27,6 +27,7 @@ import ComparisonDialog from './components/ComparisonDialog';
 import AttendanceSummaryBar from './components/AttendanceSummaryBar';
 import AttendanceFilterBar from './components/AttendanceFilterBar';
 import LoginPage from './components/LoginPage';
+import ErrorBoundary from './components/ErrorBoundary';
 import { fetchAttendanceData, exportAttendanceJSON, fetchLatestPeriod } from './services/api';
 import { getFallbackAttendancePeriod, getYearOptions, normalizeAttendancePeriod } from './utils/period';
 
@@ -119,14 +120,15 @@ const App = () => {
     const handleFetchData = async () => {
         if (!selectedMonth || !selectedYear || !isAuthenticated) return;
         setLoading(true);
-        setData(null);
+        setData([]); // Reset to empty array so filteredData is always safe
         try {
             const result = await fetchAttendanceData(selectedMonth, selectedYear, showStaff);
             // Frontend also needs to bypass isKaryawan filter if showStaff is true
-            const filteredResult = result?.filter(emp => showStaff || emp.isKaryawan !== false) || null;
+            const filteredResult = result?.filter(emp => showStaff || emp.isKaryawan !== false) || [];
             setData(filteredResult);
             showSnackbar('Data berhasil dimuat', 'success');
         } catch (error) {
+            setData([]); // Reset on error — prevents stale data from showing
             showSnackbar(`Gagal memuat data: ${error.message}`, 'error');
         } finally {
             setLoading(false);
@@ -148,11 +150,12 @@ const App = () => {
             return;
         }
         if (updateInfo.type === 'update_employee') {
-            setData(prevData =>
-                prevData.map(emp =>
+            setData(prevData => {
+                if (!prevData) return prevData;
+                return prevData.map(emp =>
                     emp.id === updateInfo.id ? { ...emp, ...updateInfo.updates } : emp
-                )
-            );
+                );
+            });
         }
     };
 
@@ -182,7 +185,7 @@ const App = () => {
     };
 
     const performComparison = async () => {
-        if (!data || data.length === 0) {
+        if (!data || data.length === 0 || loading) {
             showSnackbar('Tidak ada data untuk dibandingkan', 'warning');
             return;
         }
@@ -223,6 +226,7 @@ const App = () => {
     };
 
     const handleCompareToggle = () => {
+        if (loading) return; // Guard: prevent compare during data fetch
         if (compareMode === 'off') {
             setCompareMode('presence');
             performComparison();
@@ -549,13 +553,15 @@ const App = () => {
                                         </Button>
                                     </Box>
                                 </Box>
-                                <AttendanceMatrix
-                                    data={filteredData} viewMode={viewMode} onDataUpdate={handleDataUpdate}
-                                    selectedIds={selectedEmployeeIds} onToggleSelect={setSelectedEmployeeIds}
-                                    compareMode={compareMode} comparisonData={comparisonData}
-                                    isLoadingComparison={isComparing} isEditMode={isEditMode} setIsEditMode={setIsEditMode}
-                                    isFiltered={isFilterActive}
-                                />
+                                <ErrorBoundary>
+                                    <AttendanceMatrix
+                                        data={filteredData} viewMode={viewMode} onDataUpdate={handleDataUpdate}
+                                        selectedIds={selectedEmployeeIds} onToggleSelect={setSelectedEmployeeIds}
+                                        compareMode={compareMode} comparisonData={comparisonData}
+                                        isLoadingComparison={isComparing} isEditMode={isEditMode} setIsEditMode={setIsEditMode}
+                                        isFiltered={isFilterActive} isLoading={loading}
+                                    />
+                                </ErrorBoundary>
                             </>
                         )}
                         {activeTab === 'report' && (
@@ -660,7 +666,7 @@ const App = () => {
                                 )}
                             </Box>
                         )}
-                        {activeTab === 'payroll' && <PayrollReport month={selectedMonth} year={selectedYear} />}
+                        {activeTab === 'payroll' && <PayrollReport month={selectedMonth} year={selectedYear} onPayrollAutomation={handlePayrollAutomation} isPayrollAutomationRunning={isPayrollAutomationRunning} />}
                     </Box>
                 </Box>
 

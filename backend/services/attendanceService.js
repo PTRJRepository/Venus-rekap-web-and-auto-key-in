@@ -646,6 +646,18 @@ const fetchAttendanceData = async (month, year, options = { showStaff: false }) 
     });
 
     console.log(`Processed ${finalData.length} employees with full ETL data`);
+
+    // Empty state detection with clear error message
+    if (finalData.length === 0) {
+        console.warn(`[AttendanceService] No employees found for ${month}/${year}`);
+        console.warn('[AttendanceService] Possible causes: month not closed, no attendance records, or database query issue');
+        return {
+            error: 'NO_EMPLOYEES',
+            message: `No attendance data found for ${month}/${year}. The month may not be closed yet or no employees have attendance records.`,
+            emptyState: true
+        };
+    }
+
     return finalData;
 };
 

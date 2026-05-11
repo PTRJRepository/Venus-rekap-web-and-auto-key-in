@@ -201,7 +201,12 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
             {/* Per Day Table */}
             {results && tabIndex === 0 && results.results.length > 0 && (
                 <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
-                    <Table size="small" stickyHeader>
+                    {loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                            <CircularProgress size={32} sx={{ color: DARK.accent }} />
+                        </Box>
+                    ) : (
+                        <Table size="small" stickyHeader>
                         <TableHead>
                             <TableRow>
                                 {['Status', 'PTRJ ID', 'Name', 'Date', 'Venus Status', 'Venus Hours', 'Millware Hours'].map(h => (
@@ -238,13 +243,19 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
                             ))}
                         </TableBody>
                     </Table>
+                    )}
                 </Box>
             )}
 
             {/* Per Employee Table */}
             {results && tabIndex === 1 && summaryArray.length > 0 && (
                 <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
-                    <Table size="small" stickyHeader>
+                    {loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                            <CircularProgress size={32} sx={{ color: DARK.accent }} />
+                        </Box>
+                    ) : (
+                        <Table size="small" stickyHeader>
                         <TableHead>
                             <TableRow>
                                 {['Status', 'PTRJ ID', 'Name', 'Synced', 'Miss', 'Venus Reg', 'MW Reg', 'Venus OT', 'MW OT'].map(h => (
@@ -286,6 +297,7 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
                             })}
                         </TableBody>
                     </Table>
+                    )}
                 </Box>
             )}
 

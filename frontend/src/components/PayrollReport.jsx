@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
-    Typography, CircularProgress, Alert, Collapse, IconButton, Chip, 
-    Divider, Tabs, Tab, Grid, Card, CardContent, Fade, List, ListItem, ListItemText, ListItemIcon
+import {
+    Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    Typography, CircularProgress, Alert, Collapse, IconButton, Chip,
+    Divider, Tabs, Tab, Grid, Card, CardContent, Fade, List, ListItem, ListItemText, ListItemIcon,
+    Button
 } from '@mui/material';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
@@ -243,7 +245,7 @@ const EmployeePayrollRow = ({ row, index, perspective }) => {
     );
 };
 
-const PayrollReport = ({ month, year }) => {
+const PayrollReport = ({ month, year, onPayrollAutomation, isPayrollAutomationRunning }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -270,15 +272,15 @@ const PayrollReport = ({ month, year }) => {
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Paper elevation={0} sx={{ borderBottom: '1px solid #e0e0e0', bgcolor: '#f8fafc', borderRadius: '8px 8px 0 0' }}>
-                <Tabs 
-                    value={mainPerspective} 
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, py: 1, bgcolor: '#f8fafc', borderRadius: '8px 8px 0 0' }}>
+                <Tabs
+                    value={mainPerspective}
                     onChange={(e, v) => setMainPerspective(v)}
-                    sx={{ px: 2 }}
+                    sx={{ flexGrow: 1 }}
                 >
-                    <Tab 
-                        icon={<CompareArrowsIcon sx={{ fontSize: 18 }} />} 
-                        iconPosition="start" 
+                    <Tab
+                        icon={<CompareArrowsIcon sx={{ fontSize: 18 }} />}
+                        iconPosition="start"
                         label="COMPARISON SUMMARY" 
                         value="comparison" 
                         sx={{ fontWeight: 800, fontSize: '0.75rem' }} 
@@ -298,7 +300,20 @@ const PayrollReport = ({ month, year }) => {
                         sx={{ fontWeight: 800, fontSize: '0.75rem' }} 
                     />
                 </Tabs>
-            </Paper>
+                <Box sx={{ pr: 2, display: 'flex', alignItems: 'center' }}>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        size="small"
+                        startIcon={isPayrollAutomationRunning ? <CircularProgress size={16} color="inherit" /> : <PlayArrowIcon />}
+                        onClick={onPayrollAutomation}
+                        disabled={isPayrollAutomationRunning}
+                        sx={{ fontWeight: 700, fontSize: '0.7rem', px: 1.5 }}
+                    >
+                        {isPayrollAutomationRunning ? 'Running...' : 'Input ke Millware'}
+                    </Button>
+                </Box>
+            </Box>
 
             <TableContainer component={Paper} elevation={0} sx={{ flexGrow: 1, border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'auto' }}>
                 <Table stickyHeader size="small">

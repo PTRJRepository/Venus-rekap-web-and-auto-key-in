@@ -109,6 +109,19 @@ app.get('/api/attendance', async (req, res) => {
             ? await fetchAttendanceDataOvertimeOnly(parseInt(month), parseInt(year), { showStaff: showStaffFlag })
             : await fetchAttendanceData(parseInt(month), parseInt(year), { showStaff: showStaffFlag });
 
+        // Handle empty state from service
+        if (data && data.emptyState) {
+            return res.json({
+                success: true,
+                data: [],
+                warning: data.message,
+                emptyState: true,
+                month_name: new Date(year, month - 1).toLocaleString('id-ID', { month: 'long' }),
+                year: parseInt(year),
+                days_in_month: new Date(year, month, 0).getDate()
+            });
+        }
+
         // Format response to match frontend expectations
         res.json({
             success: true,

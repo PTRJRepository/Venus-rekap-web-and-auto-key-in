@@ -146,13 +146,32 @@ const getVenusComponentKeywords = () => {
  */
 const findADCodeByVenusComponent = (venusCompName, taskCodes) => {
     const keywordsMap = getVenusComponentKeywords();
+    const upperName = venusCompName.toUpperCase();
+
+    const explicitMap = [
+        { match: (name) => name.includes('JABATAN'), taskCode: 'GA9128' },
+        { match: (name) => name.includes('MASA KERJA'), taskCode: 'GA9129' },
+        { match: (name) => name.includes('LEMBUR') || name.includes('OVERTIME'), taskCode: 'AL0019' },
+        { match: (name) => name.includes('BERAS') || name.includes('RICE'), taskCode: 'AL0012' },
+        { match: (name) => name.includes('PPH'), taskCode: 'DEPH21' },
+        { match: (name) => name.includes('SPSI'), taskCode: 'DE0003' },
+        { match: (name) => name.includes('BPJS') && name.includes('KESEHATAN'), taskCode: 'DEBPJS' },
+        { match: (name) => name.includes('PENSIUN') || name.includes('JP'), taskCode: 'DEJP' },
+        { match: (name) => name.includes('JHT'), taskCode: 'DEJHT' },
+        { match: (name) => name.includes('JKK'), taskCode: 'DEJKK' },
+        { match: (name) => name.includes('JK'), taskCode: 'DEJK' }
+    ];
+
+    const explicit = explicitMap.find(item => item.match(upperName));
+    if (explicit && taskCodes.some(tc => tc.taskCode.toUpperCase() === explicit.taskCode)) {
+        return explicit.taskCode;
+    }
 
     // Direct lookup by component code/name
     let keywords = keywordsMap[venusCompName];
 
     if (!keywords) {
         // Try to find partial match
-        const upperName = venusCompName.toUpperCase();
         for (const [comp, kws] of Object.entries(keywordsMap)) {
             if (upperName.includes(comp.toUpperCase()) || comp.toUpperCase().includes(upperName)) {
                 keywords = kws;
@@ -165,8 +184,6 @@ const findADCodeByVenusComponent = (venusCompName, taskCodes) => {
         // Fallback to word-based search
         keywords = upperName.split(' ').filter(w => w.length > 3);
     }
-
-    const upperName = venusCompName.toUpperCase();
 
     // Find best match
     let bestMatch = null;
@@ -227,7 +244,6 @@ const preparePayrollAutomationData = async (month, year) => {
             const components = [
                 { key: 'jabatan', venusKey: 'jabatan', compName: 'TUNJANGAN JABATAN' },
                 { key: 'masaKerja', venusKey: 'masaKerja', compName: 'TUNJANGAN MASA KERJA' },
-                { key: 'lembur', venusKey: 'lembur', compName: 'TUNJANGAN LEMBUR' },
                 { key: 'beras', venusKey: 'beras', compName: 'TUNJANGAN BERAS' },
                 { key: 'premi', venusKey: 'premi', compName: 'PREMI/INSENTIF' },
                 { key: 'pph21', venusKey: 'pph21', compName: 'PPH21' },
@@ -278,7 +294,7 @@ const preparePayrollAutomationData = async (month, year) => {
         console.log(`[PayrollAutomation] Found ${automationData.length} employees with MISS components`);
 
         // 4. Save to file
-        const outputDir = path.join(__dirname, '..', 'browser-automation-engine', 'testing_data');
+        const outputDir = path.resolve(__dirname, '..', '..', 'browser-automation-engine', 'testing_data');
         const outputFile = path.join(outputDir, 'current_payroll_data.json');
 
         // Ensure directory exists

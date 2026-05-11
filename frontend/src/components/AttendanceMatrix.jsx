@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Tooltip, Typography, Avatar, IconButton, Snackbar, Alert, Checkbox, LinearProgress, Collapse, Grid, Fade, CircularProgress, Chip, TextField, Button, FormControlLabel, Switch } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -10,6 +10,9 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import WarningIcon from '@mui/icons-material/WarningAmber';
 import { updateEmployeeMill } from '../services/api';
+import { SkeletonTable } from '../utils/SkeletonTable';
+
+const INITIAL_ROW_COUNT = 50;
 
 // ============================================================
 // PROGRESSIVE TOOLTIP DESIGN SYSTEM
@@ -97,16 +100,23 @@ const AttendanceMatrix = ({
     isLoadingComparison = false,
     isEditMode = false,
     setIsEditMode,
-    isFiltered = false
+    isFiltered = false,
+    isLoading = false
 }) => {
-    const safeData = Array.isArray(data) ? data : [];
     const [editingRow, setEditingRow] = useState(null);
     const [editValues, setEditValues] = useState({ ptrjEmployeeID: '', chargeJob: '', employeeName: '', isKaryawan: true });
     const [saving, setSaving] = useState(false);
     const [expandedRows, setExpandedRows] = useState(new Set());
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+    const [showAllRows, setShowAllRows] = useState(false);
 
-    // Add global pulse animation style
+    const toggleRow = (id) => {
+        const newExpanded = new Set(expandedRows);
+        if (newExpanded.has(id)) newExpanded.delete(id);
+        else newExpanded.add(id);
+        setExpandedRows(newExpanded);
+    };
+
     useEffect(() => {
         const styleId = 'attendance-matrix-pulse-animation';
         if (!document.getElementById(styleId)) {
@@ -130,12 +140,24 @@ const AttendanceMatrix = ({
         };
     }, []);
 
-    const toggleRow = (id) => {
-        const newExpanded = new Set(expandedRows);
-        if (newExpanded.has(id)) newExpanded.delete(id);
-        else newExpanded.add(id);
-        setExpandedRows(newExpanded);
-    };
+    const safeData = Array.isArray(data) ? data : [];
+    const visibleData = useMemo(
+        () => showAllRows ? safeData : safeData.slice(0, INITIAL_ROW_COUNT),
+        [safeData, showAllRows]
+    );
+    const todayNum = new Date().getDate();
+    const daysMap = safeData[0]?.attendance || {};
+    const dayNumbers = Object.keys(daysMap).sort((a, b) => Number(a) - Number(b));
+
+    if (isLoading) {
+        return (
+            <Paper elevation={0} sx={{ height: '100%', p: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+                    <CircularProgress />
+                </Box>
+            </Paper>
+        );
+    }
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
@@ -558,11 +580,6 @@ const AttendanceMatrix = ({
             </ProTooltip>
         );
     };
-
-    const todayNum = new Date().getDate();
-    const daysMap = safeData[0]?.attendance || {};
-    const dayNumbers = Object.keys(daysMap).sort((a, b) => Number(a) - Number(b));
-
     const getSyncStatus = (ptrjId, dateStr, venusStatus, venusRegularHours = 0, venusOtHours = 0) => {
         if (!compareMode || compareMode === 'off') return null;
         const hasValidPtrjId = ptrjId && ptrjId !== 'N/A' && String(ptrjId).trim() !== '';
@@ -654,7 +671,15 @@ const AttendanceMatrix = ({
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {safeData.map((emp) => {
+                        {visibleData.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={dayNumbers.length + 4} align="center" sx={{ py: 6, color: 'text.secondary', borderRight: 'none !important' }}>
+                                    <Typography sx={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                                        {isFiltered ? 'Tidak ada data yang sesuai filter.' : 'Tidak ada data absensi untuk periode ini.'}
+                                    </Typography>
+                                </TableCell>
+                            </TableRow>
+                        ) : visibleData.map((emp) => {
                             let matchCount = 0;
                             let totalJamMatch = 0;
                             let missRegularCount = 0;
@@ -993,9 +1018,44 @@ const AttendanceMatrix = ({
                     </TableBody>
                 </Table>
             </TableContainer>
+
+            {/* Progressive Loading Controls */}
+            {!showAllRows && safeData.length > INITIAL_ROW_COUNT && (
+                <Box sx={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    py: 1.5, borderTop: '1px solid #DFE1E6', bgcolor: '#f8f9fa'
+                }}>
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => setShowAllRows(true)}
+                        sx={{
+                            fontWeight: 700, fontSize: '0.75rem',
+                            borderColor: '#7C3AED', color: '#7C3AED',
+                            '&:hover': { bgcolor: 'rgba(124, 58, 237, 0.08)' }
+                        }}
+                    >
+                        Load All ({safeData.length} employees)
+                    </Button>
+                </Box>
+            )}
+
             <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar(p => ({ ...p, open: false }))}><Alert severity={snackbar.severity}>{snackbar.message}</Alert></Snackbar>
         </Paper>
     );
 };
 
-export default AttendanceMatrix;
+export default React.memo(AttendanceMatrix, (prevProps, nextProps) => {
+    return (
+        prevProps.data === nextProps.data &&
+        prevProps.viewMode === nextProps.viewMode &&
+        prevProps.cellFilter === nextProps.cellFilter &&
+        prevProps.selectedIds.length === nextProps.selectedIds.length &&
+        prevProps.compareMode === nextProps.compareMode &&
+        prevProps.comparisonData === nextProps.comparisonData &&
+        prevProps.isLoadingComparison === nextProps.isLoadingComparison &&
+        prevProps.isLoading === nextProps.isLoading &&
+        prevProps.isEditMode === nextProps.isEditMode &&
+        prevProps.isFiltered === nextProps.isFiltered
+    );
+});

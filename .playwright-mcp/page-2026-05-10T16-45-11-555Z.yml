@@ -1,0 +1,354 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - link [ref=e6] [cursor=pointer]:
+      - /url: /en/system/user/frmSystemUserSetlocation.aspx?FROM=OK
+      - img [ref=e7]
+      - img [ref=e8]
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - img "Company" [ref=e11]
+        - text: PT. REBINMAS JAYA OIL MILL
+      - generic [ref=e12]:
+        - img "Location" [ref=e13]
+        - text: PT. REBINMAS JAYA OIL MILL (PTRJ)
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - img "User ID" [ref=e16]
+        - text: Atha Rizki Pangestu
+        - img "Date Time" [ref=e17]
+        - text: Sunday, 10 May 2026
+      - generic [ref=e18]:
+        - link "Change Location" [ref=e19] [cursor=pointer]:
+          - /url: javascript:__doPostBack('ctl00$lnkLocation','')
+          - img "Change Location" [ref=e20]
+        - text: "|"
+        - link "Change Password" [ref=e21] [cursor=pointer]:
+          - /url: javascript:__doPostBack('ctl00$lnkPassword','')
+          - img "Change Password" [ref=e22]
+        - text: "|"
+        - link "Change Email Address" [ref=e23] [cursor=pointer]:
+          - /url: javascript:__doPostBack('ctl00$lnkChangeEmail','')
+          - img "Change Email Address" [ref=e24]
+        - text: "|"
+        - link "Logout" [ref=e25] [cursor=pointer]:
+          - /url: javascript:__doPostBack('ctl00$lnkLogout','')
+          - img "Logout" [ref=e26]
+    - generic [ref=e27]:
+      - link "Skip Navigation Links":
+        - /url: "#NavigationMenu_SkipLink"
+        - img "Skip Navigation Links"
+      - menubar [ref=e29]:
+        - menuitem "Admin" [ref=e30]:
+          - generic [ref=e31]: Admin
+        - menuitem "Financials" [ref=e32]:
+          - generic [ref=e33]: Financials
+        - menuitem "Procurement" [ref=e34]:
+          - generic [ref=e35]: Procurement
+        - menuitem "Human Resource" [ref=e36]:
+          - generic [ref=e37]: Human Resource
+        - menuitem "Budget" [ref=e38]:
+          - generic [ref=e39]: Budget
+        - menuitem "Production" [ref=e40]:
+          - generic [ref=e41]: Production
+        - menuitem "Expansion" [ref=e42]:
+          - generic [ref=e43]: Expansion
+        - menuitem "Reports" [ref=e44]:
+          - generic [ref=e45]: Reports
+  - generic [ref=e46]: Human Resource > Payroll > Monthly Allowance and Deduction List
+  - table [ref=e48]:
+    - rowgroup [ref=e49]:
+      - row [ref=e50]:
+        - cell [ref=e51]
+      - row "MONTHLY ALLOWANCE AND DEDUCTION LIST" [ref=e52]:
+        - cell "MONTHLY ALLOWANCE AND DEDUCTION LIST" [ref=e53]
+        - cell [ref=e54]
+      - row [ref=e55]:
+        - cell [ref=e56]:
+          - separator [ref=e57]
+      - 'row "Document ID : Emlpoyee : Select Employee Accounting Month : 1 Accounting Year : 2027 Status : Active Last Updated By : Search" [ref=e58]':
+        - 'cell "Document ID : Emlpoyee : Select Employee Accounting Month : 1 Accounting Year : 2027 Status : Active Last Updated By : Search" [ref=e59]':
+          - table [ref=e60]:
+            - rowgroup [ref=e61]:
+              - 'row "Document ID : Emlpoyee : Select Employee Accounting Month : 1 Accounting Year : 2027 Status : Active Last Updated By : Search" [ref=e62]':
+                - cell "Document ID :" [ref=e63]:
+                  - text: "Document ID :"
+                  - textbox [ref=e64]
+                - 'cell "Emlpoyee : Select Employee" [ref=e65]':
+                  - text: "Emlpoyee :"
+                  - combobox [ref=e66]:
+                    - option "Select Employee" [selected]
+                    - option "(POM00007) SUHARDI"
+                    - option "(POM00012) NUR FEBRIANA SARI"
+                    - option "(POM00015) YURLITA DWINDA SARI"
+                    - option "(POM00016) ERMA"
+                    - option "(POM00017) AGUS SRI ASTUTI"
+                    - option "(POM00020) Tigo"
+                    - option "(POM00022) Ramadani"
+                    - option "(POM00023) Arianto"
+                    - option "(POM00024) Husaini"
+                    - option "(POM00026) Nursamsi"
+                    - option "(POM00028) Derry"
+                    - option "(POM00029) Yulizar"
+                    - option "(POM00030) Zurianto"
+                    - option "(POM00033) Supandi"
+                    - option "(POM00034) Andison Supriyanto"
+                    - option "(POM00036) Ichsanudin"
+                    - option "(POM00038) Pordiman Samosir"
+                    - option "(POM00039) Suhartono"
+                    - option "(POM00040) dedy Burhansyah"
+                    - option "(POM00041) Adi Apriadi"
+                    - option "(POM00042) Sudiar"
+                    - option "(POM00043) Najmi"
+                    - option "(POM00046) Dedi"
+                    - option "(POM00048) Hendra Winardi"
+                    - option "(POM00051) Suhartomo"
+                    - option "(POM00054) Atmo Haryo"
+                    - option "(POM00055) Asmadi"
+                    - option "(POM00056) Zulhari lbn Tobing"
+                    - option "(POM00060) Moh.Suhairi"
+                    - option "(POM00061) Mediarta"
+                    - option "(POM00062) Pujiono"
+                    - option "(POM00063) Hanip"
+                    - option "(POM00064) Andri Iswadi"
+                    - option "(POM00065) Dick Havianto"
+                    - option "(POM00066) Eko Juniyansah"
+                    - option "(POM00067) Suharjono"
+                    - option "(POM00068) Rastanto"
+                    - option "(POM00071) Ariadi"
+                    - option "(POM00072) Bala Murbantinus Guntur"
+                    - option "(POM00073) bintara"
+                    - option "(POM00075) Hendri Kusuma Wijaya"
+                    - option "(POM00076) Helmi"
+                    - option "(POM00078) Slamet Widodo"
+                    - option "(POM00079) Beni Apriyanto"
+                    - option "(POM00081) Erwanto"
+                    - option "(POM00087) Jaya Saputra"
+                    - option "(POM00088) Dafid Iwan Saputra"
+                    - option "(POM00092) Riky Maryanto Susanto"
+                    - option "(POM00093) Ibnu Wardana"
+                    - option "(POM00094) Siaga Pratama"
+                    - option "(POM00095) Bambang Supriyono"
+                    - option "(POM00101) Marja Isnata"
+                    - option "(POM00102) Ari Widodo"
+                    - option "(POM00103) Tri Bowono Yudo"
+                    - option "(POM00104) Darma Setiawan"
+                    - option "(POM00106) Agus Irawan"
+                    - option "(POM00109) LIGA FIRDANA"
+                    - option "(POM00112) PRIMA WIDISONO"
+                    - option "(POM00113) TUR SETIAWAN"
+                    - option "(POM00114) ANWAR"
+                    - option "(POM00115) SAMSIR"
+                    - option "(POM00119) HERLIN FAJARINI SISKA"
+                    - option "(POM00120) EDDO PRATHAMA"
+                    - option "(POM00121) RENDY GUSTOYO"
+                    - option "(POM00123) PANDU PRATAMA PURSA"
+                    - option "(POM00124) GALUH FERDIANJAYA"
+                    - option "(POM00125) ASWANDI"
+                    - option "(POM00127) MUHAMAD KHALIQ"
+                    - option "(POM00128) DEFI FANTERA"
+                    - option "(POM00129) DWI ASTRIALNI"
+                    - option "(POM00130) SYAFRILLIYANSYAH"
+                    - option "(POM00132) SEPTIAN ADE PRATAMA"
+                    - option "(POM00134) Siti Rodiah"
+                    - option "(POM00135) IRWAN"
+                    - option "(POM00137) TAUFIK HIDAYAT"
+                    - option "(POM00138) ANDRIANO SANOPRIANSYAH"
+                    - option "(POM00139) ANDRI JULIANDRI"
+                    - option "(POM00140) ASQALANY"
+                    - option "(POM00143) REZA WAHYUDI"
+                    - option "(POM00144) Danang Budi Santoso"
+                    - option "(POM00145) Aturi"
+                    - option "(POM00146) Januarzy"
+                    - option "(POM00149) SYAHRIL"
+                    - option "(POM00151) ARI YANTO"
+                    - option "(POM00157) INNES SYAHFITRI"
+                    - option "(POM00159) ANDRIANSYAH"
+                    - option "(POM00160) HERYANDI"
+                    - option "(POM00162) PERLY FEBRIANTO"
+                    - option "(POM00163) JUMHADI"
+                    - option "(POM00164) CHERPIANSYAH"
+                    - option "(POM00165) AZRUL KHAN"
+                    - option "(POM00168) DAVID FIRDAUS"
+                    - option "(POM00174) KIKI FIRMANSYAH"
+                    - option "(POM00175) RAJU ARISTO"
+                    - option "(POM00176) ISBANDI"
+                    - option "(POM00177) Fedrico Diazta"
+                    - option "(POM00179) RENDY NOPRIYANDI"
+                    - option "(POM00180) ARI WIDODO"
+                    - option "(POM00181) ADE PRASETYA"
+                    - option "(POM00182) FERDY ARLIANSYAH"
+                    - option "(POM00183) AGUS RIYADI"
+                    - option "(POM00184) FIKRIANSYAH"
+                    - option "(POM00186) SULTHONIK PELUBI"
+                    - option "(POM00188) HARRY NUGROHO PRABOWO"
+                    - option "(POM00190) RIDHO ANDYTHIA"
+                    - option "(POM00191) TINO POETRA"
+                    - option "(POM00192) RIO"
+                    - option "(POM00194) MOCHAMAD FEBRY"
+                    - option "(POM00197) Rivaldi Prasetyo"
+                    - option "(POM00198) MARI LESTARI"
+                    - option "(POM00199) OKTORIO DWI SAKTI"
+                    - option "(POM00202) REGA SAPUTRA"
+                    - option "(POM00204) RIZKY"
+                    - option "(POM00207) FAIZAL"
+                    - option "(POM00208) GUNTUR"
+                    - option "(POM00209) JOKO PRIONO"
+                    - option "(POM00210) WANDA ANDIKA"
+                    - option "(POM00211) TAUPIK HIDAYAT"
+                    - option "(POM00213) ADYKA"
+                    - option "(POM00214) AGUS SETIAWAN"
+                    - option "(POM00215) WAHYU PRATAMA"
+                    - option "(POM00216) CHARYADI"
+                    - option "(POM00217) SUHERMAN SAPUTRA"
+                    - option "(POM00218) FERDI PRIHANDA"
+                    - option "(POM00219) TIKI BASISTA"
+                    - option "(POM00220) RETNO SUGIARTO"
+                    - option "(POM00221) MAMAN SURYADI"
+                    - option "(POM00223) AGUSTIAN"
+                    - option "(POM00224) ABU HURAIROH"
+                    - option "(POM00226) RASAT"
+                    - option "(pom00227) MAHMUDI"
+                    - option "(POM00229) HERU SURADI"
+                    - option "(POM00234) NESY OKTOVIANI"
+                    - option "(POM00235) Risky Sumantri"
+                    - option "(POM00236) DEDY PRASAPTA"
+                    - option "(POM00237) RIZKY SUGANDA"
+                    - option "(POM00238) LIO PRATAMA"
+                    - option "(POM00239) ERWIN SUSANTO"
+                    - option "(POM00240) HENDRA JAYA"
+                    - option "(POM00241) AGUSTIAWAN"
+                    - option "(POM00242) ARDIANSYAH"
+                    - option "(POM00244) SABANI WARUWU"
+                    - option "(POM00245) RENDY"
+                    - option "(POM00246) FEBRIAN SAPUTRA"
+                    - option "(POM00247) RIZKY ABDILLAH"
+                    - option "(POM00250) ABDU RICKEN"
+                    - option "(POM00251) M. DIFFARIO KUSUMA"
+                    - option "(POM00253) ARYAT DHIMI OCTOVAN"
+                    - option "(POM00254) RIZAL SAHRONI"
+                    - option "(POM00255) SUWARI"
+                    - option "(POM00256) AZMAR"
+                    - option "(POM00258) RIDHO PURNAMA"
+                    - option "(POM00259) WAHYU YULIANTO"
+                    - option "(POM00260) IHSAN ALFAHRY"
+                    - option "(POM00261) DEDI"
+                    - option "(POM00262) PANJI MEKA BUANA"
+                    - option "(POM00263) DEKA SETIAWAN"
+                    - option "(POM00264) ABDUL GHOFAR"
+                    - option "(POM00265) HERLY HIDAYAT"
+                    - option "(POM00266) ALDI WINATA"
+                    - option "(POM00267) MUHAMMAD RIDHO AKBAR PAPILAYA"
+                    - option "(POM00268) MAXIMA CAHYANI"
+                    - option "(POM00269) HANDREAN WAHYU NUGROHO"
+                    - option "(POM00270) BINTANG PUJIYONO"
+                    - option "(POM00271) KELVIN AGUSTIANTO"
+                    - option "(POM00272) ANGGY"
+                    - option "(POM00273) VIRANDA"
+                    - option "(POM00274) KARNO PUTRA"
+                    - option "(POM00275) EKO RAMADHAN"
+                    - option "(POM00276) REZA AGUSTIAN"
+                    - option "(POM00277) MAUKAR"
+                    - option "(POM00278) SELAMAT ALAMSYAH"
+                    - option "(POM00280) DONI SAISAN"
+                    - option "(POM00281) PUTERI DIEKA AFRIANI"
+                    - option "(POM00282) DHEA AGATHA PASARIBU"
+                    - option "(POM00283) ALDI"
+                    - option "(POM00284) VOLIOKA AURORA"
+                    - option "(POM00285) JEKI RISTIANDI"
+                    - option "(POM00286) ANUGRAH PRATAMA PUTRA"
+                    - option "(POM00287) AAN KRIS WANDA"
+                    - option "(POM00288) YOSSI PRANATA"
+                    - option "(POM00289) FUJI PRASTAMA"
+                    - option "(POM00290) SEPTIAN PRATAMA"
+                    - option "(POM00291) NOVI"
+                    - option "(POM00292) LIO HERWANTO"
+                    - option "(POM00293) ARI ANUGRAH"
+                    - option "(POM00294) MUHAMMAD SALMAN ALFARIZI"
+                    - option "(POM00295) FIRTI LESTARI"
+                    - option "(POM00296) HANDY MUKHLIS"
+                    - option "(POM00297) FIK RANGGA"
+                    - option "(POM00298) FERZI ARIS SETIAWAN"
+                    - option "(POM00299) NOVALDI"
+                    - option "(POM00300) TANTOWI THOMAS"
+                    - option "(POM00301) ADRINUR ARIF"
+                    - option "(POM00302) DAVIN MEIGIYAWAN PUTRA"
+                    - option "(POM00304) REZA SANJAYA"
+                    - option "(POM00305) Diah Aprilia"
+                    - option "(SUP00010) CV. ANAK GUNUNG"
+                    - option "(SUP00015) CV. Target Tehnik Jayanti"
+                    - option "(SUP00016) CV. Anugerah Tekhnik Mandiri"
+                    - option "(SUP00017) CV. Bumi Karya Kampit"
+                    - option "(SUP00018) PT. UTAMA MULYA JAYA"
+                    - option "(SUP00020) CV Bintang Anugrah"
+                    - option "(SUP00021) PT. Jenshen Unggul Utama"
+                    - option "(SUP00022) CV. KURNIA ALAM"
+                    - option "(SUP00023) Advance Boiler"
+                    - option "(SUP00024) PT. Alam Bersaudara Sejahtera"
+                    - option "(SUP00025) PT. Athaya Power"
+                    - option "(SUP00026) CV. Junso Lintas Benua"
+                    - option "(SUP00027) CV. BHINNEKA BANGUN NUSANTARA"
+                    - option "(SUP00028) Koperasi Sumber Makmur"
+                    - option "(SUP00029) PT. Palma Rewara Restari"
+                    - option "(SUP00030) PT. Muda Jaya Sejahtera"
+                    - option "(SUP00031) CV. AZZA TEHNIK INDONESIA"
+                    - option "(SUP00032) CV. HARAPAN BARU"
+                    - option "(SUP00033) PT TURBO KRAFT INDONESIA (PT0130)"
+                    - option "(SUP00034) CV. PUTRA BELITUNG"
+                    - option "(SUP00035) CV. MAJU MAKMUR"
+                - 'cell "Accounting Month : 1" [ref=e67]':
+                  - text: "Accounting Month :"
+                  - textbox [disabled] [ref=e68]: "1"
+                - 'cell "Accounting Year : 2027" [ref=e69]':
+                  - text: "Accounting Year :"
+                  - textbox [disabled] [ref=e70]: "2027"
+                - 'cell "Status : Active" [ref=e71]':
+                  - text: "Status :"
+                  - combobox [ref=e72]:
+                    - option "All"
+                    - option "Active" [selected]
+                    - option "Confirmed"
+                    - option "Error"
+                - cell "Last Updated By :" [ref=e73]:
+                  - text: "Last Updated By :"
+                  - textbox [ref=e74]
+                - cell "Search" [ref=e75]:
+                  - button "Search" [ref=e76] [cursor=pointer]
+      - row "Document ID Document Date Employee Code Employee Name Description Status Updated By No Records" [ref=e77]:
+        - cell "Document ID Document Date Employee Code Employee Name Description Status Updated By No Records" [ref=e78]:
+          - table [ref=e80]:
+            - rowgroup [ref=e81]:
+              - row "Document ID Document Date Employee Code Employee Name Description Status Updated By" [ref=e82]:
+                - columnheader "Document ID" [ref=e83]:
+                  - link "Document ID" [ref=e84] [cursor=pointer]:
+                    - /url: javascript:__doPostBack('ctl00$MainContent$gvLine','Sort$DocID')
+                - columnheader "Document Date" [ref=e85]:
+                  - link "Document Date" [ref=e86] [cursor=pointer]:
+                    - /url: javascript:__doPostBack('ctl00$MainContent$gvLine','Sort$DocDate')
+                - columnheader "Employee Code" [ref=e87]:
+                  - link "Employee Code" [ref=e88] [cursor=pointer]:
+                    - /url: javascript:__doPostBack('ctl00$MainContent$gvLine','Sort$EmpCode')
+                - columnheader "Employee Name" [ref=e89]:
+                  - link "Employee Name" [ref=e90] [cursor=pointer]:
+                    - /url: javascript:__doPostBack('ctl00$MainContent$gvLine','Sort$EmpName')
+                - columnheader "Description" [ref=e91]:
+                  - link "Description" [ref=e92] [cursor=pointer]:
+                    - /url: javascript:__doPostBack('ctl00$MainContent$gvLine','Sort$DocDesc')
+                - columnheader "Status" [ref=e93]:
+                  - link "Status" [ref=e94] [cursor=pointer]:
+                    - /url: javascript:__doPostBack('ctl00$MainContent$gvLine','Sort$Status')
+                - columnheader "Updated By" [ref=e95]:
+                  - link "Updated By" [ref=e96] [cursor=pointer]:
+                    - /url: javascript:__doPostBack('ctl00$MainContent$gvLine','Sort$UpdatedBy')
+              - row "No Records" [ref=e97]:
+                - cell "No Records" [ref=e98]
+      - row "Prev Next" [ref=e99]:
+        - cell "Prev Next" [ref=e100]:
+          - button "Prev" [ref=e101] [cursor=pointer]
+          - combobox [ref=e102]
+          - button "Next" [ref=e103] [cursor=pointer]
+      - row [ref=e104]:
+        - cell [ref=e105]
+      - row "New" [ref=e106]:
+        - cell "New" [ref=e107]:
+          - button "New" [ref=e108] [cursor=pointer]
+  - generic [ref=e109]: eFlex Millware © 2011

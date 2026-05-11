@@ -48,7 +48,31 @@
       "Bash(Select-Object -ExpandProperty Name)",
       "Bash(Out-String)",
       "Bash(npx playwright *)",
-      "Bash(Get-ChildItem *)"
+      "Bash(Get-ChildItem *)",
+      "Bash(npm list *)",
+      "Bash(curl -s http://localhost:5000/api/attendance?month=5)",
+      "Bash(year=2026 2>&1)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(findstr :5000)",
+      "Bash(findstr LISTENING)",
+      "Bash(start /B node server.js)",
+      "PowerShell(taskkill *)",
+      "Bash(mkdir -p .worktrees)",
+      "Bash(git check-ignore *)",
+      "Bash(curl -s http://localhost:5000/api/latest-period)",
+      "Bash(curl *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(r['name'], r['ptrjId'], r['sync']\\) for r in d.get\\('data',[]\\)[:3]]\")",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_fill_form",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_type",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "mcp__plugin_playwright_playwright__browser_press_key",
+      "mcp__plugin_playwright_playwright__browser_network_requests",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "Bash(timeout 5)"
     ]
   }
 }

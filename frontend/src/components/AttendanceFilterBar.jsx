@@ -210,4 +210,4 @@ const AttendanceFilterBar = ({
     );
 };
 
-export default AttendanceFilterBar;
+export default React.memo(AttendanceFilterBar);

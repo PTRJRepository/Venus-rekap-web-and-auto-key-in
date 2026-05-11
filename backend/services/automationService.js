@@ -8,6 +8,7 @@ const ENGINE_DIR = path.resolve(__dirname, '../../browser-automation-engine');
 const DATA_DIR = path.join(ENGINE_DIR, 'testing_data');
 const ATTENDANCE_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'multi-tab-runner.js');
 const PAYROLL_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'parallel-runner.js');
+const PAYROLL_DATA_FILE = path.join(DATA_DIR, 'current_payroll_data.json');
 
 const ensureDataDir = () => {
     if (!fs.existsSync(DATA_DIR)) {
@@ -392,12 +393,12 @@ const startPayrollAutomationProcess = () => {
     };
 
     const instances = env.AUTOMATION_INSTANCES;
-    console.log(`[PayrollAutomation] Starting runner with ${instances} instance(s): node ${PAYROLL_RUNNER_SCRIPT}`);
+    console.log(`[PayrollAutomation] Starting runner with ${instances} instance(s): node ${PAYROLL_RUNNER_SCRIPT} payroll-ad-input ${PAYROLL_DATA_FILE}`);
 
     // Use payroll-ad-input template
     const template = 'payroll-ad-input';
 
-    const child = spawn('node', [PAYROLL_RUNNER_SCRIPT, template], {
+    const child = spawn('node', [PAYROLL_RUNNER_SCRIPT, template, PAYROLL_DATA_FILE], {
         cwd: ENGINE_DIR,
         env,
         stdio: ['ignore', 'pipe', 'pipe']

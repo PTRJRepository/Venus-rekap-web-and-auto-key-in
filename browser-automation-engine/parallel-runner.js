@@ -301,6 +301,35 @@ const loadBaseTemplate = () => {
     return JSON.parse(fs.readFileSync(templatePath, 'utf8'));
 };
 
+const countEmployeeWorkRecords = (emp) => {
+    if (emp && typeof emp === 'object') {
+        if (emp.Attendance && typeof emp.Attendance === 'object') {
+            return Object.keys(emp.Attendance).length;
+        }
+        if (Array.isArray(emp.components)) {
+            return emp.components.length;
+        }
+    }
+    return 1;
+};
+
+const getEmployeeLabel = (emp) => {
+    return emp.EmployeeName || emp.employeeName || emp.PTRJEmployeeID || emp.ptrjId || emp.EmployeeID || emp.employeeId || 'Unknown';
+};
+
+const getEmployeeList = (data) => {
+    if (Array.isArray(data?.data)) return data.data;
+    if (Array.isArray(data?.employees)) return data.employees;
+    return [];
+};
+
+const createPartitionedData = (data, employees) => {
+    if (Array.isArray(data?.employees)) {
+        return { ...data, employees };
+    }
+    return { ...data, data: employees };
+};
+
 const partitionEmployees = (employees, numPartitions) => {
     const partitions = [];
     for (let i = 0; i < numPartitions; i++) partitions.push([]);
@@ -310,6 +339,14 @@ const partitionEmployees = (employees, numPartitions) => {
         // Split each employee's attendance records across partitions
         employees.forEach(emp => {
             const attendanceKeys = Object.keys(emp.Attendance || {});
+            if (attendanceKeys.length === 0) {
+                const partitionIndex = partitions
+                    .map((partition) => partition.reduce((total, item) => total + countEmployeeWorkRecords(item), 0))
+                    .reduce((bestIndex, count, index, counts) => count < counts[bestIndex] ? index : bestIndex, 0);
+                partitions[partitionIndex].push(emp);
+                return;
+            }
+
             const recordsPerPartition = Math.ceil(attendanceKeys.length / numPartitions);
 
             attendanceKeys.forEach((key, index) => {
@@ -333,7 +370,7 @@ const partitionEmployees = (employees, numPartitions) => {
         // Original logic for when we have more employees than partitions
         const withAttendanceCount = employees.map(emp => ({
             emp,
-            count: Object.keys(emp.Attendance || {}).length
+            count: countEmployeeWorkRecords(emp)
         }));
 
         // Sort by attendance count (descending) to distribute heavy workloads first
@@ -349,7 +386,7 @@ const partitionEmployees = (employees, numPartitions) => {
 };
 
 const countAttendanceRecords = (employees) => {
-    return employees.reduce((total, emp) => total + Object.keys(emp.Attendance || {}).length, 0);
+    return employees.reduce((total, emp) => total + countEmployeeWorkRecords(emp), 0);
 };
 
 const createEngineTemplate = (baseTemplate, data, employees, engineId) => {
@@ -357,7 +394,7 @@ const createEngineTemplate = (baseTemplate, data, employees, engineId) => {
     const dataDir = path.join(__dirname, 'testing_data');
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-    const partitionedData = { ...data, data: employees };
+    const partitionedData = createPartitionedData(data, employees);
     const tempDataPath = path.join(dataDir, `_temp_engine_${engineId}.json`);
     fs.writeFileSync(tempDataPath, JSON.stringify(partitionedData, null, 2));
 
@@ -372,7 +409,7 @@ const createEngineTemplate = (baseTemplate, data, employees, engineId) => {
         templateName: `_temp_engine_${engineId}`,
         employeeCount: employees.length,
         attendanceCount: countAttendanceRecords(employees),
-        employeeNames: employees.map(e => e.EmployeeName || e.PTRJEmployeeID || 'Unknown')
+        employeeNames: employees.map(getEmployeeLabel)
     };
 };
 
@@ -543,7 +580,7 @@ const runWatchdog = async (engines) => {
         cleanupStaleBrowsers();
 
         const data = loadData(dataFilePath);
-        const allEmployees = data.data || [];
+        const allEmployees = getEmployeeList(data);
 
         if (allEmployees.length === 0) throw new Error('Data tidak memiliki employees.');
 
@@ -588,7 +625,7 @@ const runWatchdog = async (engines) => {
 
             const info = createEngineTemplate(baseTemplate, data, employees, engineId);
             const attendanceCount = countAttendanceRecords(employees);
-            const empNames = employees.map(e => e.EmployeeName || e.PTRJEmployeeID || 'Unknown').join(', ');
+            const empNames = employees.map(getEmployeeLabel).join(', ');
 
             engines.push({
                 engineId,

@@ -1,0 +1,376 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - link [ref=e6] [cursor=pointer]:
+      - /url: /en/system/user/frmSystemUserSetlocation.aspx?FROM=OK
+      - img [ref=e7]
+      - img [ref=e8]
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - img "Company" [ref=e11]
+        - text: PT. REBINMAS JAYA OIL MILL
+      - generic [ref=e12]:
+        - img "Location" [ref=e13]
+        - text: PT. REBINMAS JAYA OIL MILL (PTRJ)
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - img "User ID" [ref=e16]
+        - text: Atha Rizki Pangestu
+        - img "Date Time" [ref=e17]
+        - text: Sunday, 10 May 2026
+      - generic [ref=e18]:
+        - link "Change Location" [ref=e19] [cursor=pointer]:
+          - /url: javascript:__doPostBack('ctl00$lnkLocation','')
+          - img "Change Location" [ref=e20]
+        - text: "|"
+        - link "Change Password" [ref=e21] [cursor=pointer]:
+          - /url: javascript:__doPostBack('ctl00$lnkPassword','')
+          - img "Change Password" [ref=e22]
+        - text: "|"
+        - link "Change Email Address" [ref=e23] [cursor=pointer]:
+          - /url: javascript:__doPostBack('ctl00$lnkChangeEmail','')
+          - img "Change Email Address" [ref=e24]
+        - text: "|"
+        - link "Logout" [ref=e25] [cursor=pointer]:
+          - /url: javascript:__doPostBack('ctl00$lnkLogout','')
+          - img "Logout" [ref=e26]
+    - generic [ref=e27]:
+      - link "Skip Navigation Links":
+        - /url: "#NavigationMenu_SkipLink"
+        - img "Skip Navigation Links"
+      - menubar [ref=e29]:
+        - menuitem "Admin" [ref=e30]:
+          - generic [ref=e31]: Admin
+        - menuitem "Financials" [ref=e32]:
+          - generic [ref=e33]: Financials
+        - menuitem "Procurement" [ref=e34]:
+          - generic [ref=e35]: Procurement
+        - menuitem "Human Resource" [ref=e36]:
+          - generic [ref=e37]: Human Resource
+        - menuitem "Budget" [ref=e38]:
+          - generic [ref=e39]: Budget
+        - menuitem "Production" [ref=e40]:
+          - generic [ref=e41]: Production
+        - menuitem "Expansion" [ref=e42]:
+          - generic [ref=e43]: Expansion
+        - menuitem "Reports" [ref=e44]:
+          - generic [ref=e45]: Reports
+  - generic [ref=e46]: Dashboard
+  - generic [ref=e47]:
+    - table [ref=e48]:
+      - rowgroup [ref=e49]:
+        - row [ref=e50]:
+          - cell [ref=e51]
+          - cell [ref=e52]
+          - cell [ref=e53]
+          - cell [ref=e54]
+          - cell [ref=e55]
+        - row:
+          - cell
+        - row [ref=e56]:
+          - cell [ref=e57]
+        - row "Refresh Summary Data" [ref=e58]:
+          - cell "Refresh Summary Data" [ref=e59]:
+            - link "Refresh Summary Data" [ref=e60] [cursor=pointer]:
+              - /url: javascript:__doPostBack('ctl00$MainContent$lbtnRefeshDate','')
+          - cell [ref=e61]
+          - cell [ref=e62]
+          - cell [ref=e63]
+          - cell [ref=e64]
+        - 'row "Accounts Receivable/Accounts Payable supplier invoice(s) due for payment. Total amount due: RM invoice(s) due for collection. Total receivable amount due : RM Fixed Assets/General Ledger outstanding fixed asset PR(s) ¨C pending receive. over budgeted accounts. vehicle(s) pending transport usage distribution. Production Current Month Year-To-Date CPO Produced MT MT FFB Processed MT MT OER % % PK Produced MT MT KER % % WMS Dashboard" [ref=e65]':
+          - 'cell "Accounts Receivable/Accounts Payable supplier invoice(s) due for payment. Total amount due: RM invoice(s) due for collection. Total receivable amount due : RM" [ref=e66]':
+            - table [ref=e67]:
+              - rowgroup [ref=e68]:
+                - row "Accounts Receivable/Accounts Payable" [ref=e69]:
+                  - cell "Accounts Receivable/Accounts Payable" [ref=e70]
+                - row [ref=e71]:
+                  - cell [ref=e72]
+                  - cell [ref=e73]
+                - row "supplier invoice(s) due for payment." [ref=e74]:
+                  - cell [ref=e75]:
+                    - link [ref=e76] [cursor=pointer]:
+                      - /url: ../../AP/trx/frmApTrxInvrcvlist.aspx?from=Home&Type=InvDue
+                  - cell "supplier invoice(s) due for payment." [ref=e77]
+                - 'row "Total amount due: RM" [ref=e78]':
+                  - cell [ref=e79]
+                  - 'cell "Total amount due: RM" [ref=e80]':
+                    - text: "Total amount due:"
+                    - generic [ref=e81]: RM
+                - row "invoice(s) due for collection." [ref=e82]:
+                  - cell [ref=e83]:
+                    - link [ref=e84] [cursor=pointer]:
+                      - /url: ../../BI/trx/frmBiTrxInvoicelist.aspx?from=Home&Type=InvDue
+                  - cell "invoice(s) due for collection." [ref=e85]
+                - 'row "Total receivable amount due : RM" [ref=e86]':
+                  - cell [ref=e87]
+                  - 'cell "Total receivable amount due : RM" [ref=e88]':
+                    - text: "Total receivable amount due :"
+                    - generic [ref=e89]: RM
+                - row [ref=e90]:
+                  - cell [ref=e91]
+                  - cell [ref=e92]
+          - cell [ref=e93]
+          - cell "Fixed Assets/General Ledger outstanding fixed asset PR(s) ¨C pending receive. over budgeted accounts. vehicle(s) pending transport usage distribution." [ref=e94]:
+            - table [ref=e95]:
+              - rowgroup [ref=e96]:
+                - row "Fixed Assets/General Ledger" [ref=e97]:
+                  - cell "Fixed Assets/General Ledger" [ref=e98]
+                - row [ref=e99]:
+                  - cell [ref=e100]
+                  - cell [ref=e101]
+                - row "outstanding fixed asset PR(s) ¨C pending receive." [ref=e102]:
+                  - cell [ref=e103]:
+                    - link [ref=e104] [cursor=pointer]:
+                      - /url: ../../FA/trx/frmFaTrxPurReq.aspx?from=Home&Type=PRPending
+                  - cell "outstanding fixed asset PR(s) ¨C pending receive." [ref=e105]
+                - row "over budgeted accounts." [ref=e106]:
+                  - cell [ref=e107]:
+                    - link [ref=e108] [cursor=pointer]:
+                      - /url: ../../GL/Setup/frmGLSetupOverBudgetAcc.aspx
+                  - cell "over budgeted accounts." [ref=e109]
+                - row "vehicle(s) pending transport usage distribution." [ref=e110]:
+                  - cell [ref=e111]:
+                    - link [ref=e112] [cursor=pointer]:
+                      - /url: ../../GL/trx/frmGlTrxVehicleusagePending.aspx
+                  - cell "vehicle(s) pending transport usage distribution." [ref=e113]
+                - row [ref=e114]:
+                  - cell [ref=e115]
+                  - cell [ref=e116]
+          - cell [ref=e117]
+          - cell "Production Current Month Year-To-Date CPO Produced MT MT FFB Processed MT MT OER % % PK Produced MT MT KER % % WMS Dashboard" [ref=e118]:
+            - table [ref=e119]:
+              - rowgroup [ref=e120]:
+                - row "Production Current Month Year-To-Date" [ref=e121]:
+                  - cell "Production" [ref=e122]
+                  - cell "Current Month" [ref=e123]
+                  - cell "Year-To-Date" [ref=e124]
+                - row [ref=e125]:
+                  - cell [ref=e126]
+                  - cell [ref=e127]
+                  - cell [ref=e128]
+                - row "CPO Produced MT MT" [ref=e129]:
+                  - cell "CPO Produced" [ref=e130]:
+                    - link "CPO Produced" [ref=e131] [cursor=pointer]:
+                      - /url: ../../Reports/frmPmStdrptDailyprodreport.aspx
+                  - cell "MT" [ref=e132]: MT
+                  - cell "MT" [ref=e133]: MT
+                - row "FFB Processed MT MT" [ref=e134]:
+                  - cell "FFB Processed" [ref=e135]
+                  - cell "MT" [ref=e136]: MT
+                  - cell "MT" [ref=e137]: MT
+                - row "OER % %" [ref=e138]:
+                  - cell "OER" [ref=e139]
+                  - cell "%" [ref=e140]: "%"
+                  - cell "%" [ref=e141]: "%"
+                - row "PK Produced MT MT" [ref=e142]:
+                  - cell "PK Produced" [ref=e143]
+                  - cell "MT" [ref=e144]: MT
+                  - cell "MT" [ref=e145]: MT
+                - row "KER % %" [ref=e146]:
+                  - cell "KER" [ref=e147]
+                  - cell "%" [ref=e148]: "%"
+                  - cell "%" [ref=e149]: "%"
+                - row "WMS Dashboard" [ref=e150]:
+                  - cell "WMS Dashboard" [ref=e151]:
+                    - table [ref=e152]:
+                      - rowgroup [ref=e153]:
+                        - row "WMS Dashboard" [ref=e154]:
+                          - cell "WMS Dashboard" [ref=e155]:
+                            - link "WMS Dashboard" [ref=e156] [cursor=pointer]:
+                              - /url: /en/WM/reports/frmWMDashboard.aspx
+                              - img [ref=e157]
+                              - text: WMS Dashboard
+        - row [ref=e158]:
+          - cell [ref=e159]
+          - cell [ref=e160]
+          - cell [ref=e161]
+          - cell [ref=e162]
+          - cell [ref=e163]
+        - row "Inventory/Purchasing stock item(s) requires reordering. outstanding PR(s). outstanding PO(s). Human Resource/Payroll Passport expired/expiring in 6 months. Workpass expired/expiring in 6 months. Labour License expired/expiring in 6 months. worker(s) without earning after payroll process. worker(s) with negative income after payroll process. Workshop/Canteen workshop item(s) requires reordering. active workshop job(s). canteen item(s) requires reordering." [ref=e164]:
+          - cell "Inventory/Purchasing stock item(s) requires reordering. outstanding PR(s). outstanding PO(s)." [ref=e165]:
+            - table [ref=e166]:
+              - rowgroup [ref=e167]:
+                - row "Inventory/Purchasing" [ref=e168]:
+                  - cell "Inventory/Purchasing" [ref=e169]
+                - row [ref=e170]:
+                  - cell [ref=e171]
+                  - cell [ref=e172]
+                - row "stock item(s) requires reordering." [ref=e173]:
+                  - cell [ref=e174]:
+                    - link [ref=e175] [cursor=pointer]:
+                      - /url: ../../IN/Setup/frmInStockitem.aspx?from=Home&Type=ReOrder
+                  - cell "stock item(s) requires reordering." [ref=e176]
+                - row "outstanding PR(s)." [ref=e177]:
+                  - cell [ref=e178]:
+                    - link [ref=e179] [cursor=pointer]:
+                      - /url: ../../IN/trx/frmInPurReq.aspx?from=Home&type=PRPending
+                  - cell "outstanding PR(s)." [ref=e180]
+                - row "outstanding PO(s)." [ref=e181]:
+                  - cell [ref=e182]:
+                    - link [ref=e183] [cursor=pointer]:
+                      - /url: ../../PU/trx/frmPUTrxPOList.aspx?from=Home&type=POPending
+                  - cell "outstanding PO(s)." [ref=e184]
+                - row [ref=e185]:
+                  - cell [ref=e186]
+                  - cell [ref=e187]
+          - cell [ref=e188]
+          - cell "Human Resource/Payroll Passport expired/expiring in 6 months. Workpass expired/expiring in 6 months. Labour License expired/expiring in 6 months. worker(s) without earning after payroll process. worker(s) with negative income after payroll process." [ref=e189]:
+            - table [ref=e190]:
+              - rowgroup [ref=e191]:
+                - row "Human Resource/Payroll" [ref=e192]:
+                  - cell "Human Resource/Payroll" [ref=e193]
+                - row [ref=e194]:
+                  - cell [ref=e195]
+                  - cell [ref=e196]
+                - row "Passport expired/expiring in 6 months." [ref=e197]:
+                  - cell [ref=e198]:
+                    - link [ref=e199] [cursor=pointer]:
+                      - /url: ../../HR/trx/frmHrTrxEmployeelist.aspx?redirect=passportexpired
+                  - cell "Passport expired/expiring in 6 months." [ref=e200]
+                - row "Workpass expired/expiring in 6 months." [ref=e201]:
+                  - cell [ref=e202]:
+                    - link [ref=e203] [cursor=pointer]:
+                      - /url: ../../HR/trx/frmHrTrxEmployeelist.aspx?redirect=workpassexpired
+                  - cell "Workpass expired/expiring in 6 months." [ref=e204]
+                - row "Labour License expired/expiring in 6 months." [ref=e205]:
+                  - cell [ref=e206]:
+                    - link [ref=e207] [cursor=pointer]:
+                      - /url: ../../HR/trx/frmHrTrxEmployeelist.aspx?redirect=lablicenseexpired
+                  - cell "Labour License expired/expiring in 6 months." [ref=e208]
+                - row "worker(s) without earning after payroll process." [ref=e209]:
+                  - cell [ref=e210]:
+                    - link [ref=e211] [cursor=pointer]:
+                      - /url: ../../HR/trx/frmHrTrxEmployeeNoPay.aspx?redirect=workernopay
+                  - cell "worker(s) without earning after payroll process." [ref=e212]
+                - row "worker(s) with negative income after payroll process." [ref=e213]:
+                  - cell [ref=e214]:
+                    - link [ref=e215] [cursor=pointer]:
+                      - /url: ../../HR/trx/frmHrTrxEmployeeNoPay.aspx?redirect=workernegativepay
+                  - cell "worker(s) with negative income after payroll process." [ref=e216]
+                - row [ref=e217]:
+                  - cell [ref=e218]
+                  - cell [ref=e219]
+          - cell [ref=e220]
+          - cell "Workshop/Canteen workshop item(s) requires reordering. active workshop job(s). canteen item(s) requires reordering." [ref=e221]:
+            - table [ref=e222]:
+              - rowgroup [ref=e223]:
+                - row "Workshop/Canteen" [ref=e224]:
+                  - cell "Workshop/Canteen" [ref=e225]
+                - row [ref=e226]:
+                  - cell [ref=e227]
+                  - cell [ref=e228]
+                - row "workshop item(s) requires reordering." [ref=e229]:
+                  - cell [ref=e230]
+                  - cell "workshop item(s) requires reordering." [ref=e232]
+                - row "active workshop job(s)." [ref=e233]:
+                  - cell [ref=e234]:
+                    - link [ref=e235] [cursor=pointer]:
+                      - /url: ../../WS/trx/frmWSTrxJobList.aspx
+                  - cell "active workshop job(s)." [ref=e236]
+                - row "canteen item(s) requires reordering." [ref=e237]:
+                  - cell [ref=e238]
+                  - cell "canteen item(s) requires reordering." [ref=e240]
+                - row [ref=e241]:
+                  - cell [ref=e242]
+                  - cell [ref=e243]
+          - cell [ref=e244]
+        - row "Machine Maintenance Scheduler total machine maintenance item(s) in current month. machine maintenance item(s) not complete. machine maintenance item(s) had completed." [ref=e245]:
+          - cell "Machine Maintenance Scheduler total machine maintenance item(s) in current month. machine maintenance item(s) not complete. machine maintenance item(s) had completed." [ref=e246]:
+            - table [ref=e247]:
+              - rowgroup [ref=e248]:
+                - row "Machine Maintenance Scheduler" [ref=e249]:
+                  - cell "Machine Maintenance Scheduler" [ref=e250]
+                - row [ref=e251]:
+                  - cell [ref=e252]
+                  - cell [ref=e253]
+                - row "total machine maintenance item(s) in current month." [ref=e254]:
+                  - cell [ref=e255]:
+                    - link [ref=e256] [cursor=pointer]:
+                      - /url: ../../MM/Trx/frmMmTrxMachineScheduler.aspx
+                  - cell "total machine maintenance item(s) in current month." [ref=e257]
+                - row "machine maintenance item(s) not complete." [ref=e258]:
+                  - cell [ref=e259]:
+                    - link [ref=e260] [cursor=pointer]:
+                      - /url: ../../MM/Trx/frmMmTrxMachineScheduler.aspx
+                  - cell "machine maintenance item(s) not complete." [ref=e261]
+                - row "machine maintenance item(s) had completed." [ref=e262]:
+                  - cell [ref=e263]:
+                    - link [ref=e264] [cursor=pointer]:
+                      - /url: ../../MM/Trx/frmMmTrxMachineScheduler.aspx
+                  - cell "machine maintenance item(s) had completed." [ref=e265]
+                - row [ref=e266]:
+                  - cell [ref=e267]
+                  - cell [ref=e268]
+          - cell [ref=e269]
+          - cell [ref=e270]
+          - cell [ref=e271]
+          - cell [ref=e272]
+    - generic [ref=e274]:
+      - table [ref=e275]:
+        - rowgroup [ref=e276]:
+          - row [ref=e277]:
+            - cell [ref=e278]
+          - row "LOCATION SETTING" [ref=e279]:
+            - cell "LOCATION SETTING" [ref=e280]
+          - row [ref=e281]:
+            - cell [ref=e282]:
+              - separator [ref=e283]
+          - row "Please select the Location you wish to access. Your Location setting." [ref=e284]:
+            - cell "Please select the Location you wish to access. Your Location setting." [ref=e285]
+          - 'row "User ID : adm075" [ref=e286]':
+            - cell "User ID :" [ref=e287]
+            - cell "adm075" [ref=e288]
+          - 'row "Your last logged on was : Sunday, May 10, 2026 at 11:23 PM" [ref=e289]':
+            - cell "Your last logged on was :" [ref=e290]
+            - cell "Sunday, May 10, 2026 at 11:23 PM" [ref=e291]
+          - 'row "Your last logged off was : Tuesday, June 3, 2025 at 11:41 AM" [ref=e292]':
+            - cell "Your last logged off was :" [ref=e293]
+            - cell "Tuesday, June 3, 2025 at 11:41 AM" [ref=e294]
+          - 'row "Company : PT. REBINMAS JAYA OIL MILL" [ref=e295]':
+            - cell "Company :" [ref=e296]
+            - cell "PT. REBINMAS JAYA OIL MILL" [ref=e297]
+          - 'row "Accounting Period : Inventory 2/2027 Canteen Workshop 2/2027 Nursery Purchasing 2/2027 Account Payable 1/2027 Payroll 1/2027 Weighing, Production 2/2027 Contract, Account Receivable 1/2027 Fixed Asset 1/2027 General Ledger 1/2027" [ref=e298]':
+            - cell "Accounting Period :" [ref=e299]
+            - cell "Inventory 2/2027 Canteen Workshop 2/2027 Nursery Purchasing 2/2027 Account Payable 1/2027 Payroll 1/2027 Weighing, Production 2/2027 Contract, Account Receivable 1/2027 Fixed Asset 1/2027 General Ledger 1/2027" [ref=e300]:
+              - table [ref=e301]:
+                - rowgroup [ref=e302]:
+                  - row "Inventory 2/2027" [ref=e303]:
+                    - cell "Inventory" [ref=e304]
+                    - cell "2/2027" [ref=e305]
+                  - row "Canteen" [ref=e306]:
+                    - cell "Canteen" [ref=e307]
+                    - cell [ref=e308]
+                  - row "Workshop 2/2027" [ref=e309]:
+                    - cell "Workshop" [ref=e310]
+                    - cell "2/2027" [ref=e311]
+                  - row "Nursery" [ref=e312]:
+                    - cell "Nursery" [ref=e313]
+                    - cell [ref=e314]
+                  - row "Purchasing 2/2027" [ref=e315]:
+                    - cell "Purchasing" [ref=e316]
+                    - cell "2/2027" [ref=e317]
+                  - row "Account Payable 1/2027" [ref=e318]:
+                    - cell "Account Payable" [ref=e319]
+                    - cell "1/2027" [ref=e320]
+                  - row "Payroll 1/2027" [ref=e321]:
+                    - cell "Payroll" [ref=e322]
+                    - cell "1/2027" [ref=e323]
+                  - row "Weighing, Production 2/2027" [ref=e324]:
+                    - cell "Weighing, Production" [ref=e325]
+                    - cell "2/2027" [ref=e326]
+                  - row "Contract, Account Receivable 1/2027" [ref=e327]:
+                    - cell "Contract, Account Receivable" [ref=e328]
+                    - cell "1/2027" [ref=e329]
+                  - row "Fixed Asset 1/2027" [ref=e330]:
+                    - cell "Fixed Asset" [ref=e331]
+                    - cell "1/2027" [ref=e332]
+                  - row "General Ledger 1/2027" [ref=e333]:
+                    - cell "General Ledger" [ref=e334]
+                    - cell "1/2027" [ref=e335]
+          - 'row "Active Location : PT. REBINMAS JAYA OIL MILL" [ref=e336]':
+            - cell "Active Location :" [ref=e337]
+            - cell "PT. REBINMAS JAYA OIL MILL" [ref=e338]
+          - row [ref=e339]:
+            - cell [ref=e340]
+            - cell [ref=e341]
+      - button "ok" [ref=e343] [cursor=pointer]
+  - generic [ref=e345]: eFlex Millware © 2011

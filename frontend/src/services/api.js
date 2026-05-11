@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Using relative URL since frontend is served from same backend
-const API_BASE_URL = '/api';
+// Using localhost for API requests
+const API_BASE_URL = 'http://localhost:5000/api';
 
 const apiClient = axios.create({
     baseURL: API_BASE_URL,

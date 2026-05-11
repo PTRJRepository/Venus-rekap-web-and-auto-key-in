@@ -518,7 +518,7 @@ class AutomationEngine {
             // Load data file jika dispesifikasi di template
             if (template.dataFile) {
                 const loadedData = this.loadData(template.dataFile);
-                initialContext = { ...initialContext, data: loadedData };
+                initialContext = { ...initialContext, ...loadedData, data: loadedData };
 
                 // Expose metadata to root context for easier access
                 if (loadedData.metadata) {
