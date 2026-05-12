@@ -16,6 +16,7 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
+const { applyBrowserWindow, getChromeWindowArgs, getDefaultViewport } = require('./browser-window');
 
 const DATA_FILE = path.join(__dirname, 'testing_data', 'current_delete_data.json');
 const MILLWARE_BASE = 'http://millwarep3.rebinmas.com:8003';
@@ -219,6 +220,35 @@ const waitForMillwareIdle = async (page, timeout = 30000) => {
     }
 
     return { success: false, status: 'timeout', message: `Millware did not become idle within ${timeout}ms`, elapsedMs: Date.now() - startedAt };
+};
+
+const attachDialogAcceptor = (page, label) => {
+    const state = { message: '', handled: false, error: null };
+
+    const onDialog = async (dialog) => {
+        const message = dialog.message();
+        state.handled = true;
+        if (!state.message) state.message = message;
+        log(`${label}: ${message}`);
+
+        try {
+            await dialog.accept();
+        } catch (error) {
+            if (/already handled/i.test(error?.message || '')) {
+                log(`${label} already handled by another listener; continuing`);
+                return;
+            }
+            state.error = error;
+            log(`${label} accept failed: ${error.message}`);
+        }
+    };
+
+    page.on('dialog', onDialog);
+
+    return {
+        state,
+        dispose: () => page.off('dialog', onDialog)
+    };
 };
 
 const handleLoginPopup = async (page) => {
@@ -739,26 +769,18 @@ const goToNextDetailPage = async (page) => {
 const deleteDetailRow = async (page, row) => {
     if (!row.deleteId) throw new Error(`Row ${row.rowIndex} has no delete link`);
 
-    let dialogMessage = '';
-    let dialogHandled = false;
-    const onDialog = async (dialog) => {
-        dialogHandled = true;
-        dialogMessage = dialog.message();
-        log(`Dialog: ${dialogMessage}`);
-        await dialog.accept();
-    };
+    const dialog = attachDialogAcceptor(page, 'Dialog');
 
     try {
-        page.once('dialog', onDialog);
         await snap(page, `before-delete-${row.empCode}-${row.trxDate}-${row.rowIndex}`);
         await waitForNavigationSoft(page, () => page.click(`#${escapeCssId(row.deleteId)}`), 20000);
         await sleep(1800);
         await snap(page, `after-delete-${row.empCode}-${row.trxDate}-${row.rowIndex}`);
     } finally {
-        if (!dialogHandled) page.off('dialog', onDialog);
+        dialog.dispose();
     }
 
-    return dialogMessage;
+    return dialog.state.message;
 };
 
 const saveDetailChanges = async (page, docLabel, pageNum, changedRows) => {
@@ -771,19 +793,11 @@ const saveDetailChanges = async (page, docLabel, pageNum, changedRows) => {
     log(`Saving DocID ${docLabel} detail page ${pageNum} after ${changedRows} delete click(s)`);
     await snap(page, `before-save-${docLabel}-page-${pageNum}`);
 
-    let dialogMessage = '';
-    let dialogHandled = false;
-    const onDialog = async (dialog) => {
-        dialogHandled = true;
-        dialogMessage = dialog.message();
-        log(`Save dialog: ${dialogMessage}`);
-        await dialog.accept();
-    };
+    const dialog = attachDialogAcceptor(page, 'Save dialog');
 
     const startedAt = Date.now();
     const timeout = 30000;
     try {
-        page.once('dialog', onDialog);
         const navigationPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout })
             .then(() => ({ success: true, status: 'navigation', elapsedMs: Date.now() - startedAt }))
             .catch(() => null);
@@ -816,9 +830,9 @@ const saveDetailChanges = async (page, docLabel, pageNum, changedRows) => {
         await sleep(1200);
         await snap(page, `after-save-${docLabel}-page-${pageNum}`);
         log(`Save confirmed for DocID ${docLabel} (${result.status}, ${result.elapsedMs || 0}ms)`);
-        return { ...result, dialogMessage };
+        return { ...result, dialogMessage: dialog.state.message };
     } finally {
-        if (!dialogHandled) page.off('dialog', onDialog);
+        dialog.dispose();
     }
 };
 
@@ -991,14 +1005,16 @@ const processDocId = async (page, docTarget, options = {}) => {
     return processCurrentDetailPage(page, docTarget, { category, employeeFilter, dryRun, onProgress, maxPages });
 };
 
-const launchBrowser = async (engineIndex = 1) => {
+const launchBrowser = async (engineIndex = 1, profileName = null) => {
     const headless = process.env.HEADLESS === 'true';
-    const profileDir = path.join(__dirname, 'chrome_data', `engine_${engineIndex}`);
+    const profileDir = path.join(__dirname, 'chrome_data', profileName || `engine_${engineIndex}`);
 
     return puppeteer.launch({
         headless,
         userDataDir: profileDir,
+        defaultViewport: getDefaultViewport(headless),
         args: [
+            ...getChromeWindowArgs(),
             '--disable-popup-blocking',
             '--disable-prompt-on-repost',
             '--no-sandbox',
@@ -1009,11 +1025,11 @@ const launchBrowser = async (engineIndex = 1) => {
     });
 };
 
-const createBrowser = async (engineIndex = 1) => {
-    const browser = await launchBrowser(engineIndex);
+const createBrowser = async (engineIndex = 1, profileName = null) => {
+    const browser = await launchBrowser(engineIndex, profileName);
 
     const page = await browser.newPage();
-    await page.setViewport({ width: 1400, height: 900 });
+    await applyBrowserWindow(page, { headless: process.env.HEADLESS === 'true' });
     return { browser, page };
 };
 
@@ -1036,6 +1052,7 @@ const runTabbedPartitions = async (docTargets, options = {}) => {
     const maxPages = Math.max(1, parseInt(options.maxPages || '50', 10));
     const forceListSearch = Boolean(options.forceListSearch);
     const partitions = partitionTargets(docTargets, Math.min(tabCount, docTargets.length));
+    const runProfilePrefix = `ot_delete_${Date.now()}`;
     const allResults = [];
 
     console.log('');
@@ -1062,23 +1079,18 @@ const runTabbedPartitions = async (docTargets, options = {}) => {
     });
     console.log('');
 
-    const browser = await launchBrowser(1);
-    try {
-        const pages = [];
-        for (let i = 0; i < partitions.length; i += 1) {
-            const page = await browser.newPage();
-            await page.setViewport({ width: 1400, height: 900 });
-            pages.push(page);
-        }
-
-        if (pages[0]) {
-            await login(pages[0]);
-        }
-
-        await Promise.all(partitions.map(async (partition, partitionIndex) => {
-            const page = pages[partitionIndex];
+    await Promise.all(partitions.map(async (partition, partitionIndex) => {
+        const profileName = `${runProfilePrefix}_tab_${partitionIndex + 1}`;
+        let browser = null;
+        let page = null;
+        try {
+            const created = await createBrowser(partitionIndex + 1, profileName);
+            browser = created.browser;
+            page = created.page;
             const tabLabel = `Tab ${partitionIndex + 1}`;
-            await sleep(partitionIndex * 1000);
+            await sleep(partitionIndex * 1500);
+            log(`${tabLabel}: browser/session ready profile=${profileName}`);
+            await login(page);
 
             for (const target of partition) {
                 try {
@@ -1112,10 +1124,12 @@ const runTabbedPartitions = async (docTargets, options = {}) => {
                     console.error(JSON.stringify(result));
                 }
             }
-        }));
-    } finally {
-        await browser.close();
-    }
+        } finally {
+            if (browser) {
+                await browser.close().catch(() => null);
+            }
+        }
+    }));
 
     const deletedCount = allResults.filter((result) => result.status === 'deleted').length;
     const dryRunCount = allResults.filter((result) => result.status === 'dry-run').length;
@@ -1271,8 +1285,8 @@ const parseBooleanOption = (value, fallback = false) => {
 const runFromDataFile = async (options = {}) => {
     const data = loadDataFile();
     const metadata = data.metadata || {};
-    const processAllFromList = Boolean(metadata.processAllFromList || metadata.mode === 'all' || metadata.targetMode === 'all');
     const targets = getTargetsFromData(data);
+    const processAllFromList = Boolean(metadata.processAllFromList || (targets.length === 0 && (metadata.mode === 'all' || metadata.targetMode === 'all')));
     const dryRun = options.dryRun !== undefined
         ? parseBooleanOption(options.dryRun)
         : parseBooleanOption(metadata.dryRun);
@@ -1286,7 +1300,8 @@ const runFromDataFile = async (options = {}) => {
         dryRun,
         limit: options.limit ?? metadata.limit ?? 0,
         maxPages: options.maxPages ?? metadata.maxPages ?? 50,
-        tabCount: options.tabCount ?? metadata.tabCount ?? 1
+        tabCount: options.tabCount ?? metadata.tabCount ?? 1,
+        forceListSearch: options.forceListSearch ?? metadata.forceListSearch ?? false
     });
 };
 
@@ -1298,6 +1313,7 @@ const main = async () => {
     const categoryArgIndex = args.findIndex((arg) => arg === '--category');
     const maxPagesArgIndex = args.findIndex((arg) => arg === '--max-pages');
     const tabsArgIndex = args.findIndex((arg) => arg === '--tabs' || arg === '--tab-count');
+    const forceListSearch = args.includes('--force-list-search') || args.includes('--search-list');
     const limit = limitArgIndex >= 0 ? parseInt(args[limitArgIndex + 1] || '0', 10) : 0;
     const category = categoryArgIndex >= 0 ? String(args[categoryArgIndex + 1] || 'ot').toLowerCase() : 'ot';
     const maxPages = maxPagesArgIndex >= 0 ? parseInt(args[maxPagesArgIndex + 1] || '50', 10) : 50;
@@ -1308,6 +1324,7 @@ const main = async () => {
         if (arg === '--category' || (categoryArgIndex >= 0 && index === categoryArgIndex + 1)) return false;
         if (arg === '--max-pages' || (maxPagesArgIndex >= 0 && index === maxPagesArgIndex + 1)) return false;
         if ((arg === '--tabs' || arg === '--tab-count') || (tabsArgIndex >= 0 && index === tabsArgIndex + 1)) return false;
+        if (arg === '--force-list-search' || arg === '--search-list') return false;
         return !arg.startsWith('--');
     });
 
@@ -1332,6 +1349,9 @@ Usage:
   node delete-ot-runner.js --dry-run --all --limit 5 --tabs 5
       Collect 5 DocIDs from list and split them across 5 browser tabs.
 
+  node delete-ot-runner.js --dry-run --all --tabs 5 --force-list-search
+      Open each DocID through Task Register List search before inspecting detail rows.
+
   node delete-ot-runner.js 34986 34987
       Click matching DocIDs from Task Register list, then delete OT rows.
 `);
@@ -1339,12 +1359,12 @@ Usage:
     }
 
     if (args.includes('--all')) {
-        await runFromDataFile({ dryRun, limit, category, maxPages, tabCount });
+        await runFromDataFile({ dryRun, limit, category, maxPages, tabCount, forceListSearch });
         return;
     }
 
     if (positional.length > 0) {
-        await runParallel(positional.map((docId) => ({ internalId: docId, label: docId })), { dryRun: Boolean(dryRun), category, maxPages, tabCount });
+        await runParallel(positional.map((docId) => ({ internalId: docId, label: docId })), { dryRun: Boolean(dryRun), category, maxPages, tabCount, forceListSearch });
         return;
     }
 

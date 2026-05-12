@@ -1141,6 +1141,25 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
 
         console.log(`[OTReset API] Run request: mode=${targetMode}, docIds=${effectiveDocIds.length}, employees=${effectiveEmployees.length}, category=${category}, dryRun=${dryRun}, headless=${headless}, limit=${limit}, maxPages=${maxPages}, tabCount=${tabCount}`);
 
+        if (targetMode === 'all' && effectiveDocIds.length === 0) {
+            const dbResult = await fetchDocIdsFromDB(parseInt(month, 10), parseInt(year, 10), [], { category, limit });
+            effectiveDocIds = dbResult.docIds || [];
+            docTargets = (dbResult.details || []).map(detail => ({
+                internalId: detail.docId,
+                docNumber: detail.docNumber,
+                label: detail.docNumber || detail.docId,
+                matchingLineCount: detail.matchingLineCount,
+                otLineCount: detail.otLineCount,
+                normalLineCount: detail.normalLineCount
+            }));
+
+            console.log(`[OTReset API] Filtered all-mode DocIDs from DB: ${effectiveDocIds.length} doc(s), category=${category}`);
+
+            if (effectiveDocIds.length === 0) {
+                return res.status(400).json({ error: `Tidak ada DocID Millware dengan record ${category} pada periode ini.` });
+            }
+        }
+
         if (targetMode === 'selected' && effectiveDocIds.length === 0) {
             const empCodes = effectiveEmployees
                 .map(e => e.empCode || e.ptrjEmployeeID || e.PTRJEmployeeID || e.ptrjId)
@@ -1150,12 +1169,15 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
                 return res.status(400).json({ error: 'Karyawan dipilih tidak punya PTRJ Employee ID valid.' });
             }
 
-            const dbResult = await fetchDocIdsFromDB(parseInt(month, 10), parseInt(year, 10), empCodes);
+            const dbResult = await fetchDocIdsFromDB(parseInt(month, 10), parseInt(year, 10), empCodes, { category });
             effectiveDocIds = dbResult.docIds || [];
             docTargets = (dbResult.details || []).map(detail => ({
                 internalId: detail.docId,
                 docNumber: detail.docNumber,
-                label: detail.docNumber || detail.docId
+                label: detail.docNumber || detail.docId,
+                matchingLineCount: detail.matchingLineCount,
+                otLineCount: detail.otLineCount,
+                normalLineCount: detail.normalLineCount
             }));
 
             if (effectiveDocIds.length === 0) {
@@ -1167,11 +1189,11 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
             return res.status(400).json({ error: 'DocID manual belum diisi.' });
         }
 
-        // Trigger: prepare data file. Mode "all" intentionally stores no DocID list;
-        // the runner discovers DocIDs from frmPrTrxTaskRegisterList.aspx.
+        // Trigger: prepare data file. Mode "all" now stores DB-filtered DocIDs only;
+        // runner still opens through Task Register List search before deleting detail rows.
         const triggerResult = triggerOTResetAutomation({
-            docIds: targetMode === 'all' ? [] : effectiveDocIds,
-            docTargets: targetMode === 'all' ? [] : docTargets,
+            docIds: effectiveDocIds,
+            docTargets,
             employees: targetMode === 'selected' ? effectiveEmployees : [],
             startDate,
             endDate,
@@ -1182,6 +1204,7 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
             limit,
             maxPages,
             tabCount,
+            forceListSearch: targetMode === 'all',
             month,
             year
         });
@@ -1217,6 +1240,7 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
             limit: metadata.limit,
             maxPages: metadata.maxPages,
             tabCount: metadata.tabCount,
+            forceListSearch: metadata.forceListSearch,
             category: metadata.category
         });
         let stdoutBuffer = '';
@@ -1307,14 +1331,15 @@ app.post('/api/ot-reset/automation/stop', (req, res) => {
 
 // Fetch Task Register DocIds from Millware DB (db_ptrj_mill)
 app.get('/api/task-register/doc-ids', async (req, res) => {
-    const { month, year, empCodes } = req.query;
+    const { month, year, empCodes, category } = req.query;
     if (!month || !year) {
         return res.status(400).json({ error: 'month and year are required' });
     }
     try {
         // empCodes: comma-separated list of employee codes (optional filter)
         const codes = empCodes ? empCodes.split(',').map(c => c.trim()).filter(Boolean) : [];
-        const result = await fetchDocIdsFromDB(parseInt(month), parseInt(year), codes);
+        const limit = Math.max(0, parseInt(req.query.limit || req.query.docLimit || 0, 10) || 0);
+        const result = await fetchDocIdsFromDB(parseInt(month), parseInt(year), codes, { category: category || 'all', limit });
         res.json({
             docIds: result.docIds,
             details: result.details,

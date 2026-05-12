@@ -7,6 +7,7 @@
 
 const puppeteer = require('../../browser-automation-engine/node_modules/puppeteer');
 const path = require('path');
+const { applyBrowserWindow, getChromeWindowArgs, getDefaultViewport } = require('../../browser-automation-engine/browser-window');
 
 const MILLWARE_BASE = 'http://millwarep3.rebinmas.com:8003';
 const MILLWARE_URL = `${MILLWARE_BASE}/en/PR/trx`;
@@ -94,7 +95,9 @@ const fetchDocIds = async (month, year) => {
     const browser = await puppeteer.launch({
         headless,
         userDataDir: PROFILE_DIR,
+        defaultViewport: getDefaultViewport(headless),
         args: [
+            ...getChromeWindowArgs(),
             '--disable-popup-blocking',
             '--no-sandbox',
             '--disable-dev-shm-usage',
@@ -105,7 +108,7 @@ const fetchDocIds = async (month, year) => {
 
     try {
         const page = await browser.newPage();
-        await page.setViewport({ width: 1400, height: 900 });
+        await applyBrowserWindow(page, { headless });
 
         // Set extra headers to mimic real browser
         await page.setExtraHTTPHeaders({

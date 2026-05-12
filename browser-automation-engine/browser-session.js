@@ -13,6 +13,7 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
+const { applyBrowserWindow, getChromeWindowArgs, getDefaultViewport } = require('./browser-window');
 
 const SESSION_MAX_AGE_MS = 240 * 60 * 1000; // 240 minutes
 
@@ -73,7 +74,7 @@ async function detectAuthMarkers(page) {
 }
 
 const SHARED_LAUNCH_ARGS = [
-    '--start-maximized', '--no-sandbox', '--disable-setuid-sandbox',
+    ...getChromeWindowArgs(), '--no-sandbox', '--disable-setuid-sandbox',
     '--disable-dev-shm-usage', '--disable-gpu', '--disable-software-rasterizer',
     '--no-first-run', '--no-zygote', '--disable-extensions',
     '--no-proxy-server', '--proxy-server=direct://',
@@ -127,7 +128,7 @@ class MillwareSession {
         const opts = {
             headless: this.headless,
             slowMo: this.slowMo,
-            defaultViewport: null,
+            defaultViewport: getDefaultViewport(this.headless),
             args: [...SHARED_LAUNCH_ARGS]
         };
         if (this.userDataDir) {
@@ -296,6 +297,7 @@ class MillwareSession {
 
     async loginAndSave() {
         this.page = await this.browser.newPage();
+        await applyBrowserWindow(this.page, { headless: this.headless });
         await this._injectVisibilityOverride(this.page);
 
         try {
@@ -462,6 +464,7 @@ class MillwareSession {
     async newPage() {
         if (!this.browser) throw new Error('Browser not started — call start() first');
         const page = await this.browser.newPage();
+        await applyBrowserWindow(page, { headless: this.headless });
         await this._injectVisibilityOverride(page);
 
         // cookie-file mode: restore cookies to new page

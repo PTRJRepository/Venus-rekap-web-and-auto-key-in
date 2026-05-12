@@ -2,13 +2,13 @@
  * OT Reset Service - Hapus record OT/Normal di Task Register Millware
  *
  * Flow:
- *  1. selected employees: fetchDocIdsFromDB(month, year, empCodes?) -> query PR_TASKREG di db_ptrj_mill
- *     all employees: no DocID query; runner discovers/clicks DocIDs from Task Register List
+ *  1. fetchDocIdsFromDB(month, year, empCodes?, { category }) -> query PR_TASKREG di db_ptrj_mill
+ *     all employees: empty empCodes; query still filters line category (OT/Normal/all)
  *  2. prepareOTResetData(payload) → simpan config ke current_delete_data.json
  *  3. triggerOTResetAutomation(payload) → spawn delete-ot-runner.js + SSE stream
  *
  * delete-ot-runner.js membaca:
- *   - docIds[] / docTargets[] dari data file, atau processAllFromList=true
+ *   - docIds[] / docTargets[] dari data file
  *   - metadata.category → 'ot' | 'normal' | 'all'
  *   - employees[] → filter by EmpCode di grid column 2
  */
@@ -30,8 +30,28 @@ const DELETE_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'delete-ot-runner.js');
 // PR_TASKREG: ID, DocID, DocDate, PhyMonth, PhyYear, Status, ...
 // PR_TASKREGLN: MasterID, EmpCode, TrxDate, OT, Hours, Amount, ...
 // ──────────────────────────────────────────────
-const fetchDocIdsFromDB = async (month, year, empCodes = []) => {
-    console.log(`[OTReset] Fetching DocIds from db_ptrj_mill for ${month}/${year}...`);
+const normalizeTargetCategory = (category = 'OT') => {
+    const rawCategory = String(category || 'OT');
+    if (rawCategory === 'Normal' || rawCategory === 'normal') return 'normal';
+    if (rawCategory === 'all') return 'all';
+    return 'ot';
+};
+
+const buildLineCategoryFilter = (category) => {
+    const normalized = normalizeTargetCategory(category);
+    if (normalized === 'ot') return 'AND ISNULL(L.OT, 0) = 1';
+    if (normalized === 'normal') return 'AND ISNULL(L.OT, 0) = 0';
+    return '';
+};
+
+const fetchDocIdsFromDB = async (month, year, empCodes = [], options = {}) => {
+    const category = typeof options === 'string' ? options : options.category;
+    const numericLimit = Math.max(0, parseInt(options.limit || 0, 10) || 0);
+    const topClause = numericLimit > 0 ? `TOP ${numericLimit}` : '';
+    const categoryFilter = buildLineCategoryFilter(category);
+    const normalizedCategory = normalizeTargetCategory(category);
+
+    console.log(`[OTReset] Fetching DocIds from db_ptrj_mill for ${month}/${year}, category=${normalizedCategory}, limit=${numericLimit || 'all'}...`);
 
     // Build employee filter clause
     let empFilter = '';
@@ -41,19 +61,24 @@ const fetchDocIdsFromDB = async (month, year, empCodes = []) => {
     }
 
     const sql = `
-        SELECT DISTINCT TOP 200
+        SELECT ${topClause}
             H.ID AS doc_id,
             H.DocID AS doc_number,
             H.DocDate,
             H.PhyMonth,
             H.PhyYear,
             H.Status,
-            H.LocCode
+            H.LocCode,
+            COUNT(1) AS matching_line_count,
+            SUM(CASE WHEN ISNULL(L.OT, 0) = 1 THEN 1 ELSE 0 END) AS ot_line_count,
+            SUM(CASE WHEN ISNULL(L.OT, 0) = 0 THEN 1 ELSE 0 END) AS normal_line_count
         FROM [db_ptrj_mill].[dbo].[PR_TASKREG] H
         INNER JOIN [db_ptrj_mill].[dbo].[PR_TASKREGLN] L ON H.ID = L.MasterID
         WHERE H.PhyMonth = '${month}'
           AND H.PhyYear = '${year}'
           ${empFilter}
+          ${categoryFilter}
+        GROUP BY H.ID, H.DocID, H.DocDate, H.PhyMonth, H.PhyYear, H.Status, H.LocCode
         ORDER BY H.DocDate DESC
     `;
 
@@ -63,19 +88,24 @@ const fetchDocIdsFromDB = async (month, year, empCodes = []) => {
 
         // Also check archived tables
         const arcSql = `
-            SELECT DISTINCT TOP 200
+            SELECT ${topClause}
                 H.ID AS doc_id,
                 H.DocID AS doc_number,
                 H.DocDate,
                 H.PhyMonth,
                 H.PhyYear,
                 H.Status,
-                H.LocCode
+                H.LocCode,
+                COUNT(1) AS matching_line_count,
+                SUM(CASE WHEN ISNULL(L.OT, 0) = 1 THEN 1 ELSE 0 END) AS ot_line_count,
+                SUM(CASE WHEN ISNULL(L.OT, 0) = 0 THEN 1 ELSE 0 END) AS normal_line_count
             FROM [db_ptrj_mill].[dbo].[PR_TASKREG_ARC] H
             INNER JOIN [db_ptrj_mill].[dbo].[PR_TASKREGLN_ARC] L ON H.ID = L.MasterID
             WHERE H.PhyMonth = '${month}'
               AND H.PhyYear = '${year}'
               ${empFilter}
+              ${categoryFilter}
+            GROUP BY H.ID, H.DocID, H.DocDate, H.PhyMonth, H.PhyYear, H.Status, H.LocCode
             ORDER BY H.DocDate DESC
         `;
         const arcRows = await executeQuery(arcSql);
@@ -102,7 +132,11 @@ const fetchDocIdsFromDB = async (month, year, empCodes = []) => {
                 month: r.PhyMonth,
                 year: r.PhyYear,
                 status: r.Status,
-                locCode: r.LocCode
+                locCode: r.LocCode,
+                matchingLineCount: Number(r.matching_line_count || 0),
+                otLineCount: Number(r.ot_line_count || 0),
+                normalLineCount: Number(r.normal_line_count || 0),
+                category: normalizedCategory
             }))
         };
     } catch (err) {
@@ -139,6 +173,7 @@ let currentProcess = null;
  * @param {number} [payload.limit] - optional DocID limit for mode all
  * @param {number} [payload.maxPages] - detail pages guard per DocID
  * @param {number} [payload.tabCount] - browser tabs, 1 = single tab
+ * @param {boolean} [payload.forceListSearch] - open DocIDs through list search instead of direct detail URL
  * @param {number} payload.month - Month (1-12)
  * @param {number} payload.year - Year
  */
@@ -158,20 +193,14 @@ const prepareOTResetData = (payload) => {
         limit = 0,
         maxPages = 50,
         tabCount = 1,
+        forceListSearch = false,
         month,
         year
     } = payload;
 
     // Normalize category
     const rawCategory = String(category || 'OT');
-    let targetCategory = 'ot';
-    if (rawCategory === 'Normal' || rawCategory === 'normal') {
-        targetCategory = 'normal';
-    } else if (rawCategory === 'all') {
-        targetCategory = 'all';
-    } else {
-        targetCategory = 'ot'; // default to OT
-    }
+    const targetCategory = normalizeTargetCategory(rawCategory);
 
     const normalizedMode = ['selected', 'docids', 'all'].includes(String(targetMode).toLowerCase())
         ? String(targetMode).toLowerCase()
@@ -222,6 +251,7 @@ const prepareOTResetData = (payload) => {
             limit: numericLimit,
             maxPages: numericMaxPages,
             tabCount: numericTabCount,
+            forceListSearch: Boolean(forceListSearch),
             month,
             year,
             totalDocIds: docIds.length,
@@ -241,7 +271,7 @@ const prepareOTResetData = (payload) => {
         console.error(`[OTReset] Failed to write data file: ${writeErr.message}`);
         throw new Error(`Gagal menyimpan data OT Reset: ${writeErr.message}`);
     }
-    console.log(`[OTReset] Data saved: mode=${normalizedMode}, docIds=${docIds.length}, processAllFromList=${processAllFromList}, category=${targetCategory}, dryRun=${Boolean(dryRun)}, headless=${Boolean(headless)}, limit=${numericLimit}, maxPages=${numericMaxPages}, tabCount=${numericTabCount}, period=${periodStart} to ${periodEnd}`);
+    console.log(`[OTReset] Data saved: mode=${normalizedMode}, docIds=${docIds.length}, processAllFromList=${processAllFromList}, category=${targetCategory}, dryRun=${Boolean(dryRun)}, headless=${Boolean(headless)}, limit=${numericLimit}, maxPages=${numericMaxPages}, tabCount=${numericTabCount}, forceListSearch=${Boolean(forceListSearch)}, period=${periodStart} to ${periodEnd}`);
 
     return data;
 };
@@ -297,8 +327,9 @@ const startOTResetProcess = (options = {}) => {
     if (options.limit && Number(options.limit) > 0) args.push('--limit', String(Number(options.limit)));
     if (options.maxPages) args.push('--max-pages', String(Number(options.maxPages)));
     if (options.tabCount) args.push('--tabs', String(Number(options.tabCount)));
+    if (options.forceListSearch) args.push('--force-list-search');
 
-    console.log(`[OTReset] Starting delete-ot-runner.js (headless=${env.HEADLESS}, dryRun=${Boolean(options.dryRun)}, limit=${options.limit || 0}, maxPages=${options.maxPages || 50}, tabCount=${options.tabCount || 1})`);
+    console.log(`[OTReset] Starting delete-ot-runner.js (headless=${env.HEADLESS}, dryRun=${Boolean(options.dryRun)}, limit=${options.limit || 0}, maxPages=${options.maxPages || 50}, tabCount=${options.tabCount || 1}, forceListSearch=${Boolean(options.forceListSearch)})`);
 
     const child = spawn('node', args, {
         cwd: ENGINE_DIR,

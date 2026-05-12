@@ -5,6 +5,7 @@ const actions = require('./actions');
 const { captureErrorScreenshot } = require('./utils/selectors');
 const RecoveryManager = require('./utils/recovery');
 const { MILLWARE_CONFIG } = require('./browser-session');
+const { applyBrowserWindow, getChromeWindowArgs, getDefaultViewport } = require('./browser-window');
 
 class AutomationEngine {
     constructor(options = {}) {
@@ -277,9 +278,9 @@ class AutomationEngine {
         const launchOptions = {
             headless: this.headless,
             slowMo: this.slowMo,
-            defaultViewport: null,
+            defaultViewport: getDefaultViewport(this.headless),
             args: [
-                '--start-maximized',
+                ...getChromeWindowArgs(),
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 // ==================== OPTIMASI RESOURCE UNTUK N+ INSTANCES ====================
@@ -336,6 +337,7 @@ class AutomationEngine {
 
         this.browser = await puppeteer.launch(launchOptions);
         this.page = await this.browser.newPage();
+        await applyBrowserWindow(this.page, { headless: this.headless });
 
         // ═══ PREVENT FOCUS/VISIBILITY THROTTLING ═══
         // Inject script to override visibility state so the page always thinks it is active

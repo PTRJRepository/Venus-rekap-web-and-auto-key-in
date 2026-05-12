@@ -101,7 +101,9 @@ const OTResetDialog = ({
         setDocIdFetchError('');
         try {
             // Build empCodes param from selected employees
-            const params = new URLSearchParams({ month, year });
+            const params = new URLSearchParams({ month, year, category });
+            const parsedLimit = Math.max(0, parseInt(docLimit || '0', 10) || 0);
+            if (parsedLimit > 0) params.set('limit', String(parsedLimit));
             if (scope === 'selected' && selectedEmpIds.length > 0) {
                 // Get PTRJ IDs from allEmployees for selected ids
                 const empCodes = allEmployees

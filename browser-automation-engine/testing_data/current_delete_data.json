@@ -1,0 +1,881 @@
+{
+  "metadata": {
+    "export_date": "2026-05-12T04:40:26.428Z",
+    "period_start": "2026-04-01",
+    "period_end": "2026-04-30",
+    "category": "ot",
+    "categoryLabel": "OT",
+    "targetMode": "all",
+    "mode": "all",
+    "processAllFromList": false,
+    "dryRun": false,
+    "headless": false,
+    "limit": 0,
+    "maxPages": 50,
+    "tabCount": 4,
+    "forceListSearch": true,
+    "month": 4,
+    "year": 2026,
+    "totalDocIds": 142,
+    "totalEmployees": 0,
+    "hasEmployeeFilter": false,
+    "source": "web_interface"
+  },
+  "docIds": [
+    "34991",
+    "34993",
+    "35003",
+    "35005",
+    "35006",
+    "35008",
+    "35026",
+    "35151",
+    "35168",
+    "35171",
+    "35185",
+    "35200",
+    "35147",
+    "35163",
+    "35159",
+    "35173",
+    "35191",
+    "35206",
+    "35127",
+    "35124",
+    "35209",
+    "35155",
+    "35201",
+    "35204",
+    "35161",
+    "35186",
+    "35181",
+    "35160",
+    "35167",
+    "35205",
+    "35140",
+    "35139",
+    "35195",
+    "35154",
+    "35156",
+    "35170",
+    "35178",
+    "35207",
+    "35199",
+    "35203",
+    "35152",
+    "35169",
+    "35208",
+    "35132",
+    "35142",
+    "35143",
+    "35137",
+    "35138",
+    "35120",
+    "35116",
+    "35112",
+    "35172",
+    "35164",
+    "35165",
+    "35180",
+    "35183",
+    "35184",
+    "35162",
+    "35190",
+    "35196",
+    "35197",
+    "35194",
+    "35189",
+    "35131",
+    "35130",
+    "35141",
+    "35113",
+    "35114",
+    "35210",
+    "35179",
+    "35198",
+    "35188",
+    "35133",
+    "35135",
+    "35134",
+    "35115",
+    "35187",
+    "35202",
+    "35117",
+    "35118",
+    "35136",
+    "35145",
+    "35119",
+    "35111",
+    "35193",
+    "35174",
+    "35182",
+    "35105",
+    "35109",
+    "35110",
+    "35106",
+    "35126",
+    "35129",
+    "35035",
+    "35049",
+    "35050",
+    "35052",
+    "35053",
+    "35054",
+    "35055",
+    "35056",
+    "35057",
+    "35058",
+    "35059",
+    "35060",
+    "35061",
+    "35062",
+    "35063",
+    "35064",
+    "35065",
+    "35066",
+    "35067",
+    "35068",
+    "35069",
+    "35070",
+    "35071",
+    "35072",
+    "35073",
+    "35074",
+    "35075",
+    "35076",
+    "35077",
+    "35078",
+    "35079",
+    "35080",
+    "35081",
+    "35082",
+    "35083",
+    "35084",
+    "35085",
+    "35086",
+    "35087",
+    "35088",
+    "35089",
+    "35091",
+    "35093",
+    "35094",
+    "35095",
+    "35096",
+    "35097",
+    "35192",
+    "35153"
+  ],
+  "docTargets": [
+    {
+      "internalId": "34991",
+      "docNumber": "AD26040011",
+      "label": "AD26040011"
+    },
+    {
+      "internalId": "34993",
+      "docNumber": "AD26040013",
+      "label": "AD26040013"
+    },
+    {
+      "internalId": "35003",
+      "docNumber": "AD26040302",
+      "label": "AD26040302"
+    },
+    {
+      "internalId": "35005",
+      "docNumber": "AD26040304",
+      "label": "AD26040304"
+    },
+    {
+      "internalId": "35006",
+      "docNumber": "AD26040305",
+      "label": "AD26040305"
+    },
+    {
+      "internalId": "35008",
+      "docNumber": "AD26040307",
+      "label": "AD26040307"
+    },
+    {
+      "internalId": "35026",
+      "docNumber": "AD26040325",
+      "label": "AD26040325"
+    },
+    {
+      "internalId": "35151",
+      "docNumber": "AD26040446",
+      "label": "AD26040446"
+    },
+    {
+      "internalId": "35168",
+      "docNumber": "AD26040461",
+      "label": "AD26040461"
+    },
+    {
+      "internalId": "35171",
+      "docNumber": "AD26040464",
+      "label": "AD26040464"
+    },
+    {
+      "internalId": "35185",
+      "docNumber": "AD26040478",
+      "label": "AD26040478"
+    },
+    {
+      "internalId": "35200",
+      "docNumber": "AD26040493",
+      "label": "AD26040493"
+    },
+    {
+      "internalId": "35147",
+      "docNumber": "AD26040443",
+      "label": "AD26040443"
+    },
+    {
+      "internalId": "35163",
+      "docNumber": "AD26040456",
+      "label": "AD26040456"
+    },
+    {
+      "internalId": "35159",
+      "docNumber": "AD26040452",
+      "label": "AD26040452"
+    },
+    {
+      "internalId": "35173",
+      "docNumber": "AD26040466",
+      "label": "AD26040466"
+    },
+    {
+      "internalId": "35191",
+      "docNumber": "AD26040484",
+      "label": "AD26040484"
+    },
+    {
+      "internalId": "35206",
+      "docNumber": "AD26040499",
+      "label": "AD26040499"
+    },
+    {
+      "internalId": "35127",
+      "docNumber": "AD26040423",
+      "label": "AD26040423"
+    },
+    {
+      "internalId": "35124",
+      "docNumber": "AD26040421",
+      "label": "AD26040421"
+    },
+    {
+      "internalId": "35209",
+      "docNumber": "AD26040502",
+      "label": "AD26040502"
+    },
+    {
+      "internalId": "35155",
+      "docNumber": "AD26040450",
+      "label": "AD26040450"
+    },
+    {
+      "internalId": "35201",
+      "docNumber": "AD26040494",
+      "label": "AD26040494"
+    },
+    {
+      "internalId": "35204",
+      "docNumber": "AD26040497",
+      "label": "AD26040497"
+    },
+    {
+      "internalId": "35161",
+      "docNumber": "AD26040454",
+      "label": "AD26040454"
+    },
+    {
+      "internalId": "35186",
+      "docNumber": "AD26040479",
+      "label": "AD26040479"
+    },
+    {
+      "internalId": "35181",
+      "docNumber": "AD26040474",
+      "label": "AD26040474"
+    },
+    {
+      "internalId": "35160",
+      "docNumber": "AD26040453",
+      "label": "AD26040453"
+    },
+    {
+      "internalId": "35167",
+      "docNumber": "AD26040460",
+      "label": "AD26040460"
+    },
+    {
+      "internalId": "35205",
+      "docNumber": "AD26040498",
+      "label": "AD26040498"
+    },
+    {
+      "internalId": "35140",
+      "docNumber": "AD26040436",
+      "label": "AD26040436"
+    },
+    {
+      "internalId": "35139",
+      "docNumber": "AD26040435",
+      "label": "AD26040435"
+    },
+    {
+      "internalId": "35195",
+      "docNumber": "AD26040488",
+      "label": "AD26040488"
+    },
+    {
+      "internalId": "35154",
+      "docNumber": "AD26040449",
+      "label": "AD26040449"
+    },
+    {
+      "internalId": "35156",
+      "docNumber": "AD26040451",
+      "label": "AD26040451"
+    },
+    {
+      "internalId": "35170",
+      "docNumber": "AD26040463",
+      "label": "AD26040463"
+    },
+    {
+      "internalId": "35178",
+      "docNumber": "AD26040471",
+      "label": "AD26040471"
+    },
+    {
+      "internalId": "35207",
+      "docNumber": "AD26040500",
+      "label": "AD26040500"
+    },
+    {
+      "internalId": "35199",
+      "docNumber": "AD26040492",
+      "label": "AD26040492"
+    },
+    {
+      "internalId": "35203",
+      "docNumber": "AD26040496",
+      "label": "AD26040496"
+    },
+    {
+      "internalId": "35152",
+      "docNumber": "AD26040447",
+      "label": "AD26040447"
+    },
+    {
+      "internalId": "35169",
+      "docNumber": "AD26040462",
+      "label": "AD26040462"
+    },
+    {
+      "internalId": "35208",
+      "docNumber": "AD26040501",
+      "label": "AD26040501"
+    },
+    {
+      "internalId": "35132",
+      "docNumber": "AD26040428",
+      "label": "AD26040428"
+    },
+    {
+      "internalId": "35142",
+      "docNumber": "AD26040438",
+      "label": "AD26040438"
+    },
+    {
+      "internalId": "35143",
+      "docNumber": "AD26040439",
+      "label": "AD26040439"
+    },
+    {
+      "internalId": "35137",
+      "docNumber": "AD26040433",
+      "label": "AD26040433"
+    },
+    {
+      "internalId": "35138",
+      "docNumber": "AD26040434",
+      "label": "AD26040434"
+    },
+    {
+      "internalId": "35120",
+      "docNumber": "AD26040419",
+      "label": "AD26040419"
+    },
+    {
+      "internalId": "35116",
+      "docNumber": "AD26040415",
+      "label": "AD26040415"
+    },
+    {
+      "internalId": "35112",
+      "docNumber": "AD26040411",
+      "label": "AD26040411"
+    },
+    {
+      "internalId": "35172",
+      "docNumber": "AD26040465",
+      "label": "AD26040465"
+    },
+    {
+      "internalId": "35164",
+      "docNumber": "AD26040457",
+      "label": "AD26040457"
+    },
+    {
+      "internalId": "35165",
+      "docNumber": "AD26040458",
+      "label": "AD26040458"
+    },
+    {
+      "internalId": "35180",
+      "docNumber": "AD26040473",
+      "label": "AD26040473"
+    },
+    {
+      "internalId": "35183",
+      "docNumber": "AD26040476",
+      "label": "AD26040476"
+    },
+    {
+      "internalId": "35184",
+      "docNumber": "AD26040477",
+      "label": "AD26040477"
+    },
+    {
+      "internalId": "35162",
+      "docNumber": "AD26040455",
+      "label": "AD26040455"
+    },
+    {
+      "internalId": "35190",
+      "docNumber": "AD26040483",
+      "label": "AD26040483"
+    },
+    {
+      "internalId": "35196",
+      "docNumber": "AD26040489",
+      "label": "AD26040489"
+    },
+    {
+      "internalId": "35197",
+      "docNumber": "AD26040490",
+      "label": "AD26040490"
+    },
+    {
+      "internalId": "35194",
+      "docNumber": "AD26040487",
+      "label": "AD26040487"
+    },
+    {
+      "internalId": "35189",
+      "docNumber": "AD26040482",
+      "label": "AD26040482"
+    },
+    {
+      "internalId": "35131",
+      "docNumber": "AD26040427",
+      "label": "AD26040427"
+    },
+    {
+      "internalId": "35130",
+      "docNumber": "AD26040426",
+      "label": "AD26040426"
+    },
+    {
+      "internalId": "35141",
+      "docNumber": "AD26040437",
+      "label": "AD26040437"
+    },
+    {
+      "internalId": "35113",
+      "docNumber": "AD26040412",
+      "label": "AD26040412"
+    },
+    {
+      "internalId": "35114",
+      "docNumber": "AD26040413",
+      "label": "AD26040413"
+    },
+    {
+      "internalId": "35210",
+      "docNumber": "AD26040503",
+      "label": "AD26040503"
+    },
+    {
+      "internalId": "35179",
+      "docNumber": "AD26040472",
+      "label": "AD26040472"
+    },
+    {
+      "internalId": "35198",
+      "docNumber": "AD26040491",
+      "label": "AD26040491"
+    },
+    {
+      "internalId": "35188",
+      "docNumber": "AD26040481",
+      "label": "AD26040481"
+    },
+    {
+      "internalId": "35133",
+      "docNumber": "AD26040429",
+      "label": "AD26040429"
+    },
+    {
+      "internalId": "35135",
+      "docNumber": "AD26040431",
+      "label": "AD26040431"
+    },
+    {
+      "internalId": "35134",
+      "docNumber": "AD26040430",
+      "label": "AD26040430"
+    },
+    {
+      "internalId": "35115",
+      "docNumber": "AD26040414",
+      "label": "AD26040414"
+    },
+    {
+      "internalId": "35187",
+      "docNumber": "AD26040480",
+      "label": "AD26040480"
+    },
+    {
+      "internalId": "35202",
+      "docNumber": "AD26040495",
+      "label": "AD26040495"
+    },
+    {
+      "internalId": "35117",
+      "docNumber": "AD26040416",
+      "label": "AD26040416"
+    },
+    {
+      "internalId": "35118",
+      "docNumber": "AD26040417",
+      "label": "AD26040417"
+    },
+    {
+      "internalId": "35136",
+      "docNumber": "AD26040432",
+      "label": "AD26040432"
+    },
+    {
+      "internalId": "35145",
+      "docNumber": "AD26040441",
+      "label": "AD26040441"
+    },
+    {
+      "internalId": "35119",
+      "docNumber": "AD26040418",
+      "label": "AD26040418"
+    },
+    {
+      "internalId": "35111",
+      "docNumber": "AD26040410",
+      "label": "AD26040410"
+    },
+    {
+      "internalId": "35193",
+      "docNumber": "AD26040486",
+      "label": "AD26040486"
+    },
+    {
+      "internalId": "35174",
+      "docNumber": "AD26040467",
+      "label": "AD26040467"
+    },
+    {
+      "internalId": "35182",
+      "docNumber": "AD26040475",
+      "label": "AD26040475"
+    },
+    {
+      "internalId": "35105",
+      "docNumber": "AD26040404",
+      "label": "AD26040404"
+    },
+    {
+      "internalId": "35109",
+      "docNumber": "AD26040408",
+      "label": "AD26040408"
+    },
+    {
+      "internalId": "35110",
+      "docNumber": "AD26040409",
+      "label": "AD26040409"
+    },
+    {
+      "internalId": "35106",
+      "docNumber": "AD26040405",
+      "label": "AD26040405"
+    },
+    {
+      "internalId": "35126",
+      "docNumber": "AD26040422",
+      "label": "AD26040422"
+    },
+    {
+      "internalId": "35129",
+      "docNumber": "AD26040425",
+      "label": "AD26040425"
+    },
+    {
+      "internalId": "35035",
+      "docNumber": "AD26040334",
+      "label": "AD26040334"
+    },
+    {
+      "internalId": "35049",
+      "docNumber": "AD26040348",
+      "label": "AD26040348"
+    },
+    {
+      "internalId": "35050",
+      "docNumber": "AD26040349",
+      "label": "AD26040349"
+    },
+    {
+      "internalId": "35052",
+      "docNumber": "AD26040351",
+      "label": "AD26040351"
+    },
+    {
+      "internalId": "35053",
+      "docNumber": "AD26040352",
+      "label": "AD26040352"
+    },
+    {
+      "internalId": "35054",
+      "docNumber": "AD26040353",
+      "label": "AD26040353"
+    },
+    {
+      "internalId": "35055",
+      "docNumber": "AD26040354",
+      "label": "AD26040354"
+    },
+    {
+      "internalId": "35056",
+      "docNumber": "AD26040355",
+      "label": "AD26040355"
+    },
+    {
+      "internalId": "35057",
+      "docNumber": "AD26040356",
+      "label": "AD26040356"
+    },
+    {
+      "internalId": "35058",
+      "docNumber": "AD26040357",
+      "label": "AD26040357"
+    },
+    {
+      "internalId": "35059",
+      "docNumber": "AD26040358",
+      "label": "AD26040358"
+    },
+    {
+      "internalId": "35060",
+      "docNumber": "AD26040359",
+      "label": "AD26040359"
+    },
+    {
+      "internalId": "35061",
+      "docNumber": "AD26040360",
+      "label": "AD26040360"
+    },
+    {
+      "internalId": "35062",
+      "docNumber": "AD26040361",
+      "label": "AD26040361"
+    },
+    {
+      "internalId": "35063",
+      "docNumber": "AD26040362",
+      "label": "AD26040362"
+    },
+    {
+      "internalId": "35064",
+      "docNumber": "AD26040363",
+      "label": "AD26040363"
+    },
+    {
+      "internalId": "35065",
+      "docNumber": "AD26040364",
+      "label": "AD26040364"
+    },
+    {
+      "internalId": "35066",
+      "docNumber": "AD26040365",
+      "label": "AD26040365"
+    },
+    {
+      "internalId": "35067",
+      "docNumber": "AD26040366",
+      "label": "AD26040366"
+    },
+    {
+      "internalId": "35068",
+      "docNumber": "AD26040367",
+      "label": "AD26040367"
+    },
+    {
+      "internalId": "35069",
+      "docNumber": "AD26040368",
+      "label": "AD26040368"
+    },
+    {
+      "internalId": "35070",
+      "docNumber": "AD26040369",
+      "label": "AD26040369"
+    },
+    {
+      "internalId": "35071",
+      "docNumber": "AD26040370",
+      "label": "AD26040370"
+    },
+    {
+      "internalId": "35072",
+      "docNumber": "AD26040371",
+      "label": "AD26040371"
+    },
+    {
+      "internalId": "35073",
+      "docNumber": "AD26040372",
+      "label": "AD26040372"
+    },
+    {
+      "internalId": "35074",
+      "docNumber": "AD26040373",
+      "label": "AD26040373"
+    },
+    {
+      "internalId": "35075",
+      "docNumber": "AD26040374",
+      "label": "AD26040374"
+    },
+    {
+      "internalId": "35076",
+      "docNumber": "AD26040375",
+      "label": "AD26040375"
+    },
+    {
+      "internalId": "35077",
+      "docNumber": "AD26040376",
+      "label": "AD26040376"
+    },
+    {
+      "internalId": "35078",
+      "docNumber": "AD26040377",
+      "label": "AD26040377"
+    },
+    {
+      "internalId": "35079",
+      "docNumber": "AD26040378",
+      "label": "AD26040378"
+    },
+    {
+      "internalId": "35080",
+      "docNumber": "AD26040379",
+      "label": "AD26040379"
+    },
+    {
+      "internalId": "35081",
+      "docNumber": "AD26040380",
+      "label": "AD26040380"
+    },
+    {
+      "internalId": "35082",
+      "docNumber": "AD26040381",
+      "label": "AD26040381"
+    },
+    {
+      "internalId": "35083",
+      "docNumber": "AD26040382",
+      "label": "AD26040382"
+    },
+    {
+      "internalId": "35084",
+      "docNumber": "AD26040383",
+      "label": "AD26040383"
+    },
+    {
+      "internalId": "35085",
+      "docNumber": "AD26040384",
+      "label": "AD26040384"
+    },
+    {
+      "internalId": "35086",
+      "docNumber": "AD26040385",
+      "label": "AD26040385"
+    },
+    {
+      "internalId": "35087",
+      "docNumber": "AD26040386",
+      "label": "AD26040386"
+    },
+    {
+      "internalId": "35088",
+      "docNumber": "AD26040387",
+      "label": "AD26040387"
+    },
+    {
+      "internalId": "35089",
+      "docNumber": "AD26040388",
+      "label": "AD26040388"
+    },
+    {
+      "internalId": "35091",
+      "docNumber": "AD26040390",
+      "label": "AD26040390"
+    },
+    {
+      "internalId": "35093",
+      "docNumber": "AD26040392",
+      "label": "AD26040392"
+    },
+    {
+      "internalId": "35094",
+      "docNumber": "AD26040393",
+      "label": "AD26040393"
+    },
+    {
+      "internalId": "35095",
+      "docNumber": "AD26040394",
+      "label": "AD26040394"
+    },
+    {
+      "internalId": "35096",
+      "docNumber": "AD26040395",
+      "label": "AD26040395"
+    },
+    {
+      "internalId": "35097",
+      "docNumber": "AD26040396",
+      "label": "AD26040396"
+    },
+    {
+      "internalId": "35192",
+      "docNumber": "AD26040485",
+      "label": "AD26040485"
+    },
+    {
+      "internalId": "35153",
+      "docNumber": "AD26040448",
+      "label": "AD26040448"
+    }
+  ],
+  "employees": []
+}
