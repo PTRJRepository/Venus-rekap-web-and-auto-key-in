@@ -1,0 +1,123 @@
+﻿{
+    "name": "Task Register OT Delete",
+    "description": "Hapus record OT (Normal/OT=OT) di Task Register Detail per DocId. Delete dari baris terbawah ke atas, handle confirm dialog, handle paging.",
+    "dataFile": "testing_data/current_delete_data.json",
+    "steps": [
+        {
+            "action": "log",
+            "params": { "message": "═══════════════════════════════════════════════════════════════" }
+        },
+        {
+            "action": "log",
+            "params": { "message": "  TASK REGISTER OT DELETE" }
+        },
+        {
+            "action": "log",
+            "params": { "message": "  DocIds: ${metadata.totalDocIds}" }
+        },
+        {
+            "action": "log",
+            "params": { "message": "═══════════════════════════════════════════════════════════════" }
+        },
+        {
+            "comment": "═══ LOGIN ═══",
+            "action": "navigate",
+            "params": { "url": "http://millwarep3.rebinmas.com:8003/" }
+        },
+        {
+            "action": "wait",
+            "params": { "duration": 2000 }
+        },
+        {
+            "action": "typeInput",
+            "params": { "selector": "#txtUsername", "value": "adm075" }
+        },
+        {
+            "action": "typeInput",
+            "params": { "selector": "#txtPassword", "value": "adm075" }
+        },
+        {
+            "action": "click",
+            "params": { "selector": "#btnLogin" }
+        },
+        {
+            "action": "wait",
+            "params": { "duration": 2000 }
+        },
+        {
+            "action": "waitForElement",
+            "params": { "selector": ".PopupBoxLogin", "timeout": 15000 }
+        },
+        {
+            "action": "click",
+            "params": { "selector": "#MainContent_btnOkay" }
+        },
+        {
+            "action": "wait",
+            "params": { "duration": 1500 }
+        },
+        {
+            "comment": "═══ LOOP THROUGH DOCIDS ═══",
+            "action": "forEach",
+            "params": {
+                "array": "docIds",
+                "itemName": "docId",
+                "steps": [
+                    {
+                        "action": "log",
+                        "params": { "message": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" }
+                    },
+                    {
+                        "action": "log",
+                        "params": { "message": "  🗑️  Processing DocId: ${docId}" }
+                    },
+                    {
+                        "comment": "═══ NAVIGATE TO DETAIL PAGE ═══",
+                        "action": "navigate",
+                        "params": { "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx?id=${docId}" }
+                    },
+                    {
+                        "action": "wait",
+                        "params": { "duration": 2500 }
+                    },
+                    {
+                        "action": "waitForElement",
+                        "params": { "selector": "#MainContent_gvLine", "timeout": 15000 }
+                    },
+                    {
+                        "action": "wait",
+                        "params": { "duration": 1000 }
+                    },
+                    {
+                        "comment": "═══ DELETE OT ROWS (bottom-to-top) ═══",
+                        "action": "deleteOTRows",
+                        "params": {
+                            "gridSelector": "#MainContent_gvLine",
+                            "otColumnIndex": 9,
+                            "otValue": "OT",
+                            "deleteColumnIndex": 15,
+                            "deleteLinkIdPrefix": "MainContent_gvLine_lbDelete_",
+                            "delayAfterDelete": 3000
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": { "message": "  ✅ Done processing DocId: ${docId}" }
+                    }
+                ]
+            }
+        },
+        {
+            "action": "log",
+            "params": { "message": "═══════════════════════════════════════════════════════════════" }
+        },
+        {
+            "action": "log",
+            "params": { "message": "  ✅ OT DELETE COMPLETED" }
+        },
+        {
+            "action": "log",
+            "params": { "message": "═══════════════════════════════════════════════════════════════" }
+        }
+    ]
+}
