@@ -8,7 +8,7 @@ const ENGINE_DIR = path.resolve(__dirname, '../../browser-automation-engine');
 const DATA_DIR = path.join(ENGINE_DIR, 'testing_data');
 const ATTENDANCE_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'multi-tab-runner.js');
 const ATTENDANCE_MULTI_WINDOW_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'multi-window-runner.js');
-const PAYROLL_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'parallel-runner.js');
+const PAYROLL_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'payroll-parallel-runner.js');
 const PAYROLL_DATA_FILE = path.join(DATA_DIR, 'current_payroll_data.json');
 const TABS_PER_ATTENDANCE_WINDOW = 8;
 const DEFAULT_MAX_ATTENDANCE_WINDOWS = 6;
@@ -434,13 +434,10 @@ const startPayrollAutomationProcess = () => {
         ENGINE_START_DELAY: process.env.ENGINE_START_DELAY || '2000'
     };
 
-    const instances = env.AUTOMATION_INSTANCES;
-    console.log(`[PayrollAutomation] Starting runner with ${instances} instance(s): node ${PAYROLL_RUNNER_SCRIPT} payroll-ad-input ${PAYROLL_DATA_FILE}`);
+    const tabs = env.PAYROLL_TABS || env.AUTOMATION_INSTANCES || '5';
+    console.log(`[PayrollAutomation] Starting monthly allowance/deduction runner with ${tabs} tab(s): node ${PAYROLL_RUNNER_SCRIPT} --tabs ${tabs} ${PAYROLL_DATA_FILE}`);
 
-    // Use payroll-ad-input template
-    const template = 'payroll-ad-input';
-
-    const child = spawn('node', [PAYROLL_RUNNER_SCRIPT, template, PAYROLL_DATA_FILE], {
+    const child = spawn('node', [PAYROLL_RUNNER_SCRIPT, '--tabs', tabs, PAYROLL_DATA_FILE], {
         cwd: ENGINE_DIR,
         env,
         stdio: ['ignore', 'pipe', 'pipe']

@@ -34,7 +34,9 @@ const OTResetDialog = ({
     const [browserMode, setBrowserMode] = useState('headful'); // headful | headless
     const [docLimit, setDocLimit] = useState('');
     const [maxPages, setMaxPages] = useState('50');
-    const [tabCount, setTabCount] = useState('5');
+    const [parallelMode, setParallelMode] = useState('windows'); // windows | tabs | hybrid
+    const [windowCount, setWindowCount] = useState('5');
+    const [tabCount, setTabCount] = useState('1');
     const [manualDocIds, setManualDocIds] = useState(''); // manual input
     const [selectedEmpIds, setSelectedEmpIds] = useState([]); // chosen employee IDs
     const [fetchingDocIds, setFetchingDocIds] = useState(false);
@@ -163,6 +165,7 @@ const OTResetDialog = ({
         const parsedLimit = Math.max(0, parseInt(docLimit || '0', 10) || 0);
         const parsedMaxPages = Math.max(1, parseInt(maxPages || '50', 10) || 50);
         const parsedTabCount = Math.max(1, Math.min(10, parseInt(tabCount || '1', 10) || 1));
+        const parsedWindowCount = Math.max(1, Math.min(10, parseInt(windowCount || '1', 10) || 1));
 
         if (scope === 'docids' && docIdsToProcess.length === 0) {
             addLog('error', 'Tidak ada DocID manual.');
@@ -179,6 +182,7 @@ const OTResetDialog = ({
         }
 
         addLog('info', `OT Reset: mode=${scope}, run=${runMode}, docIds=${docIdsToProcess.length}, kategori=${categoryValue}`);
+        addLog('info', `Paralel: ${parallelMode === 'windows' ? `${parsedWindowCount} window` : parallelMode === 'tabs' ? `${parsedTabCount} tab` : `${parsedWindowCount} window x ${parsedTabCount} tab`}`);
         if (scope === 'selected') {
             addLog('info', `Karyawan: ${empObjects.length} dipilih`);
         } else if (scope === 'all') {
@@ -204,6 +208,8 @@ const OTResetDialog = ({
                     headless: browserMode === 'headless',
                     limit: scope === 'all' ? parsedLimit : 0,
                     maxPages: parsedMaxPages,
+                    parallelMode,
+                    windowCount: parsedWindowCount,
                     tabCount: parsedTabCount,
                     month, year
                 })
@@ -281,11 +287,18 @@ const OTResetDialog = ({
 
     const docIdsToProcess = getDocIds();
     const empObjects = scope === 'selected' ? allEmployees.filter(e => selectedEmpIds.includes(getEmpKey(e))) : [];
+    const parallelLabel = parallelMode === 'windows'
+        ? `${windowCount || 1} Window`
+        : parallelMode === 'tabs'
+            ? `${tabCount || 1} Tab`
+            : `${windowCount || 1} Window x ${tabCount || 1} Tab`;
     const runDisabled = status === 'running'
         || (scope === 'docids' && docIdsToProcess.length === 0)
         || (scope === 'selected' && selectedEmpIds.length === 0)
         || !maxPages
         || (parseInt(maxPages, 10) || 0) < 1
+        || !windowCount
+        || (parseInt(windowCount, 10) || 0) < 1
         || !tabCount
         || (parseInt(tabCount, 10) || 0) < 1;
 
@@ -327,7 +340,7 @@ const OTResetDialog = ({
                         <Chip label={scope === 'all' ? 'Semua Karyawan + Semua DocID' : `${docIdsToProcess.length} DocIds`} size="small" sx={{ bgcolor: alpha(DARK.green, 0.15), color: DARK.green, fontWeight: 700, fontSize: '0.75rem' }} />
                         <Chip label={runMode === 'dry-run' ? 'Cek saja' : 'Hapus'} size="small" sx={{ bgcolor: alpha(runMode === 'dry-run' ? DARK.accent : DARK.red, 0.15), color: runMode === 'dry-run' ? DARK.accent : DARK.red, fontWeight: 700, fontSize: '0.75rem' }} />
                         <Chip label={browserMode === 'headful' ? 'Browser tampil' : 'Headless'} size="small" sx={{ bgcolor: alpha(DARK.amber, 0.15), color: DARK.amber, fontWeight: 700, fontSize: '0.75rem' }} />
-                        <Chip label={`${tabCount || 1} Tab`} size="small" sx={{ bgcolor: alpha(DARK.green, 0.12), color: DARK.green, fontWeight: 700, fontSize: '0.75rem' }} />
+                        <Chip label={parallelLabel} size="small" sx={{ bgcolor: alpha(DARK.green, 0.12), color: DARK.green, fontWeight: 700, fontSize: '0.75rem' }} />
                         {scope === 'selected' && (
                             <Chip label={`${selectedEmpIds.length} Karyawan`} size="small" sx={{ bgcolor: alpha(DARK.orange, 0.15), color: DARK.orange, fontWeight: 700, fontSize: '0.75rem' }} />
                         )}
@@ -343,7 +356,7 @@ const OTResetDialog = ({
                         </RadioGroup>
                     </FormControl>
 
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
                         <FormControl component="fieldset" size="small">
                             <FormLabel component="legend" sx={{ fontSize: '0.65rem', color: DARK.muted, mb: 0.5 }}>AKSI</FormLabel>
                             <RadioGroup row value={runMode} onChange={e => setRunMode(e.target.value)}>
@@ -357,6 +370,15 @@ const OTResetDialog = ({
                             <RadioGroup row value={browserMode} onChange={e => setBrowserMode(e.target.value)}>
                                 <FormControlLabel value="headful" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.amber } }} />} label={<Typography variant="caption" sx={{ color: DARK.amber, fontWeight: 700 }}>Tampil</Typography>} />
                                 <FormControlLabel value="headless" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.muted } }} />} label={<Typography variant="caption" sx={{ color: DARK.text, fontWeight: 600 }}>Headless</Typography>} />
+                            </RadioGroup>
+                        </FormControl>
+
+                        <FormControl component="fieldset" size="small">
+                            <FormLabel component="legend" sx={{ fontSize: '0.65rem', color: DARK.muted, mb: 0.5 }}>PARALEL</FormLabel>
+                            <RadioGroup row value={parallelMode} onChange={e => setParallelMode(e.target.value)}>
+                                <FormControlLabel value="windows" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.green } }} />} label={<Typography variant="caption" sx={{ color: DARK.green, fontWeight: 700 }}>Window</Typography>} />
+                                <FormControlLabel value="tabs" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.accent } }} />} label={<Typography variant="caption" sx={{ color: DARK.accent, fontWeight: 700 }}>Tab</Typography>} />
+                                <FormControlLabel value="hybrid" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.amber } }} />} label={<Typography variant="caption" sx={{ color: DARK.amber, fontWeight: 700 }}>Hybrid</Typography>} />
                             </RadioGroup>
                         </FormControl>
                     </Box>
@@ -402,7 +424,7 @@ const OTResetDialog = ({
                         )}
                     </Box>
 
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr 1fr' }, gap: 2 }}>
                         <TextField
                             label="Limit DocID"
                             type="number"
@@ -425,12 +447,22 @@ const OTResetDialog = ({
                             InputLabelProps={{ sx: { color: DARK.muted } }}
                         />
                         <TextField
-                            label="Jumlah Tab"
+                            label="Jumlah Window"
+                            type="number"
+                            size="small"
+                            value={windowCount}
+                            onChange={e => setWindowCount(e.target.value)}
+                            disabled={status === 'running' || parallelMode === 'tabs'}
+                            inputProps={{ min: 1, max: 10, style: { color: DARK.text } }}
+                            InputLabelProps={{ sx: { color: DARK.muted } }}
+                        />
+                        <TextField
+                            label={parallelMode === 'windows' ? 'Tab per Window' : 'Jumlah Tab'}
                             type="number"
                             size="small"
                             value={tabCount}
                             onChange={e => setTabCount(e.target.value)}
-                            disabled={status === 'running'}
+                            disabled={status === 'running' || parallelMode === 'windows'}
                             inputProps={{ min: 1, max: 10, style: { color: DARK.text } }}
                             InputLabelProps={{ sx: { color: DARK.muted } }}
                         />

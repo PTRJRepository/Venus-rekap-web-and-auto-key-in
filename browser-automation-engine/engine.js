@@ -44,6 +44,7 @@ class AutomationEngine {
      * Start sending heartbeats
      */
     startHeartbeat() {
+        this.stopHeartbeat();
         this.heartbeat(); // Initial beat
         this.heartbeatInterval = setInterval(() => this.heartbeat(), 5000); // Every 5s
     }
@@ -270,6 +271,10 @@ class AutomationEngine {
      */
     async launch() {
         console.log(`🚀 [Engine ${this.engineId}] Meluncurkan Browser Chrome...`);
+
+        this.stopBrowserKeepalive();
+        this.browserDisconnected = false;
+        this.lastDisconnectReason = null;
 
         // Baca konfigurasi dari environment untuk multi-instance
         const keepaliveInterval = parseInt(process.env.BROWSER_KEEPALIVE_INTERVAL || '2000');
@@ -555,11 +560,9 @@ class AutomationEngine {
             throw error;
         } finally {
             this.stopHeartbeat(); // STOP HEARTBEAT
-            // Uncomment jika ingin browser otomatis tertutup
-            // if (this.browser) {
-            //     await this.browser.close();
-            //     console.log('🔒 Browser ditutup.');
-            // }
+            if (process.env.AUTO_CLOSE === 'true') {
+                await this.closeBrowser();
+            }
         }
     }
 
@@ -735,9 +738,48 @@ class AutomationEngine {
      * Menutup browser secara manual
      */
     async closeBrowser() {
+        this.stopBrowserKeepalive();
+        this.stopHeartbeat();
+
         if (this.browser) {
-            await this.browser.close();
+            if (this.page) {
+                await this.disableInputBlocking().catch(() => {});
+                this.page.removeAllListeners();
+            }
+
+            const browser = this.browser;
+            browser.removeAllListeners();
+            this.browser = null;
+            this.page = null;
+            await browser.close().catch(() => {});
             console.log('🔒 Browser ditutup.');
+        }
+    }
+
+    async compactMemory(reason = 'periodic') {
+        if (!this.browser || !this.page || this.browserDisconnected) return;
+
+        if (!this.disableBrowserRecycle) {
+            try {
+                const pages = await this.browser.pages();
+                for (const extraPage of pages) {
+                    if (extraPage !== this.page && !extraPage.isClosed()) {
+                        await extraPage.close().catch(() => {});
+                    }
+                }
+            } catch (error) {
+                console.log(`⚠️ [E${this.engineId}] Extra page cleanup skipped: ${error.message}`);
+            }
+        }
+
+        try {
+            const client = await this.page.createCDPSession();
+            await client.send('Network.clearBrowserCache').catch(() => {});
+            await client.send('HeapProfiler.collectGarbage').catch(() => {});
+            await client.detach().catch(() => {});
+            console.log(`🧹 [E${this.engineId}] Memory compacted (${reason})`);
+        } catch (error) {
+            console.log(`⚠️ [E${this.engineId}] Memory compact skipped: ${error.message}`);
         }
     }
 }

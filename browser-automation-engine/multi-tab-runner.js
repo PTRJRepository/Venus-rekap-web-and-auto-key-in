@@ -38,7 +38,7 @@ const parsePositiveInt = (value, fallback) => {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-const TAB_STAGGER_DELAY = parsePositiveInt(process.env.MULTI_TAB_STAGGER_DELAY, 1000); // 1 detik jeda trigger antar tab
+const TAB_STAGGER_DELAY = parsePositiveInt(process.env.MULTI_TAB_STAGGER_DELAY, 250);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -61,6 +61,18 @@ function useIsolatedTabSessions() {
 
 function shouldBringTabToFrontOnTrigger() {
     return process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER === 'true';
+}
+
+function shouldSkipRedundantTabNavigation() {
+    return process.env.MULTI_TAB_SKIP_REDUNDANT_NAVIGATION !== 'false';
+}
+
+function normalizeUrlForCompare(url = '') {
+    return String(url || '').replace(/[#?].*$/, '').replace(/\/$/, '').toLowerCase();
+}
+
+function isSamePageUrl(currentUrl, targetUrl) {
+    return normalizeUrlForCompare(currentUrl) === normalizeUrlForCompare(targetUrl);
 }
 
 function resolveTemplateAndData(argv = process.argv.slice(2)) {
@@ -242,6 +254,11 @@ async function openTabPage(session, tabIndex, targetUrl) {
     emit('tab.open.started', { tab_index: tabIndex });
 
     try {
+        if (shouldSkipRedundantTabNavigation() && isSamePageUrl(safePageUrl(page), targetUrl)) {
+            console.log(`↷ [Tab ${tabIndex + 1}] Sudah di halaman target, skip reload`);
+            emit('tab.open.skipped', { tab_index: tabIndex, reason: 'already_on_target' });
+            return page;
+        }
         await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
         console.log(`✅ [Tab ${tabIndex + 1}] Halaman dimuat`);
         emit('tab.open.done', { tab_index: tabIndex });
@@ -466,6 +483,7 @@ async function runTab(tabIndex, employees, page, data, split, session, templateN
         metadata: { ...(data.metadata || {}) },
         data: employees
     };
+    tabData.metadata.deferEmployeeSyncVerification = process.env.MULTI_TAB_DEFER_SYNC_VERIFY !== 'false';
     const tabContext = {
         data: tabData,
         metadata: tabData.metadata
@@ -483,6 +501,9 @@ async function runTab(tabIndex, employees, page, data, split, session, templateN
         await engine.executeSteps([split.loopStep], tabContext);
         const addedRows = Number(tabContext.metadata?.addedRows || 0);
         await submitTaskRegisterTab(page, tabIndex, addedRows);
+        if (tabContext.metadata?.deferEmployeeSyncVerification) {
+            await engine.executeSteps([{ action: 'verifyDeferredEmployeeSync', params: {} }], tabContext);
+        }
         tabStats.done = employees.length;
         console.log(`✅ [Tab ${tabIndex + 1}] ✅ Selesai (${employees.length} employee(s))`);
         emit('tab.completed', { tab_index: tabIndex, status: 'completed', added_rows: addedRows, ...tabStats });
@@ -580,7 +601,7 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
     // ══════════════════════════════════════════════════════
     // 2. SESSION MANAGEMENT
     // ══════════════════════════════════════════════════════
-    const freshLogin = process.env.FRESH_LOGIN !== 'false';
+    const freshLogin = process.env.FRESH_LOGIN === 'true';
     const sessionId = `millware-${templateName}-${dataFilePath.replace(/[^a-zA-Z0-9]/g, '_').slice(-20)}`;
 
     console.log('\n' + '═'.repeat(70));
@@ -773,5 +794,7 @@ module.exports = {
     submitTaskRegisterTab,
     useIsolatedTabSessions,
     shouldBringTabToFrontOnTrigger,
+    shouldSkipRedundantTabNavigation,
+    isSamePageUrl,
     activateTab
 };

@@ -27,6 +27,14 @@ const PASSWORD = process.env.MILLWARE_PASS || 'adm075';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+process.stdout.on('error', (error) => {
+    if (error.code !== 'EPIPE') throw error;
+});
+
+process.stderr.on('error', (error) => {
+    if (error.code !== 'EPIPE') throw error;
+});
+
 const isScreenshotEnabled = () => process.env.SCREENSHOT !== 'false';
 
 const log = (...args) => {
@@ -133,6 +141,21 @@ const waitForNavigationSoft = async (page, action, timeout = 15000) => {
 };
 
 const isNavigationTransientError = (error) => /Execution context was destroyed|Cannot find context|Target closed|Protocol error/i.test(error?.message || '');
+
+const isRedirectLoopError = (error) => /ERR_TOO_MANY_REDIRECTS/i.test(error?.message || '');
+
+const clearBrowserSession = async (page) => {
+    let client = null;
+    try {
+        client = await page.target().createCDPSession();
+        await client.send('Network.clearBrowserCookies');
+        await client.send('Network.clearBrowserCache');
+    } catch (_) {
+        // Session cleanup is best effort.
+    } finally {
+        if (client) await client.detach().catch(() => null);
+    }
+};
 
 const getVisibleElementInfo = async (page, selectors) => {
     return page.evaluate((selectorList) => {
@@ -286,13 +309,31 @@ const login = async (page) => {
 };
 
 const navigateToListPage = async (page) => {
-    await page.goto(TASK_REGISTER_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    try {
+        await page.goto(TASK_REGISTER_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    } catch (error) {
+        if (!isRedirectLoopError(error)) throw error;
+        log('Redirect loop while opening list page; clearing browser session and logging in again');
+        await clearBrowserSession(page);
+        await sleep(1500);
+        await login(page);
+        await page.goto(TASK_REGISTER_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    }
     await sleep(1500);
 
     if (await page.$('#txtUsername')) {
         log('Session expired while opening list page, logging in again');
         await login(page);
-        await page.goto(TASK_REGISTER_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        try {
+            await page.goto(TASK_REGISTER_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        } catch (error) {
+            if (!isRedirectLoopError(error)) throw error;
+            log('Redirect loop after login; clearing browser session and retrying list page once');
+            await clearBrowserSession(page);
+            await sleep(1500);
+            await login(page);
+            await page.goto(TASK_REGISTER_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        }
         await sleep(1500);
     }
 
@@ -1042,8 +1083,49 @@ const partitionTargets = (targets, maxEngines) => {
     return partitions.filter((partition) => partition.length > 0);
 };
 
+const normalizeParallelMode = (value) => {
+    const mode = String(value || process.env.OT_DELETE_PARALLEL_MODE || 'windows').toLowerCase();
+    return ['tabs', 'windows', 'hybrid'].includes(mode) ? mode : 'windows';
+};
+
+const buildWorkerGroups = (docTargets, options = {}) => {
+    const parallelMode = normalizeParallelMode(options.parallelMode || options.concurrencyMode);
+    const maxWorkers = Math.max(1, Math.min(20, parseInt(options.maxWorkers || '10', 10) || 10));
+    const legacyTabCount = Math.max(1, parseInt(options.tabCount || options.tabs || '1', 10) || 1);
+    const requestedWindows = Math.max(1, parseInt(options.windowCount || options.windows || (parallelMode === 'windows' ? legacyTabCount : '1'), 10) || 1);
+    const requestedTabsPerWindow = Math.max(1, parseInt(options.tabsPerWindow || options.tabCount || options.tabs || '1', 10) || 1);
+    const windowCount = parallelMode === 'tabs'
+        ? 1
+        : Math.min(requestedWindows, docTargets.length, maxWorkers);
+    const tabsPerWindow = parallelMode === 'windows'
+        ? 1
+        : Math.max(1, Math.min(requestedTabsPerWindow, Math.ceil(maxWorkers / windowCount)));
+    const totalWorkers = Math.min(docTargets.length, maxWorkers, windowCount * tabsPerWindow);
+    const partitions = partitionTargets(docTargets, totalWorkers);
+    const groups = [];
+
+    for (let windowIndex = 0; windowIndex < windowCount; windowIndex += 1) {
+        const workers = [];
+        for (let tabIndex = 0; tabIndex < tabsPerWindow; tabIndex += 1) {
+            const workerIndex = windowIndex * tabsPerWindow + tabIndex;
+            const partition = partitions[workerIndex] || [];
+            if (partition.length === 0) continue;
+            workers.push({ workerIndex, tabIndex, partition });
+        }
+        if (workers.length > 0) groups.push({ windowIndex, workers });
+    }
+
+    return {
+        parallelMode,
+        windowCount: groups.length,
+        tabsPerWindow,
+        totalWorkers: partitions.length,
+        groups,
+        partitions
+    };
+};
+
 const runTabbedPartitions = async (docTargets, options = {}) => {
-    const tabCount = Math.max(1, parseInt(options.tabCount || '1', 10));
     const category = String(options.category || 'ot').toLowerCase();
     const dryRun = Boolean(options.dryRun);
     const employeeFilter = normalizeEmployeeFilter(options.employeeFilter || options.employees || []);
@@ -1051,79 +1133,93 @@ const runTabbedPartitions = async (docTargets, options = {}) => {
     const year = options.year || null;
     const maxPages = Math.max(1, parseInt(options.maxPages || '50', 10));
     const forceListSearch = Boolean(options.forceListSearch);
-    const partitions = partitionTargets(docTargets, Math.min(tabCount, docTargets.length));
+    const plan = buildWorkerGroups(docTargets, options);
     const runProfilePrefix = `ot_delete_${Date.now()}`;
     const allResults = [];
 
     console.log('');
     console.log('='.repeat(70));
-    console.log(`DELETE RUNNER TABS - ${docTargets.length} DocID target(s), category=${category}, dryRun=${dryRun}, tabs=${partitions.length}`);
+    console.log(`DELETE RUNNER PARALLEL - ${docTargets.length} DocID target(s), category=${category}, dryRun=${dryRun}, mode=${plan.parallelMode}, windows=${plan.windowCount}, tabsPerWindow=${plan.tabsPerWindow}, workers=${plan.totalWorkers}`);
     console.log(`Open mode: ${forceListSearch ? 'list-search' : 'direct-when-possible'}`);
     if (employeeFilter.length > 0) console.log(`Employee filter: ${employeeFilter.map((e) => e.empCode).join(', ')}`);
     console.log('='.repeat(70));
-    partitions.forEach((partition, index) => {
-        console.log(`Tab ${index + 1}: ${partition.map((target) => target.label || target.internalId || target.docNumber).join(', ')}`);
+    plan.partitions.forEach((partition, index) => {
+        console.log(`Worker ${index + 1}: ${partition.map((target) => target.label || target.internalId || target.docNumber).join(', ')}`);
     });
     writeJsonLog('docid-partitions', {
         export_date: new Date().toISOString(),
         category,
         dryRun,
-        tabs: partitions.length,
+        parallelMode: plan.parallelMode,
+        windows: plan.windowCount,
+        tabsPerWindow: plan.tabsPerWindow,
+        workers: plan.totalWorkers,
         forceListSearch,
         totalDocIds: docTargets.length,
-        partitions: partitions.map((partition, index) => ({
-            tab: index + 1,
+        partitions: plan.partitions.map((partition, index) => ({
+            worker: index + 1,
             total: partition.length,
             docTargets: partition
         }))
     });
     console.log('');
 
-    await Promise.all(partitions.map(async (partition, partitionIndex) => {
-        const profileName = `${runProfilePrefix}_tab_${partitionIndex + 1}`;
+    await Promise.all(plan.groups.map(async (group) => {
+        const profileName = `${runProfilePrefix}_window_${group.windowIndex + 1}`;
         let browser = null;
-        let page = null;
         try {
-            const created = await createBrowser(partitionIndex + 1, profileName);
-            browser = created.browser;
-            page = created.page;
-            const tabLabel = `Tab ${partitionIndex + 1}`;
-            await sleep(partitionIndex * 1500);
-            log(`${tabLabel}: browser/session ready profile=${profileName}`);
-            await login(page);
+            browser = await launchBrowser(group.windowIndex + 1, profileName);
+            await sleep(group.windowIndex * 2000);
+            log(`Window ${group.windowIndex + 1}: browser ready profile=${profileName}, tabs=${group.workers.length}`);
 
-            for (const target of partition) {
-                try {
-                    const docLabel = target.label || target.internalId || target.docNumber;
-                    log(`${tabLabel}: start ${docLabel}`);
-                    const result = await processDocId(page, target, {
-                        month,
-                        year,
-                        category,
-                        employeeFilter,
-                        dryRun,
-                        maxPages,
-                        forceListSearch,
-                        onProgress: (info) => {
-                            if (info.result) allResults.push({ ...info.result, tab: partitionIndex + 1 });
-                        }
-                    });
-                    console.log(JSON.stringify({ ...result, tab: partitionIndex + 1 }));
-                    if (dryRun) {
-                        allResults.push(...result.results.map((item) => ({ ...item, tab: partitionIndex + 1 })));
-                    } else {
-                        allResults.push(...result.results
-                            .filter((item) => item.status !== 'deleted')
-                            .map((item) => ({ ...item, tab: partitionIndex + 1 })));
-                    }
-                    log(`${tabLabel}: done ${docLabel}`);
-                } catch (error) {
-                    const docLabel = target.label || target.internalId || target.docNumber;
-                    const result = { docId: docLabel, tab: partitionIndex + 1, status: 'error', error: error.message };
-                    allResults.push(result);
-                    console.error(JSON.stringify(result));
-                }
+            const pages = [];
+            for (let i = 0; i < group.workers.length; i += 1) {
+                const page = await browser.newPage();
+                await applyBrowserWindow(page, { headless: process.env.HEADLESS === 'true' });
+                pages.push(page);
             }
+
+            await Promise.all(group.workers.map(async (worker, localIndex) => {
+                const page = pages[localIndex];
+                const workerLabel = `Window ${group.windowIndex + 1} Tab ${worker.tabIndex + 1}`;
+                await sleep(worker.workerIndex * 750);
+                log(`${workerLabel}: session start`);
+                await login(page);
+
+                for (const target of worker.partition) {
+                    try {
+                        const docLabel = target.label || target.internalId || target.docNumber;
+                        log(`${workerLabel}: start ${docLabel}`);
+                        const result = await processDocId(page, target, {
+                            month,
+                            year,
+                            category,
+                            employeeFilter,
+                            dryRun,
+                            maxPages,
+                            forceListSearch,
+                            onProgress: (info) => {
+                                if (info.result) allResults.push({ ...info.result, window: group.windowIndex + 1, tab: worker.tabIndex + 1, worker: worker.workerIndex + 1 });
+                            }
+                        });
+                        const annotatedResult = { ...result, window: group.windowIndex + 1, tab: worker.tabIndex + 1, worker: worker.workerIndex + 1 };
+                        console.log(JSON.stringify(annotatedResult));
+                        if (dryRun) {
+                            allResults.push(...result.results.map((item) => ({ ...item, window: group.windowIndex + 1, tab: worker.tabIndex + 1, worker: worker.workerIndex + 1 })));
+                        } else {
+                            allResults.push(...result.results
+                                .filter((item) => item.status !== 'deleted')
+                                .map((item) => ({ ...item, window: group.windowIndex + 1, tab: worker.tabIndex + 1, worker: worker.workerIndex + 1 })));
+                        }
+                        log(`${workerLabel}: done ${docLabel}`);
+                    } catch (error) {
+                        const docLabel = target.label || target.internalId || target.docNumber;
+                        const result = { docId: docLabel, window: group.windowIndex + 1, tab: worker.tabIndex + 1, worker: worker.workerIndex + 1, status: 'error', error: error.message };
+                        allResults.push(result);
+                        console.error(JSON.stringify(result));
+                    }
+                }
+            }));
         } finally {
             if (browser) {
                 await browser.close().catch(() => null);
@@ -1138,7 +1234,7 @@ const runTabbedPartitions = async (docTargets, options = {}) => {
 
     console.log('');
     console.log('='.repeat(70));
-    console.log(`DELETE RUNNER TABS COMPLETE - deleted=${deletedCount}, dryRunTargets=${dryRunCount}, skipped=${skippedCount}, errors=${errorCount}`);
+    console.log(`DELETE RUNNER PARALLEL COMPLETE - deleted=${deletedCount}, dryRunTargets=${dryRunCount}, skipped=${skippedCount}, errors=${errorCount}`);
     console.log('='.repeat(70));
 
     return allResults;
@@ -1174,6 +1270,10 @@ const runParallel = async (targets, options = {}) => {
     const year = options.year || null;
     const maxPages = Math.max(1, parseInt(options.maxPages || '50', 10));
     const tabCount = Math.max(1, parseInt(options.tabCount || '1', 10));
+    const parallelMode = normalizeParallelMode(options.parallelMode || options.concurrencyMode);
+    const windowCount = Math.max(1, parseInt(options.windowCount || options.windows || (parallelMode === 'windows' ? tabCount : '1'), 10) || 1);
+    const tabsPerWindow = Math.max(1, parseInt(options.tabsPerWindow || tabCount || '1', 10) || 1);
+    const workerCount = parallelMode === 'tabs' ? tabCount : parallelMode === 'windows' ? windowCount : windowCount * tabsPerWindow;
     let forceListSearch = Boolean(options.forceListSearch);
 
     let docTargets = (Array.isArray(targets) ? targets : []).map(normalizeTarget).filter((target) => target.internalId || target.docNumber || target.label);
@@ -1187,7 +1287,7 @@ const runParallel = async (targets, options = {}) => {
         throw new Error('No DocID targets to process');
     }
 
-    if (tabCount > 1) {
+    if (workerCount > 1 || parallelMode !== 'windows') {
         return runTabbedPartitions(docTargets, {
             category,
             dryRun,
@@ -1195,7 +1295,10 @@ const runParallel = async (targets, options = {}) => {
             month,
             year,
             maxPages,
+            parallelMode,
+            windowCount,
             tabCount,
+            tabsPerWindow,
             forceListSearch
         });
     }
@@ -1301,6 +1404,9 @@ const runFromDataFile = async (options = {}) => {
         limit: options.limit ?? metadata.limit ?? 0,
         maxPages: options.maxPages ?? metadata.maxPages ?? 50,
         tabCount: options.tabCount ?? metadata.tabCount ?? 1,
+        parallelMode: options.parallelMode ?? metadata.parallelMode ?? metadata.concurrencyMode ?? 'windows',
+        windowCount: options.windowCount ?? metadata.windowCount ?? metadata.windows ?? metadata.tabCount ?? 1,
+        tabsPerWindow: options.tabsPerWindow ?? metadata.tabsPerWindow ?? metadata.tabCount ?? 1,
         forceListSearch: options.forceListSearch ?? metadata.forceListSearch ?? false
     });
 };
@@ -1313,17 +1419,26 @@ const main = async () => {
     const categoryArgIndex = args.findIndex((arg) => arg === '--category');
     const maxPagesArgIndex = args.findIndex((arg) => arg === '--max-pages');
     const tabsArgIndex = args.findIndex((arg) => arg === '--tabs' || arg === '--tab-count');
+    const windowsArgIndex = args.findIndex((arg) => arg === '--windows' || arg === '--window-count');
+    const tabsPerWindowArgIndex = args.findIndex((arg) => arg === '--tabs-per-window');
+    const parallelModeArgIndex = args.findIndex((arg) => arg === '--parallel-mode' || arg === '--concurrency-mode');
     const forceListSearch = args.includes('--force-list-search') || args.includes('--search-list');
     const limit = limitArgIndex >= 0 ? parseInt(args[limitArgIndex + 1] || '0', 10) : 0;
     const category = categoryArgIndex >= 0 ? String(args[categoryArgIndex + 1] || 'ot').toLowerCase() : 'ot';
     const maxPages = maxPagesArgIndex >= 0 ? parseInt(args[maxPagesArgIndex + 1] || '50', 10) : 50;
     const tabCount = tabsArgIndex >= 0 ? parseInt(args[tabsArgIndex + 1] || '1', 10) : 1;
+    const parallelMode = parallelModeArgIndex >= 0 ? normalizeParallelMode(args[parallelModeArgIndex + 1]) : undefined;
+    const windowCount = windowsArgIndex >= 0 ? parseInt(args[windowsArgIndex + 1] || '1', 10) : undefined;
+    const tabsPerWindow = tabsPerWindowArgIndex >= 0 ? parseInt(args[tabsPerWindowArgIndex + 1] || '1', 10) : undefined;
     const positional = args.filter((arg, index) => {
         if (arg === '--dry-run' || arg === '--dry' || arg === '--all') return false;
         if (arg === '--limit' || (limitArgIndex >= 0 && index === limitArgIndex + 1)) return false;
         if (arg === '--category' || (categoryArgIndex >= 0 && index === categoryArgIndex + 1)) return false;
         if (arg === '--max-pages' || (maxPagesArgIndex >= 0 && index === maxPagesArgIndex + 1)) return false;
         if ((arg === '--tabs' || arg === '--tab-count') || (tabsArgIndex >= 0 && index === tabsArgIndex + 1)) return false;
+        if ((arg === '--windows' || arg === '--window-count') || (windowsArgIndex >= 0 && index === windowsArgIndex + 1)) return false;
+        if (arg === '--tabs-per-window' || (tabsPerWindowArgIndex >= 0 && index === tabsPerWindowArgIndex + 1)) return false;
+        if ((arg === '--parallel-mode' || arg === '--concurrency-mode') || (parallelModeArgIndex >= 0 && index === parallelModeArgIndex + 1)) return false;
         if (arg === '--force-list-search' || arg === '--search-list') return false;
         return !arg.startsWith('--');
     });
@@ -1352,6 +1467,12 @@ Usage:
   node delete-ot-runner.js --dry-run --all --tabs 5 --force-list-search
       Open each DocID through Task Register List search before inspecting detail rows.
 
+  node delete-ot-runner.js --all --parallel-mode windows --windows 5 --force-list-search
+      Process DocIDs with five isolated browser windows/profiles.
+
+  node delete-ot-runner.js --all --parallel-mode hybrid --windows 2 --tabs-per-window 3
+      Process DocIDs with two browser windows and three tabs per window.
+
   node delete-ot-runner.js 34986 34987
       Click matching DocIDs from Task Register list, then delete OT rows.
 `);
@@ -1359,12 +1480,12 @@ Usage:
     }
 
     if (args.includes('--all')) {
-        await runFromDataFile({ dryRun, limit, category, maxPages, tabCount, forceListSearch });
+        await runFromDataFile({ dryRun, limit, category, maxPages, tabCount, parallelMode, windowCount, tabsPerWindow, forceListSearch });
         return;
     }
 
     if (positional.length > 0) {
-        await runParallel(positional.map((docId) => ({ internalId: docId, label: docId })), { dryRun: Boolean(dryRun), category, maxPages, tabCount, forceListSearch });
+        await runParallel(positional.map((docId) => ({ internalId: docId, label: docId })), { dryRun: Boolean(dryRun), category, maxPages, tabCount, parallelMode, windowCount, tabsPerWindow, forceListSearch });
         return;
     }
 

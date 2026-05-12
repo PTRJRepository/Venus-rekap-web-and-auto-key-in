@@ -73,10 +73,22 @@ const fetchPayrollData = async (month, year) => {
                 py.gajiPokok += amount;
             } else if (dRow.PYType === 'Addition' && dRow.PYCompCode !== '#GP#') {
                 py.tunjanganTotal += amount;
-                py.tunjanganDetails.push({ name: dRow.PYCompName, amount: amount, isTHP });
+                py.tunjanganDetails.push({
+                    code: dRow.PYCompCode,
+                    name: dRow.PYCompName,
+                    amount: amount,
+                    type: dRow.PYType,
+                    isTHP
+                });
             } else if (dRow.PYType === 'Deduction') {
                 py.potonganTotal += amount;
-                py.potonganDetails.push({ name: dRow.PYCompName, amount: amount, isTHP });
+                py.potonganDetails.push({
+                    code: dRow.PYCompCode,
+                    name: dRow.PYCompName,
+                    amount: amount,
+                    type: dRow.PYType,
+                    isTHP
+                });
             }
         });
 
@@ -115,7 +127,8 @@ const fetchPayrollData = async (month, year) => {
             let vPph21 = 0, vBpjsKes = 0, vBpjsPen = 0, vSpsi = 0;
             py.potonganDetails.forEach(d => {
                 const n = d.name.toUpperCase();
-                if (n.includes('PPH21')) vPph21 += Math.abs(d.amount);
+                const compactName = n.replace(/[^A-Z0-9]/g, '');
+                if (compactName.includes('PPH21')) vPph21 += Math.abs(d.amount);
                 else if (n.includes('BPJS KESEHATAN DITANGGUNG KARYAWAN')) vBpjsKes += Math.abs(d.amount);
                 else if (n.includes('PENSIUN DITANGGUNG KARYAWAN') || n.includes('JHT')) vBpjsPen += Math.abs(d.amount);
                 else if (n.includes('SPSI')) vSpsi += Math.abs(d.amount);

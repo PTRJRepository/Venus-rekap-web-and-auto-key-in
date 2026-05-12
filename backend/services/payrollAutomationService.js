@@ -1,7 +1,6 @@
 const { executeQuery } = require('./gateway');
 const { fetchPayrollData } = require('./payrollService');
-const { fetchMillwarePayroll } = require('./payrollComparisonService');
-const { getAllEmployees } = require('./employeeMillService');
+const { buildPayrollAutomationComponents } = require('./payrollComponentMapping');
 const fs = require('fs');
 const path = require('path');
 
@@ -229,56 +228,27 @@ const preparePayrollAutomationData = async (month, year) => {
 
         // 3. Build automation data
         const automationData = [];
+        const diagnostics = [];
         const tolerance = 10; // 10 rupiah tolerance
 
         for (const emp of payrollResult.data) {
             if (!emp.ptrjId || emp.ptrjId === '-') {
                 console.log(`[PayrollAutomation] Skip ${emp.name} - no PTRJ ID`);
+                diagnostics.push({
+                    status: 'SKIPPED_NO_PTRJ_ID',
+                    employeeId: emp.id,
+                    employeeName: emp.name
+                });
                 continue;
             }
 
-            const sync = emp.sync;
-            const missingComponents = [];
-
-            // Check each component for MISS
-            const components = [
-                { key: 'jabatan', venusKey: 'jabatan', compName: 'TUNJANGAN JABATAN' },
-                { key: 'masaKerja', venusKey: 'masaKerja', compName: 'TUNJANGAN MASA KERJA' },
-                { key: 'beras', venusKey: 'beras', compName: 'TUNJANGAN BERAS' },
-                { key: 'premi', venusKey: 'premi', compName: 'PREMI/INSENTIF' },
-                { key: 'pph21', venusKey: 'pph21', compName: 'PPH21' },
-                { key: 'bpjsKes', venusKey: 'bpjsKes', compName: 'BPJS KESEHATAN' },
-                { key: 'bpjsPen', venusKey: 'bpjsPen', compName: 'BPJS PENSIUN' },
-                { key: 'spsi', venusKey: 'spsi', compName: 'SPSI' }
-            ];
-
-            for (const comp of components) {
-                const vAmount = sync[comp.venusKey]?.venus || 0;
-                const mAmount = sync[comp.venusKey]?.millware || 0;
-
-                // Only process if Venus has value > 0
-                if (vAmount > 0) {
-                    const diff = Math.abs(vAmount - mAmount);
-                    const isMiss = diff > tolerance;
-
-                    if (isMiss) {
-                        // Find matching ADCode
-                        const adCode = findADCodeByVenusComponent(comp.compName, taskCodes);
-
-                        if (adCode) {
-                            missingComponents.push({
-                                componentName: comp.compName,
-                                adCode: adCode,
-                                venusAmount: vAmount,
-                                millwareAmount: mAmount,
-                                diff: diff
-                            });
-                        } else {
-                            console.log(`[PayrollAutomation] WARN: No ADCode found for ${comp.compName}`);
-                        }
-                    }
-                }
-            }
+            const { components: missingComponents, diagnostics: empDiagnostics } = buildPayrollAutomationComponents(emp, taskCodes, tolerance);
+            empDiagnostics.forEach(item => diagnostics.push({
+                ...item,
+                employeeId: emp.id,
+                employeeName: emp.name,
+                ptrjId: emp.ptrjId
+            }));
 
             if (missingComponents.length > 0) {
                 automationData.push({
@@ -291,7 +261,12 @@ const preparePayrollAutomationData = async (month, year) => {
             }
         }
 
-        console.log(`[PayrollAutomation] Found ${automationData.length} employees with MISS components`);
+        const totalComponents = automationData.reduce((sum, emp) => sum + emp.components.length, 0);
+        const unmappedCount = diagnostics.filter(item => item.status === 'UNMAPPED').length;
+        console.log(`[PayrollAutomation] Found ${automationData.length} employees with ${totalComponents} MISS components`);
+        if (unmappedCount > 0) {
+            console.log(`[PayrollAutomation] WARN: ${unmappedCount} component(s) need mapping review`);
+        }
 
         // 4. Save to file
         const outputDir = path.resolve(__dirname, '..', '..', 'browser-automation-engine', 'testing_data');
@@ -307,9 +282,13 @@ const preparePayrollAutomationData = async (month, year) => {
                 month,
                 year,
                 generatedAt: new Date().toISOString(),
-                totalEmployees: automationData.length
+                totalEmployees: automationData.length,
+                totalComponents,
+                unmappedComponents: unmappedCount,
+                tolerance
             },
-            employees: automationData
+            employees: automationData,
+            diagnostics
         };
 
         fs.writeFileSync(outputFile, JSON.stringify(fileData, null, 2), 'utf8');

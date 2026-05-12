@@ -37,6 +37,11 @@ const normalizeTargetCategory = (category = 'OT') => {
     return 'ot';
 };
 
+const normalizeParallelMode = (mode = 'windows') => {
+    const normalized = String(mode || 'windows').toLowerCase();
+    return ['tabs', 'windows', 'hybrid'].includes(normalized) ? normalized : 'windows';
+};
+
 const buildLineCategoryFilter = (category) => {
     const normalized = normalizeTargetCategory(category);
     if (normalized === 'ot') return 'AND ISNULL(L.OT, 0) = 1';
@@ -172,7 +177,9 @@ let currentProcess = null;
  * @param {boolean} [payload.headless] - browser visibility
  * @param {number} [payload.limit] - optional DocID limit for mode all
  * @param {number} [payload.maxPages] - detail pages guard per DocID
- * @param {number} [payload.tabCount] - browser tabs, 1 = single tab
+ * @param {string} [payload.parallelMode] - "windows" | "tabs" | "hybrid"
+ * @param {number} [payload.windowCount] - isolated browser windows/profiles
+ * @param {number} [payload.tabCount] - tabs per window for hybrid/tabs mode
  * @param {boolean} [payload.forceListSearch] - open DocIDs through list search instead of direct detail URL
  * @param {number} payload.month - Month (1-12)
  * @param {number} payload.year - Year
@@ -193,6 +200,8 @@ const prepareOTResetData = (payload) => {
         limit = 0,
         maxPages = 50,
         tabCount = 1,
+        windowCount = 1,
+        parallelMode = 'windows',
         forceListSearch = false,
         month,
         year
@@ -223,6 +232,8 @@ const prepareOTResetData = (payload) => {
     const numericLimit = Math.max(0, parseInt(limit || 0, 10) || 0);
     const numericMaxPages = Math.max(1, parseInt(maxPages || 50, 10) || 50);
     const numericTabCount = Math.max(1, Math.min(10, parseInt(tabCount || 1, 10) || 1));
+    const numericWindowCount = Math.max(1, Math.min(10, parseInt(windowCount || 1, 10) || 1));
+    const normalizedParallelMode = normalizeParallelMode(parallelMode);
 
     const normalizedDocTargets = (Array.isArray(docTargets) && docTargets.length > 0)
         ? docTargets.map(t => ({
@@ -251,6 +262,9 @@ const prepareOTResetData = (payload) => {
             limit: numericLimit,
             maxPages: numericMaxPages,
             tabCount: numericTabCount,
+            windowCount: numericWindowCount,
+            tabsPerWindow: numericTabCount,
+            parallelMode: normalizedParallelMode,
             forceListSearch: Boolean(forceListSearch),
             month,
             year,
@@ -271,7 +285,7 @@ const prepareOTResetData = (payload) => {
         console.error(`[OTReset] Failed to write data file: ${writeErr.message}`);
         throw new Error(`Gagal menyimpan data OT Reset: ${writeErr.message}`);
     }
-    console.log(`[OTReset] Data saved: mode=${normalizedMode}, docIds=${docIds.length}, processAllFromList=${processAllFromList}, category=${targetCategory}, dryRun=${Boolean(dryRun)}, headless=${Boolean(headless)}, limit=${numericLimit}, maxPages=${numericMaxPages}, tabCount=${numericTabCount}, forceListSearch=${Boolean(forceListSearch)}, period=${periodStart} to ${periodEnd}`);
+    console.log(`[OTReset] Data saved: mode=${normalizedMode}, docIds=${docIds.length}, processAllFromList=${processAllFromList}, category=${targetCategory}, dryRun=${Boolean(dryRun)}, headless=${Boolean(headless)}, limit=${numericLimit}, maxPages=${numericMaxPages}, parallelMode=${normalizedParallelMode}, windowCount=${numericWindowCount}, tabCount=${numericTabCount}, forceListSearch=${Boolean(forceListSearch)}, period=${periodStart} to ${periodEnd}`);
 
     return data;
 };
@@ -327,9 +341,12 @@ const startOTResetProcess = (options = {}) => {
     if (options.limit && Number(options.limit) > 0) args.push('--limit', String(Number(options.limit)));
     if (options.maxPages) args.push('--max-pages', String(Number(options.maxPages)));
     if (options.tabCount) args.push('--tabs', String(Number(options.tabCount)));
+    if (options.windowCount) args.push('--windows', String(Number(options.windowCount)));
+    if (options.tabsPerWindow) args.push('--tabs-per-window', String(Number(options.tabsPerWindow)));
+    if (options.parallelMode) args.push('--parallel-mode', String(options.parallelMode));
     if (options.forceListSearch) args.push('--force-list-search');
 
-    console.log(`[OTReset] Starting delete-ot-runner.js (headless=${env.HEADLESS}, dryRun=${Boolean(options.dryRun)}, limit=${options.limit || 0}, maxPages=${options.maxPages || 50}, tabCount=${options.tabCount || 1}, forceListSearch=${Boolean(options.forceListSearch)})`);
+    console.log(`[OTReset] Starting delete-ot-runner.js (headless=${env.HEADLESS}, dryRun=${Boolean(options.dryRun)}, limit=${options.limit || 0}, maxPages=${options.maxPages || 50}, parallelMode=${options.parallelMode || 'windows'}, windowCount=${options.windowCount || 1}, tabCount=${options.tabCount || 1}, forceListSearch=${Boolean(options.forceListSearch)})`);
 
     const child = spawn('node', args, {
         cwd: ENGINE_DIR,

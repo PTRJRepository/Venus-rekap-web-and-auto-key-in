@@ -1483,6 +1483,89 @@ const updateFailedEmployeeCSV = async (failedRecords, context) => {
     }
 };
 
+const getEmployeeDateRange = (employee, context = {}) => {
+    if (context.data?.metadata?.period_start) {
+        return {
+            startDate: context.data.metadata.period_start,
+            endDate: context.data.metadata.period_end
+        };
+    }
+
+    const dates = Object.keys(employee?.Attendance || employee?.attendance || {}).sort();
+    if (dates.length > 0) {
+        return { startDate: dates[0], endDate: dates[dates.length - 1] };
+    }
+
+    const now = new Date();
+    return {
+        startDate: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`,
+        endDate: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`
+    };
+};
+
+const verifyEmployeesSyncBatch = async (employees, context = {}) => {
+    const validEmployees = (employees || []).filter((employee) => employee?.PTRJEmployeeID);
+    if (!validEmployees.length) {
+        return { hasMismatches: false, failedRecords: [], missingDates: [] };
+    }
+
+    const firstRange = getEmployeeDateRange(validEmployees[0], context);
+    const startDate = context.data?.metadata?.period_start || firstRange.startDate;
+    const endDate = context.data?.metadata?.period_end || firstRange.endDate;
+    const comparisonService = require('../../backend/services/comparisonService');
+    const result = await comparisonService.compareWithTaskReg(validEmployees, startDate, endDate, {
+        onlyOvertime: context.metadata?.onlyOvertime || false
+    });
+
+    const byPtrj = new Map();
+    validEmployees.forEach((employee) => {
+        byPtrj.set(employee.PTRJEmployeeID, employee);
+    });
+
+    const failedRecords = [];
+    const missingDates = [];
+    let hasMismatches = false;
+
+    (result.results || []).forEach((res) => {
+        const employee = byPtrj.get(res.ptrjId);
+        if (!employee) return;
+
+        const attendance = employee.Attendance || employee.attendance || {};
+        const att = attendance[res.date];
+        if (!att) return;
+
+        if (res.status === 'MISS') {
+            hasMismatches = true;
+            missingDates.push(`${res.ptrjId}:${res.date}`);
+            const details = res.details || {};
+            att.regularMatched = details.regularMatched;
+            att.otMatched = details.otMatched;
+            att.syncStatus = 'MISS';
+            failedRecords.push({
+                employeeId: employee.EmployeeID || employee.id || 'N/A',
+                employeeName: employee.EmployeeName || employee.name || 'Unknown',
+                ptrjId: employee.PTRJEmployeeID || 'N/A',
+                date: res.date,
+                venusStatus: att.status || 'N/A',
+                venusRegularHours: att.regularHours || 0,
+                venusOvertimeHours: att.overtimeHours || 0,
+                syncStatus: 'MISS',
+                reason: `Transfer gagal - Regular: ${details.regularMatched ? 'OK' : 'MISS'}, OT: ${details.otMatched ? 'OK' : 'MISS'}`,
+                millwareRecords: details.records || 0,
+                millwareHours: details.millwareHours || 0
+            });
+        } else {
+            att.syncStatus = 'SYNCED';
+        }
+    });
+
+    if (failedRecords.length) {
+        await updateFailedEmployeeCSV(failedRecords, context);
+    }
+
+    return { hasMismatches, failedRecords, missingDates, summary: result.summary };
+};
+
 const actions = {
     /**
      * Navigasi ke URL dengan retry logic
@@ -1615,33 +1698,24 @@ const actions = {
             return;
         }
 
+        if (context.metadata?.deferEmployeeSyncVerification) {
+            if (!Array.isArray(context.metadata.deferredSyncEmployees)) {
+                context.metadata.deferredSyncEmployees = [];
+            }
+            context.metadata.deferredSyncEmployees.push(employee);
+            context.retryNeeded = false;
+            context.employeeFailed = false;
+            console.log(`⏭️ Deferred DB sync verification for ${employee.PTRJEmployeeID}; batch check runs after tab Save.`);
+            return;
+        }
+
         console.log(`🔍 Verifying Sync Status for ${employee.PTRJEmployeeID}...`);
 
         try {
             // Dynamic import to avoid load issues
+            const { startDate, endDate } = getEmployeeDateRange(employee, context);
             const comparisonService = require('../../backend/services/comparisonService');
-
-            // Calculate date range
-            let startDate, endDate;
-            if (context.data && context.data.metadata && context.data.metadata.period_start) {
-                startDate = context.data.metadata.period_start;
-                endDate = context.data.metadata.period_end;
-            } else {
-                const dates = Object.keys(employee.Attendance || {}).sort();
-                if (dates.length > 0) {
-                    startDate = dates[0];
-                    endDate = dates[dates.length - 1];
-                } else {
-                    // Fallback
-                    const now = new Date();
-                    startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-                    endDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
-                }
-            }
-
-            // Run comparison
-            const venusData = [employee];
-            const result = await comparisonService.compareWithTaskReg(venusData, startDate, endDate, {
+            const result = await comparisonService.compareWithTaskReg([employee], startDate, endDate, {
                 onlyOvertime: context.metadata?.onlyOvertime || false
             });
 
@@ -1712,6 +1786,53 @@ const actions = {
             console.error(`⚠️ Verification failed: ${error.message}`);
             context.retryNeeded = false; // Don't retry on error
             context.employeeFailed = true;
+        }
+    },
+
+    /**
+     * Batch DB verification for multi-tab runs.
+     * Per-employee verification is deferred until after the tab Save, so each tab
+     * performs one comparison query instead of one query per employee.
+     */
+    verifyDeferredEmployeeSync: async (page, params, context) => {
+        const employees = context.metadata?.deferredSyncEmployees || [];
+        if (!employees.length) {
+            console.log('🔍 Deferred sync verification skipped: no queued employees.');
+            return;
+        }
+
+        const unique = [];
+        const seen = new Set();
+        employees.forEach((employee) => {
+            const key = employee.PTRJEmployeeID || employee.EmployeeID || employee.EmployeeName;
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            unique.push(employee);
+        });
+
+        console.log(`🔍 Running deferred DB sync verification for ${unique.length} employee(s)...`);
+        try {
+            const result = await verifyEmployeesSyncBatch(unique, context);
+            context.metadata.deferredSyncResult = {
+                failedRecords: result.failedRecords.length,
+                missingDates: result.missingDates,
+                summary: result.summary
+            };
+            context.metadata.deferredSyncEmployees = [];
+
+            if (result.hasMismatches) {
+                context.employeeFailed = true;
+                context.failedRecords = result.failedRecords;
+                context.failedDates = result.missingDates;
+                console.log(`⚠️ Deferred sync verification found ${result.failedRecords.length} missing/mismatched record(s).`);
+            } else {
+                context.employeeFailed = false;
+                console.log('✅ Deferred sync verification passed for this tab.');
+            }
+        } catch (error) {
+            console.error(`⚠️ Deferred sync verification failed: ${error.message}`);
+            context.employeeFailed = true;
+            context.metadata.deferredSyncError = error.message;
         }
     },
 
@@ -2441,6 +2562,8 @@ const actions = {
         console.log(`   Variable name: "${itemName}"`);
         console.log(`   Steps: ${steps.length} actions\n`);
 
+        const memoryCompactEvery = Math.max(0, parseInt(process.env.MEMORY_COMPACT_EVERY || params.memoryCompactEvery || '5'));
+
         for (let i = 0; i < items.length; i++) {
             // Check if we should skip this item (Resume feature)
             if (i <= lastSuccessIndex) {
@@ -2456,6 +2579,7 @@ const actions = {
                     await engine.closeBrowser();
                     await sleep(2000); // Cool down
                     await engine.launch();
+                    page = engine.page;
                     console.log(`✅  Browser Refreshed!`);
 
                     // Navigate back to base URL if needed (biasanya template handle navigasi, tapi kita pastikan aman)
@@ -2466,7 +2590,7 @@ const actions = {
                     await engine.page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded' });
 
                 } catch (recycleError) {
-                    console.error(`⚠️ Gagal recycle browser: ${recycleError.message}. Melanjutkan...`);
+                console.error(`⚠️ Gagal recycle browser: ${recycleError.message}. Melanjutkan...`);
                 }
             }
 
@@ -2562,6 +2686,17 @@ const actions = {
                     console.log(`  └─────────────────────────\n`);
                 }
             }
+
+            loopContext.__domValuePairs = [];
+            if (context.metadata) {
+                delete context.metadata.beforeAddDomPairProblems;
+                delete context.metadata.lastFailedInput;
+            }
+
+            if (memoryCompactEvery > 0 && engine?.compactMemory && (i + 1) % memoryCompactEvery === 0) {
+                await engine.compactMemory(`forEach ${itemsPath} item ${i + 1}`);
+                page = engine.page || page;
+            }
         }
 
         // Report failed items at the end
@@ -2571,6 +2706,9 @@ const actions = {
                 console.log(`   - ${item.label}: ${item.error}`);
             });
             console.log('');
+            if (params.failOnError) {
+                throw new Error(`forEach "${itemsPath}" failed for ${failedItems.length} item(s)`);
+            }
         }
     },
 
@@ -2603,6 +2741,8 @@ const actions = {
         const entries = Object.entries(obj);
         console.log(`\n🔁 Loop forEachProperty: ${entries.length} properties dari "${objectPath}"`);
         console.log(`   Steps: ${steps.length} actions\n`);
+
+        const memoryCompactEvery = Math.max(0, parseInt(process.env.MEMORY_COMPACT_EVERY || params.memoryCompactEvery || '10'));
 
         for (let i = 0; i < entries.length; i++) {
             const [key, value] = entries[i];
@@ -2685,6 +2825,17 @@ const actions = {
                     console.log(`  └─────────────────────────\n`);
                 }
             }
+
+            loopContext.__domValuePairs = [];
+            if (context.metadata) {
+                delete context.metadata.beforeAddDomPairProblems;
+                delete context.metadata.lastFailedInput;
+            }
+
+            if (memoryCompactEvery > 0 && engine?.compactMemory && (i + 1) % memoryCompactEvery === 0) {
+                await engine.compactMemory(`forEachProperty ${objectPath} item ${i + 1}`);
+                page = engine.page || page;
+            }
         }
 
         // Report failed items at the end
@@ -2698,6 +2849,9 @@ const actions = {
             if (!context.metadata) context.metadata = {};
             context.metadata.employeeFailed = true;
             context.failedAttendanceItems = failedItems;
+            if (params.failOnError) {
+                throw new Error(`forEachProperty "${objectPath}" failed for ${failedItems.length} item(s)`);
+            }
         }
     },
 
@@ -3847,6 +4001,9 @@ const actions = {
                 };
                 console.log(`  ⏭️ Validation shown after Add. No manual refresh; continuing to next data.`);
                 context.__domValuePairs = [];
+                if (params.throwOnValidation === true || params.throwOnFail === true) {
+                    throw new Error(`Add validation failed: ${lastResult.message || 'validation error'}`);
+                }
                 return false;
             }
 
@@ -3876,6 +4033,9 @@ const actions = {
             console.log(`  🛑 Add was not accepted/confirmed; form still not reset. Not counting this row as added.`);
         }
         context.__domValuePairs = [];
+        if (params.throwOnFail === true) {
+            throw new Error(`Add not confirmed: ${lastResult?.message || 'form did not reset'}`);
+        }
         return false;
     },
 

@@ -1125,7 +1125,10 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
     const headless = req.body.headless === true || String(req.body.browserMode || '').toLowerCase() === 'headless';
     const limit = Math.max(0, parseInt(req.body.limit || req.body.docLimit || 0, 10) || 0);
     const maxPages = Math.max(1, parseInt(req.body.maxPages || 50, 10) || 50);
+    const requestedParallelMode = String(req.body.parallelMode || req.body.concurrencyMode || 'windows').toLowerCase();
+    const parallelMode = ['tabs', 'windows', 'hybrid'].includes(requestedParallelMode) ? requestedParallelMode : 'windows';
     const tabCount = Math.max(1, Math.min(10, parseInt(req.body.tabCount || req.body.tabs || 1, 10) || 1));
+    const windowCount = Math.max(1, Math.min(10, parseInt(req.body.windowCount || req.body.windows || (parallelMode === 'windows' ? tabCount : 1), 10) || 1));
 
     if (!month || !year) {
         return res.status(400).json({ error: 'month and year are required' });
@@ -1139,7 +1142,7 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
         let docTargets = effectiveDocIds.map(id => ({ internalId: id, label: id }));
         const effectiveEmployees = Array.isArray(employees) ? employees : [];
 
-        console.log(`[OTReset API] Run request: mode=${targetMode}, docIds=${effectiveDocIds.length}, employees=${effectiveEmployees.length}, category=${category}, dryRun=${dryRun}, headless=${headless}, limit=${limit}, maxPages=${maxPages}, tabCount=${tabCount}`);
+        console.log(`[OTReset API] Run request: mode=${targetMode}, docIds=${effectiveDocIds.length}, employees=${effectiveEmployees.length}, category=${category}, dryRun=${dryRun}, headless=${headless}, limit=${limit}, maxPages=${maxPages}, parallelMode=${parallelMode}, windowCount=${windowCount}, tabCount=${tabCount}`);
 
         if (targetMode === 'all' && effectiveDocIds.length === 0) {
             const dbResult = await fetchDocIdsFromDB(parseInt(month, 10), parseInt(year, 10), [], { category, limit });
@@ -1204,6 +1207,8 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
             limit,
             maxPages,
             tabCount,
+            windowCount,
+            parallelMode,
             forceListSearch: targetMode === 'all',
             month,
             year
@@ -1230,7 +1235,7 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
 
         sendChunk('status', 'starting');
         sendChunk('info', {
-            message: `Starting OT Reset: mode=${metadata.targetMode}, docIds=${metadata.totalDocIds}, category=${metadata.categoryLabel}, dryRun=${metadata.dryRun}`,
+            message: `Starting OT Reset: mode=${metadata.targetMode}, docIds=${metadata.totalDocIds}, category=${metadata.categoryLabel}, dryRun=${metadata.dryRun}, parallel=${metadata.parallelMode}, windows=${metadata.windowCount}, tabs=${metadata.tabCount}`,
             metadata
         });
 
@@ -1240,6 +1245,9 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
             limit: metadata.limit,
             maxPages: metadata.maxPages,
             tabCount: metadata.tabCount,
+            windowCount: metadata.windowCount,
+            tabsPerWindow: metadata.tabsPerWindow,
+            parallelMode: metadata.parallelMode,
             forceListSearch: metadata.forceListSearch,
             category: metadata.category
         });

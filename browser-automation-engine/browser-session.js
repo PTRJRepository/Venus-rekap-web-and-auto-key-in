@@ -214,27 +214,6 @@ class MillwareSession {
                 return id;
             };
             window.cancelAnimationFrame = (id) => clearTimeout(id);
-
-            // === BUSY LOOP KEEP-ALIVE ===
-            // Prevents Chrome from throttling setTimeout/setInterval in background tabs.
-            // Chrome throttles timers to ~1s in background; this busy-wait loop
-            // keeps the tab perceived as "active" by the browser's task scheduler.
-            // Runs as non-blocking async so it doesn't freeze the page.
-            (function keepTabAlive() {
-                let lastBusy = 0;
-                function tick() {
-                    // Touch the event loop: schedule work asynchronously
-                    Promise.resolve().then(() => {
-                        // Touch a shared heap location to prevent GC compaction idle
-                        if (!document.__alive) document.__alive = 0;
-                        document.__alive++;
-                        lastBusy = Date.now();
-                    });
-                    // Re-schedule immediately
-                    setTimeout(tick, 500);
-                }
-                tick();
-            })();
         });
     }
 
