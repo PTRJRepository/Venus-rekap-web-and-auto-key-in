@@ -3944,7 +3944,7 @@ const actions = {
      * params.overtimeHours: Overtime hours input (from context: attendance.overtimeHours)
      * params.inputType: 'REGULAR' or 'OVERTIME'
      * params.status: 'SUCCESS' or 'FAILED'
-     * params.apiUrl: Validation API URL (default: http://localhost:5000/api/validation/log)
+     * params.apiUrl: Validation API URL (default: http://localhost:3002/api/validation/log)
      */
     logValidation: async (page, params, context, engine) => {
         const {
@@ -3955,7 +3955,7 @@ const actions = {
             overtimeHours,
             inputType,
             status = 'SUCCESS',
-            apiUrl = 'http://localhost:5000/api/validation/log'
+            apiUrl = 'http://localhost:3002/api/validation/log'
         } = params;
 
         // Get values from context if not provided

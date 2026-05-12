@@ -15,6 +15,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import LogoutIcon from '@mui/icons-material/Logout';
+import DeleteIcon from '@mui/icons-material/Delete';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 import AttendanceSummaryReport from './components/AttendanceSummaryReport';
@@ -23,6 +24,7 @@ import PayrollReport from './components/PayrollReport';
 import OvertimeReport from './components/OvertimeReport';
 import OvertimeRangeReport from './components/OvertimeRangeReport';
 import AutomationDialog from './components/AutomationDialog';
+import OTResetDialog from './components/OTResetDialog';
 import ComparisonDialog from './components/ComparisonDialog';
 import AttendanceSummaryBar from './components/AttendanceSummaryBar';
 import AttendanceFilterBar from './components/AttendanceFilterBar';
@@ -59,6 +61,8 @@ const App = () => {
     // Automation & Comparison State
     const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
     const [isAutomationOpen, setIsAutomationOpen] = useState(false);
+    const [isOTResetOpen, setIsOTResetOpen] = useState(false);
+    const [taskRegisterDocIds, setTaskRegisterDocIds] = useState([]);
     const [isComparisonOpen, setIsComparisonOpen] = useState(false);
     const [comparisonData, setComparisonData] = useState(null);
     const [compareMode, setCompareMode] = useState('off');
@@ -251,6 +255,12 @@ const App = () => {
     const openSyncDialog = (mode) => {
         setSyncTargetMode(mode);
         setIsAutomationOpen(true);
+    };
+
+    const openOTResetDialog = async () => {
+        // Dialog will handle DocIds fetch internally
+        // Pre-fetch if we have cached ones, otherwise just open
+        setIsOTResetOpen(true);
     };
 
     const handlePayrollAutomation = async () => {
@@ -510,6 +520,9 @@ const App = () => {
                                     <Button variant="contained" size="small" color="success" startIcon={<SyncIcon />} onClick={() => openSyncDialog('all')} disabled={!data || data.length === 0} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
                                         Sinkron ({selectedEmployeeIds.length > 0 ? selectedEmployeeIds.length : (data ? data.length : 0)})
                                     </Button>
+                                    <Button variant="outlined" size="small" color="error" startIcon={<DeleteIcon />} onClick={openOTResetDialog} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
+                                        Hapus OT
+                                    </Button>
                                     <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
                                     <Button variant="outlined" size="small" startIcon={<FilterListIcon />} onClick={() => setIsSidebarOpen(true)} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
                                         PARAMETER
@@ -723,6 +736,16 @@ const App = () => {
 
             <AutomationDialog open={isAutomationOpen} onClose={() => { setIsAutomationOpen(false); setSyncTargetMode('all'); }} selectedEmployees={selectedEmployeeIds.length > 0 ? (data ? data.filter(e => selectedEmployeeIds.includes(e.id)) : []) : (data || [])} month={selectedMonth} year={selectedYear} compareMode={compareMode} syncTargetMode={syncTargetMode} comparisonData={comparisonData} onRefresh={performComparison} />
             <ComparisonDialog open={isComparisonOpen} onClose={() => setIsComparisonOpen(false)} selectedEmployees={selectedEmployeeIds.length > 0 ? (data ? data.filter(e => selectedEmployeeIds.includes(e.id)) : []) : (data || [])} month={selectedMonth} year={selectedYear} onComparisonComplete={handleComparisonComplete} />
+            <OTResetDialog
+                open={isOTResetOpen}
+                onClose={() => setIsOTResetOpen(false)}
+                docIds={taskRegisterDocIds}
+                selectedEmployees={selectedEmployeeIds.length > 0 ? (data ? data.filter(e => selectedEmployeeIds.includes(e.id)) : []) : []}
+                allEmployees={data || []}
+                month={selectedMonth}
+                year={selectedYear}
+                onRefresh={performComparison}
+            />
         </Box>
     );
 };

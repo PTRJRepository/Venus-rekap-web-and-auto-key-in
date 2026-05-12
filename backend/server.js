@@ -860,8 +860,16 @@ app.post('/api/automation/run', async (req, res) => {
         if (syncMismatchesOnly) console.log(`[Automation] Mode: SYNC MISMATCHES ONLY`);
 
         // Save data to current_data.json (fixed filename)
-        await saveAutomationData({ employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly, syncRegularOnly, windowCount: automationWindows });
+        const savedData = await saveAutomationData({ employees, month, year, startDate, endDate, onlyOvertime, syncMismatchesOnly, syncRegularOnly, windowCount: automationWindows });
         console.log(`[Automation] Data saved to current_data.json`);
+
+        if (!savedData.employeeCount || !savedData.attendanceRecords) {
+            return res.status(409).json({
+                error: onlyOvertime
+                    ? 'Tidak ada data overtime yang perlu diproses setelah filter. Pastikan absensi regular sudah ada di Millware dan record OT belum ada.'
+                    : 'Tidak ada data yang perlu diproses setelah filter sync/mode.'
+            });
+        }
 
         // Start process (uses current_data.json automatically)
         const child = startAutomationProcess({ windowCount: automationWindows });
@@ -888,7 +896,7 @@ app.post('/api/automation/run', async (req, res) => {
         };
 
         sendChunk('status', 'starting');
-        sendChunk('info', `Process started with ${employees.length} employees, ${automationWindows} window(s), 8 tab(s)/window`);
+        sendChunk('info', `Process started with ${savedData.employeeCount} employees, ${savedData.attendanceRecords} attendance record(s), ${automationWindows} window(s), 8 tab(s)/window`);
 
         const parseRunnerLine = (line) => {
             const trimmed = line.trim();
@@ -1101,6 +1109,200 @@ app.post('/api/payroll/automation/stop', (req, res) => {
         const stopped = stopPayrollAutomationProcess();
         res.json({ success: true, stopped });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- OT Reset Routes ---
+const { triggerOTResetAutomation, startOTResetProcess, stopOTResetProcess, fetchDocIdsFromDB } = require('./services/otResetService');
+
+// Run OT Reset automation
+app.post('/api/ot-reset/automation/run', async (req, res) => {
+    const { docIds, employees, startDate, endDate, category, month, year } = req.body;
+    const requestedMode = String(req.body.targetMode || req.body.scope || req.body.mode || 'all').toLowerCase();
+    const targetMode = ['all', 'selected', 'docids'].includes(requestedMode) ? requestedMode : 'all';
+    const dryRun = req.body.dryRun === true || String(req.body.runMode || '').toLowerCase() === 'dry-run';
+    const headless = req.body.headless === true || String(req.body.browserMode || '').toLowerCase() === 'headless';
+    const limit = Math.max(0, parseInt(req.body.limit || req.body.docLimit || 0, 10) || 0);
+    const maxPages = Math.max(1, parseInt(req.body.maxPages || 50, 10) || 50);
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+    if (!category) {
+        return res.status(400).json({ error: 'category is required (OT, Normal, or all)' });
+    }
+
+    try {
+        let effectiveDocIds = Array.isArray(docIds) ? docIds.filter(Boolean) : [];
+        let docTargets = effectiveDocIds.map(id => ({ internalId: id, label: id }));
+        const effectiveEmployees = Array.isArray(employees) ? employees : [];
+
+        console.log(`[OTReset API] Run request: mode=${targetMode}, docIds=${effectiveDocIds.length}, employees=${effectiveEmployees.length}, category=${category}, dryRun=${dryRun}, headless=${headless}, limit=${limit}, maxPages=${maxPages}`);
+
+        if (targetMode === 'selected' && effectiveDocIds.length === 0) {
+            const empCodes = effectiveEmployees
+                .map(e => e.empCode || e.ptrjEmployeeID || e.PTRJEmployeeID || e.ptrjId)
+                .filter(Boolean);
+
+            if (empCodes.length === 0) {
+                return res.status(400).json({ error: 'Karyawan dipilih tidak punya PTRJ Employee ID valid.' });
+            }
+
+            const dbResult = await fetchDocIdsFromDB(parseInt(month, 10), parseInt(year, 10), empCodes);
+            effectiveDocIds = dbResult.docIds || [];
+            docTargets = (dbResult.details || []).map(detail => ({
+                internalId: detail.docId,
+                docNumber: detail.docNumber,
+                label: detail.docNumber || detail.docId
+            }));
+
+            if (effectiveDocIds.length === 0) {
+                return res.status(400).json({ error: 'Tidak ada DocID Millware untuk karyawan terpilih pada periode ini.' });
+            }
+        }
+
+        if (targetMode === 'docids' && effectiveDocIds.length === 0) {
+            return res.status(400).json({ error: 'DocID manual belum diisi.' });
+        }
+
+        // Trigger: prepare data file. Mode "all" intentionally stores no DocID list;
+        // the runner discovers DocIDs from frmPrTrxTaskRegisterList.aspx.
+        const triggerResult = triggerOTResetAutomation({
+            docIds: targetMode === 'all' ? [] : effectiveDocIds,
+            docTargets: targetMode === 'all' ? [] : docTargets,
+            employees: targetMode === 'selected' ? effectiveEmployees : [],
+            startDate,
+            endDate,
+            category,
+            targetMode,
+            dryRun,
+            headless,
+            limit,
+            maxPages,
+            month,
+            year
+        });
+
+        if (!triggerResult.success) {
+            return res.status(400).json({ error: triggerResult.error });
+        }
+
+        const { metadata } = triggerResult.data;
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        if (res.flushHeaders) res.flushHeaders();
+
+        const sendChunk = (type, data) => {
+            try {
+                res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+            } catch (_) {
+                // Client disconnected.
+            }
+        };
+
+        sendChunk('status', 'starting');
+        sendChunk('info', {
+            message: `Starting OT Reset: mode=${metadata.targetMode}, docIds=${metadata.totalDocIds}, category=${metadata.categoryLabel}, dryRun=${metadata.dryRun}`,
+            metadata
+        });
+
+        const child = startOTResetProcess({
+            dryRun: metadata.dryRun,
+            headless: metadata.headless,
+            limit: metadata.limit,
+            maxPages: metadata.maxPages,
+            category: metadata.category
+        });
+        let stdoutBuffer = '';
+
+        child.on('error', (err) => {
+            console.error('[OTReset] Spawn error:', err);
+            sendChunk('error', `Failed to start: ${err.message}`);
+            sendChunk('status', 'failed');
+            try { res.end(); } catch (_) { }
+        });
+
+        const handleLine = (line) => {
+            if (!line.trim()) return;
+            const trimmed = line.trim();
+            const text = trimmed.startsWith('[') && trimmed.includes(']') ? trimmed.substring(11) : trimmed;
+
+            if (text.toLowerCase().includes('error') || text.toLowerCase().includes('not found') || text.toLowerCase().includes('failed')) {
+                sendChunk('error', text);
+            } else if (text.includes('Result doc=') || text.includes('DELETE RUNNER COMPLETE') || text.includes('Open from list')) {
+                sendChunk('info', text);
+            } else {
+                sendChunk('log', text);
+            }
+        };
+
+        child.stdout.on('data', (data) => {
+            stdoutBuffer += data.toString();
+            const lines = stdoutBuffer.split(/\r?\n/);
+            stdoutBuffer = lines.pop() || '';
+            lines.forEach(handleLine);
+        });
+
+        child.stderr.on('data', (data) => {
+            const text = data.toString().trim();
+            if (text) sendChunk('error', text);
+        });
+
+        child.on('close', (code) => {
+            if (stdoutBuffer.trim()) handleLine(stdoutBuffer);
+            console.log(`[OTReset] Process exited with code ${code}`);
+            sendChunk('status', code === 0 ? 'completed' : 'failed');
+            sendChunk('done', { code });
+            try { res.end(); } catch (_) { }
+        });
+
+        req.on('close', () => {
+            console.log('[OTReset] Client disconnected (process continues running)');
+        });
+
+    } catch (error) {
+        console.error('[OTReset API] Error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        } else {
+            try {
+                res.write(`data: ${JSON.stringify({ type: 'error', data: error.message })}\n\n`);
+                res.end();
+            } catch (_) { }
+        }
+    }
+});
+
+// Stop OT Reset automation
+app.post('/api/ot-reset/automation/stop', (req, res) => {
+    try {
+        const stopped = stopOTResetProcess();
+        res.json({ success: true, stopped });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Fetch Task Register DocIds from Millware DB (db_ptrj_mill)
+app.get('/api/task-register/doc-ids', async (req, res) => {
+    const { month, year, empCodes } = req.query;
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+    try {
+        // empCodes: comma-separated list of employee codes (optional filter)
+        const codes = empCodes ? empCodes.split(',').map(c => c.trim()).filter(Boolean) : [];
+        const result = await fetchDocIdsFromDB(parseInt(month), parseInt(year), codes);
+        res.json({
+            docIds: result.docIds,
+            details: result.details,
+            count: result.docIds.length
+        });
+    } catch (error) {
+        console.error('[TaskRegister API] Error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1360,7 +1562,7 @@ app.get('*', (req, res) => {
 // Initialize Staging DB
 stagingService.initStagingDB().then(() => {
     // --- Start Server on Network (0.0.0.0) ---
-    const PORT = process.env.PORT || 5000;
+    const PORT = process.env.PORT || 3002;
     const HOST = '0.0.0.0'; // Listen on all network interfaces
 
     app.listen(PORT, HOST, () => {

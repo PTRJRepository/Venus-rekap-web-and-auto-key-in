@@ -13,23 +13,39 @@ Venus Attendance Recap is a web application for automating attendance data manag
 ## Architecture
 
 ```
-Frontend (React/Vite) → Backend (Express) → Automation Engine (Puppeteer) → Millware System
+┌─────────────────────────────────────────────────────────────┐
+│  Unified Backend Server (Express, port 3002)                │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │  Static Files (Express.static → frontend/dist)          │ │
+│  │  + API Routes                                          │ │
+│  └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+     ↓                                     ↓
+  Browser Automation Engine          Frontend Dev Server
+  (Puppeteer)                          (Vite, port 5173 only)
+                                          ↕ proxy /api → :3002
 ```
 
-### Frontend (`/frontend`)
-- React 19 with TypeScript, served by Vite dev server (port 5173)
-- Material-UI for components with dark/light theme support
-- API proxy configured to `/api` → `http://127.0.0.1:5000`
+### Unified Server (`/backend`)
+- Express server on port **3002** (single source of truth)
+- **IN PRODUCTION**: serves both API + static frontend (`/frontend/dist`)
+- **IN DEVELOPMENT**: Vite dev server proxies `/api` → `http://127.0.0.1:3002`
+- Services: `attendanceService`, `automationService`, `otResetService`, `taskRegisterService`, `comparisonService`, `exportService`, `payrollService`, `payrollAutomationService`
+- Never hardcode port — use `process.env.PORT || 3002`
 
-### Backend (`/backend`)
-- Express server on port 5000 (or `PORT` env var)
-- Services pattern: `attendanceService`, `automationService`, `comparisonService`, `exportService`, `employeeMillService`, `validationService`, `payrollService`, `payrollComparisonService`, `payrollAutomationService`
-- SQLite for local staging data (`employee_mill` table, staging data)
-- Fetches data from external Venus HR database via gateway
-- External API uses token-based authentication (`API_TOKEN_QUERY`)
+### Frontend (`/frontend`)
+- React 19 + TypeScript + Vite dev server (port 5173)
+- Material-UI for components with dark/light theme support
+- Vite proxy: `/api` → `http://127.0.0.1:3002` (ONLY in dev mode)
+- Production build goes to `frontend/dist/` — served by backend
 - Employee mapping uses dual-server connection:
   - `ptrj_employee_id` from `SERVER_PROFILE_1` + `extend_db_ptrj` database (`employee_mill` table)
   - `charge_job` from `SERVER_PROFILE_1` + `VenusHR14` database (HR_M_EmployeePI table)
+
+### Frontend (`/frontend`) — Dev Only
+- React 19 with TypeScript, served by Vite dev server (port 5173)
+- Material-UI for components with dark/light theme support
+- API proxy: `/api` → `http://127.0.0.1:3002`
 
 ### Browser Automation Engine (`/browser-automation-engine`)
 - Puppeteer-based with modular action system
@@ -87,7 +103,7 @@ API_TOKEN_QUERY=<token>          # Venus HR API authentication
 GITHUB_TOKEN=<token>             # GitHub access token
 SERVER_PROFILE=<profile>         # Server configuration
 NO_ATTENDANCE=true|false         # Enable overtime-only mode
-PORT=5000                        # Server port
+PORT=3002                        # Server port (unified API + static frontend)
 ```
 
 Automation Engine (also uses backend `.env`):

@@ -30,6 +30,18 @@ const normalizeAttendanceWindowCount = (value) => {
     return Math.max(1, Math.min(maxWindows, requested));
 };
 
+const getMillwareDetail = (millwareInfo, key) => {
+    if (!millwareInfo || typeof millwareInfo !== 'object') return undefined;
+    if (Object.prototype.hasOwnProperty.call(millwareInfo, key)) {
+        return millwareInfo[key];
+    }
+    const nested = millwareInfo.details;
+    if (nested && typeof nested === 'object' && Object.prototype.hasOwnProperty.call(nested, key)) {
+        return nested[key];
+    }
+    return undefined;
+};
+
 /**
  * Transform employee data from web format to automation engine format
  * Web format: { id, name, ptrjEmployeeID, chargeJob, attendance: { "1": {...}, "2": {...} } }
@@ -181,8 +193,8 @@ const saveAutomationData = async (data) => {
                     // Granular skipping logic
                     // If detailed info exists, use it to determine if specific parts should be skipped
                     if (att.millwareInfo) {
-                        att.skipRegular = att.millwareInfo.regularMatched === true;
-                        att.skipOvertime = att.millwareInfo.otMatched === true;
+                        att.skipRegular = getMillwareDetail(att.millwareInfo, 'regularMatched') === true;
+                        att.skipOvertime = getMillwareDetail(att.millwareInfo, 'otMatched') === true;
                         // DEBUG LOG for user assurance
                         if (att.skipRegular) {
                             console.log(`  [DataPrepare] ⏭️  ${date}: Regular hours MATCHED in DB (${att.millwareInfo.millwareNormal}h). Setting skipRegular=true.`);
@@ -241,8 +253,8 @@ const saveAutomationData = async (data) => {
                     if (onlyOvertime) {
                         // OT Mode: Only keep if OT is MISSING in Millware
                         const venusOT = att.overtimeHours || 0;
-                        const hasOTRecord = att.millwareInfo?.details?.hasOTRecord === true;
-                        const hasRegularRecord = att.millwareInfo?.details?.hasRegularRecord === true;
+                        const hasOTRecord = getMillwareDetail(att.millwareInfo, 'hasOTRecord') === true;
+                        const hasRegularRecord = getMillwareDetail(att.millwareInfo, 'hasRegularRecord') === true;
 
                         if (venusOT === 0) {
                             shouldKeep = false;
@@ -260,7 +272,7 @@ const saveAutomationData = async (data) => {
                     }
                     else if (syncRegularOnly) {
                         // Regular Mode: Only keep if Regular is MISSING in Millware
-                        const hasRegularRecord = att.millwareInfo?.details?.hasRegularRecord === true;
+                        const hasRegularRecord = getMillwareDetail(att.millwareInfo, 'hasRegularRecord') === true;
 
                         if (hasRegularRecord) {
                             shouldKeep = false;
@@ -321,6 +333,9 @@ const saveAutomationData = async (data) => {
         },
         data: transformedData
     };
+    const attendanceRecords = transformedData.reduce((total, emp) => {
+        return total + Object.keys(emp.Attendance || {}).length;
+    }, 0);
 
     // Log ChargeJob info for debugging
     transformedData.forEach(emp => {
@@ -333,7 +348,11 @@ const saveAutomationData = async (data) => {
 
     console.log(`[Automation] Saving ${transformedData.length} employees${onlyOvertime ? ' (ONLY OVERTIME mode)' : ''}; windows=${automationWindows}, tabs/window=${TABS_PER_ATTENDANCE_WINDOW}`);
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));
-    return filePath;
+    return {
+        filePath,
+        employeeCount: transformedData.length,
+        attendanceRecords
+    };
 };
 
 /**
