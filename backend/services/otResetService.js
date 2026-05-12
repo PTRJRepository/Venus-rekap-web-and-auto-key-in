@@ -138,6 +138,7 @@ let currentProcess = null;
  * @param {boolean} [payload.headless] - browser visibility
  * @param {number} [payload.limit] - optional DocID limit for mode all
  * @param {number} [payload.maxPages] - detail pages guard per DocID
+ * @param {number} [payload.tabCount] - browser tabs, 1 = single tab
  * @param {number} payload.month - Month (1-12)
  * @param {number} payload.year - Year
  */
@@ -156,6 +157,7 @@ const prepareOTResetData = (payload) => {
         headless = false,
         limit = 0,
         maxPages = 50,
+        tabCount = 1,
         month,
         year
     } = payload;
@@ -191,6 +193,7 @@ const prepareOTResetData = (payload) => {
     const processAllFromList = normalizedMode === 'all' && docIds.length === 0;
     const numericLimit = Math.max(0, parseInt(limit || 0, 10) || 0);
     const numericMaxPages = Math.max(1, parseInt(maxPages || 50, 10) || 50);
+    const numericTabCount = Math.max(1, Math.min(10, parseInt(tabCount || 1, 10) || 1));
 
     const normalizedDocTargets = (Array.isArray(docTargets) && docTargets.length > 0)
         ? docTargets.map(t => ({
@@ -218,6 +221,7 @@ const prepareOTResetData = (payload) => {
             headless: Boolean(headless),
             limit: numericLimit,
             maxPages: numericMaxPages,
+            tabCount: numericTabCount,
             month,
             year,
             totalDocIds: docIds.length,
@@ -237,7 +241,7 @@ const prepareOTResetData = (payload) => {
         console.error(`[OTReset] Failed to write data file: ${writeErr.message}`);
         throw new Error(`Gagal menyimpan data OT Reset: ${writeErr.message}`);
     }
-    console.log(`[OTReset] Data saved: mode=${normalizedMode}, docIds=${docIds.length}, processAllFromList=${processAllFromList}, category=${targetCategory}, dryRun=${Boolean(dryRun)}, headless=${Boolean(headless)}, limit=${numericLimit}, maxPages=${numericMaxPages}, period=${periodStart} to ${periodEnd}`);
+    console.log(`[OTReset] Data saved: mode=${normalizedMode}, docIds=${docIds.length}, processAllFromList=${processAllFromList}, category=${targetCategory}, dryRun=${Boolean(dryRun)}, headless=${Boolean(headless)}, limit=${numericLimit}, maxPages=${numericMaxPages}, tabCount=${numericTabCount}, period=${periodStart} to ${periodEnd}`);
 
     return data;
 };
@@ -292,8 +296,9 @@ const startOTResetProcess = (options = {}) => {
     if (options.category) args.push('--category', String(options.category));
     if (options.limit && Number(options.limit) > 0) args.push('--limit', String(Number(options.limit)));
     if (options.maxPages) args.push('--max-pages', String(Number(options.maxPages)));
+    if (options.tabCount) args.push('--tabs', String(Number(options.tabCount)));
 
-    console.log(`[OTReset] Starting delete-ot-runner.js (headless=${env.HEADLESS}, dryRun=${Boolean(options.dryRun)}, limit=${options.limit || 0}, maxPages=${options.maxPages || 50})`);
+    console.log(`[OTReset] Starting delete-ot-runner.js (headless=${env.HEADLESS}, dryRun=${Boolean(options.dryRun)}, limit=${options.limit || 0}, maxPages=${options.maxPages || 50}, tabCount=${options.tabCount || 1})`);
 
     const child = spawn('node', args, {
         cwd: ENGINE_DIR,

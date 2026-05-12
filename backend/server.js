@@ -1125,6 +1125,7 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
     const headless = req.body.headless === true || String(req.body.browserMode || '').toLowerCase() === 'headless';
     const limit = Math.max(0, parseInt(req.body.limit || req.body.docLimit || 0, 10) || 0);
     const maxPages = Math.max(1, parseInt(req.body.maxPages || 50, 10) || 50);
+    const tabCount = Math.max(1, Math.min(10, parseInt(req.body.tabCount || req.body.tabs || 1, 10) || 1));
 
     if (!month || !year) {
         return res.status(400).json({ error: 'month and year are required' });
@@ -1138,7 +1139,7 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
         let docTargets = effectiveDocIds.map(id => ({ internalId: id, label: id }));
         const effectiveEmployees = Array.isArray(employees) ? employees : [];
 
-        console.log(`[OTReset API] Run request: mode=${targetMode}, docIds=${effectiveDocIds.length}, employees=${effectiveEmployees.length}, category=${category}, dryRun=${dryRun}, headless=${headless}, limit=${limit}, maxPages=${maxPages}`);
+        console.log(`[OTReset API] Run request: mode=${targetMode}, docIds=${effectiveDocIds.length}, employees=${effectiveEmployees.length}, category=${category}, dryRun=${dryRun}, headless=${headless}, limit=${limit}, maxPages=${maxPages}, tabCount=${tabCount}`);
 
         if (targetMode === 'selected' && effectiveDocIds.length === 0) {
             const empCodes = effectiveEmployees
@@ -1180,6 +1181,7 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
             headless,
             limit,
             maxPages,
+            tabCount,
             month,
             year
         });
@@ -1214,6 +1216,7 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
             headless: metadata.headless,
             limit: metadata.limit,
             maxPages: metadata.maxPages,
+            tabCount: metadata.tabCount,
             category: metadata.category
         });
         let stdoutBuffer = '';
@@ -1229,8 +1232,24 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
             if (!line.trim()) return;
             const trimmed = line.trim();
             const text = trimmed.startsWith('[') && trimmed.includes(']') ? trimmed.substring(11) : trimmed;
+            const lowerText = text.toLowerCase();
+            const positiveErrorSummary = /\berrors=([1-9]\d*)\b/.test(lowerText);
+            const benignFallback = lowerText.includes('search field not found')
+                || lowerText.includes('search button not found')
+                || lowerText.includes('errors=0')
+                || lowerText.includes('delete error(s)');
+            const realError = !benignFallback && (
+                positiveErrorSummary
+                || lowerText.includes('"status":"error"')
+                || lowerText.includes('delete error:')
+                || lowerText.includes('save error')
+                || lowerText.includes('failed')
+                || lowerText.includes('detail grid not found')
+                || lowerText.includes('target docid not found')
+                || lowerText.includes('no successful delete click')
+            );
 
-            if (text.toLowerCase().includes('error') || text.toLowerCase().includes('not found') || text.toLowerCase().includes('failed')) {
+            if (realError) {
                 sendChunk('error', text);
             } else if (text.includes('Result doc=') || text.includes('DELETE RUNNER COMPLETE') || text.includes('Open from list')) {
                 sendChunk('info', text);

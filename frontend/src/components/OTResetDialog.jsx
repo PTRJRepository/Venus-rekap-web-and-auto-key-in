@@ -34,6 +34,7 @@ const OTResetDialog = ({
     const [browserMode, setBrowserMode] = useState('headful'); // headful | headless
     const [docLimit, setDocLimit] = useState('');
     const [maxPages, setMaxPages] = useState('50');
+    const [tabCount, setTabCount] = useState('1');
     const [manualDocIds, setManualDocIds] = useState(''); // manual input
     const [selectedEmpIds, setSelectedEmpIds] = useState([]); // chosen employee IDs
     const [fetchingDocIds, setFetchingDocIds] = useState(false);
@@ -159,6 +160,7 @@ const OTResetDialog = ({
         const categoryValue = category;
         const parsedLimit = Math.max(0, parseInt(docLimit || '0', 10) || 0);
         const parsedMaxPages = Math.max(1, parseInt(maxPages || '50', 10) || 50);
+        const parsedTabCount = Math.max(1, Math.min(10, parseInt(tabCount || '1', 10) || 1));
 
         if (scope === 'docids' && docIdsToProcess.length === 0) {
             addLog('error', 'Tidak ada DocID manual.');
@@ -178,7 +180,7 @@ const OTResetDialog = ({
         if (scope === 'selected') {
             addLog('info', `Karyawan: ${empObjects.length} dipilih`);
         } else if (scope === 'all') {
-            addLog('info', 'Semua karyawan: DocID akan dibaca dari Task Register List.');
+            addLog('info', 'Semua karyawan + semua DocID: runner baca Task Register List, catat DocID, bagi per tab, lalu buka via pencarian.');
         } else {
             addLog('info', `DocID manual: ${docIdsToProcess.length}`);
         }
@@ -200,6 +202,7 @@ const OTResetDialog = ({
                     headless: browserMode === 'headless',
                     limit: scope === 'all' ? parsedLimit : 0,
                     maxPages: parsedMaxPages,
+                    tabCount: parsedTabCount,
                     month, year
                 })
             });
@@ -280,7 +283,9 @@ const OTResetDialog = ({
         || (scope === 'docids' && docIdsToProcess.length === 0)
         || (scope === 'selected' && selectedEmpIds.length === 0)
         || !maxPages
-        || (parseInt(maxPages, 10) || 0) < 1;
+        || (parseInt(maxPages, 10) || 0) < 1
+        || !tabCount
+        || (parseInt(tabCount, 10) || 0) < 1;
 
     return (
         <Dialog
@@ -317,9 +322,10 @@ const OTResetDialog = ({
                     {/* Period + Summary chips */}
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                         <Chip label={`Bulan: ${month}/${year}`} size="small" sx={{ bgcolor: alpha(DARK.accent, 0.15), color: DARK.accent, fontWeight: 700, fontSize: '0.75rem' }} />
-                        <Chip label={scope === 'all' ? 'Semua DocID' : `${docIdsToProcess.length} DocIds`} size="small" sx={{ bgcolor: alpha(DARK.green, 0.15), color: DARK.green, fontWeight: 700, fontSize: '0.75rem' }} />
+                        <Chip label={scope === 'all' ? 'Semua Karyawan + Semua DocID' : `${docIdsToProcess.length} DocIds`} size="small" sx={{ bgcolor: alpha(DARK.green, 0.15), color: DARK.green, fontWeight: 700, fontSize: '0.75rem' }} />
                         <Chip label={runMode === 'dry-run' ? 'Cek saja' : 'Hapus'} size="small" sx={{ bgcolor: alpha(runMode === 'dry-run' ? DARK.accent : DARK.red, 0.15), color: runMode === 'dry-run' ? DARK.accent : DARK.red, fontWeight: 700, fontSize: '0.75rem' }} />
                         <Chip label={browserMode === 'headful' ? 'Browser tampil' : 'Headless'} size="small" sx={{ bgcolor: alpha(DARK.amber, 0.15), color: DARK.amber, fontWeight: 700, fontSize: '0.75rem' }} />
+                        <Chip label={`${tabCount || 1} Tab`} size="small" sx={{ bgcolor: alpha(DARK.green, 0.12), color: DARK.green, fontWeight: 700, fontSize: '0.75rem' }} />
                         {scope === 'selected' && (
                             <Chip label={`${selectedEmpIds.length} Karyawan`} size="small" sx={{ bgcolor: alpha(DARK.orange, 0.15), color: DARK.orange, fontWeight: 700, fontSize: '0.75rem' }} />
                         )}
@@ -329,7 +335,7 @@ const OTResetDialog = ({
                     <FormControl component="fieldset" size="small">
                         <FormLabel component="legend" sx={{ fontSize: '0.65rem', color: DARK.muted, mb: 0.5 }}>SCOPE</FormLabel>
                         <RadioGroup row value={scope} onChange={e => setScope(e.target.value)}>
-                            <FormControlLabel value="all" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.accent } }} />} label={<Typography variant="caption" sx={{ color: DARK.text, fontWeight: 600 }}>Semua DocID</Typography>} />
+                            <FormControlLabel value="all" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.accent } }} />} label={<Typography variant="caption" sx={{ color: DARK.text, fontWeight: 600 }}>Semua Karyawan + Semua DocID</Typography>} />
                             <FormControlLabel value="selected" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.green } }} />} label={<Typography variant="caption" sx={{ color: DARK.text, fontWeight: 600 }}>Karyawan Dipilih</Typography>} />
                             <FormControlLabel value="docids" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.amber } }} />} label={<Typography variant="caption" sx={{ color: DARK.text, fontWeight: 600 }}>DocID Manual</Typography>} />
                         </RadioGroup>
@@ -376,7 +382,7 @@ const OTResetDialog = ({
                         <TextField
                             multiline minRows={2} maxRows={5}
                             fullWidth size="small"
-                            placeholder={scope === 'all' ? 'Mode Semua: runner membaca DocID dari Task Register List' : 'Internal ID atau DocID tampil: 34986, AD26040007'}
+                            placeholder={scope === 'all' ? 'Mode Semua: runner membaca semua DocID dari Task Register List, membagi per tab, lalu buka via pencarian DocID' : 'Internal ID atau DocID tampil: 34986, AD26040007'}
                             value={manualDocIds}
                             onChange={e => { setManualDocIds(e.target.value); setScope('docids'); }}
                             disabled={status === 'running' || scope === 'all'}
@@ -394,7 +400,7 @@ const OTResetDialog = ({
                         )}
                     </Box>
 
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
                         <TextField
                             label="Limit DocID"
                             type="number"
@@ -414,6 +420,16 @@ const OTResetDialog = ({
                             onChange={e => setMaxPages(e.target.value)}
                             disabled={status === 'running'}
                             inputProps={{ min: 1, style: { color: DARK.text } }}
+                            InputLabelProps={{ sx: { color: DARK.muted } }}
+                        />
+                        <TextField
+                            label="Jumlah Tab"
+                            type="number"
+                            size="small"
+                            value={tabCount}
+                            onChange={e => setTabCount(e.target.value)}
+                            disabled={status === 'running'}
+                            inputProps={{ min: 1, max: 10, style: { color: DARK.text } }}
                             InputLabelProps={{ sx: { color: DARK.muted } }}
                         />
                     </Box>
