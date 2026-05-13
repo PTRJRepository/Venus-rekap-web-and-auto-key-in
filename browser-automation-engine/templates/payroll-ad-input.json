@@ -115,6 +115,13 @@
             }
         },
         {
+            "comment": "═══ FORCE PAYROLL DOC DATE TO SELECTED PERIOD MONTH ═══",
+            "action": "executeJavascript",
+            "params": {
+                "script": "const docDate = \"${metadata.payrollDocDate}\"; const month = String(\"${metadata.month}\").padStart(2, '0'); const candidates = ['#MainContent_txtDocDate', 'input[id*=txtDocDate]', 'input[id*=DocDate]']; const fields = candidates.flatMap(selector => Array.from(document.querySelectorAll(selector))).filter((el, index, arr) => el && arr.indexOf(el) === index); if (!docDate || !/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(docDate)) { throw new Error('Payroll DocDate metadata invalid: ' + docDate); } if (docDate.slice(3, 5) !== month) { throw new Error('Payroll DocDate month mismatch: ' + docDate + ' expected month ' + month); } if (!fields.length) { throw new Error('Payroll DocDate field not found; refusing to continue because browser may use current month'); } for (const el of fields) { el.value = docDate; el.setAttribute('value', docDate); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); } const bad = fields.find(el => String(el.value || '').slice(3, 5) !== month); if (bad) { throw new Error('Payroll DocDate field month mismatch after set: ' + bad.value + ' expected month ' + month); } console.log('Payroll DocDate set to selected period month:', docDate);"
+            }
+        },
+        {
             "comment": "═══ LOOP THROUGH EMPLOYEES ═══",
             "action": "forEachProperty",
             "params": {
@@ -122,6 +129,9 @@
                 "keyName": "empKey",
                 "valueName": "employee",
                 "failOnError": true,
+                "recoveryListUrl": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx",
+                "recoveryDetailUrl": "frmPrTrxADDets.aspx",
+                "recoveryReadySelector": "#MainContent_ddlEmployee + input.ui-autocomplete-input",
                 "steps": [
                     {
                         "action": "log",
@@ -148,6 +158,13 @@
                         }
                     },
                     {
+                        "comment": "═══ FORCE PAYROLL DOC DATE FOR THIS EMPLOYEE FORM ═══",
+                        "action": "executeJavascript",
+                        "params": {
+                            "script": "const docDate = \"${metadata.payrollDocDate}\"; const month = String(\"${metadata.month}\").padStart(2, '0'); const candidates = ['#MainContent_txtDocDate', 'input[id*=txtDocDate]', 'input[id*=DocDate]']; const fields = candidates.flatMap(selector => Array.from(document.querySelectorAll(selector))).filter((el, index, arr) => el && arr.indexOf(el) === index); if (!docDate || !/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(docDate)) { throw new Error('Payroll DocDate metadata invalid: ' + docDate); } if (docDate.slice(3, 5) !== month) { throw new Error('Payroll DocDate month mismatch: ' + docDate + ' expected month ' + month); } if (!fields.length) { throw new Error('Payroll DocDate field not found before employee input'); } for (const el of fields) { el.value = docDate; el.setAttribute('value', docDate); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); } const bad = fields.find(el => String(el.value || '').slice(3, 5) !== month); if (bad) { throw new Error('Payroll DocDate field month mismatch before employee input: ' + bad.value + ' expected month ' + month); } console.log('Payroll DocDate verified for employee form:', docDate);"
+                        }
+                    },
+                    {
                         "comment": "═══ INPUT EMPLOYEE NAME ═══",
                         "action": "typeInput",
                         "params": {
@@ -170,6 +187,9 @@
                             "array": "employee.components",
                             "itemName": "component",
                             "failOnError": true,
+                            "recoveryListUrl": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx",
+                            "recoveryDetailUrl": "frmPrTrxADDets.aspx",
+                            "recoveryReadySelector": "#MainContent_ddlEmployee + input.ui-autocomplete-input",
                             "steps": [
                                 {
                                     "action": "log",
@@ -185,13 +205,14 @@
                                     }
                                 },
                                 {
-                                    "comment": "═══ INPUT AD CODE (TaskCode) ═══",
+                                    "comment": "═══ INPUT TASK CODE KEYWORD AND PICK FIRST OPTION ═══",
                                     "action": "typeInput",
                                     "params": {
                                         "selector": "#MainContent_ddlTaskCode + input.ui-autocomplete-input",
-                                        "value": "${component.adCode}",
+                                        "value": "${component.adSearchKeyword}",
                                         "confirmKey": "Enter",
-                                        "smartSelect": true
+                                        "smartSelect": true,
+                                        "selectFirstOption": true
                                     }
                                 },
                                 {
@@ -215,6 +236,13 @@
                                     }
                                 },
                                 {
+                                    "comment": "═══ VERIFY PAYROLL DOC DATE BEFORE ADD ═══",
+                                    "action": "executeJavascript",
+                                    "params": {
+                                        "script": "const docDate = \"${metadata.payrollDocDate}\"; const month = String(\"${metadata.month}\").padStart(2, '0'); const candidates = ['#MainContent_txtDocDate', 'input[id*=txtDocDate]', 'input[id*=DocDate]']; const fields = candidates.flatMap(selector => Array.from(document.querySelectorAll(selector))).filter((el, index, arr) => el && arr.indexOf(el) === index); if (!fields.length) { throw new Error('Payroll DocDate field not found before Add'); } for (const el of fields) { if (String(el.value || '').slice(3, 5) !== month) { el.value = docDate; el.setAttribute('value', docDate); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); } } const bad = fields.find(el => String(el.value || '').slice(3, 5) !== month); if (bad) { throw new Error('Payroll DocDate month mismatch before Add: ' + bad.value + ' expected month ' + month); } console.log('Payroll DocDate verified before Add:', docDate);"
+                                    }
+                                },
+                                {
                                     "comment": "═══ CLICK ADD BUTTON ═══",
                                     "action": "clickAndWaitForReload",
                                     "params": {
@@ -232,6 +260,13 @@
                                     }
                                 }
                             ]
+                        }
+                    },
+                    {
+                        "comment": "═══ VERIFY PAYROLL DOC DATE BEFORE SAVE ═══",
+                        "action": "executeJavascript",
+                        "params": {
+                            "script": "const docDate = \"${metadata.payrollDocDate}\"; const month = String(\"${metadata.month}\").padStart(2, '0'); const candidates = ['#MainContent_txtDocDate', 'input[id*=txtDocDate]', 'input[id*=DocDate]']; const fields = candidates.flatMap(selector => Array.from(document.querySelectorAll(selector))).filter((el, index, arr) => el && arr.indexOf(el) === index); if (!fields.length) { throw new Error('Payroll DocDate field not found before Save'); } for (const el of fields) { if (String(el.value || '').slice(3, 5) !== month) { el.value = docDate; el.setAttribute('value', docDate); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); } } const bad = fields.find(el => String(el.value || '').slice(3, 5) !== month); if (bad) { throw new Error('Payroll DocDate month mismatch before Save: ' + bad.value + ' expected month ' + month); } console.log('Payroll DocDate verified before Save:', docDate);"
                         }
                     },
                     {

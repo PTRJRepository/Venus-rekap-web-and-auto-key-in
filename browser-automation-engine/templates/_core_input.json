@@ -204,7 +204,8 @@
                     {
                         "action": "wait",
                         "params": {
-                            "duration": 800
+                            "duration": 1500,
+                            "scale": false
                         }
                     },
                     {
@@ -252,12 +253,21 @@
                                     }
                                 },
                                 {
+                                    "comment": "═══ WAIT FOR MILLWARE RATE/HOUR CALCULATION ═══",
+                                    "action": "wait",
+                                    "params": {
+                                        "duration": 1200,
+                                        "scale": false
+                                    }
+                                },
+                                {
                                     "comment": "═══ SUBMIT ═══",
                                     "action": "clickAndWaitForReload",
                                     "params": {
                                         "selector": "#MainContent_btnAdd",
                                         "timeout": 8000,
-                                        "skipPreAddQuiet": true
+                                        "preAddQuietTimeout": 10000,
+                                        "preAddQuietMs": 900
                                     }
                                 },
                                 {

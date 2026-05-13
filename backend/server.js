@@ -1013,21 +1013,28 @@ app.post('/api/automation/stop', (req, res) => {
 // Prepare and run payroll automation
 const { triggerPayrollAutomation } = require('./services/payrollAutomationService');
 const { startPayrollAutomationProcess, stopPayrollAutomationProcess } = require('./services/automationService');
+const {
+    fetchPayrollADDocIdsFromDB,
+    triggerPayrollADResetAutomation,
+    startPayrollADResetProcess,
+    stopPayrollADResetProcess
+} = require('./services/payrollADResetService');
 const wagesService = require('./services/wagesService');
 const playwrightAutomationService = require('./services/playwrightAutomationService');
 
 app.post('/api/payroll/automation/run', async (req, res) => {
-    const { month, year } = req.body;
+    const { month, year, componentKeys, componentKey } = req.body;
 
     if (!month || !year) {
         return res.status(400).json({ error: 'month and year are required' });
     }
 
     try {
-        console.log(`[PayrollAutomation API] Request to run for ${month}/${year}`);
+        const requestedComponentKeys = componentKeys || componentKey || [];
+        console.log(`[PayrollAutomation API] Request to run for ${month}/${year}`, requestedComponentKeys);
 
         // First, prepare the data (find MISS components)
-        const prepResult = await triggerPayrollAutomation(month, year);
+        const prepResult = await triggerPayrollAutomation(month, year, { componentKeys: requestedComponentKeys });
         if (!prepResult.success) {
             throw new Error(prepResult.error);
         }
@@ -1109,6 +1116,179 @@ app.post('/api/payroll/automation/stop', (req, res) => {
         const stopped = stopPayrollAutomationProcess();
         res.json({ success: true, stopped });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Reset Monthly Allowance/Deduction (PR_ADTRANS) through Millware AD Lists
+app.post('/api/payroll/ad-reset/automation/run', async (req, res) => {
+    const { month, year, employees, docIds } = req.body;
+    const requestedMode = String(req.body.targetMode || req.body.scope || req.body.mode || 'all').toLowerCase();
+    const targetMode = ['all', 'selected', 'docids'].includes(requestedMode) ? requestedMode : 'all';
+    const dryRun = req.body.dryRun === true || String(req.body.runMode || '').toLowerCase() === 'dry-run';
+    const headless = req.body.headless === true || String(req.body.browserMode || '').toLowerCase() === 'headless';
+    const limit = Math.max(0, parseInt(req.body.limit || req.body.docLimit || 0, 10) || 0);
+    const windowCount = Math.max(1, Math.min(10, parseInt(req.body.windowCount || req.body.windows || req.body.workers || 1, 10) || 1));
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        const effectiveEmployees = Array.isArray(employees) ? employees : [];
+        let effectiveDocIds = Array.isArray(docIds) ? docIds.map(String).filter(Boolean) : [];
+        let docTargets = effectiveDocIds.map(docId => ({ docNumber: docId, label: docId }));
+
+        if (targetMode === 'all' && effectiveDocIds.length === 0) {
+            const dbResult = await fetchPayrollADDocIdsFromDB(month, year, [], { limit });
+            effectiveDocIds = dbResult.docIds || [];
+            docTargets = dbResult.details || [];
+        }
+
+        if (targetMode === 'selected' && effectiveDocIds.length === 0) {
+            const empCodes = effectiveEmployees
+                .map(e => e.empCode || e.ptrjEmployeeID || e.PTRJEmployeeID || e.ptrjId || e.id)
+                .map(code => String(code || '').trim())
+                .filter(Boolean);
+
+            if (empCodes.length === 0) {
+                return res.status(400).json({ error: 'Karyawan dipilih tidak punya PTRJ Employee ID valid.' });
+            }
+
+            const dbResult = await fetchPayrollADDocIdsFromDB(month, year, empCodes, { limit });
+            effectiveDocIds = dbResult.docIds || [];
+            docTargets = dbResult.details || [];
+        }
+
+        if (targetMode === 'docids' && effectiveDocIds.length === 0) {
+            return res.status(400).json({ error: 'DocID manual belum diisi.' });
+        }
+
+        if (effectiveDocIds.length === 0 && docTargets.length === 0) {
+            return res.status(400).json({ error: 'Tidak ada DocID Monthly Allowance/Deduction pada periode ini.' });
+        }
+
+        const triggerResult = triggerPayrollADResetAutomation({
+            docIds: effectiveDocIds,
+            docTargets,
+            employees: targetMode === 'selected' ? effectiveEmployees : [],
+            month,
+            year,
+            dryRun,
+            headless,
+            limit,
+            windowCount
+        });
+
+        if (!triggerResult.success) {
+            return res.status(400).json({ error: triggerResult.error });
+        }
+
+        const { metadata } = triggerResult.data;
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        if (res.flushHeaders) res.flushHeaders();
+
+        const sendChunk = (type, data) => {
+            try {
+                res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+            } catch (_) {
+                // Client disconnected.
+            }
+        };
+
+        sendChunk('status', 'starting');
+        sendChunk('info', {
+            message: `Starting Monthly AD Reset: docIds=${metadata.totalDocIds}, dryRun=${metadata.dryRun}, workers=${metadata.windowCount}`,
+            metadata
+        });
+
+        const child = startPayrollADResetProcess({
+            dryRun: metadata.dryRun,
+            headless: metadata.headless,
+            windowCount: metadata.windowCount
+        });
+
+        let stdoutBuffer = '';
+        const handleLine = (line) => {
+            if (!line.trim()) return;
+            const text = line.trim().replace(/^\[[0-9:]+\]\s*/, '');
+            const lower = text.toLowerCase();
+            const realError = lower.includes('"status":"error"') || lower.includes('error:') || /\berrors=([1-9]\d*)\b/.test(lower);
+            if (realError) sendChunk('error', text);
+            else if (text.includes('PAYROLL AD DELETE COMPLETE') || text.includes('"status":"deleted"')) sendChunk('info', text);
+            else sendChunk('log', text);
+        };
+
+        child.on('error', (err) => {
+            sendChunk('error', `Failed to start: ${err.message}`);
+            sendChunk('status', 'failed');
+            try { res.end(); } catch (_) {}
+        });
+
+        child.stdout.on('data', (data) => {
+            stdoutBuffer += data.toString();
+            const lines = stdoutBuffer.split(/\r?\n/);
+            stdoutBuffer = lines.pop() || '';
+            lines.forEach(handleLine);
+        });
+
+        child.stderr.on('data', (data) => {
+            const text = data.toString().trim();
+            if (text) sendChunk('error', text);
+        });
+
+        child.on('close', (code) => {
+            if (stdoutBuffer.trim()) handleLine(stdoutBuffer);
+            sendChunk('status', code === 0 ? 'completed' : 'failed');
+            sendChunk('done', { code });
+            try { res.end(); } catch (_) {}
+        });
+
+        req.on('close', () => {
+            console.log('[PayrollADReset] Client disconnected (process continues running)');
+        });
+    } catch (error) {
+        console.error('[PayrollADReset API] Error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        } else {
+            try {
+                res.write(`data: ${JSON.stringify({ type: 'error', data: error.message })}\n\n`);
+                res.end();
+            } catch (_) {}
+        }
+    }
+});
+
+app.post('/api/payroll/ad-reset/automation/stop', (req, res) => {
+    try {
+        const stopped = stopPayrollADResetProcess();
+        res.json({ success: true, stopped });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/payroll/ad-reset/doc-ids', async (req, res) => {
+    const { month, year, empCodes } = req.query;
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        const codes = empCodes ? empCodes.split(',').map(code => code.trim()).filter(Boolean) : [];
+        const limit = Math.max(0, parseInt(req.query.limit || req.query.docLimit || 0, 10) || 0);
+        const result = await fetchPayrollADDocIdsFromDB(month, year, codes, { limit });
+        res.json({
+            success: true,
+            docIds: result.docIds,
+            details: result.details,
+            count: result.docIds.length
+        });
+    } catch (error) {
+        console.error('[PayrollADReset DocIds API] Error:', error);
         res.status(500).json({ error: error.message });
     }
 });

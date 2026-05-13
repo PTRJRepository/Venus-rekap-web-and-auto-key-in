@@ -4,6 +4,62 @@ const { buildPayrollAutomationComponents } = require('./payrollComponentMapping'
 const fs = require('fs');
 const path = require('path');
 
+const pad2 = (value) => String(value).padStart(2, '0');
+
+const getPayrollDocDate = (month, year) => {
+    const numericMonth = Number(month);
+    const numericYear = Number(year);
+    const lastDay = new Date(numericYear, numericMonth, 0).getDate();
+    const monthText = pad2(numericMonth);
+    const dayText = pad2(lastDay);
+    return {
+        iso: `${numericYear}-${monthText}-${dayText}`,
+        formatted: `${dayText}/${monthText}/${numericYear}`
+    };
+};
+
+const normalizeComponentKeys = (componentKeys = []) => {
+    const allowed = new Set(['jabatan', 'masaKerja', 'pph21', 'spsi']);
+    const keys = Array.isArray(componentKeys) ? componentKeys : [componentKeys];
+    return keys
+        .map(key => String(key || '').trim())
+        .filter(key => allowed.has(key));
+};
+
+const filterAutomationDataByComponentKeys = (automationData = [], componentKeys = []) => {
+    const keys = normalizeComponentKeys(componentKeys);
+    if (keys.length === 0) return automationData;
+    const allowed = new Set(keys);
+
+    return automationData
+        .map(employee => ({
+            ...employee,
+            components: (employee.components || []).filter(component => allowed.has(component.componentKey))
+        }))
+        .filter(employee => employee.components.length > 0);
+};
+
+const splitAutomationDataToSingleComponentRecords = (automationData = []) => {
+    const records = [];
+
+    for (const employee of automationData) {
+        for (const component of employee.components || []) {
+            records.push({
+                ...employee,
+                recordKey: [
+                    employee.ptrjId || employee.employeeId || employee.employeeName || '',
+                    component.componentKey || '',
+                    component.adCode || '',
+                    component.venusAmount || ''
+                ].join(':'),
+                components: [component]
+            });
+        }
+    }
+
+    return records;
+};
+
 /**
  * Fetch all Task Codes (ADCode) from Millware PR_TASKCODE master table
  */
@@ -212,7 +268,7 @@ const findADCodeByVenusComponent = (venusCompName, taskCodes) => {
  * @param {number} month
  * @param {number} year
  */
-const preparePayrollAutomationData = async (month, year) => {
+const preparePayrollAutomationData = async (month, year, options = {}) => {
     try {
         console.log(`[PayrollAutomation] Preparing automation data for ${month}/${year}`);
 
@@ -261,9 +317,11 @@ const preparePayrollAutomationData = async (month, year) => {
             }
         }
 
-        const totalComponents = automationData.reduce((sum, emp) => sum + emp.components.length, 0);
+        const filteredAutomationData = filterAutomationDataByComponentKeys(automationData, options.componentKeys);
+        const singleRecordAutomationData = splitAutomationDataToSingleComponentRecords(filteredAutomationData);
+        const totalComponents = singleRecordAutomationData.reduce((sum, emp) => sum + emp.components.length, 0);
         const unmappedCount = diagnostics.filter(item => item.status === 'UNMAPPED').length;
-        console.log(`[PayrollAutomation] Found ${automationData.length} employees with ${totalComponents} MISS components`);
+        console.log(`[PayrollAutomation] Found ${singleRecordAutomationData.length} AD record(s) with ${totalComponents} MISS components`);
         if (unmappedCount > 0) {
             console.log(`[PayrollAutomation] WARN: ${unmappedCount} component(s) need mapping review`);
         }
@@ -277,17 +335,23 @@ const preparePayrollAutomationData = async (month, year) => {
             fs.mkdirSync(outputDir, { recursive: true });
         }
 
+        const payrollDocDate = getPayrollDocDate(month, year);
         const fileData = {
             metadata: {
                 month,
                 year,
+                payrollDocDateIso: payrollDocDate.iso,
+                payrollDocDate: payrollDocDate.formatted,
                 generatedAt: new Date().toISOString(),
-                totalEmployees: automationData.length,
+                totalEmployees: singleRecordAutomationData.length,
+                totalRecords: singleRecordAutomationData.length,
                 totalComponents,
                 unmappedComponents: unmappedCount,
-                tolerance
+                tolerance,
+                componentKeys: normalizeComponentKeys(options.componentKeys),
+                oneDocPerComponent: true
             },
-            employees: automationData,
+            employees: singleRecordAutomationData,
             diagnostics
         };
 
@@ -311,10 +375,10 @@ const preparePayrollAutomationData = async (month, year) => {
 /**
  * Trigger payroll automation - runs the browser automation for payroll
  */
-const triggerPayrollAutomation = async (month, year) => {
+const triggerPayrollAutomation = async (month, year, options = {}) => {
     try {
         // First prepare the data
-        const prepResult = await preparePayrollAutomationData(month, year);
+        const prepResult = await preparePayrollAutomationData(month, year, options);
         if (!prepResult.success) {
             throw new Error(prepResult.error);
         }
@@ -347,6 +411,10 @@ module.exports = {
     fetchMillwareTaskCodes,
     findMatchingADCode,
     findADCodeByVenusComponent,
+    getPayrollDocDate,
+    normalizeComponentKeys,
+    filterAutomationDataByComponentKeys,
+    splitAutomationDataToSingleComponentRecords,
     preparePayrollAutomationData,
     triggerPayrollAutomation
 };

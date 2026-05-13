@@ -1,4 +1,8 @@
+const fs = require('fs');
+const path = require('path');
+
 const TOLERANCE_RUPIAH = 10;
+const DISCOVERED_MAPPING_PATH = path.resolve(__dirname, '..', '..', 'browser-automation-engine', 'testing_data', 'payroll_taskcode_mapping.json');
 
 const normalizeText = (value) => String(value || '')
     .toUpperCase()
@@ -6,6 +10,38 @@ const normalizeText = (value) => String(value || '')
     .trim();
 
 const compactText = (value) => normalizeText(value).replace(/[^A-Z0-9]/g, '');
+
+const getPayrollComponentKey = (component = {}) => {
+    const name = normalizeText(component.name || component.PYCompName || component.docDesc || component.DocDesc);
+    const code = normalizeText(component.code || component.PYCompCode || component.taskCode || component.TaskCode);
+    const taskDesc = normalizeText(component.taskDesc || component.TaskDesc);
+    const text = normalizeText([name, taskDesc, code].filter(Boolean).join(' '));
+    const compact = compactText(text);
+
+    if (text.includes('JABATAN') || code.includes('TJ_JABATAN') || code.includes('GA9128')) return 'jabatan';
+    if (
+        text.includes('MASA KERJA') ||
+        (text.includes('MASA') && text.includes('KERJA')) ||
+        compact.includes('MASAKERJA') ||
+        code.includes('TJ_MASAKERJA') ||
+        code.includes('GA9129')
+    ) return 'masaKerja';
+    if (text.includes('BERAS') || text.includes('RICE') || code.includes('TJ_BERAS') || code.includes('AL0012')) return 'beras';
+    if (text.includes('OT JAM') || text.includes('LEMBUR') || text.includes('OVERTIME')) return 'lembur';
+    if (compact.includes('PPH21') || text.includes('PPH')) return 'pph21';
+    if (text.includes('BPJS') && (text.includes('KESEHATAN') || text.includes('KES'))) return 'bpjsKes';
+    if (
+        text.includes('JHT') ||
+        text.includes('PENSIUN') ||
+        text.includes('JP TK') ||
+        compact.includes('JPTK') ||
+        code.includes('JP_TK')
+    ) return 'bpjsPen';
+    if (text.includes('SPSI') || code.includes('POT_SPSI')) return 'spsi';
+    if (['PREMI', 'PANEN', 'KINERJA', 'BRONDOL', 'INSENTIF', 'BONUS'].some(token => text.includes(token))) return 'premi';
+
+    return null;
+};
 
 const toNumber = (value) => {
     const numeric = Number(value);
@@ -67,7 +103,8 @@ const findRuleForComponent = (component) => {
     const name = normalizeText(component.name || component.PYCompName);
     const compactName = compactText(name);
     const code = normalizeText(component.code || component.PYCompCode);
-    return COMPONENT_RULES.find(rule => rule.matches({ name, compactName, code })) || null;
+    const key = getPayrollComponentKey({ name, code });
+    return COMPONENT_RULES.find(rule => rule.key === key || rule.matches({ name, compactName, code })) || null;
 };
 
 const normalizeTaskCodes = (taskCodes = []) => taskCodes.map(tc => ({
@@ -75,9 +112,36 @@ const normalizeTaskCodes = (taskCodes = []) => taskCodes.map(tc => ({
     taskDesc: String(tc.taskDesc || tc.TaskDesc || '').trim()
 })).filter(tc => tc.taskCode);
 
-const findTaskCode = (rule, taskCodes = []) => {
+const loadDiscoveredTaskCodeMappings = (mappingPath = DISCOVERED_MAPPING_PATH) => {
+    try {
+        if (!fs.existsSync(mappingPath)) return {};
+        const payload = JSON.parse(fs.readFileSync(mappingPath, 'utf8'));
+        return payload.mappings || {};
+    } catch (error) {
+        console.warn(`[PayrollMapping] Failed to load discovered taskcode mapping: ${error.message}`);
+        return {};
+    }
+};
+
+const hasDiscoveredMappingFile = (mappingPath = DISCOVERED_MAPPING_PATH) => fs.existsSync(mappingPath);
+
+const findDiscoveredTaskCode = (rule, discoveredMappings = {}) => {
+    if (!rule || !discoveredMappings) return null;
+    const mapped = discoveredMappings[rule.key];
+    if (!mapped || !mapped.taskCode) return null;
+    return {
+        taskCode: String(mapped.taskCode || '').trim(),
+        taskDesc: String(mapped.taskDesc || mapped.selectedText || mapped.optionText || '').trim(),
+        source: 'discovered-autocomplete'
+    };
+};
+
+const findTaskCode = (rule, taskCodes = [], options = {}) => {
     const normalizedTaskCodes = normalizeTaskCodes(taskCodes);
     if (!rule) return null;
+
+    const discovered = findDiscoveredTaskCode(rule, options.discoveredMappings || loadDiscoveredTaskCodeMappings());
+    if (discovered) return discovered;
 
     if (rule.adCode) {
         const explicit = normalizedTaskCodes.find(tc => tc.taskCode.toUpperCase() === rule.adCode.toUpperCase());
@@ -111,7 +175,7 @@ const getAutocompleteKeyword = (rule) => {
 
     const preferred = {
         jabatan: 'JABATAN',
-        masaKerja: 'MASA KERJA',
+        masaKerja: 'MASA',
         pph21: 'PPH',
         bpjsKes: 'KESEHATAN',
         bpjsPen: 'PENSIUN',
@@ -192,6 +256,8 @@ const buildPayrollAutomationComponents = (employee, taskCodes = [], tolerance = 
     const { groups, unmapped } = collectPayrollComponentGroups(employee);
     const components = [];
     const diagnostics = [...unmapped];
+    const discoveredMappings = loadDiscoveredTaskCodeMappings();
+    const requireDiscoveredMapping = hasDiscoveredMappingFile() && Object.keys(discoveredMappings).length > 0;
 
     for (const group of groups) {
         const millwareAmount = Math.abs(toNumber(employee.sync?.[group.componentKey]?.millware));
@@ -211,7 +277,23 @@ const buildPayrollAutomationComponents = (employee, taskCodes = [], tolerance = 
             continue;
         }
 
-        const taskCode = findTaskCode(group.rule, taskCodes);
+        const discoveredMapping = discoveredMappings[group.rule.key];
+        if (requireDiscoveredMapping && !discoveredMapping) {
+            diagnostics.push({
+                status: 'UNMAPPED_DISCOVERY',
+                componentKey: group.componentKey,
+                componentName: group.componentName,
+                venusCompCode: group.venusCompCodes.join(','),
+                venusAmount: group.venusAmount,
+                millwareAmount,
+                diff,
+                type: group.type,
+                reason: 'No autocomplete-discovered TaskCode mapping saved'
+            });
+            continue;
+        }
+
+        const taskCode = findTaskCode(group.rule, taskCodes, { discoveredMappings });
         if (!taskCode) {
             diagnostics.push({
                 status: 'UNMAPPED',
@@ -237,7 +319,8 @@ const buildPayrollAutomationComponents = (employee, taskCodes = [], tolerance = 
             diff,
             adCode: taskCode.taskCode,
             adCodeDesc: taskCode.taskDesc,
-            adSearchKeyword: getAutocompleteKeyword(group.rule),
+            adCodeSource: taskCode.source || 'millware-master',
+            adSearchKeyword: discoveredMapping?.keyword || getAutocompleteKeyword(group.rule),
             type: group.type
         });
     }
@@ -250,8 +333,12 @@ module.exports = {
     COMPONENT_RULES,
     normalizeText,
     compactText,
+    getPayrollComponentKey,
     findRuleForComponent,
     findTaskCode,
+    loadDiscoveredTaskCodeMappings,
+    hasDiscoveredMappingFile,
+    findDiscoveredTaskCode,
     getAutocompleteKeyword,
     collectPayrollComponentGroups,
     buildPayrollAutomationComponents

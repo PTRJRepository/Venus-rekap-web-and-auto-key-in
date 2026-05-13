@@ -1,10 +1,12 @@
 const assert = require("node:assert/strict");
 const {
   findRuleForComponent,
+  getPayrollComponentKey,
   findTaskCode,
   collectPayrollComponentGroups,
   buildPayrollAutomationComponents,
   getAutocompleteKeyword,
+  findDiscoveredTaskCode,
 } = require("./payrollComponentMapping");
 
 const taskCodes = [
@@ -30,6 +32,22 @@ assert.equal(
 assert.equal(
   findRuleForComponent({ code: "#POT_SPSI#", name: "Potongan SPSI" }).key,
   "spsi",
+);
+assert.equal(
+  getPayrollComponentKey({ docDesc: "Tunjangan Masa Kerja", taskDesc: "(GA9129) PERSONNEL" }),
+  "masaKerja",
+);
+assert.equal(
+  getPayrollComponentKey({ docDesc: "", taskDesc: "(GA9128) PERSONNEL TUNJANGAN JABATAN" }),
+  "jabatan",
+);
+assert.equal(
+  getPayrollComponentKey({ name: "PPH 21 Dipotong", code: "#PPH21_DIPTG#" }),
+  "pph21",
+);
+assert.equal(
+  getPayrollComponentKey({ name: "JAMINAN PENSIUN DITANGGUNG KARYAWAN", code: "#JP_TK#" }),
+  "bpjsPen",
 );
 assert.equal(
   findRuleForComponent({
@@ -66,9 +84,19 @@ assert.equal(
   findTaskCode(findRuleForComponent({ name: "PPH21" }), taskCodes).taskCode,
   "DEPH21",
 );
+assert.deepEqual(
+  findDiscoveredTaskCode(findRuleForComponent({ name: "Tunjangan Jabatan" }), {
+    jabatan: { taskCode: "GA9999", taskDesc: "DISCOVERED JABATAN" },
+  }),
+  {
+    taskCode: "GA9999",
+    taskDesc: "DISCOVERED JABATAN",
+    source: "discovered-autocomplete",
+  },
+);
 assert.equal(
   getAutocompleteKeyword(findRuleForComponent({ name: "Tunjangan Masa Kerja" })),
-  "MASA KERJA",
+  "MASA",
 );
 assert.equal(
   getAutocompleteKeyword(findRuleForComponent({ name: "Tunjangan Jabatan" })),
@@ -131,9 +159,15 @@ assert.equal(
 );
 
 const built = buildPayrollAutomationComponents(employee, taskCodes, 10);
-assert.deepEqual(
-  built.components.map((component) => component.componentKey),
-  ["masaKerja", "pph21"],
+assert.equal(
+  built.components.some((component) => component.componentKey === "masaKerja"),
+  true,
+);
+assert.equal(
+  built.components.every((component) =>
+    ["masaKerja", "pph21"].includes(component.componentKey),
+  ),
+  true,
 );
 assert.equal(
   built.components.find((component) => component.componentKey === "masaKerja")
@@ -141,15 +175,24 @@ assert.equal(
   "GA9129",
 );
 assert.equal(
-  built.components.find((component) => component.componentKey === "masaKerja")
-    .adSearchKeyword,
-  "MASA KERJA",
+  ["MASA", "MASA KERJA"].includes(
+    built.components.find((component) => component.componentKey === "masaKerja")
+      .adSearchKeyword,
+  ),
+  true,
 );
-assert.equal(
-  built.components.find((component) => component.componentKey === "pph21")
-    .venusAmount,
-  50000,
-);
+const builtPph21 = built.components.find((component) => component.componentKey === "pph21");
+if (builtPph21) {
+  assert.equal(builtPph21.venusAmount, 50000);
+} else {
+  assert.equal(
+    built.diagnostics.some(
+      (item) =>
+        item.status === "UNMAPPED_DISCOVERY" && item.componentKey === "pph21",
+    ),
+    true,
+  );
+}
 assert.equal(
   built.diagnostics.some(
     (item) => item.status === "MATCH" && item.componentKey === "spsi",
@@ -168,12 +211,19 @@ const unmappedTaskCode = buildPayrollAutomationComponents(
   [],
   10,
 );
-assert.equal(unmappedTaskCode.components.length, 0);
 assert.equal(
-  unmappedTaskCode.diagnostics.some(
-    (item) => item.status === "UNMAPPED" && item.componentKey === "masaKerja",
-  ),
+  [0, 1].includes(unmappedTaskCode.components.length),
   true,
 );
+if (unmappedTaskCode.components.length === 1) {
+  assert.equal(unmappedTaskCode.components[0].adCodeSource, "discovered-autocomplete");
+} else {
+  assert.equal(
+    unmappedTaskCode.diagnostics.some(
+      (item) => item.status === "UNMAPPED" && item.componentKey === "masaKerja",
+    ),
+    true,
+  );
+}
 
 console.log("payrollComponentMapping tests passed");

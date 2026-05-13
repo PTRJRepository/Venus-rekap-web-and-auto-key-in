@@ -96,13 +96,31 @@ const filterPayrollPayload = (payload, options = {}) => {
         if (remaining <= 0) break;
     }
 
-    const totalComponents = employees.reduce((sum, employee) => sum + employee.components.length, 0);
+    const singleComponentEmployees = [];
+    for (const employee of employees) {
+        for (const component of employee.components || []) {
+            singleComponentEmployees.push({
+                ...employee,
+                recordKey: employee.recordKey || [
+                    employee.ptrjId || employee.employeeId || employee.employeeName || '',
+                    component.componentKey || '',
+                    component.adCode || '',
+                    component.venusAmount || ''
+                ].join(':'),
+                components: [component]
+            });
+        }
+    }
+
+    const totalComponents = singleComponentEmployees.reduce((sum, employee) => sum + employee.components.length, 0);
     return {
         ...payload,
         metadata: {
             ...(payload.metadata || {}),
-            totalEmployees: employees.length,
+            totalEmployees: singleComponentEmployees.length,
+            totalRecords: singleComponentEmployees.length,
             totalComponents,
+            oneDocPerComponent: true,
             filtered: Boolean(rowLimit || componentType || componentKey),
             filter: {
                 rowLimit,
@@ -110,7 +128,7 @@ const filterPayrollPayload = (payload, options = {}) => {
                 componentKey
             }
         },
-        employees
+        employees: singleComponentEmployees
     };
 };
 

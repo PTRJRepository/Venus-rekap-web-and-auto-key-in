@@ -16,6 +16,14 @@ const componentIdentity = (employee, component) => [
     component.venusAmount || 0
 ].join('|');
 
+const metadataMonthMatchesDocDate = (metadata = {}) => {
+    const month = String(metadata.month || '').padStart(2, '0');
+    const docDate = String(metadata.payrollDocDate || '').trim();
+    if (!month || !docDate) return true;
+    const parts = docDate.split('/');
+    return parts.length === 3 && parts[1] === month;
+};
+
 const validatePayrollPayload = (payload) => {
     const errors = [];
     const warnings = [];
@@ -33,6 +41,8 @@ const validatePayrollPayload = (payload) => {
 
     if (!payload.metadata || typeof payload.metadata !== 'object') {
         errors.push('metadata is required');
+    } else if (!metadataMonthMatchesDocDate(payload.metadata)) {
+        errors.push(`metadata.payrollDocDate month must match metadata.month (${payload.metadata.month})`);
     }
 
     if (!Array.isArray(payload.employees)) {
@@ -141,6 +151,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+    metadataMonthMatchesDocDate,
     validatePayrollPayload,
     runPayrollDryRun
 };

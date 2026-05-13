@@ -1999,27 +1999,32 @@ const actions = {
             const requiredBeforeAdd = params.requiredBeforeAdd !== false;
             context.__lastInputTarget = { selector, index };
 
-            const pairedSelectResult = await selectPairedHiddenSelect(page, selector, index, value);
-            if (pairedSelectResult.success) {
-                console.log(`  ✅ Selected paired hidden select (${pairedSelectResult.selectId || 'unknown'}): "${pairedSelectResult.optionText || value}"`);
-                registerDomValuePair(context, {
-                    kind: 'autocomplete',
-                    selector,
-                    index,
-                    value,
-                    actualValue: pairedSelectResult.optionText || value,
-                    label: params.label || `Autocomplete ${index}`,
-                    restoreBeforeAdd,
-                    requiredBeforeAdd
-                });
-                await sleep(800);
-                return;
+            if (params.selectFirstOption !== true) {
+                const pairedSelectResult = await selectPairedHiddenSelect(page, selector, index, value);
+                if (pairedSelectResult.success) {
+                    console.log(`  ✅ Selected paired hidden select (${pairedSelectResult.selectId || 'unknown'}): "${pairedSelectResult.optionText || value}"`);
+                    registerDomValuePair(context, {
+                        kind: 'autocomplete',
+                        selector,
+                        index,
+                        value,
+                        actualValue: pairedSelectResult.optionText || value,
+                        label: params.label || `Autocomplete ${index}`,
+                        restoreBeforeAdd,
+                        requiredBeforeAdd
+                    });
+                    await sleep(800);
+                    return;
+                }
+                console.log(`  ℹ️ Paired hidden select unavailable: ${pairedSelectResult.reason}`);
+            } else {
+                console.log(`  ℹ️ Paired hidden select skipped; selecting first visible autocomplete option.`);
             }
-            console.log(`  ℹ️ Paired hidden select unavailable: ${pairedSelectResult.reason}`);
 
             const autocompleteResult = await setAutocompleteInputByDom(page, selector, index, value, {
                 dropdownWait: 800,
                 afterSelectWait: 700,
+                matchValue: params.selectFirstOption === true ? '__PAYROLL_SELECT_FIRST_OPTION__' : undefined,
                 allowFirstOption: true
             });
             if (!autocompleteResult.success) {
@@ -2543,7 +2548,9 @@ const actions = {
         const steps = params.steps || [];
 
         // Error recovery configuration
-        const TASK_REGISTER_URL = 'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx';
+        const recoveryListUrl = params.recoveryListUrl || 'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx';
+        const recoveryDetailUrl = params.recoveryDetailUrl || 'frmPrTrxTaskRegisterDet.aspx';
+        const recoveryReadySelector = params.recoveryReadySelector || '.ui-autocomplete-input.CBOBox';
         const failedItems = [];
 
         // RESUME LOGIC
@@ -2586,8 +2593,7 @@ const actions = {
                     // Note: Karena kita me-restart, konteks halaman hilang. 
                     // Kita asumsikan langkah awal di 'steps' akan melakukan navigasi atau pengecekan yang benar.
                     // Jika steps mengasumsikan halaman sudah terbuka, kita perlu navigasi manual ke Task Register.
-                    const TASK_REGISTER_URL = 'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx';
-                    await engine.page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded' });
+                    await engine.page.goto(recoveryListUrl, { waitUntil: 'domcontentloaded' });
 
                 } catch (recycleError) {
                 console.error(`⚠️ Gagal recycle browser: ${recycleError.message}. Melanjutkan...`);
@@ -2646,10 +2652,10 @@ const actions = {
                         if (!engine?.recoverMillwareSession || !(await engine.recoverMillwareSession('loop recovery error page'))) {
                             throw new Error('Session recovery failed from browser error page');
                         }
-                    } else if (currentUrl.includes('frmPrTrxTaskRegisterDet.aspx')) {
+                    } else if (currentUrl.includes(recoveryDetailUrl)) {
                         console.log(`  🔄 RECOVERY: On Input/Detail Page. Reloading...`);
                         await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
-                    } else if (currentUrl.includes('frmPrTrxTaskRegisterList.aspx')) {
+                    } else if (currentUrl.includes(recoveryListUrl) || currentUrl.includes(new URL(recoveryListUrl).pathname)) {
                         console.log(`  🔄 RECOVERY: On List Page. Clicking "New" to return to input...`);
                         try {
                             await page.waitForSelector('#MainContent_btnNew', { visible: true, timeout: 5000 });
@@ -2657,18 +2663,18 @@ const actions = {
                             await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
                         } catch (navError) {
                             console.log(`  ⚠️ Failed to click New on List page: ${navError.message}. Force navigating...`);
-                            await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded' });
+                            await page.goto(recoveryListUrl, { waitUntil: 'domcontentloaded' });
                             await page.waitForSelector('#MainContent_btnNew', { visible: true });
                             await page.click('#MainContent_btnNew');
                         }
                     } else {
                         console.log(`  🔄 RECOVERY: On unknown page. Navigating to List...`);
-                        await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                        await page.goto(recoveryListUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
                         await page.waitForSelector('#MainContent_btnNew', { visible: true });
                         await page.click('#MainContent_btnNew');
                     }
 
-                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 15000 });
+                    await page.waitForSelector(recoveryReadySelector, { visible: true, timeout: 15000 });
 
                     console.log(`  ✅ RECOVERY: Ready to continue.`);
                     console.log(`  └─────────────────────────\n`);
@@ -2735,7 +2741,9 @@ const actions = {
         const steps = params.steps || [];
 
         // Error recovery configuration
-        const TASK_REGISTER_URL = 'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx';
+        const recoveryListUrl = params.recoveryListUrl || 'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterList.aspx';
+        const recoveryDetailUrl = params.recoveryDetailUrl || 'frmPrTrxTaskRegisterDet.aspx';
+        const recoveryReadySelector = params.recoveryReadySelector || '.ui-autocomplete-input.CBOBox';
         const failedItems = [];
 
         const entries = Object.entries(obj);
@@ -2785,10 +2793,10 @@ const actions = {
                         if (!engine?.recoverMillwareSession || !(await engine.recoverMillwareSession('loop recovery error page'))) {
                             throw new Error('Session recovery failed from browser error page');
                         }
-                    } else if (currentUrl.includes('frmPrTrxTaskRegisterDet.aspx')) {
+                    } else if (currentUrl.includes(recoveryDetailUrl)) {
                         console.log(`  🔄 RECOVERY: On Input/Detail Page. Reloading...`);
                         await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
-                    } else if (currentUrl.includes('frmPrTrxTaskRegisterList.aspx')) {
+                    } else if (currentUrl.includes(recoveryListUrl) || currentUrl.includes(new URL(recoveryListUrl).pathname)) {
                         console.log(`  🔄 RECOVERY: On List Page. Clicking "New" to return to input...`);
                         try {
                             await page.waitForSelector('#MainContent_btnNew', { visible: true, timeout: 5000 });
@@ -2796,18 +2804,18 @@ const actions = {
                             await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
                         } catch (navError) {
                             console.log(`  ⚠️ Failed to click New on List page: ${navError.message}. Force navigating...`);
-                            await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded' });
+                            await page.goto(recoveryListUrl, { waitUntil: 'domcontentloaded' });
                             await page.waitForSelector('#MainContent_btnNew', { visible: true });
                             await page.click('#MainContent_btnNew');
                         }
                     } else {
                         console.log(`  🔄 RECOVERY: On unknown page. Navigating to List...`);
-                        await page.goto(TASK_REGISTER_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                        await page.goto(recoveryListUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
                         await page.waitForSelector('#MainContent_btnNew', { visible: true });
                         await page.click('#MainContent_btnNew');
                     }
 
-                    await page.waitForSelector('.ui-autocomplete-input.CBOBox', { visible: true, timeout: 15000 });
+                    await page.waitForSelector(recoveryReadySelector, { visible: true, timeout: 15000 });
 
                     console.log(`  ✅ RECOVERY: Ready to continue.`);
                     console.log(`  └─────────────────────────\n`);

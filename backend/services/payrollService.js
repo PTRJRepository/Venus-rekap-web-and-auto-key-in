@@ -1,6 +1,7 @@
 const { executeQuery } = require('./gateway');
 const { getAllEmployees } = require('./employeeMillService');
 const { fetchMillwarePayroll } = require('./payrollComparisonService');
+const { getPayrollComponentKey } = require('./payrollComponentMapping');
 
 /**
  * Fetch payroll details for a specific month and year
@@ -116,22 +117,21 @@ const fetchPayrollData = async (month, year) => {
             // Calculate Venus aggregations for comparison
             let vLembur = 0, vJabatan = 0, vBeras = 0, vMasaKerja = 0, vPremi = 0;
             py.tunjanganDetails.forEach(d => {
-                const n = d.name.toUpperCase();
-                if (n.includes('OT JAM') || n.includes('LEMBUR')) vLembur += d.amount;
-                else if (n.includes('JABATAN')) vJabatan += d.amount;
-                else if (n.includes('BERAS')) vBeras += d.amount;
-                else if (n.includes('MASA KERJA')) vMasaKerja += d.amount;
-                else if (n.includes('PREMI') || n.includes('PANEN') || n.includes('KINERJA') || n.includes('BRONDOL') || n.includes('INSENTIF')) vPremi += d.amount;
+                const key = getPayrollComponentKey(d);
+                if (key === 'lembur') vLembur += d.amount;
+                else if (key === 'jabatan') vJabatan += d.amount;
+                else if (key === 'beras') vBeras += d.amount;
+                else if (key === 'masaKerja') vMasaKerja += d.amount;
+                else if (key === 'premi') vPremi += d.amount;
             });
 
             let vPph21 = 0, vBpjsKes = 0, vBpjsPen = 0, vSpsi = 0;
             py.potonganDetails.forEach(d => {
-                const n = d.name.toUpperCase();
-                const compactName = n.replace(/[^A-Z0-9]/g, '');
-                if (compactName.includes('PPH21')) vPph21 += Math.abs(d.amount);
-                else if (n.includes('BPJS KESEHATAN DITANGGUNG KARYAWAN')) vBpjsKes += Math.abs(d.amount);
-                else if (n.includes('PENSIUN DITANGGUNG KARYAWAN') || n.includes('JHT')) vBpjsPen += Math.abs(d.amount);
-                else if (n.includes('SPSI')) vSpsi += Math.abs(d.amount);
+                const key = getPayrollComponentKey(d);
+                if (key === 'pph21') vPph21 += Math.abs(d.amount);
+                else if (key === 'bpjsKes') vBpjsKes += Math.abs(d.amount);
+                else if (key === 'bpjsPen') vBpjsPen += Math.abs(d.amount);
+                else if (key === 'spsi') vSpsi += Math.abs(d.amount);
             });
 
             const sync = {

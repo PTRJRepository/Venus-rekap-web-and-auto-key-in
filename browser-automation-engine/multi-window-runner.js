@@ -22,6 +22,11 @@ const parsePositiveInt = (value, fallback) => {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const parseNonNegativeInt = (value, fallback) => {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+};
+
 function resolveTemplateAndData(argv = process.argv.slice(2)) {
     let templateName = DEFAULT_TEMPLATE_NAME;
     let dataFilePath = DEFAULT_DATA_FILE;
@@ -455,7 +460,7 @@ async function runFromCli() {
     );
     const maxWindows = parsePositiveInt(process.env.MAX_AUTOMATION_WINDOWS, DEFAULT_MAX_WINDOWS);
     const tabsPerWindow = parsePositiveInt(process.env.TABS_PER_WINDOW || process.env.MULTI_TAB_CONCURRENCY, DEFAULT_TABS_PER_WINDOW);
-    const startDelayMs = parsePositiveInt(process.env.WINDOW_START_DELAY || process.env.ENGINE_START_DELAY, 2000);
+    const startDelayMs = parseNonNegativeInt(process.env.WINDOW_START_DELAY || process.env.ENGINE_START_DELAY, 500);
 
     try {
         await runMultiWindow({

@@ -93,36 +93,46 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
         const adTransSql = `
             WITH Components AS (
                 SELECT 
-                    RTRIM(t.EmpCode) AS emp_code,
+                    RTRIM(EmpCode) AS emp_code,
                     CASE 
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%JABATAN%' THEN 'tunjangan_jabatan'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%BERAS%' THEN 'tunjangan_beras'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%MASA%KERJA%' THEN 'tunjangan_masa_kerja'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%PREMI%PANEN%' OR UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%PREMI%AL%' THEN 'premi_panen'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%PREMI%KINERJA%' THEN 'premi_kinerja'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%PREMI%BRONDOL%' THEN 'premi_brondol'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%PREMI%INSENTIF%' THEN 'premi_insentif'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%PREMI%' AND UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) NOT LIKE '%PPH%' THEN 'premi_lain'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%PPH%' THEN 'potongan_pph21'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%BPJS%KESEHATAN%' THEN 'potongan_bpjs_kesehatan'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%BPJS%PENSIUN%' THEN 'potongan_bpjs_pensiun'
-                        WHEN UPPER(ISNULL(NULLIF(LTRIM(RTRIM(t.DocDesc)), ''), mt.TaskDesc)) LIKE '%SPSI%' THEN 'potongan_spsi'
+                        WHEN match_text LIKE '%JABATAN%' OR match_text LIKE '%GA9128%' THEN 'tunjangan_jabatan'
+                        WHEN match_text LIKE '%BERAS%' OR match_text LIKE '%RICE%' OR match_text LIKE '%AL0012%' THEN 'tunjangan_beras'
+                        WHEN match_text LIKE '%MASA%KERJA%' OR match_text LIKE '%MASAKERJA%' OR match_text LIKE '%GA9129%' THEN 'tunjangan_masa_kerja'
+                        WHEN match_text LIKE '%PREMI%PANEN%' OR match_text LIKE '%PREMI%AL%' THEN 'premi_panen'
+                        WHEN match_text LIKE '%PREMI%KINERJA%' THEN 'premi_kinerja'
+                        WHEN match_text LIKE '%PREMI%BRONDOL%' THEN 'premi_brondol'
+                        WHEN match_text LIKE '%PREMI%INSENTIF%' THEN 'premi_insentif'
+                        WHEN (match_text LIKE '%PREMI%' OR match_text LIKE '%BONUS%' OR match_text LIKE '%INSENTIF%') AND match_text NOT LIKE '%PPH%' THEN 'premi_lain'
+                        WHEN match_text LIKE '%PPH%' THEN 'potongan_pph21'
+                        WHEN match_text LIKE '%BPJS%KESEHATAN%' OR match_text LIKE '%BPJS%KES%' THEN 'potongan_bpjs_kesehatan'
+                        WHEN match_text LIKE '%BPJS%PENSIUN%' OR match_text LIKE '%JHT%' OR match_text LIKE '%JP%TK%' THEN 'potongan_bpjs_pensiun'
+                        WHEN match_text LIKE '%SPSI%' THEN 'potongan_spsi'
                         ELSE 'lainnya'
                     END AS type,
-                    ln.Amount
+                    Amount
                 FROM (
-                    SELECT EmpCode, ID, DocDesc, DocDate FROM [db_ptrj_mill].[dbo].PR_ADTRANS
-                    WHERE RTRIM(EmpCode) IN (${empList}) AND DocDate >= '${startDate}' AND DocDate < '${endDate}'
-                    UNION ALL
-                    SELECT EmpCode, ID, DocDesc, DocDate FROM [db_ptrj_mill].[dbo].PR_ADTRANS_ARC
-                    WHERE RTRIM(EmpCode) IN (${empList}) AND DocDate >= '${startDate}' AND DocDate < '${endDate}'
-                ) t
-                JOIN (
-                    SELECT MasterID, TaskCode, Amount FROM [db_ptrj_mill].[dbo].PR_ADTRANSLN
-                    UNION ALL
-                    SELECT MasterID, TaskCode, Amount FROM [db_ptrj_mill].[dbo].PR_ADTRANSLN_ARC
-                ) ln ON t.ID = ln.MasterID
-                LEFT JOIN [db_ptrj_mill].[dbo].PR_TASKCODE mt ON ln.TaskCode = mt.TaskCode
+                    SELECT
+                        t.EmpCode,
+                        ln.Amount,
+                        UPPER(CONCAT(ISNULL(t.DocDesc, ''), ' ', ISNULL(mt.TaskDesc, ''), ' ', ISNULL(ln.TaskCode, ''))) AS match_text
+                    FROM (
+                        SELECT EmpCode, ID, DocDesc, DocDate FROM [db_ptrj_mill].[dbo].PR_ADTRANS
+                        WHERE RTRIM(EmpCode) IN (${empList})
+                          AND PhyMonth = ${phyMonth}
+                          AND PhyYear = ${phyYear}
+                        UNION ALL
+                        SELECT EmpCode, ID, DocDesc, DocDate FROM [db_ptrj_mill].[dbo].PR_ADTRANS_ARC
+                        WHERE RTRIM(EmpCode) IN (${empList})
+                          AND PhyMonth = ${phyMonth}
+                          AND PhyYear = ${phyYear}
+                    ) t
+                    JOIN (
+                        SELECT MasterID, TaskCode, Amount FROM [db_ptrj_mill].[dbo].PR_ADTRANSLN
+                        UNION ALL
+                        SELECT MasterID, TaskCode, Amount FROM [db_ptrj_mill].[dbo].PR_ADTRANSLN_ARC
+                    ) ln ON t.ID = ln.MasterID
+                    LEFT JOIN [db_ptrj_mill].[dbo].PR_TASKCODE mt ON ln.TaskCode = mt.TaskCode
+                ) mapped
             )
             SELECT 
                 emp_code,

@@ -32,12 +32,27 @@ assert.equal(parseArgs(['testing_data/current_payroll_data.json']).dataFile, 'te
 
 const payrollTemplate = JSON.parse(fs.readFileSync(path.join(__dirname, 'templates', 'payroll-ad-input.json'), 'utf8'));
 const employeeLoop = payrollTemplate.steps.find(step => step.action === 'forEachProperty' && step.params?.object === 'employees');
+const docDateStep = payrollTemplate.steps.find(step => step.comment === '═══ FORCE PAYROLL DOC DATE TO SELECTED PERIOD MONTH ═══');
+assert.equal(docDateStep.action, 'executeJavascript');
+assert.equal(docDateStep.params.script.includes('metadata.payrollDocDate'), true);
+assert.equal(docDateStep.params.script.includes('Payroll DocDate month mismatch'), true);
+assert.equal(docDateStep.params.script.includes('refusing to continue'), true);
 assert.equal(employeeLoop.params.failOnError, true);
+assert.equal(employeeLoop.params.recoveryListUrl, 'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx');
+assert.equal(employeeLoop.params.recoveryDetailUrl, 'frmPrTrxADDets.aspx');
 const componentLoop = employeeLoop.params.steps.find(step => step.action === 'forEach' && step.params?.array === 'employee.components');
 assert.equal(componentLoop.params.failOnError, true);
+assert.equal(componentLoop.params.recoveryListUrl, 'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx');
+assert.equal(componentLoop.params.recoveryDetailUrl, 'frmPrTrxADDets.aspx');
+const taskCodeInput = componentLoop.params.steps.find(step => step.action === 'typeInput' && step.params?.selector === '#MainContent_ddlTaskCode + input.ui-autocomplete-input');
+assert.equal(taskCodeInput.params.value, '${component.adSearchKeyword}');
+assert.equal(taskCodeInput.params.selectFirstOption, true);
+assert.equal(employeeLoop.params.steps.some(step => step.comment === '═══ FORCE PAYROLL DOC DATE FOR THIS EMPLOYEE FORM ═══'), true);
+assert.equal(componentLoop.params.steps.some(step => step.comment === '═══ VERIFY PAYROLL DOC DATE BEFORE ADD ═══'), true);
+assert.equal(employeeLoop.params.steps.some(step => step.comment === '═══ VERIFY PAYROLL DOC DATE BEFORE SAVE ═══'), true);
 
 (async () => {
-    const result = await runPayrollAutomation({
+const result = await runPayrollAutomation({
         dataFile: path.join(__dirname, 'testing_data', 'current_payroll_data.json'),
         dryRunOnly: true,
         headless: true,

@@ -2,9 +2,11 @@ const assert = require('assert/strict');
 
 const {
     buildMultiTabRunPlan,
+    isSamePageUrl,
     openTabPages,
     splitTemplateForMultiTab,
     shouldBringTabToFrontOnTrigger,
+    shouldSkipRedundantTabNavigation,
     useIsolatedTabSessions
 } = require('./multi-tab-runner');
 
@@ -93,6 +95,33 @@ function employee(ptrjId) {
 }
 
 {
+    const previous = process.env.MULTI_TAB_SKIP_REDUNDANT_NAVIGATION;
+
+    delete process.env.MULTI_TAB_SKIP_REDUNDANT_NAVIGATION;
+    assert.equal(shouldSkipRedundantTabNavigation(), true);
+
+    process.env.MULTI_TAB_SKIP_REDUNDANT_NAVIGATION = 'false';
+    assert.equal(shouldSkipRedundantTabNavigation(), false);
+
+    if (previous === undefined) {
+        delete process.env.MULTI_TAB_SKIP_REDUNDANT_NAVIGATION;
+    } else {
+        process.env.MULTI_TAB_SKIP_REDUNDANT_NAVIGATION = previous;
+    }
+}
+
+{
+    assert.equal(
+        isSamePageUrl(
+            'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx?x=1',
+            'http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxTaskRegisterDet.aspx'
+        ),
+        true
+    );
+    assert.equal(isSamePageUrl('http://example.test/a', 'http://example.test/b'), false);
+}
+
+{
     const previous = process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER;
 
     delete process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER;
@@ -140,7 +169,51 @@ async function testOpenTabPagesCreatesAndNavigatesAllTabs() {
     ]);
 }
 
+async function testOpenTabPagesSkipsRedundantFirstNavigation() {
+    const previous = process.env.MULTI_TAB_SKIP_REDUNDANT_NAVIGATION;
+    delete process.env.MULTI_TAB_SKIP_REDUNDANT_NAVIGATION;
+
+    const navigated = [];
+    let created = 0;
+    const targetUrl = 'http://example.test/detail';
+    const makePage = (name, url = 'about:blank') => ({
+        name,
+        closed: false,
+        isClosed() { return this.closed; },
+        url() { return url; },
+        async goto(nextUrl) {
+            navigated.push({ name, url: nextUrl });
+        }
+    });
+
+    const firstPage = makePage('existing', targetUrl);
+    const session = {
+        page: firstPage,
+        async newPage() {
+            created += 1;
+            return makePage(`created-${created}`);
+        }
+    };
+
+    const pages = await openTabPages(session, 2, targetUrl);
+
+    assert.equal(pages[0], firstPage);
+    assert.equal(created, 1);
+    assert.deepEqual(navigated.map((item) => item.name), ['created-1']);
+
+    if (previous === undefined) {
+        delete process.env.MULTI_TAB_SKIP_REDUNDANT_NAVIGATION;
+    } else {
+        process.env.MULTI_TAB_SKIP_REDUNDANT_NAVIGATION = previous;
+    }
+}
+
 testOpenTabPagesCreatesAndNavigatesAllTabs().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
+
+testOpenTabPagesSkipsRedundantFirstNavigation().catch((error) => {
     console.error(error);
     process.exitCode = 1;
 });

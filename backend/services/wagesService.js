@@ -167,14 +167,16 @@ const fetchMillwareWagesData = async (ptrjIds, startDate, endDate) => {
                     SELECT EmpCode, ID, DocDesc, DocDate
                     FROM [db_ptrj_mill].[dbo].PR_ADTRANS
                     WHERE RTRIM(EmpCode) IN (${empList})
-                      AND DocDate >= '${startDate}' AND DocDate < '${endDate}'
+                      AND PhyMonth = ${phyMonth}
+                      AND PhyYear = ${phyYear}
 
                     UNION ALL
 
                     SELECT EmpCode, ID, DocDesc, DocDate
                     FROM [db_ptrj_mill].[dbo].PR_ADTRANS_ARC
                     WHERE RTRIM(EmpCode) IN (${empList})
-                      AND DocDate >= '${startDate}' AND DocDate < '${endDate}'
+                      AND PhyMonth = ${phyMonth}
+                      AND PhyYear = ${phyYear}
                 ) t
                 JOIN (
                     SELECT MasterID, TaskCode, Amount

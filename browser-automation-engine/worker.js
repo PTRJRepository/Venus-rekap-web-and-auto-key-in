@@ -3,6 +3,8 @@ const fs = require('fs');
 
 // Worker for running a single automation engine instance
 (async () => {
+    let engine = null;
+    let exitCode = 0;
     try {
         const configPath = process.argv[2];
         if (!configPath) {
@@ -14,7 +16,7 @@ const fs = require('fs');
 
         console.log(`[Worker ${engineId}] Starting...`);
         
-        const engine = new AutomationEngine(options);
+        engine = new AutomationEngine(options);
         
         // Pass a resume flag context if needed? 
         // Currently AutomationEngine handles resume via RecoveryManager reading from disk.
@@ -24,11 +26,17 @@ const fs = require('fs');
         await engine.runTemplate(templateName);
 
         console.log(`[Worker ${engineId}] Completed successfully.`);
-        process.exit(0);
 
     } catch (error) {
         console.error(`[Worker Error] ${error.message}`);
         console.error(error.stack);
-        process.exit(1);
+        exitCode = 1;
+    } finally {
+        if (engine) {
+            await engine.closeBrowser().catch((error) => {
+                console.error(`[Worker Cleanup Error] ${error.message}`);
+            });
+        }
+        process.exit(exitCode);
     }
 })();

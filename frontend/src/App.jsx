@@ -67,6 +67,7 @@ const App = () => {
     const [comparisonData, setComparisonData] = useState(null);
     const [compareMode, setCompareMode] = useState('off');
     const [isPayrollAutomationRunning, setIsPayrollAutomationRunning] = useState(false);
+    const [isPayrollADResetRunning, setIsPayrollADResetRunning] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const DRAWER_WIDTH = 340;
@@ -263,14 +264,15 @@ const App = () => {
         setIsOTResetOpen(true);
     };
 
-    const handlePayrollAutomation = async () => {
+    const handlePayrollAutomation = async (options = {}) => {
         setIsPayrollAutomationRunning(true);
-        showSnackbar('Memulai Auto Key-In Payroll...', 'info');
+        const componentKeys = options.componentKeys || (options.componentKey ? [options.componentKey] : []);
+        showSnackbar(componentKeys.length ? `Memulai sync payroll: ${componentKeys.join(', ')}` : 'Memulai Auto Key-In Payroll...', 'info');
         try {
             const response = await fetch('/api/payroll/automation/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ month: selectedMonth, year: selectedYear })
+                body: JSON.stringify({ month: selectedMonth, year: selectedYear, componentKeys })
             });
             const result = await response.json();
             if (result.success) showSnackbar(result.message || 'Auto Key-In Payroll dimulai', 'success');
@@ -279,6 +281,60 @@ const App = () => {
             showSnackbar('Error: ' + e.message, 'error');
         } finally {
             setIsPayrollAutomationRunning(false);
+        }
+    };
+
+    const handlePayrollADReset = async (options = {}) => {
+        const confirmed = window.confirm(`Hapus Monthly Allowance/Deduction Millware untuk ${monthNames[(selectedMonth || 1) - 1]} ${selectedYear}?`);
+        if (!confirmed) return;
+
+        setIsPayrollADResetRunning(true);
+        showSnackbar('Memulai reset Monthly Allowance/Deduction...', 'info');
+
+        try {
+            const response = await fetch('/api/payroll/ad-reset/automation/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    month: selectedMonth,
+                    year: selectedYear,
+                    targetMode: options.targetMode || 'all',
+                    dryRun: Boolean(options.dryRun),
+                    windowCount: options.windowCount || 1
+                })
+            });
+
+            if (!response.ok) {
+                const result = await response.json().catch(() => ({}));
+                throw new Error(result.error || 'Gagal memulai reset Monthly AD');
+            }
+
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let finalStatus = 'completed';
+
+            while (reader) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const chunks = buffer.split('\n\n');
+                buffer = chunks.pop() || '';
+
+                chunks.forEach((chunk) => {
+                    const line = chunk.split('\n').find(item => item.startsWith('data: '));
+                    if (!line) return;
+                    const event = JSON.parse(line.slice(6));
+                    if (event.type === 'error') finalStatus = 'failed';
+                    if (event.type === 'status' && event.data === 'failed') finalStatus = 'failed';
+                });
+            }
+
+            showSnackbar(finalStatus === 'failed' ? 'Reset Monthly AD selesai dengan error' : 'Reset Monthly AD selesai', finalStatus === 'failed' ? 'error' : 'success');
+        } catch (e) {
+            showSnackbar('Error: ' + e.message, 'error');
+        } finally {
+            setIsPayrollADResetRunning(false);
         }
     };
 
@@ -690,7 +746,7 @@ const App = () => {
                                 )}
                             </Box>
                         )}
-                        {activeTab === 'payroll' && <PayrollReport month={selectedMonth} year={selectedYear} onPayrollAutomation={handlePayrollAutomation} isPayrollAutomationRunning={isPayrollAutomationRunning} />}
+                        {activeTab === 'payroll' && <PayrollReport month={selectedMonth} year={selectedYear} onPayrollAutomation={handlePayrollAutomation} isPayrollAutomationRunning={isPayrollAutomationRunning} onPayrollADReset={handlePayrollADReset} isPayrollADResetRunning={isPayrollADResetRunning} />}
                     </Box>
                 </Box>
 
