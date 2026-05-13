@@ -497,7 +497,7 @@ const PayrollReport = ({ month, year, onPayrollAutomation, isPayrollAutomationRu
                         color="error"
                         size="small"
                         startIcon={isPayrollADResetRunning ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
-                        onClick={() => onPayrollADReset?.({ targetMode: 'all', windowCount: 1 })}
+                        onClick={() => onPayrollADReset?.({ targetMode: 'all', windowCount: 5 })}
                         disabled={isPayrollADResetRunning || isPayrollAutomationRunning}
                         sx={{ fontWeight: 700, fontSize: '0.7rem', px: 1.5 }}
                     >

@@ -94,6 +94,26 @@ assert.deepEqual(
     source: "discovered-autocomplete",
   },
 );
+assert.deepEqual(
+  findDiscoveredTaskCode(findRuleForComponent({ name: "PPH 21 Dipotong" }), {
+    pph21: { taskCode: "DEPH21", taskDesc: "(DEPH21) POTONGAN PPH21" },
+  }),
+  {
+    taskCode: "DEPH21",
+    taskDesc: "(DEPH21) POTONGAN PPH21",
+    source: "discovered-autocomplete",
+  },
+);
+assert.deepEqual(
+  findDiscoveredTaskCode(findRuleForComponent({ name: "SPSI" }), {
+    spsi: { taskCode: "DE0003", taskDesc: "(DE0003) POTONGAN SPSI" },
+  }),
+  {
+    taskCode: "DE0003",
+    taskDesc: "(DE0003) POTONGAN SPSI",
+    source: "discovered-autocomplete",
+  },
+);
 assert.equal(
   getAutocompleteKeyword(findRuleForComponent({ name: "Tunjangan Masa Kerja" })),
   "MASA",

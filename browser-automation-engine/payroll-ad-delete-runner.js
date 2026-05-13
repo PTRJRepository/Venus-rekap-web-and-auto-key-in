@@ -37,6 +37,21 @@ const waitForNavigationSoft = async (page, action, timeout = 15000) => {
     ]);
 };
 
+const isRedirectLoopError = (error) => /ERR_TOO_MANY_REDIRECTS/i.test(error?.message || '');
+
+const clearBrowserSession = async (page) => {
+    let client = null;
+    try {
+        client = await page.target().createCDPSession();
+        await client.send('Network.clearBrowserCookies');
+        await client.send('Network.clearBrowserCache');
+    } catch (_) {
+        // Best effort session cleanup.
+    } finally {
+        if (client) await client.detach().catch(() => null);
+    }
+};
+
 const handleLoginPopup = async (page) => {
     const ok = await page.$('#MainContent_btnOkay').catch(() => null);
     if (!ok) return;
@@ -64,11 +79,29 @@ const login = async (page) => {
 };
 
 const navigateToListPage = async (page) => {
-    await page.goto(AD_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    try {
+        await page.goto(AD_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    } catch (error) {
+        if (!isRedirectLoopError(error)) throw error;
+        log('Redirect loop while opening AD List; clearing browser session and retrying login');
+        await clearBrowserSession(page);
+        await sleep(1000);
+        await login(page);
+        await page.goto(AD_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    }
     await sleep(1000);
     if (await page.$('#txtUsername')) {
         await login(page);
-        await page.goto(AD_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        try {
+            await page.goto(AD_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        } catch (error) {
+            if (!isRedirectLoopError(error)) throw error;
+            log('Redirect loop after login; clearing session and retrying AD List once');
+            await clearBrowserSession(page);
+            await sleep(1000);
+            await login(page);
+            await page.goto(AD_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        }
         await sleep(1000);
     }
 };
@@ -80,8 +113,47 @@ const setInputValue = async (page, selector, value) => {
     await page.type(selector, String(value), { delay: 20 });
 };
 
-const searchDocId = async (page, docNumber) => {
+const setFieldIfExists = async (page, selectors, value) => {
+    if (value === undefined || value === null || value === '') return false;
+    for (const selector of selectors) {
+        const element = await page.$(selector).catch(() => null);
+        if (!element) continue;
+        await element.click({ clickCount: 3 });
+        await page.keyboard.press('Backspace');
+        await element.type(String(value), { delay: 20 });
+        return true;
+    }
+    return false;
+};
+
+const setAccountingPeriod = async (page, target = {}) => {
+    const month = target.accountingMonth || target.accMonth;
+    const year = target.accountingYear || target.accYear;
+
+    const monthSet = await setFieldIfExists(page, [
+        '#MainContent_txtAccMonth',
+        '#MainContent_txtAccountingMonth',
+        '#MainContent_txtMonth',
+        'input[id*="AccMonth"]',
+        'input[id*="AccountingMonth"]'
+    ], month);
+    const yearSet = await setFieldIfExists(page, [
+        '#MainContent_txtAccYear',
+        '#MainContent_txtAccountingYear',
+        '#MainContent_txtYear',
+        'input[id*="AccYear"]',
+        'input[id*="AccountingYear"]'
+    ], year);
+
+    if (monthSet || yearSet) {
+        log(`Accounting period filter set: month=${month || '-'}, year=${year || '-'}`);
+    }
+};
+
+const searchDocId = async (page, target) => {
+    const docNumber = target.docNumber || target.label || target.internalId;
     await navigateToListPage(page);
+    await setAccountingPeriod(page, target);
     await setInputValue(page, '#MainContent_txtDocID', docNumber);
     await snap(page, `ad-list-before-search-${docNumber}`);
     await waitForNavigationSoft(page, () => page.click('#MainContent_btnSearch'), 20000);
@@ -188,7 +260,9 @@ const normalizeTarget = (target) => ({
     docNumber: String(target?.docNumber || target?.DocID || target?.docId || '').trim(),
     label: String(target?.label || target?.docNumber || target?.DocID || target?.docId || target?.internalId || '').trim(),
     empCode: String(target?.empCode || target?.EmpCode || '').trim(),
-    empName: String(target?.empName || target?.EmpName || '').trim()
+    empName: String(target?.empName || target?.EmpName || '').trim(),
+    accountingMonth: target?.accountingMonth || target?.AccMonth || target?.accMonth || '',
+    accountingYear: target?.accountingYear || target?.AccYear || target?.accYear || ''
 });
 
 const processTarget = async (page, target, options = {}) => {
@@ -197,7 +271,7 @@ const processTarget = async (page, target, options = {}) => {
     if (!docNumber) throw new Error('Empty DocID target');
 
     log(`Search AD DocID ${docNumber}`);
-    await searchDocId(page, docNumber);
+    await searchDocId(page, normalized);
     await openTargetFromList(page, normalized);
     const result = await clickDelete(page, normalized, Boolean(options.dryRun));
     console.log(JSON.stringify(result));

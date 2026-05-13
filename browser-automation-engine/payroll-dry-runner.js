@@ -65,6 +65,10 @@ const validatePayrollPayload = (payload) => {
             warnings.push(`${employeeLabel}: no components to input`);
         }
 
+        if (employee.components.length > 1) {
+            errors.push(`${employeeLabel}: components must contain exactly one item for one DocID per record`);
+        }
+
         employee.components.forEach((component, componentIndex) => {
             const rowLabel = `${employeeLabel}.components[${componentIndex}]`;
             const amount = toNumber(component.venusAmount);

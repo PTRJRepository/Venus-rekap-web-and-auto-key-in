@@ -60,6 +60,124 @@ const splitAutomationDataToSingleComponentRecords = (automationData = []) => {
     return records;
 };
 
+const quoteSql = (value) => `'${String(value).replace(/'/g, "''")}'`;
+
+const payrollRecordSignature = (ptrjId, taskCode, amount) => [
+    String(ptrjId || '').trim().toUpperCase(),
+    String(taskCode || '').trim().toUpperCase(),
+    String(Math.round(Number(amount) || 0))
+].join(':');
+
+const fetchExistingADRecordSignatures = async (records = [], month, year) => {
+    const ptrjIds = [...new Set(records.map(record => record.ptrjId).filter(Boolean))];
+    if (ptrjIds.length === 0) return new Set();
+
+    const empList = ptrjIds.map(quoteSql).join(',');
+    const sql = `
+        SELECT
+            RTRIM(t.EmpCode) AS EmpCode,
+            RTRIM(ln.TaskCode) AS TaskCode,
+            CAST(ROUND(ln.Amount, 0) AS INT) AS Amount
+        FROM (
+            SELECT ID, EmpCode, PhyMonth, PhyYear
+            FROM [db_ptrj_mill].[dbo].PR_ADTRANS
+            WHERE RTRIM(EmpCode) IN (${empList})
+              AND PhyMonth = ${Number(month)}
+              AND PhyYear = ${Number(year)}
+
+            UNION ALL
+
+            SELECT ID, EmpCode, PhyMonth, PhyYear
+            FROM [db_ptrj_mill].[dbo].PR_ADTRANS_ARC
+            WHERE RTRIM(EmpCode) IN (${empList})
+              AND PhyMonth = ${Number(month)}
+              AND PhyYear = ${Number(year)}
+        ) t
+        JOIN (
+            SELECT MasterID, TaskCode, Amount
+            FROM [db_ptrj_mill].[dbo].PR_ADTRANSLN
+            UNION ALL
+            SELECT MasterID, TaskCode, Amount
+            FROM [db_ptrj_mill].[dbo].PR_ADTRANSLN_ARC
+        ) ln ON t.ID = ln.MasterID
+    `;
+
+    const rows = await executeQuery(sql);
+    return new Set(rows.map(row => payrollRecordSignature(row.EmpCode, row.TaskCode, row.Amount)));
+};
+
+const filterAlreadyExistingADRecords = async (records = [], month, year) => {
+    const existing = await fetchExistingADRecordSignatures(records, month, year);
+    const filtered = [];
+    const skipped = [];
+
+    for (const record of records) {
+        const component = record.components?.[0] || {};
+        const signature = payrollRecordSignature(record.ptrjId, component.adCode, component.venusAmount);
+        if (existing.has(signature)) {
+            skipped.push({
+                status: 'SKIPPED_ALREADY_EXISTS',
+                employeeId: record.employeeId,
+                employeeName: record.employeeName,
+                ptrjId: record.ptrjId,
+                componentKey: component.componentKey,
+                componentName: component.componentName,
+                adCode: component.adCode,
+                venusAmount: component.venusAmount,
+                signature
+            });
+            continue;
+        }
+        filtered.push(record);
+    }
+
+    return { records: filtered, skipped, existingCount: existing.size };
+};
+
+const filterDuplicatePayloadRecords = (records = []) => {
+    const seen = new Set();
+    const filtered = [];
+    const skipped = [];
+
+    for (const record of records) {
+        const component = record.components?.[0] || {};
+        const signature = payrollRecordSignature(record.ptrjId, component.adCode, component.venusAmount);
+
+        if (seen.has(signature)) {
+            skipped.push({
+                status: 'SKIPPED_DUPLICATE_PAYLOAD',
+                employeeId: record.employeeId,
+                employeeName: record.employeeName,
+                ptrjId: record.ptrjId,
+                componentKey: component.componentKey,
+                componentName: component.componentName,
+                adCode: component.adCode,
+                venusAmount: component.venusAmount,
+                signature
+            });
+            continue;
+        }
+
+        seen.add(signature);
+        filtered.push(record);
+    }
+
+    return { records: filtered, skipped };
+};
+
+const filterDuplicateAndExistingADRecords = async (records = [], month, year) => {
+    const duplicateFilter = filterDuplicatePayloadRecords(records);
+    const existingFilter = await filterAlreadyExistingADRecords(duplicateFilter.records, month, year);
+
+    return {
+        records: existingFilter.records,
+        skipped: [...duplicateFilter.skipped, ...existingFilter.skipped],
+        skippedDuplicates: duplicateFilter.skipped.length,
+        skippedAlreadyExists: existingFilter.skipped.length,
+        existingCount: existingFilter.existingCount
+    };
+};
+
 /**
  * Fetch all Task Codes (ADCode) from Millware PR_TASKCODE master table
  */
@@ -319,9 +437,16 @@ const preparePayrollAutomationData = async (month, year, options = {}) => {
 
         const filteredAutomationData = filterAutomationDataByComponentKeys(automationData, options.componentKeys);
         const singleRecordAutomationData = splitAutomationDataToSingleComponentRecords(filteredAutomationData);
-        const totalComponents = singleRecordAutomationData.reduce((sum, emp) => sum + emp.components.length, 0);
+        const existingFilter = await filterDuplicateAndExistingADRecords(singleRecordAutomationData, month, year);
+        existingFilter.skipped.forEach(item => diagnostics.push(item));
+
+        const finalAutomationData = existingFilter.records;
+        const totalComponents = finalAutomationData.reduce((sum, emp) => sum + emp.components.length, 0);
         const unmappedCount = diagnostics.filter(item => item.status === 'UNMAPPED').length;
-        console.log(`[PayrollAutomation] Found ${singleRecordAutomationData.length} AD record(s) with ${totalComponents} MISS components`);
+        console.log(`[PayrollAutomation] Existing AD signatures: ${existingFilter.existingCount}`);
+        console.log(`[PayrollAutomation] Skipped duplicate payload records: ${existingFilter.skippedDuplicates}`);
+        console.log(`[PayrollAutomation] Skipped already existing AD records: ${existingFilter.skippedAlreadyExists}`);
+        console.log(`[PayrollAutomation] Found ${finalAutomationData.length} AD record(s) with ${totalComponents} MISS components`);
         if (unmappedCount > 0) {
             console.log(`[PayrollAutomation] WARN: ${unmappedCount} component(s) need mapping review`);
         }
@@ -343,15 +468,17 @@ const preparePayrollAutomationData = async (month, year, options = {}) => {
                 payrollDocDateIso: payrollDocDate.iso,
                 payrollDocDate: payrollDocDate.formatted,
                 generatedAt: new Date().toISOString(),
-                totalEmployees: singleRecordAutomationData.length,
-                totalRecords: singleRecordAutomationData.length,
+                totalEmployees: finalAutomationData.length,
+                totalRecords: finalAutomationData.length,
                 totalComponents,
+                skippedDuplicates: existingFilter.skippedDuplicates,
+                skippedAlreadyExists: existingFilter.skippedAlreadyExists,
                 unmappedComponents: unmappedCount,
                 tolerance,
                 componentKeys: normalizeComponentKeys(options.componentKeys),
                 oneDocPerComponent: true
             },
-            employees: singleRecordAutomationData,
+            employees: finalAutomationData,
             diagnostics
         };
 
@@ -415,6 +542,11 @@ module.exports = {
     normalizeComponentKeys,
     filterAutomationDataByComponentKeys,
     splitAutomationDataToSingleComponentRecords,
+    payrollRecordSignature,
+    fetchExistingADRecordSignatures,
+    filterAlreadyExistingADRecords,
+    filterDuplicatePayloadRecords,
+    filterDuplicateAndExistingADRecords,
     preparePayrollAutomationData,
     triggerPayrollAutomation
 };

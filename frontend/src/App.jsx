@@ -300,7 +300,7 @@ const App = () => {
                     year: selectedYear,
                     targetMode: options.targetMode || 'all',
                     dryRun: Boolean(options.dryRun),
-                    windowCount: options.windowCount || 1
+                    windowCount: options.windowCount || 5
                 })
             });
 

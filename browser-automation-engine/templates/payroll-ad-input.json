@@ -158,6 +158,13 @@
                         }
                     },
                     {
+                        "comment": "═══ HARD GUARD: ONE COMPONENT ONLY FOR ONE DOCID ═══",
+                        "action": "executeJavascript",
+                        "params": {
+                            "script": "const count = Number('${employee.components.length}'); if (count !== 1) { throw new Error('Payroll AD Lists requires exactly one component per DocID. Refusing to combine ' + count + ' components for ${employee.employeeName}. Regenerate payload with oneDocPerComponent=true.'); } console.log('One DocID guard OK for ${employee.employeeName}: one component only');"
+                        }
+                    },
+                    {
                         "comment": "═══ FORCE PAYROLL DOC DATE FOR THIS EMPLOYEE FORM ═══",
                         "action": "executeJavascript",
                         "params": {

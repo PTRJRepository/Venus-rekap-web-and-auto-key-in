@@ -1128,7 +1128,7 @@ app.post('/api/payroll/ad-reset/automation/run', async (req, res) => {
     const dryRun = req.body.dryRun === true || String(req.body.runMode || '').toLowerCase() === 'dry-run';
     const headless = req.body.headless === true || String(req.body.browserMode || '').toLowerCase() === 'headless';
     const limit = Math.max(0, parseInt(req.body.limit || req.body.docLimit || 0, 10) || 0);
-    const windowCount = Math.max(1, Math.min(10, parseInt(req.body.windowCount || req.body.windows || req.body.workers || 1, 10) || 1));
+    const windowCount = Math.max(1, Math.min(10, parseInt(req.body.windowCount || req.body.windows || req.body.workers || 5, 10) || 5));
 
     if (!month || !year) {
         return res.status(400).json({ error: 'month and year are required' });

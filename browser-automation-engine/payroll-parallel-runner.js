@@ -91,6 +91,37 @@ const filterPayload = (payload, args) => {
     return { ...payload, employees };
 };
 
+const splitPayloadToSingleComponentRecords = (payload) => {
+    const employees = [];
+
+    for (const employee of payload.employees || []) {
+        for (const component of employee.components || []) {
+            employees.push({
+                ...employee,
+                recordKey: employee.recordKey || [
+                    employee.ptrjId || employee.employeeId || employee.employeeName || '',
+                    component.componentKey || '',
+                    component.adCode || '',
+                    component.venusAmount || ''
+                ].join(':'),
+                components: [component]
+            });
+        }
+    }
+
+    return {
+        ...payload,
+        metadata: {
+            ...(payload.metadata || {}),
+            totalEmployees: employees.length,
+            totalRecords: employees.length,
+            totalComponents: employees.length,
+            oneDocPerComponent: true
+        },
+        employees
+    };
+};
+
 const componentCount = (employee) => (employee.components || []).length || 1;
 
 const partitionEmployees = (employees, workers) => {
@@ -180,7 +211,7 @@ const runWorker = (partition, args) => new Promise((resolve) => {
 const runPayrollParallel = async (args = parseArgs()) => {
     const dataFile = path.resolve(args.dataFile);
     const rawPayload = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-    const payload = filterPayload(rawPayload, args);
+    const payload = splitPayloadToSingleComponentRecords(filterPayload(rawPayload, args));
     const validation = validatePayrollPayload(payload);
 
     if (!validation.success) {
@@ -235,5 +266,6 @@ module.exports = {
     parseArgs,
     partitionEmployees,
     filterPayload,
+    splitPayloadToSingleComponentRecords,
     runPayrollParallel
 };

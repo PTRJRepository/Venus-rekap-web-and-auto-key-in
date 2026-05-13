@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { parseArgs, partitionEmployees, filterPayload, runPayrollParallel } = require('./payroll-parallel-runner');
+const { parseArgs, partitionEmployees, filterPayload, splitPayloadToSingleComponentRecords, runPayrollParallel } = require('./payroll-parallel-runner');
 
 assert.equal(parseArgs(['--tabs', '5', '--no-headless', 'data.json']).workers, 5);
 assert.equal(parseArgs(['--tabs=5', '--dry-run']).dryRunOnly, true);
@@ -42,6 +42,11 @@ const excluded = filterPayload(payload, { componentType: '', componentKey: '', r
 assert.equal(excluded.employees.length, 1);
 assert.equal(excluded.employees[0].components.length, 1);
 assert.equal(excluded.employees[0].components[0].componentKey, 'pph21');
+
+const singleRecordPayload = splitPayloadToSingleComponentRecords(payload);
+assert.equal(singleRecordPayload.metadata.oneDocPerComponent, true);
+assert.equal(singleRecordPayload.employees.length, 2);
+assert.equal(singleRecordPayload.employees.every(employee => employee.components.length === 1), true);
 
 (async () => {
     const result = await runPayrollParallel({

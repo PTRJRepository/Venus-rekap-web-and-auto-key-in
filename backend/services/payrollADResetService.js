@@ -111,7 +111,7 @@ const preparePayrollADResetData = (payload = {}) => {
         ? docTargets
         : docIds.map(docId => ({ docNumber: String(docId || '').trim(), label: String(docId || '').trim() }));
 
-    const windowCount = Math.max(1, Math.min(10, parseInt(payload.windowCount || payload.windows || payload.workers || 1, 10) || 1));
+    const windowCount = Math.max(1, Math.min(10, parseInt(payload.windowCount || payload.windows || payload.workers || 5, 10) || 5));
     const data = {
         metadata: {
             export_date: new Date().toISOString(),
@@ -153,7 +153,7 @@ const triggerPayrollADResetAutomation = (payload = {}) => {
 
 const startPayrollADResetProcess = (options = {}) => {
     const headless = options.headless !== undefined ? Boolean(options.headless) : process.env.HEADLESS === 'true';
-    const workers = Math.max(1, Math.min(10, parseInt(options.windowCount || options.workers || 1, 10) || 1));
+    const workers = Math.max(1, Math.min(10, parseInt(options.windowCount || options.workers || 5, 10) || 5));
     const env = {
         ...process.env,
         AUTO_CLOSE: process.env.AUTO_CLOSE || 'true',
