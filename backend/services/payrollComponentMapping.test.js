@@ -50,6 +50,10 @@ assert.equal(
   "bpjsPen",
 );
 assert.equal(
+  getPayrollComponentKey({ name: "BPJS TK DITANGGUNG KARYAWAN" }),
+  "bpjsPen",
+);
+assert.equal(
   findRuleForComponent({
     code: "#JP_TK#",
     name: "JAMINAN PENSIUN DITANGGUNG KARYAWAN",

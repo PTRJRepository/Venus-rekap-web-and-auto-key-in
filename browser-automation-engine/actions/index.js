@@ -69,8 +69,11 @@ const safeEvaluate = async (page, fn, ...args) => {
 };
 
 const cleanChargeJobInputValue = (value) => {
-    return String(value || '')
-        .replace(/\([^)]*\)/g, ' ')
+    const raw = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!raw.startsWith('(')) return raw;
+
+    return raw
+        .replace(/^(\s*\([^)]*\)\s*)+/, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 };
@@ -1106,19 +1109,31 @@ const setAutocompleteInputByDom = async (page, selector, index = 0, value, optio
     }
 
     if (options.slowUntilSingle === true) {
-        console.log(`  🔎 No matching option. Slow typing until one option remains: "${options.slowValue || value}"`);
-        const slowResult = await typeAutocompleteSlowlyAndChooseSingleRemainingByDom(
-            page,
-            selector,
-            index,
-            options.slowValue || value,
-            {
-                keyDelay: options.slowKeyDelay || 350,
-                afterSelectWait: options.afterSelectWait || 700
+        const slowCandidates = [
+            options.slowValue,
+            ...(Array.isArray(options.fallbackValues) ? options.fallbackValues : []),
+            value
+        ]
+            .map((item) => String(item || '').trim())
+            .filter(Boolean)
+            .filter((item, itemIndex, array) => array.indexOf(item) === itemIndex);
+
+        for (const candidate of slowCandidates) {
+            console.log(`  🔎 No matching option. Slow typing until one option remains: "${candidate}"`);
+            const slowResult = await typeAutocompleteSlowlyAndChooseSingleRemainingByDom(
+                page,
+                selector,
+                index,
+                candidate,
+                {
+                    keyDelay: options.slowKeyDelay || 350,
+                    afterSelectWait: options.afterSelectWait || 700
+                }
+            );
+            if (slowResult.success) {
+                return { ...slowResult, inputValue: inputResult.value };
             }
-        );
-        if (slowResult.success) {
-            return { ...slowResult, inputValue: inputResult.value };
+            console.log(`  ⚠️ Slow single-option fallback failed for "${candidate}": ${slowResult.reason}`);
         }
     }
 
@@ -2025,7 +2040,11 @@ const actions = {
                 dropdownWait: 800,
                 afterSelectWait: 700,
                 matchValue: params.selectFirstOption === true ? '__PAYROLL_SELECT_FIRST_OPTION__' : undefined,
-                allowFirstOption: true
+                slowUntilSingle: params.slowUntilSingle === true || params.selectFirstOption === true,
+                slowValue: params.slowValue,
+                fallbackValues: params.fallbackValues,
+                slowKeyDelay: params.slowKeyDelay,
+                allowFirstOption: params.allowFirstOption !== false
             });
             if (!autocompleteResult.success) {
                 throw new Error(`DOM autocomplete input failed: ${autocompleteResult.reason}`);

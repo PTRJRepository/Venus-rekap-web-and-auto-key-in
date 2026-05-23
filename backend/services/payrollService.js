@@ -3,6 +3,144 @@ const { getAllEmployees } = require('./employeeMillService');
 const { fetchMillwarePayroll } = require('./payrollComparisonService');
 const { getPayrollComponentKey } = require('./payrollComponentMapping');
 
+const PAYROLL_TOLERANCE = 50;
+
+const toNumber = (value) => {
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) ? numberValue : 0;
+};
+
+const normalizeText = (value) => String(value || '').toUpperCase().replace(/\s+/g, ' ').trim();
+
+const isCompanyPaidBenefit = (component = {}) => {
+    const name = normalizeText(component.name || component.PYCompName);
+    const code = normalizeText(component.code || component.PYCompCode);
+    const text = `${name} ${code}`;
+
+    return (
+        text.includes('DITANGGUNG PERUSAHAAN') ||
+        text.includes('JAMINAN KECELAKAAN KERJA') ||
+        text.includes('JAMINAN KEMATIAN') ||
+        text.includes('BPJS KESEHATAN DITANGGUNG PERUSAHAAN')
+    ) && (
+        text.includes('JAMINAN') ||
+        text.includes('BPJS') ||
+        text.includes('JHT') ||
+        text.includes('JKK') ||
+        text.includes('JKM') ||
+        text.includes('PENSIUN')
+    );
+};
+
+const isEmployeeAutoDeduction = (component = {}) => {
+    const name = normalizeText(component.name || component.PYCompName);
+    const code = normalizeText(component.code || component.PYCompCode);
+    const text = `${name} ${code}`;
+
+    return (
+        text.includes('DITANGGUNG KARYAWAN') ||
+        text.includes('PINJAMAN PRIBADI') ||
+        text.includes('POTONGAN ABSEN') ||
+        text.includes('POTONGAN BPJS TAMBAHAN') ||
+        text.includes('POTONGAN LAIN-LAIN')
+    ) && !text.includes('PPH') && !text.includes('SPSI');
+};
+
+const calculateEffectiveMillwareNetpay = (mw, venusAutoDeductions) => {
+    if (!mw) return 0;
+
+    const bpjsKesMillware = Math.abs(toNumber(mw.potongan_bpjs_kesehatan));
+    const bpjsPenMillware = Math.abs(toNumber(mw.potongan_bpjs_pensiun));
+    const otherMillware = Math.abs(toNumber(mw.potongan_lain));
+    const bpjsKesAuto = Math.max(toNumber(venusAutoDeductions.bpjsKes) - bpjsKesMillware, 0);
+    const bpjsPenAuto = Math.max(toNumber(venusAutoDeductions.bpjsPen) - bpjsPenMillware, 0);
+    const otherAuto = Math.max(toNumber(venusAutoDeductions.other) - otherMillware, 0);
+
+    return toNumber(mw.upah_bersih) - bpjsKesAuto - bpjsPenAuto - otherAuto;
+};
+
+const buildNetpayAnalysis = (rows) => {
+    const componentKeys = [
+        'gajiPokok',
+        'lembur',
+        'jabatan',
+        'beras',
+        'masaKerja',
+        'premi',
+        'pph21',
+        'bpjsKes',
+        'bpjsPen',
+        'spsi',
+        'upahBersih'
+    ];
+
+    const initialComponentTotals = componentKeys.reduce((acc, key) => {
+        acc[key] = { venus: 0, millware: 0, diff: 0, absDiff: 0 };
+        return acc;
+    }, {});
+
+    const analysis = rows.reduce((acc, row) => {
+        const hasMillware = Boolean(row.millware);
+        const venusNetpay = toNumber(row.sync?.upahBersih?.venus);
+        const millwareNetpay = hasMillware ? toNumber(row.sync?.upahBersih?.millware) : 0;
+        const netpayDiff = venusNetpay - millwareNetpay;
+        const absNetpayDiff = Math.abs(netpayDiff);
+
+        acc.employeeCount += 1;
+        acc.venusNetpayTotal += venusNetpay;
+        acc.millwareNetpayTotal += millwareNetpay;
+
+        if (!hasMillware) acc.noMillwareCount += 1;
+        else if (absNetpayDiff <= PAYROLL_TOLERANCE) acc.matchCount += 1;
+        else acc.mismatchCount += 1;
+
+        if (absNetpayDiff > PAYROLL_TOLERANCE || !hasMillware) {
+            acc.problemRows.push({
+                id: row.id,
+                name: row.name,
+                ptrjId: row.ptrjId,
+                hasMillware,
+                venusNetpay,
+                millwareNetpay,
+                diff: netpayDiff,
+                absDiff: absNetpayDiff,
+                status: hasMillware ? 'MISMATCH' : 'NO_MILLWARE'
+            });
+        }
+
+        componentKeys.forEach((key) => {
+            const venus = toNumber(row.sync?.[key]?.venus);
+            const millware = hasMillware ? toNumber(row.sync?.[key]?.millware) : 0;
+            const diff = venus - millware;
+            acc.componentTotals[key].venus += venus;
+            acc.componentTotals[key].millware += millware;
+            acc.componentTotals[key].diff += diff;
+            acc.componentTotals[key].absDiff += Math.abs(diff);
+        });
+
+        return acc;
+    }, {
+        employeeCount: 0,
+        matchCount: 0,
+        mismatchCount: 0,
+        noMillwareCount: 0,
+        venusNetpayTotal: 0,
+        millwareNetpayTotal: 0,
+        componentTotals: initialComponentTotals,
+        problemRows: []
+    });
+
+    analysis.netpayDiff = analysis.venusNetpayTotal - analysis.millwareNetpayTotal;
+    analysis.netpayAbsDiff = Math.abs(analysis.netpayDiff);
+    analysis.problemRows.sort((a, b) => b.absDiff - a.absDiff);
+    analysis.topProblemRows = analysis.problemRows.slice(0, 25);
+    analysis.componentRanking = Object.entries(analysis.componentTotals)
+        .map(([key, totals]) => ({ key, ...totals }))
+        .sort((a, b) => b.absDiff - a.absDiff);
+
+    return analysis;
+};
+
 /**
  * Fetch payroll details for a specific month and year
  * @param {number} month - 1-12
@@ -115,7 +253,8 @@ const fetchPayrollData = async (month, year) => {
             const mw = millwareData[py.ptrjId] || null;
 
             // Calculate Venus aggregations for comparison
-            let vLembur = 0, vJabatan = 0, vBeras = 0, vMasaKerja = 0, vPremi = 0;
+            let vLembur = 0, vJabatan = 0, vBeras = 0, vMasaKerja = 0, vPremi = 0, vCompanyPaidBenefits = 0;
+            const companyPaidBenefitDetails = [];
             py.tunjanganDetails.forEach(d => {
                 const key = getPayrollComponentKey(d);
                 if (key === 'lembur') vLembur += d.amount;
@@ -123,16 +262,55 @@ const fetchPayrollData = async (month, year) => {
                 else if (key === 'beras') vBeras += d.amount;
                 else if (key === 'masaKerja') vMasaKerja += d.amount;
                 else if (key === 'premi') vPremi += d.amount;
+
+                if (isCompanyPaidBenefit(d)) {
+                    const amount = Math.abs(toNumber(d.amount));
+                    vCompanyPaidBenefits += amount;
+                    companyPaidBenefitDetails.push({
+                        code: d.code,
+                        name: d.name,
+                        amount
+                    });
+                }
             });
 
-            let vPph21 = 0, vBpjsKes = 0, vBpjsPen = 0, vSpsi = 0;
+            let vPph21 = 0, vBpjsKes = 0, vBpjsPen = 0, vSpsi = 0, vOtherAutoDeductions = 0;
+            const otherAutoDeductionDetails = [];
             py.potonganDetails.forEach(d => {
                 const key = getPayrollComponentKey(d);
                 if (key === 'pph21') vPph21 += Math.abs(d.amount);
                 else if (key === 'bpjsKes') vBpjsKes += Math.abs(d.amount);
                 else if (key === 'bpjsPen') vBpjsPen += Math.abs(d.amount);
                 else if (key === 'spsi') vSpsi += Math.abs(d.amount);
+
+                if (isEmployeeAutoDeduction(d) && key !== 'bpjsKes' && key !== 'bpjsPen') {
+                    const amount = Math.abs(toNumber(d.amount));
+                    vOtherAutoDeductions += amount;
+                    otherAutoDeductionDetails.push({
+                        code: d.code,
+                        name: d.name,
+                        amount
+                    });
+                }
             });
+
+            const effectiveMillwareNetpay = calculateEffectiveMillwareNetpay(mw, {
+                bpjsKes: vBpjsKes,
+                bpjsPen: vBpjsPen,
+                other: vOtherAutoDeductions
+            });
+
+            const effectiveMillware = mw ? {
+                ...mw,
+                auto_tunjangan_perusahaan: vCompanyPaidBenefits,
+                auto_tunjangan_perusahaan_details: companyPaidBenefitDetails,
+                auto_potongan_bpjs_kesehatan: Math.max(vBpjsKes - Math.abs(toNumber(mw.potongan_bpjs_kesehatan)), 0),
+                auto_potongan_bpjs_pensiun: Math.max(vBpjsPen - Math.abs(toNumber(mw.potongan_bpjs_pensiun)), 0),
+                auto_potongan_lain: Math.max(vOtherAutoDeductions - Math.abs(toNumber(mw.potongan_lain)), 0),
+                auto_potongan_lain_details: otherAutoDeductionDetails,
+                upah_bersih_raw: mw.upah_bersih || 0,
+                upah_bersih: effectiveMillwareNetpay
+            } : null;
 
             const sync = {
                 isSynced: false,
@@ -149,11 +327,11 @@ const fetchPayrollData = async (month, year) => {
                 bpjsKes: { venus: vBpjsKes, millware: mw ? Math.abs(mw.potongan_bpjs_kesehatan || 0) : 0 },
                 bpjsPen: { venus: vBpjsPen, millware: mw ? Math.abs(mw.potongan_bpjs_pensiun || 0) : 0 },
                 spsi: { venus: vSpsi, millware: mw ? Math.abs(mw.potongan_spsi || 0) : 0 },
-                upahBersih: { venus: py.upahBersih, millware: mw ? mw.upah_bersih || 0 : 0 }
+                upahBersih: { venus: py.upahBersih, millware: effectiveMillwareNetpay }
             };
 
             if (mw) {
-                const isMatch = (a, b) => Math.abs(a - b) < 50; // 50 rupiah tolerance for rounding diffs
+                const isMatch = (a, b) => Math.abs(a - b) <= PAYROLL_TOLERANCE;
                 sync.isSynced = isMatch(sync.gajiPokok.venus, sync.gajiPokok.millware) &&
                     isMatch(sync.lembur.venus, sync.lembur.millware) &&
                     isMatch(sync.jabatan.venus, sync.jabatan.millware) &&
@@ -166,14 +344,15 @@ const fetchPayrollData = async (month, year) => {
 
             return {
                 ...py,
-                millware: mw,
+                millware: effectiveMillware,
                 sync
             };
         });
 
         return {
             success: true,
-            data: finalData
+            data: finalData,
+            analysis: buildNetpayAnalysis(finalData)
         };
 
     } catch (e) {
@@ -186,5 +365,6 @@ const fetchPayrollData = async (month, year) => {
 };
 
 module.exports = {
-    fetchPayrollData
+    fetchPayrollData,
+    buildNetpayAnalysis
 };

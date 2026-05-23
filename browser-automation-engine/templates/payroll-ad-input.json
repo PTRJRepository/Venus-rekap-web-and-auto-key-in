@@ -176,9 +176,14 @@
                         "action": "typeInput",
                         "params": {
                             "selector": "#MainContent_ddlEmployee + input.ui-autocomplete-input",
-                            "value": "${employee.employeeName}",
+                            "value": "${employee.ptrjId}",
                             "confirmKey": "Enter",
-                            "smartSelect": true
+                            "smartSelect": true,
+                            "slowUntilSingle": true,
+                            "slowValue": "${employee.ptrjId}",
+                            "fallbackValues": [
+                                "${employee.employeeName}"
+                            ]
                         }
                     },
                     {
@@ -188,85 +193,77 @@
                         }
                     },
                     {
-                        "comment": "═══ LOOP THROUGH COMPONENTS ═══",
-                        "action": "forEach",
+                        "action": "log",
                         "params": {
-                            "array": "employee.components",
-                            "itemName": "component",
-                            "failOnError": true,
-                            "recoveryListUrl": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx",
-                            "recoveryDetailUrl": "frmPrTrxADDets.aspx",
-                            "recoveryReadySelector": "#MainContent_ddlEmployee + input.ui-autocomplete-input",
-                            "steps": [
-                                {
-                                    "action": "log",
-                                    "params": {
-                                        "message": "    └─ Component: ${component.componentName} → Search: ${component.adSearchKeyword} (${component.adCode}) = Rp ${component.venusAmount}"
-                                    }
-                                },
-                                {
-                                    "comment": "═══ INPUT DESCRIPTION IF FIELD EXISTS ═══",
-                                    "action": "executeJavascript",
-                                    "params": {
-                                        "script": "const value = \"${component.componentName}\"; const selectors = ['#MainContent_txtDocDesc', '#MainContent_txtDescription', '#MainContent_txtDesc', '#MainContent_txtRemarks', 'input[id*=DocDesc]', 'input[id*=Description]', 'textarea[id*=Description]', 'textarea[id*=Remarks]']; const el = selectors.map(s => document.querySelector(s)).find(Boolean); if (el) { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); console.log('Payroll description set:', value); } else { console.log('Payroll description field not found; continue with ADCode/Amount'); }"
-                                    }
-                                },
-                                {
-                                    "comment": "═══ INPUT TASK CODE KEYWORD AND PICK FIRST OPTION ═══",
-                                    "action": "typeInput",
-                                    "params": {
-                                        "selector": "#MainContent_ddlTaskCode + input.ui-autocomplete-input",
-                                        "value": "${component.adSearchKeyword}",
-                                        "confirmKey": "Enter",
-                                        "smartSelect": true,
-                                        "selectFirstOption": true
-                                    }
-                                },
-                                {
-                                    "action": "wait",
-                                    "params": {
-                                        "duration": 800
-                                    }
-                                },
-                                {
-                                    "comment": "═══ INPUT AMOUNT ═══",
-                                    "action": "typeInput",
-                                    "params": {
-                                        "selector": "#MainContent_txtAmount",
-                                        "value": "${component.venusAmount}"
-                                    }
-                                },
-                                {
-                                    "action": "wait",
-                                    "params": {
-                                        "duration": 300
-                                    }
-                                },
-                                {
-                                    "comment": "═══ VERIFY PAYROLL DOC DATE BEFORE ADD ═══",
-                                    "action": "executeJavascript",
-                                    "params": {
-                                        "script": "const docDate = \"${metadata.payrollDocDate}\"; const month = String(\"${metadata.month}\").padStart(2, '0'); const candidates = ['#MainContent_txtDocDate', 'input[id*=txtDocDate]', 'input[id*=DocDate]']; const fields = candidates.flatMap(selector => Array.from(document.querySelectorAll(selector))).filter((el, index, arr) => el && arr.indexOf(el) === index); if (!fields.length) { throw new Error('Payroll DocDate field not found before Add'); } for (const el of fields) { if (String(el.value || '').slice(3, 5) !== month) { el.value = docDate; el.setAttribute('value', docDate); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); } } const bad = fields.find(el => String(el.value || '').slice(3, 5) !== month); if (bad) { throw new Error('Payroll DocDate month mismatch before Add: ' + bad.value + ' expected month ' + month); } console.log('Payroll DocDate verified before Add:', docDate);"
-                                    }
-                                },
-                                {
-                                    "comment": "═══ CLICK ADD BUTTON ═══",
-                                    "action": "clickAndWaitForReload",
-                                    "params": {
-                                        "selector": "#MainContent_btnAdd",
-                                        "timeout": 15000,
-                                        "maxAttempts": 3,
-                                        "throwOnValidation": true,
-                                        "throwOnFail": true
-                                    }
-                                },
-                                {
-                                    "action": "wait",
-                                    "params": {
-                                        "duration": 1000
-                                    }
-                                }
+                            "message": "    └─ Component: ${employee.components.0.componentName} → Search: ${employee.components.0.adSearchKeyword} (${employee.components.0.adCode}) = Rp ${employee.components.0.venusAmount}"
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT DESCRIPTION IF FIELD EXISTS ═══",
+                        "action": "executeJavascript",
+                        "params": {
+                            "script": "const value = \"${employee.components.0.componentName}\"; const selectors = ['#MainContent_txtDocDesc', '#MainContent_txtDescription', '#MainContent_txtDesc', '#MainContent_txtRemarks', 'input[id*=DocDesc]', 'input[id*=Description]', 'textarea[id*=Description]', 'textarea[id*=Remarks]']; const el = selectors.map(s => document.querySelector(s)).find(Boolean); if (el) { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); console.log('Payroll description set:', value); } else { console.log('Payroll description field not found; continue with ADCode/Amount'); }"
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT TASK CODE KEYWORD AND PICK FIRST OPTION ═══",
+                        "action": "typeInput",
+                        "params": {
+                            "selector": "#MainContent_ddlTaskCode + input.ui-autocomplete-input",
+                            "value": "${employee.components.0.adSearchKeyword}",
+                            "confirmKey": "Enter",
+                            "smartSelect": true,
+                            "selectFirstOption": true,
+                            "slowUntilSingle": true,
+                            "slowValue": "${employee.components.0.componentName}",
+                            "fallbackValues": [
+                                "${employee.components.0.sourceNames.0}",
+                                "${employee.components.0.adCodeDesc}"
                             ]
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 800
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT AMOUNT ═══",
+                        "action": "typeInput",
+                        "params": {
+                            "selector": "#MainContent_txtAmount",
+                            "value": "${employee.components.0.venusAmount}"
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 300
+                        }
+                    },
+                    {
+                        "comment": "═══ VERIFY PAYROLL DOC DATE BEFORE ADD ═══",
+                        "action": "executeJavascript",
+                        "params": {
+                            "script": "const docDate = \"${metadata.payrollDocDate}\"; const month = String(\"${metadata.month}\").padStart(2, '0'); const candidates = ['#MainContent_txtDocDate', 'input[id*=txtDocDate]', 'input[id*=DocDate]']; const fields = candidates.flatMap(selector => Array.from(document.querySelectorAll(selector))).filter((el, index, arr) => el && arr.indexOf(el) === index); if (!fields.length) { throw new Error('Payroll DocDate field not found before Add'); } for (const el of fields) { if (String(el.value || '').slice(3, 5) !== month) { el.value = docDate; el.setAttribute('value', docDate); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); } } const bad = fields.find(el => String(el.value || '').slice(3, 5) !== month); if (bad) { throw new Error('Payroll DocDate month mismatch before Add: ' + bad.value + ' expected month ' + month); } console.log('Payroll DocDate verified before Add:', docDate);"
+                        }
+                    },
+                    {
+                        "comment": "═══ CLICK ADD BUTTON ═══",
+                        "action": "clickAndWaitForReload",
+                        "params": {
+                            "selector": "#MainContent_btnAdd",
+                            "timeout": 15000,
+                            "maxAttempts": 3,
+                            "throwOnValidation": true,
+                            "throwOnFail": true
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 1000
                         }
                     },
                     {

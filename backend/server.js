@@ -155,6 +155,7 @@ app.get('/api/payroll', async (req, res) => {
             res.json({
                 success: true,
                 data: result.data,
+                analysis: result.analysis,
                 month: parseInt(month),
                 year: parseInt(year)
             });

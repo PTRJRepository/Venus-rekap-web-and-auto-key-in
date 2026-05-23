@@ -26,6 +26,20 @@ function employee(ptrjId) {
     };
 }
 
+function employeeWithDates(ptrjId, dates) {
+    const emp = employee(ptrjId);
+    emp.Attendance = Object.fromEntries(dates.map((date) => [
+        date,
+        {
+            date,
+            status: 'Hadir',
+            regularHours: 7,
+            overtimeHours: 0
+        }
+    ]));
+    return emp;
+}
+
 {
     const data = {
         metadata: { period_start: '2026-02-01', period_end: '2026-02-28' },
@@ -42,6 +56,32 @@ function employee(ptrjId) {
     assert.equal(plan.actualTabs, 1);
     assert.equal(plan.employees.length, 1);
     assert.deepEqual(plan.assignedTabs.map((tab) => tab.map((item) => item.PTRJEmployeeID)), [['P001']]);
+    assert.deepEqual(plan.splitKeys, []);
+}
+
+{
+    const data = {
+        metadata: { period_start: '2026-02-01', period_end: '2026-02-28' },
+        data: [
+            employeeWithDates('P001', [
+                '2026-02-24',
+                '2026-02-25',
+                '2026-02-26',
+                '2026-02-27',
+                '2026-02-28'
+            ])
+        ]
+    };
+
+    const plan = buildMultiTabRunPlan({
+        data,
+        requestedTabs: 5,
+        maxTabs: 8
+    });
+
+    assert.equal(plan.actualTabs, 5);
+    assert.deepEqual(plan.assignedTabs.map((tab) => tab.length), [1, 1, 1, 1, 1]);
+    assert.deepEqual(plan.assignedTabs.map((tab) => Object.keys(tab[0].Attendance).length), [1, 1, 1, 1, 1]);
     assert.deepEqual(plan.splitKeys, []);
 }
 

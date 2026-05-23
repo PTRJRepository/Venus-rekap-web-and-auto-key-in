@@ -31,6 +31,9 @@ const getPayrollComponentKey = (component = {}) => {
     if (compact.includes('PPH21') || text.includes('PPH')) return 'pph21';
     if (text.includes('BPJS') && (text.includes('KESEHATAN') || text.includes('KES'))) return 'bpjsKes';
     if (
+        text.includes('BPJS TK') ||
+        (text.includes('BPJS') && text.includes('TK')) ||
+        compact.includes('BPJSTK') ||
         text.includes('JHT') ||
         text.includes('PENSIUN') ||
         text.includes('JP TK') ||

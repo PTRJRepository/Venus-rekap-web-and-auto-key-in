@@ -18,9 +18,14 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import InsightsIcon from '@mui/icons-material/Insights';
 
 const formatCurrency = (amount) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+};
+
+const formatNumber = (amount) => {
+    return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(amount) || 0);
 };
 
 const PAYROLL_SYNC_COMPONENTS = [
@@ -53,6 +58,241 @@ const getComponentStatus = (pair, hasMillware, tolerance = 50) => {
     if (Math.abs(diff) <= tolerance) return { code: 'MATCH', label: 'SYNC', color: '#166534', bg: '#dcfce7', diff };
     if (venus !== 0 && Math.abs(millware) <= tolerance) return { code: 'MISS', label: 'MISS', color: '#991b1b', bg: '#fee2e2', diff };
     return { code: 'DIFF', label: 'SELISIH', color: '#9a3412', bg: '#ffedd5', diff };
+};
+
+const COMPONENT_LABELS = {
+    gajiPokok: 'Gaji Pokok',
+    lembur: 'Lembur',
+    jabatan: 'Tj. Jabatan',
+    beras: 'Tj. Beras',
+    masaKerja: 'Tj. Masa Kerja',
+    premi: 'Premi',
+    pph21: 'PPh 21',
+    bpjsKes: 'BPJS Kes.',
+    bpjsPen: 'BPJS Pens.',
+    spsi: 'SPSI',
+    upahBersih: 'Net Pay'
+};
+
+const buildFallbackNetpayAnalysis = (rows = []) => {
+    const componentKeys = Object.keys(COMPONENT_LABELS);
+    const initialComponentTotals = componentKeys.reduce((acc, key) => {
+        acc[key] = { venus: 0, millware: 0, diff: 0, absDiff: 0 };
+        return acc;
+    }, {});
+
+    const analysis = rows.reduce((acc, row) => {
+        const hasMillware = Boolean(row.millware);
+        const venusNetpay = Number(row.sync?.upahBersih?.venus || 0);
+        const millwareNetpay = hasMillware ? Number(row.sync?.upahBersih?.millware || 0) : 0;
+        const diff = venusNetpay - millwareNetpay;
+
+        acc.employeeCount += 1;
+        acc.venusNetpayTotal += venusNetpay;
+        acc.millwareNetpayTotal += millwareNetpay;
+        if (!hasMillware) acc.noMillwareCount += 1;
+        else if (Math.abs(diff) <= 50) acc.matchCount += 1;
+        else acc.mismatchCount += 1;
+
+        if (!hasMillware || Math.abs(diff) > 50) {
+            acc.problemRows.push({
+                id: row.id,
+                name: row.name,
+                ptrjId: row.ptrjId,
+                hasMillware,
+                venusNetpay,
+                millwareNetpay,
+                diff,
+                absDiff: Math.abs(diff),
+                status: hasMillware ? 'MISMATCH' : 'NO_MILLWARE'
+            });
+        }
+
+        componentKeys.forEach((key) => {
+            const venus = Number(row.sync?.[key]?.venus || 0);
+            const millware = hasMillware ? Number(row.sync?.[key]?.millware || 0) : 0;
+            const componentDiff = venus - millware;
+            acc.componentTotals[key].venus += venus;
+            acc.componentTotals[key].millware += millware;
+            acc.componentTotals[key].diff += componentDiff;
+            acc.componentTotals[key].absDiff += Math.abs(componentDiff);
+        });
+
+        return acc;
+    }, {
+        employeeCount: 0,
+        matchCount: 0,
+        mismatchCount: 0,
+        noMillwareCount: 0,
+        venusNetpayTotal: 0,
+        millwareNetpayTotal: 0,
+        componentTotals: initialComponentTotals,
+        problemRows: []
+    });
+
+    analysis.netpayDiff = analysis.venusNetpayTotal - analysis.millwareNetpayTotal;
+    analysis.netpayAbsDiff = Math.abs(analysis.netpayDiff);
+    analysis.problemRows.sort((a, b) => b.absDiff - a.absDiff);
+    analysis.topProblemRows = analysis.problemRows.slice(0, 25);
+    analysis.componentRanking = Object.entries(analysis.componentTotals)
+        .map(([key, totals]) => ({ key, ...totals }))
+        .sort((a, b) => b.absDiff - a.absDiff);
+    return analysis;
+};
+
+const NetpayAnalysisPanel = ({ data, analysis }) => {
+    const [statusFilter, setStatusFilter] = useState('problem');
+    const [search, setSearch] = useState('');
+
+    const netpayAnalysis = useMemo(() => analysis || buildFallbackNetpayAnalysis(data), [analysis, data]);
+    const rows = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        return (data || []).map((row) => {
+            const hasMillware = Boolean(row.millware);
+            const venusNetpay = Number(row.sync?.upahBersih?.venus || 0);
+            const millwareNetpay = hasMillware ? Number(row.sync?.upahBersih?.millware || 0) : 0;
+            const diff = venusNetpay - millwareNetpay;
+            const status = !hasMillware ? 'NO_MILLWARE' : Math.abs(diff) <= 50 ? 'MATCH' : 'MISMATCH';
+            return { ...row, hasMillware, venusNetpay, millwareNetpay, diff, absDiff: Math.abs(diff), status };
+        }).filter((row) => {
+            if (query && !`${row.name} ${row.ptrjId} ${row.id}`.toLowerCase().includes(query)) return false;
+            if (statusFilter === 'all') return true;
+            if (statusFilter === 'problem') return row.status !== 'MATCH';
+            return row.status === statusFilter;
+        }).sort((a, b) => b.absDiff - a.absDiff);
+    }, [data, search, statusFilter]);
+
+    const includedMillwareCount = (netpayAnalysis.employeeCount || 0) - (netpayAnalysis.noMillwareCount || 0);
+    const statusCards = [
+        { label: 'Total Karyawan', value: netpayAnalysis.employeeCount || 0, color: '#0f172a', bg: '#f8fafc' },
+        { label: 'Match Net Pay', value: netpayAnalysis.matchCount || 0, color: '#166534', bg: '#dcfce7' },
+        { label: 'Mismatch Net Pay', value: netpayAnalysis.mismatchCount || 0, color: '#991b1b', bg: '#fee2e2' },
+        { label: 'No Millware', value: netpayAnalysis.noMillwareCount || 0, color: '#92400e', bg: '#fef3c7' }
+    ];
+
+    return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0 }}>
+            <Grid container spacing={2}>
+                <Grid item xs={12} md={4}>
+                    <Paper elevation={0} sx={{ p: 2, border: '1px solid #bfdbfe', bgcolor: '#eff6ff', borderRadius: 2, height: '100%' }}>
+                        <Typography sx={{ fontSize: '0.72rem', fontWeight: 900, color: '#1d4ed8' }}>TOTAL NET PAY VENUS</Typography>
+                        <Typography sx={{ mt: 1, fontSize: '1.35rem', fontWeight: 900, color: '#0f172a' }}>{formatCurrency(netpayAnalysis.venusNetpayTotal || 0)}</Typography>
+                        <Typography sx={{ fontSize: '0.7rem', color: '#475569' }}>Dari {formatNumber(netpayAnalysis.employeeCount)} karyawan payroll</Typography>
+                    </Paper>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <Paper elevation={0} sx={{ p: 2, border: '1px solid #bbf7d0', bgcolor: '#f0fdf4', borderRadius: 2, height: '100%' }}>
+                        <Typography sx={{ fontSize: '0.72rem', fontWeight: 900, color: '#15803d' }}>TOTAL NET PAY MILLWARE</Typography>
+                        <Typography sx={{ mt: 1, fontSize: '1.35rem', fontWeight: 900, color: '#0f172a' }}>{formatCurrency(netpayAnalysis.millwareNetpayTotal || 0)}</Typography>
+                        <Typography sx={{ fontSize: '0.7rem', color: '#475569' }}>Terhitung untuk {formatNumber(includedMillwareCount)} karyawan yang punya data Millware</Typography>
+                    </Paper>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <Paper elevation={0} sx={{ p: 2, border: '1px solid #fed7aa', bgcolor: '#fff7ed', borderRadius: 2, height: '100%' }}>
+                        <Typography sx={{ fontSize: '0.72rem', fontWeight: 900, color: '#c2410c' }}>SELISIH TOTAL (VENUS - MILLWARE)</Typography>
+                        <Typography sx={{ mt: 1, fontSize: '1.35rem', fontWeight: 900, color: Math.abs(netpayAnalysis.netpayDiff || 0) > 50 ? '#dc2626' : '#16a34a' }}>{formatCurrency(netpayAnalysis.netpayDiff || 0)}</Typography>
+                        <Typography sx={{ fontSize: '0.7rem', color: '#475569' }}>Toleransi match Rp50 per karyawan</Typography>
+                    </Paper>
+                </Grid>
+            </Grid>
+
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {statusCards.map((card) => (
+                    <Chip key={card.label} label={`${card.label}: ${formatNumber(card.value)}`} sx={{ bgcolor: card.bg, color: card.color, fontWeight: 900 }} />
+                ))}
+            </Box>
+
+            <Grid container spacing={2} sx={{ minHeight: 0 }}>
+                <Grid item xs={12} lg={5}>
+                    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, maxHeight: 360 }}>
+                        <Table stickyHeader size="small">
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell sx={{ bgcolor: '#f1f5f9', fontWeight: 900 }}>KOMPONEN PENYUMBANG SELISIH</TableCell>
+                                    <TableCell align="right" sx={{ bgcolor: '#f1f5f9', fontWeight: 900 }}>VENUS</TableCell>
+                                    <TableCell align="right" sx={{ bgcolor: '#f1f5f9', fontWeight: 900 }}>MILLWARE</TableCell>
+                                    <TableCell align="right" sx={{ bgcolor: '#f1f5f9', fontWeight: 900 }}>SELISIH</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {(netpayAnalysis.componentRanking || []).map((component) => (
+                                    <TableRow key={component.key} sx={{ bgcolor: component.key === 'upahBersih' ? '#f0f9ff' : 'inherit' }}>
+                                        <TableCell sx={{ fontSize: '0.75rem', fontWeight: component.key === 'upahBersih' ? 900 : 700 }}>{COMPONENT_LABELS[component.key] || component.key}</TableCell>
+                                        <TableCell align="right" sx={{ fontSize: '0.72rem' }}>{formatCurrency(component.venus || 0)}</TableCell>
+                                        <TableCell align="right" sx={{ fontSize: '0.72rem' }}>{formatCurrency(component.millware || 0)}</TableCell>
+                                        <TableCell align="right" sx={{ fontSize: '0.72rem', fontWeight: 900, color: Math.abs(component.diff || 0) > 50 ? '#dc2626' : '#16a34a' }}>{formatCurrency(component.diff || 0)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </Grid>
+
+                <Grid item xs={12} lg={7}>
+                    <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                            <TextField
+                                size="small"
+                                placeholder="Cari karyawan/PTRJ"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                sx={{ width: 220, '& .MuiInputBase-input': { fontSize: '0.8rem' } }}
+                            />
+                            <TextField
+                                select
+                                size="small"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                sx={{ width: 170, '& .MuiInputBase-input': { fontSize: '0.8rem', fontWeight: 700 } }}
+                            >
+                                <MenuItem value="problem">Mismatch + No MW</MenuItem>
+                                <MenuItem value="all">Semua</MenuItem>
+                                <MenuItem value="MISMATCH">Mismatch</MenuItem>
+                                <MenuItem value="NO_MILLWARE">No Millware</MenuItem>
+                                <MenuItem value="MATCH">Match</MenuItem>
+                            </TextField>
+                        </Box>
+                        <Typography sx={{ alignSelf: 'center', fontSize: '0.72rem', color: '#64748b', fontWeight: 800 }}>
+                            {formatNumber(rows.length)} baris
+                        </Typography>
+                    </Box>
+                    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, maxHeight: 360 }}>
+                        <Table stickyHeader size="small">
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell sx={{ bgcolor: '#f1f5f9', fontWeight: 900 }}>KARYAWAN</TableCell>
+                                    <TableCell align="right" sx={{ bgcolor: '#f1f5f9', fontWeight: 900 }}>VENUS</TableCell>
+                                    <TableCell align="right" sx={{ bgcolor: '#f1f5f9', fontWeight: 900 }}>MILLWARE</TableCell>
+                                    <TableCell align="right" sx={{ bgcolor: '#f1f5f9', fontWeight: 900 }}>SELISIH</TableCell>
+                                    <TableCell align="center" sx={{ bgcolor: '#f1f5f9', fontWeight: 900 }}>STATUS</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {rows.map((row) => (
+                                    <TableRow key={`${row.id}-${row.ptrjId}`} hover>
+                                        <TableCell>
+                                            <Typography sx={{ fontSize: '0.78rem', fontWeight: 800 }}>{row.name}</Typography>
+                                            <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>{row.ptrjId || row.id}</Typography>
+                                        </TableCell>
+                                        <TableCell align="right" sx={{ fontSize: '0.72rem', fontWeight: 700 }}>{formatCurrency(row.venusNetpay)}</TableCell>
+                                        <TableCell align="right" sx={{ fontSize: '0.72rem', fontWeight: 700 }}>{formatCurrency(row.millwareNetpay)}</TableCell>
+                                        <TableCell align="right" sx={{ fontSize: '0.72rem', fontWeight: 900, color: row.status === 'MATCH' ? '#16a34a' : '#dc2626' }}>{formatCurrency(row.diff)}</TableCell>
+                                        <TableCell align="center">
+                                            <Chip
+                                                label={row.status === 'MATCH' ? 'MATCH' : row.status === 'NO_MILLWARE' ? 'NO MW' : 'MISMATCH'}
+                                                size="small"
+                                                sx={{ height: 20, fontSize: '0.58rem', fontWeight: 900, bgcolor: row.status === 'MATCH' ? '#dcfce7' : row.status === 'NO_MILLWARE' ? '#fef3c7' : '#fee2e2', color: row.status === 'MATCH' ? '#166534' : row.status === 'NO_MILLWARE' ? '#92400e' : '#991b1b' }}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </Grid>
+            </Grid>
+        </Box>
+    );
 };
 
 const PayrollComponentMatrix = ({ data, onPayrollAutomation, isPayrollAutomationRunning }) => {
@@ -183,6 +423,11 @@ const PayrollComponentMatrix = ({ data, onPayrollAutomation, isPayrollAutomation
                                         <Chip label={cell.syncable ? cell.status.label : 'INFO'} size="small" sx={{ height: 18, fontSize: '0.58rem', fontWeight: 900, color: cell.syncable ? cell.status.color : '#64748b', bgcolor: '#fff' }} />
                                         <Typography sx={{ mt: 0.4, fontSize: '0.62rem', fontWeight: 800, color: '#0f172a' }}>{formatCurrency(cell.venus)}</Typography>
                                         <Typography sx={{ fontSize: '0.58rem', color: '#64748b' }}>MW {formatCurrency(cell.millware)}</Typography>
+                                        {cell.key === 'beras' && (
+                                            <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: '#475569' }}>
+                                                Rasio MW {formatNumber(row.millware?.rice_ration)}
+                                            </Typography>
+                                        )}
                                         {cell.syncable && ['MISS', 'DIFF', 'NO_DATA'].includes(cell.status.code) && (
                                             <Typography sx={{ fontSize: '0.58rem', fontWeight: 900, color: cell.status.color }}>
                                                 Δ {formatCurrency(cell.status.diff)}
@@ -313,7 +558,12 @@ const EmployeePayrollRow = ({ row, index, perspective }) => {
                                                             </TableRow>
                                                             <TableRow>
                                                                 <TableCell sx={{ fontSize: '0.7rem', fontWeight: 700 }}>Tj. Beras (Manual/Calc)</TableCell>
-                                                                <TableCell align="right" sx={{ fontSize: '0.7rem' }}>{formatCurrency(mw?.tunjangan_beras || 0)}</TableCell>
+                                                                <TableCell align="right" sx={{ fontSize: '0.7rem' }}>
+                                                                    {formatCurrency(mw?.tunjangan_beras || 0)}
+                                                                    <Typography component="div" sx={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700 }}>
+                                                                        Rasio MW {formatNumber(mw?.rice_ration)}/HK
+                                                                    </Typography>
+                                                                </TableCell>
                                                             </TableRow>
                                                             <TableRow>
                                                                 <TableCell sx={{ fontSize: '0.7rem', fontWeight: 700 }}>Tj. Masa Kerja</TableCell>
@@ -325,8 +575,30 @@ const EmployeePayrollRow = ({ row, index, perspective }) => {
                                                             </TableRow>
                                                             <TableRow sx={{ bgcolor: '#fff1f2' }}>
                                                                 <TableCell sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#e11d48' }}>TOTAL POTONGAN (BPJS/PPH/SPSI)</TableCell>
-                                                                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#e11d48' }}>- {formatCurrency(mw?.potongan_total || 0)}</TableCell>
+                                                                <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#e11d48' }}>- {formatCurrency(Math.abs(mw?.potongan_total || 0))}</TableCell>
                                                             </TableRow>
+                                                            {(mw?.auto_tunjangan_perusahaan || 0) > 0 && (
+                                                                <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                                                                    <TableCell sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b' }}>Benefit Perusahaan Venus (Info)</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b' }}>
+                                                                        {formatCurrency(mw?.auto_tunjangan_perusahaan || 0)}
+                                                                        <Typography component="div" sx={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700 }}>
+                                                                            Tidak masuk net pay
+                                                                        </Typography>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )}
+                                                            {((mw?.auto_potongan_bpjs_kesehatan || 0) > 0 || (mw?.auto_potongan_bpjs_pensiun || 0) > 0 || (mw?.auto_potongan_lain || 0) > 0) && (
+                                                                <TableRow sx={{ bgcolor: '#fff7ed' }}>
+                                                                    <TableCell sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#c2410c' }}>BPJS Otomatis dari Venus</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#c2410c' }}>
+                                                                        - {formatCurrency((mw?.auto_potongan_bpjs_kesehatan || 0) + (mw?.auto_potongan_bpjs_pensiun || 0) + (mw?.auto_potongan_lain || 0))}
+                                                                        <Typography component="div" sx={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700 }}>
+                                                                            BPJS karyawan/pinjaman/absen/lain-lain
+                                                                        </Typography>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )}
                                                         </TableBody>
                                                     </Table>
                                                 </TableContainer>
@@ -431,6 +703,7 @@ const EmployeePayrollRow = ({ row, index, perspective }) => {
 
 const PayrollReport = ({ month, year, onPayrollAutomation, isPayrollAutomationRunning, onPayrollADReset, isPayrollADResetRunning }) => {
     const [data, setData] = useState([]);
+    const [analysis, setAnalysis] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [mainPerspective, setMainPerspective] = useState('comparison');
@@ -443,8 +716,13 @@ const PayrollReport = ({ month, year, onPayrollAutomation, isPayrollAutomationRu
             try {
                 const response = await fetch(`/api/payroll?month=${month}&year=${year}`);
                 const result = await response.json();
-                if (result.success) setData(result.data);
-                else setError(result.error);
+                if (result.success) {
+                    setData(result.data);
+                    setAnalysis(result.analysis || null);
+                } else {
+                    setError(result.error);
+                    setAnalysis(null);
+                }
             } catch (err) { setError(err.message); }
             finally { setLoading(false); }
         };
@@ -468,6 +746,13 @@ const PayrollReport = ({ month, year, onPayrollAutomation, isPayrollAutomationRu
                         label="COMPARISON SUMMARY" 
                         value="comparison" 
                         sx={{ fontWeight: 800, fontSize: '0.75rem' }} 
+                    />
+                    <Tab
+                        icon={<InsightsIcon sx={{ fontSize: 18 }} />}
+                        iconPosition="start"
+                        label="ANALISIS NETPAY"
+                        value="netpay"
+                        sx={{ fontWeight: 800, fontSize: '0.75rem' }}
                     />
                     <Tab
                         icon={<AssessmentIcon sx={{ fontSize: 18 }} />}
@@ -517,7 +802,9 @@ const PayrollReport = ({ month, year, onPayrollAutomation, isPayrollAutomationRu
                 </Box>
             </Box>
 
-            {mainPerspective === 'matrix' ? (
+            {mainPerspective === 'netpay' ? (
+                <NetpayAnalysisPanel data={data} analysis={analysis} />
+            ) : mainPerspective === 'matrix' ? (
                 <PayrollComponentMatrix data={data} onPayrollAutomation={onPayrollAutomation} isPayrollAutomationRunning={isPayrollAutomationRunning} />
             ) : (
                 <TableContainer component={Paper} elevation={0} sx={{ flexGrow: 1, border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'auto' }}>

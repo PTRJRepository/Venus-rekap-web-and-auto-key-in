@@ -496,6 +496,10 @@ class AutomationEngine {
         if (typeof params === 'object') {
             const result = {};
             for (const [key, value] of Object.entries(params)) {
+                if (['steps', 'thenSteps', 'elseSteps'].includes(key) && Array.isArray(value)) {
+                    result[key] = value;
+                    continue;
+                }
                 if (typeof value === 'string') {
                     result[key] = this.substituteVariables(value, context);
                 } else if (value !== null && (typeof value === 'object' || Array.isArray(value))) {

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn, exec } = require('child_process');
 const { compareWithTaskReg } = require('./comparisonService');
+const { fetchAttendanceData } = require('./attendanceService');
 
 // Define paths
 const ENGINE_DIR = path.resolve(__dirname, '../../browser-automation-engine');
@@ -40,6 +41,43 @@ const getMillwareDetail = (millwareInfo, key) => {
         return nested[key];
     }
     return undefined;
+};
+
+const buildLatestEmployeeMap = async (month, year) => {
+    const matrixEmployees = await fetchAttendanceData(Number(month), Number(year), { showStaff: true });
+    const byVenusId = {};
+    const byPtrjId = {};
+
+    matrixEmployees.forEach(emp => {
+        if (emp.id) byVenusId[String(emp.id).trim()] = emp;
+        if (emp.ptrjEmployeeID) byPtrjId[String(emp.ptrjEmployeeID).trim()] = emp;
+    });
+
+    return { byVenusId, byPtrjId };
+};
+
+const applyLatestEmployeeMapping = (employees, latestMap) => {
+    return employees.map(emp => {
+        const venusId = String(emp.id || emp.EmployeeID || '').trim();
+        const ptrjId = String(emp.ptrjEmployeeID || emp.PTRJEmployeeID || '').trim();
+        const latest = latestMap.byVenusId[venusId] || latestMap.byPtrjId[ptrjId];
+
+        if (!latest) return emp;
+
+        const latestPtrjId = latest.ptrjEmployeeID || emp.ptrjEmployeeID || emp.PTRJEmployeeID || '';
+        const latestChargeJob = latest.chargeJob || emp.chargeJob || emp.ChargeJob || '';
+
+        if (latestChargeJob && latestChargeJob !== (emp.chargeJob || emp.ChargeJob || '')) {
+            console.log(`[Automation] Refresh ChargeJob ${latestPtrjId || ptrjId || venusId} (${emp.name || emp.EmployeeName || latest.employee_name || ''}): "${emp.chargeJob || emp.ChargeJob || ''}" -> "${latestChargeJob}"`);
+        }
+
+        return {
+            ...emp,
+            ptrjEmployeeID: latestPtrjId,
+            chargeJob: latestChargeJob,
+            name: emp.name || latest.name || emp.EmployeeName || ''
+        };
+    });
 };
 
 /**
@@ -141,7 +179,7 @@ const saveAutomationData = async (data) => {
     const fileName = 'current_data.json';
     const filePath = path.join(DATA_DIR, fileName);
 
-    const employees = data.employees || [];
+    let employees = data.employees || [];
     const month = data.month || new Date().getMonth() + 1;
     const year = data.year || new Date().getFullYear();
     const startDate = data.startDate || null;
@@ -150,6 +188,13 @@ const saveAutomationData = async (data) => {
     const syncMismatchesOnly = data.syncMismatchesOnly || false;
     const syncRegularOnly = data.syncRegularOnly || false;
     const automationWindows = normalizeAttendanceWindowCount(data.windowCount || data.automationWindows || 1);
+
+    try {
+        const latestMap = await buildLatestEmployeeMap(month, year);
+        employees = applyLatestEmployeeMapping(employees, latestMap);
+    } catch (err) {
+        console.error(`[Automation] ⚠️ Failed to refresh latest employee mapping from Attendance Matrix source:`, err.message);
+    }
 
     // Transform to engine format with filtering
     let transformedData = transformEmployeeData(employees, month, year, startDate, endDate);

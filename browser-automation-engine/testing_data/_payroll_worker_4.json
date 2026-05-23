@@ -13,7 +13,10 @@
     "unmappedComponents": 1892,
     "tolerance": 10,
     "componentKeys": [],
-    "oneDocPerComponent": true
+    "oneDocPerComponent": true,
+    "parallel": true,
+    "workerIndex": 4,
+    "totalWorkers": 5
   },
   "employees": [],
   "diagnostics": [

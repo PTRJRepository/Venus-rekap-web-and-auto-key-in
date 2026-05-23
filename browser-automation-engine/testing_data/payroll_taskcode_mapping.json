@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "updatedAt": "2026-05-13T00:43:32.172Z",
+  "mappings": {
+    "jabatan": {
+      "componentKey": "jabatan",
+      "componentName": "TUNJANGAN JABATAN",
+      "type": "Addition",
+      "keyword": "JABATAN",
+      "keywordsTried": [
+        "JABATAN",
+        "TUNJANGAN JABATAN"
+      ],
+      "taskCode": "GA9128",
+      "taskDesc": "(GA9128) (AL) PERSONNEL TUNJANGAN JABATAN",
+      "selectedValue": "GA9128",
+      "selectedText": "(GA9128) (AL) PERSONNEL TUNJANGAN JABATAN",
+      "optionText": "(GA9128) (AL) PERSONNEL TUNJANGAN JABATAN",
+      "inputValue": "(GA9128) (AL) PERSONNEL TUNJANGAN JABATAN",
+      "optionCount": 1,
+      "discoveredAt": "2026-05-13T00:42:18.620Z"
+    },
+    "masaKerja": {
+      "componentKey": "masaKerja",
+      "componentName": "TUNJANGAN MASA KERJA",
+      "type": "Addition",
+      "keyword": "MASA",
+      "keywordsTried": [
+        "MASA",
+        "KERJA",
+        "MASA KERJA",
+        "TUNJANGAN MASA KERJA"
+      ],
+      "taskCode": "GA9129",
+      "taskDesc": "(GA9129) (AL) PERSONNEL TUNJANGAN MASA KERJA",
+      "selectedValue": "GA9129",
+      "selectedText": "(GA9129) (AL) PERSONNEL TUNJANGAN MASA KERJA",
+      "optionText": "(GA9129) (AL) PERSONNEL TUNJANGAN MASA KERJA",
+      "inputValue": "(GA9129) (AL) PERSONNEL TUNJANGAN MASA KERJA",
+      "optionCount": 1,
+      "discoveredAt": "2026-05-13T00:42:24.386Z"
+    },
+    "pph21": {
+      "componentKey": "pph21",
+      "componentName": "POTONGAN PPH21",
+      "type": "Deduction",
+      "keyword": "PPH",
+      "keywordsTried": [
+        "PPH",
+        "PPH21",
+        "PPH 21",
+        "POTONGAN PPH21"
+      ],
+      "taskCode": "DEPH21",
+      "taskDesc": "(DEPH21) POTONGAN PPH21",
+      "selectedValue": "DEPH21",
+      "selectedText": "(DEPH21) POTONGAN PPH21",
+      "optionText": "(DEPH21) POTONGAN PPH21",
+      "inputValue": "(DEPH21) POTONGAN PPH21",
+      "optionCount": 1,
+      "discoveredAt": "2026-05-13T00:43:32.172Z"
+    },
+    "spsi": {
+      "componentKey": "spsi",
+      "componentName": "POTONGAN SPSI",
+      "type": "Deduction",
+      "keyword": "SPSI",
+      "keywordsTried": [
+        "SPSI",
+        "POTONGAN SPSI"
+      ],
+      "taskCode": "DE0003",
+      "taskDesc": "(DE0003) POTONGAN SPSI",
+      "selectedValue": "DE0003",
+      "selectedText": "(DE0003) POTONGAN SPSI",
+      "optionText": "(DE0003) POTONGAN SPSI",
+      "inputValue": "(DE0003) POTONGAN SPSI",
+      "optionCount": 1,
+      "discoveredAt": "2026-05-13T00:43:32.172Z"
+    }
+  }
+}

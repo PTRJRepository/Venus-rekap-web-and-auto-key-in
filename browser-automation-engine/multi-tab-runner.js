@@ -26,7 +26,8 @@ const { MillwareSession, MILLWARE_CONFIG } = require('./browser-session');
 const {
     assignEmployeesToTabs,
     calculateActualTabCount,
-    findCrossTabEmployeeSplits,
+    countEmployeeInputRows,
+    findCrossTabInputRowSplits,
     duplicateInputRowKeys
 } = require('./multi-tab-assignment');
 
@@ -149,7 +150,7 @@ function buildMultiTabRunPlan({ data, requestedTabs = DEFAULT_MAX_TABS, maxTabs 
 
     const actualTabs = calculateActualTabCount(requestedTabs, maxTabs, employees);
     const assignedTabs = assignEmployeesToTabs(employees, actualTabs);
-    const splitKeys = findCrossTabEmployeeSplits(assignedTabs);
+    const splitKeys = findCrossTabInputRowSplits(assignedTabs);
 
     return {
         actualTabs,
@@ -565,6 +566,7 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
         requested_tabs: requestedTabs,
         max_tabs: maxTabs,
         employee_count: plan.employees.length,
+        input_row_count: countEmployeeInputRows(plan.employees),
         actual_tabs: plan.actualTabs,
         stagger_delay_ms: TAB_STAGGER_DELAY,
         isolated_sessions: isolatedSessions
@@ -574,7 +576,10 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
     // 1. PREFLIGHT VALIDATION
     // ══════════════════════════════════════════════════════
     console.log('\n🔍 [PREFLIGHT] Memvalidasi data sebelum browser dibuka...');
-    emit('preflight.started', { employee_count: plan.employees.length });
+    emit('preflight.started', {
+        employee_count: plan.employees.length,
+        input_row_count: countEmployeeInputRows(plan.employees)
+    });
 
     // Check 1: duplicate input rows
     const duplicateKeys = duplicateInputRowKeys(plan.employees);
@@ -586,9 +591,10 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
     }
     emit('preflight.duplicate.ok', { duplicate_count: 0 });
 
-    // Check 2: cross-tab employee splits
+    // Check 2: cross-tab input row splits. Same employee may be split by date,
+    // but the same employee+date must never be assigned to multiple tabs.
     if (plan.splitKeys.length > 0) {
-        const msg = `Employee terpecah antar tab: ${plan.splitKeys.join(', ')}`;
+        const msg = `Input row terpecah antar tab: ${plan.splitKeys.join(', ')}`;
         console.error(`❌ [PREFLIGHT] ${msg}`);
         emit('preflight.split', { keys: plan.splitKeys.slice(0, 10), total: plan.splitKeys.length });
         throw new Error(msg);
@@ -613,6 +619,7 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
     console.log(`⚙️  Isolated : ${isolatedSessions ? 'ON (independent browser session per tab)' : 'OFF (shared browser session)'}`);
     console.log(`⚙️  Stagger  : ${TAB_STAGGER_DELAY}ms antar tab`);
     console.log(`📋 Employees: ${plan.employees.length}`);
+    console.log(`📋 Input Rows: ${countEmployeeInputRows(plan.employees)}`);
     console.log(`🔐 Session  : ${sessionId} (fresh=${freshLogin})`);
     console.log('═'.repeat(70) + '\n');
 
@@ -652,11 +659,13 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
         plan.assignedTabs.forEach((employees, index) => {
             const first = employees[0]?.PTRJEmployeeID || '-';
             const last = employees[employees.length - 1]?.PTRJEmployeeID || '-';
+            const rowCount = countEmployeeInputRows(employees);
             const stagger = index > 0 ? ` (start @ +${index * TAB_STAGGER_DELAY}ms)` : ' (start @ 0ms)';
-            console.log(`📌 [Tab ${index + 1}] ${employees.length} employee(s): ${first} → ${last}${stagger}`);
+            console.log(`📌 [Tab ${index + 1}] ${employees.length} employee(s), ${rowCount} row(s): ${first} → ${last}${stagger}`);
             emit('tab.assigned', {
                 tab_index: index,
                 employee_count: employees.length,
+                input_row_count: rowCount,
                 first_emp_id: first,
                 last_emp_id: last,
                 stagger_ms: index * TAB_STAGGER_DELAY
@@ -739,6 +748,7 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
             success: true,
             tabs: plan.actualTabs,
             employees: plan.employees.length,
+            input_rows: countEmployeeInputRows(plan.employees),
             total_processed: totalProcessed
         });
 

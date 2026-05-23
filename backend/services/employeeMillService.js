@@ -6,10 +6,12 @@ require('dotenv').config();
 const SERVER_PROFILE_PTRJ = 'SERVER_PROFILE_1';
 const DB_PTRJ = 'extend_db_ptrj';
 const LOCAL_EXTEND_DB_ENABLED = process.env.LOCAL_EXTEND_DB_ENABLED !== 'false';
-const DEFAULT_GATEWAY_TIMEOUT = 60000;
+const DEFAULT_GATEWAY_TIMEOUT = Number(process.env.GATEWAY_TIMEOUT || 10000);
 const EXTEND_DB_GATEWAY_TIMEOUT = Number(process.env.EXTEND_DB_GATEWAY_TIMEOUT || 8000);
+const GATEWAY_PREFLIGHT_TIMEOUT = Number(process.env.GATEWAY_PREFLIGHT_TIMEOUT || 1500);
 
 let localExtendDbPoolPromise;
+let activeGatewayTargetsPromise;
 
 const parseBooleanEnv = (value, defaultValue) => {
     if (value === undefined) return defaultValue;
@@ -77,36 +79,129 @@ const queryLocalExtendDB = async (sql) => {
     return rows;
 };
 
+const normalizeGateway = (url) => {
+    const normalized = String(url || '').replace(/\/+$/, '');
+    const hasV1QueryPath = /\/v1\/query$/i.test(normalized);
+    const hasQueryPath = /\/query$/i.test(normalized);
+    return {
+        baseURL: hasV1QueryPath
+            ? normalized.replace(/\/v1\/query$/i, '')
+            : hasQueryPath
+                ? normalized.replace(/\/query$/i, '')
+                : normalized,
+        queryPath: hasV1QueryPath ? '/v1/query' : hasQueryPath ? '/query' : '/v1/query'
+    };
+};
+
+const getGatewayTargets = () => {
+    const primary = normalizeGateway(process.env.GATEWAY_URL || 'http://localhost:8001');
+    const fallback = normalizeGateway(process.env.LOCAL_GATEWAY_URL || process.env.GATEWAY_FALLBACK_URL || 'http://localhost:8001');
+    const targets = [primary];
+
+    if (`${fallback.baseURL}${fallback.queryPath}` !== `${primary.baseURL}${primary.queryPath}`) {
+        targets.push(fallback);
+    }
+
+    return targets;
+};
+
+const shouldTryGatewayFallback = (error) => {
+    if (!error.response) return true;
+    return error.response.status >= 500;
+};
+
+const isSameGateway = (a, b) => `${a.baseURL}${a.queryPath}` === `${b.baseURL}${b.queryPath}`;
+
+const checkGatewayReachable = async (gateway) => {
+    try {
+        await axios.get(gateway.baseURL, {
+            timeout: GATEWAY_PREFLIGHT_TIMEOUT,
+            validateStatus: () => true
+        });
+        return true;
+    } catch (error) {
+        console.warn(`[EmployeeMill] Gateway preflight failed for ${gateway.baseURL}: ${error.message}`);
+        return false;
+    }
+};
+
+const getActiveGatewayTargets = async () => {
+    if (!activeGatewayTargetsPromise) {
+        activeGatewayTargetsPromise = (async () => {
+            const targets = getGatewayTargets();
+            const primary = targets[0];
+            const fallback = targets[1];
+
+            if (!fallback || isSameGateway(primary, fallback)) {
+                console.log(`[EmployeeMill] Active gateway: ${primary.baseURL}${primary.queryPath}`);
+                return [primary];
+            }
+
+            const primaryAvailable = await checkGatewayReachable(primary);
+            if (primaryAvailable) {
+                console.log(`[EmployeeMill] Active gateway: ${primary.baseURL}${primary.queryPath}`);
+                return targets;
+            }
+
+            console.warn(`[EmployeeMill] Primary gateway unavailable at startup. Using local gateway: ${fallback.baseURL}${fallback.queryPath}`);
+            return [fallback];
+        })();
+    }
+
+    return activeGatewayTargetsPromise;
+};
+
+getActiveGatewayTargets().catch(error => {
+    console.warn(`[EmployeeMill] Gateway preflight initialization failed: ${error.message}`);
+});
+
 // Helper to query specific server/database
 const executeGatewayQuery = async (sql, serverProfile, database) => {
-    const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8001';
     const API_TOKEN = process.env.API_TOKEN_QUERY;
-
-    const IS_PROXY = GATEWAY_URL.includes('/query');
-    const FINAL_URL = IS_PROXY ? `${GATEWAY_URL}/v1/query` : `${GATEWAY_URL}/v1/query`;
-
-    console.log(`[EmployeeMill] Querying: ${FINAL_URL}`);
     console.log(`[EmployeeMill] Server: ${serverProfile}, DB: ${database}`);
     console.log(`[EmployeeMill] SQL: ${sql.substring(0, 100)}...`);
 
     const timeout = database === DB_PTRJ ? EXTEND_DB_GATEWAY_TIMEOUT : DEFAULT_GATEWAY_TIMEOUT;
+    const gateways = await getActiveGatewayTargets();
+    let lastError;
 
-    const response = await axios.post(FINAL_URL, {
-        sql,
-        server: serverProfile,
-        database: database
-    }, {
-        headers: { 'x-api-key': API_TOKEN },
-        timeout
-    });
+    for (let i = 0; i < gateways.length; i += 1) {
+        const gateway = gateways[i];
+        const label = isSameGateway(gateway, getGatewayTargets()[0]) ? 'primary' : 'fallback';
+        const finalUrl = `${gateway.baseURL}${gateway.queryPath}`;
 
-    if (response.data.success) {
-        const rows = response.data.data.recordset || [];
-        console.log(`[EmployeeMill] Gateway success. Rows: ${rows.length}`);
-        return rows;
+        try {
+            console.log(`[EmployeeMill] Querying ${label}: ${finalUrl}`);
+            const response = await axios.post(finalUrl, {
+                sql,
+                server: serverProfile,
+                database: database
+            }, {
+                headers: { 'x-api-key': API_TOKEN },
+                timeout
+            });
+
+            if (response.data.success) {
+                const rows = response.data.data.recordset || [];
+                console.log(`[EmployeeMill] Gateway success (${label}). Rows: ${rows.length}`);
+                return rows;
+            }
+
+            throw new Error(response.data.error || 'Gateway query failed');
+        } catch (error) {
+            lastError = error;
+            console.error(`EmployeeMillService Gateway Failed (${label}):`, error.message);
+
+            if (i < gateways.length - 1 && shouldTryGatewayFallback(error)) {
+                console.warn(`[EmployeeMill] ${finalUrl} unavailable. Trying local gateway fallback...`);
+                continue;
+            }
+
+            break;
+        }
     }
 
-    throw new Error(response.data.error || 'Gateway query failed');
+    throw lastError;
 };
 
 const queryWithServer = async (sql, serverProfile, database, options = {}) => {
@@ -149,9 +244,23 @@ const queryExtendDB = async (sql, database = DB_PTRJ, options = {}) => {
 const getAllEmployees = async () => {
     // Get ptrj_employee_id and charge_job from extend_db_ptrj.employee_mill (SERVER_PROFILE_1)
     const sql = `
-        SELECT nik, venus_employee_id, ptrj_employee_id, employee_name, charge_job, ISNULL(is_karyawan, 1) as is_karyawan
-        FROM employee_mill
-        WHERE is_active = 1
+        SELECT nik, venus_employee_id, ptrj_employee_id, employee_name, charge_job, is_karyawan
+        FROM (
+            SELECT
+                nik,
+                venus_employee_id,
+                ptrj_employee_id,
+                employee_name,
+                charge_job,
+                ISNULL(is_karyawan, 1) as is_karyawan,
+                ROW_NUMBER() OVER (
+                    PARTITION BY venus_employee_id
+                    ORDER BY updated_at DESC, created_at DESC, nik DESC
+                ) as rn
+            FROM employee_mill
+            WHERE is_active = 1
+        ) latest
+        WHERE rn = 1
     `;
     console.log('[EmployeeMill] Fetching ptrj_employee_id and charge_job from extend_db_ptrj...');
     const results = await queryExtendDB(sql);

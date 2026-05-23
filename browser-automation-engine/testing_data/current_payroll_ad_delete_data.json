@@ -1,0 +1,2040 @@
+{
+  "metadata": {
+    "export_date": "2026-05-13T04:15:32.913Z",
+    "month": 4,
+    "year": 2026,
+    "dryRun": false,
+    "headless": false,
+    "limit": 0,
+    "windowCount": 1,
+    "totalDocIds": 289,
+    "totalEmployees": 0,
+    "source": "payroll_ad_reset"
+  },
+  "docTargets": [
+    {
+      "internalId": "74601",
+      "docNumber": "AD26040653",
+      "label": "AD26040653",
+      "empCode": "POM00064",
+      "empName": "Andri Iswadi"
+    },
+    {
+      "internalId": "74600",
+      "docNumber": "AD26040652",
+      "label": "AD26040652",
+      "empCode": "POM00064",
+      "empName": "Andri Iswadi"
+    },
+    {
+      "internalId": "74599",
+      "docNumber": "AD26040651",
+      "label": "AD26040651",
+      "empCode": "POM00224",
+      "empName": "ABU HURAIROH"
+    },
+    {
+      "internalId": "74596",
+      "docNumber": "AD26040648",
+      "label": "AD26040648",
+      "empCode": "POM00224",
+      "empName": "ABU HURAIROH"
+    },
+    {
+      "internalId": "74588",
+      "docNumber": "AD26040644",
+      "label": "AD26040644",
+      "empCode": "POM00041",
+      "empName": "Adi Apriadi"
+    },
+    {
+      "internalId": "74587",
+      "docNumber": "AD26040643",
+      "label": "AD26040643",
+      "empCode": "POM00224",
+      "empName": "ABU HURAIROH"
+    },
+    {
+      "internalId": "74228",
+      "docNumber": "AD26040300",
+      "label": "AD26040300",
+      "empCode": "POM00268",
+      "empName": "MAXIMA CAHYANI"
+    },
+    {
+      "internalId": "74227",
+      "docNumber": "AD26040299",
+      "label": "AD26040299",
+      "empCode": "pom00227",
+      "empName": "MAHMUDI"
+    },
+    {
+      "internalId": "74226",
+      "docNumber": "AD26040298",
+      "label": "AD26040298",
+      "empCode": "POM00087",
+      "empName": "Jaya Saputra"
+    },
+    {
+      "internalId": "74225",
+      "docNumber": "AD26040297",
+      "label": "AD26040297",
+      "empCode": "POM00176",
+      "empName": "ISBANDI"
+    },
+    {
+      "internalId": "74224",
+      "docNumber": "AD26040296",
+      "label": "AD26040296",
+      "empCode": "POM00135",
+      "empName": "IRWAN"
+    },
+    {
+      "internalId": "74223",
+      "docNumber": "AD26040295",
+      "label": "AD26040295",
+      "empCode": "POM00160",
+      "empName": "HERYANDI"
+    },
+    {
+      "internalId": "74222",
+      "docNumber": "AD26040294",
+      "label": "AD26040294",
+      "empCode": "POM00265",
+      "empName": "HERLY HIDAYAT"
+    },
+    {
+      "internalId": "74221",
+      "docNumber": "AD26040293",
+      "label": "AD26040293",
+      "empCode": "POM00088",
+      "empName": "Dafid Iwan Saputra"
+    },
+    {
+      "internalId": "74220",
+      "docNumber": "AD26040292",
+      "label": "AD26040292",
+      "empCode": "POM00034",
+      "empName": "Andison Supriyanto"
+    },
+    {
+      "internalId": "74219",
+      "docNumber": "AD26040291",
+      "label": "AD26040291",
+      "empCode": "POM00016",
+      "empName": "ERMA"
+    },
+    {
+      "internalId": "74218",
+      "docNumber": "AD26040290",
+      "label": "AD26040290",
+      "empCode": "POM00305",
+      "empName": "Diah Aprilia"
+    },
+    {
+      "internalId": "74217",
+      "docNumber": "AD26040289",
+      "label": "AD26040289",
+      "empCode": "POM00304",
+      "empName": "REZA SANJAYA"
+    },
+    {
+      "internalId": "74216",
+      "docNumber": "AD26040288",
+      "label": "AD26040288",
+      "empCode": "POM00302",
+      "empName": "DAVIN MEIGIYAWAN PUTRA"
+    },
+    {
+      "internalId": "74215",
+      "docNumber": "AD26040287",
+      "label": "AD26040287",
+      "empCode": "POM00301",
+      "empName": "ADRINUR ARIF"
+    },
+    {
+      "internalId": "74214",
+      "docNumber": "AD26040286",
+      "label": "AD26040286",
+      "empCode": "POM00294",
+      "empName": "MUHAMMAD SALMAN ALFARIZI"
+    },
+    {
+      "internalId": "74213",
+      "docNumber": "AD26040285",
+      "label": "AD26040285",
+      "empCode": "POM00299",
+      "empName": "NOVALDI"
+    },
+    {
+      "internalId": "74212",
+      "docNumber": "AD26040284",
+      "label": "AD26040284",
+      "empCode": "POM00298",
+      "empName": "FERZI ARIS SETIAWAN"
+    },
+    {
+      "internalId": "74211",
+      "docNumber": "AD26040283",
+      "label": "AD26040283",
+      "empCode": "POM00297",
+      "empName": "FIK RANGGA"
+    },
+    {
+      "internalId": "74210",
+      "docNumber": "AD26040282",
+      "label": "AD26040282",
+      "empCode": "POM00296",
+      "empName": "HANDY MUKHLIS"
+    },
+    {
+      "internalId": "74209",
+      "docNumber": "AD26040281",
+      "label": "AD26040281",
+      "empCode": "POM00283",
+      "empName": "ALDI"
+    },
+    {
+      "internalId": "74208",
+      "docNumber": "AD26040280",
+      "label": "AD26040280",
+      "empCode": "POM00285",
+      "empName": "JEKI RISTIANDI"
+    },
+    {
+      "internalId": "74207",
+      "docNumber": "AD26040279",
+      "label": "AD26040279",
+      "empCode": "POM00284",
+      "empName": "VOLIOKA AURORA"
+    },
+    {
+      "internalId": "74206",
+      "docNumber": "AD26040278",
+      "label": "AD26040278",
+      "empCode": "POM00281",
+      "empName": "PUTERI DIEKA AFRIANI"
+    },
+    {
+      "internalId": "74205",
+      "docNumber": "AD26040277",
+      "label": "AD26040277",
+      "empCode": "POM00290",
+      "empName": "SEPTIAN PRATAMA"
+    },
+    {
+      "internalId": "74204",
+      "docNumber": "AD26040276",
+      "label": "AD26040276",
+      "empCode": "POM00286",
+      "empName": "ANUGRAH PRATAMA PUTRA"
+    },
+    {
+      "internalId": "74203",
+      "docNumber": "AD26040275",
+      "label": "AD26040275",
+      "empCode": "POM00289",
+      "empName": "FUJI PRASTAMA"
+    },
+    {
+      "internalId": "74202",
+      "docNumber": "AD26040274",
+      "label": "AD26040274",
+      "empCode": "POM00292",
+      "empName": "LIO HERWANTO"
+    },
+    {
+      "internalId": "74201",
+      "docNumber": "AD26040273",
+      "label": "AD26040273",
+      "empCode": "POM00288",
+      "empName": "YOSSI PRANATA"
+    },
+    {
+      "internalId": "74200",
+      "docNumber": "AD26040272",
+      "label": "AD26040272",
+      "empCode": "POM00287",
+      "empName": "AAN  KRIS WANDA"
+    },
+    {
+      "internalId": "74199",
+      "docNumber": "AD26040271",
+      "label": "AD26040271",
+      "empCode": "POM00291",
+      "empName": "NOVI"
+    },
+    {
+      "internalId": "74198",
+      "docNumber": "AD26040270",
+      "label": "AD26040270",
+      "empCode": "POM00273",
+      "empName": "VIRANDA"
+    },
+    {
+      "internalId": "74197",
+      "docNumber": "AD26040269",
+      "label": "AD26040269",
+      "empCode": "POM00278",
+      "empName": "SELAMAT ALAMSYAH"
+    },
+    {
+      "internalId": "74196",
+      "docNumber": "AD26040268",
+      "label": "AD26040268",
+      "empCode": "POM00276",
+      "empName": "REZA AGUSTIAN"
+    },
+    {
+      "internalId": "74195",
+      "docNumber": "AD26040267",
+      "label": "AD26040267",
+      "empCode": "POM00277",
+      "empName": "MAUKAR"
+    },
+    {
+      "internalId": "74193",
+      "docNumber": "AD26040266",
+      "label": "AD26040266",
+      "empCode": "POM00271",
+      "empName": "KELVIN AGUSTIANTO"
+    },
+    {
+      "internalId": "74192",
+      "docNumber": "AD26040265",
+      "label": "AD26040265",
+      "empCode": "POM00269",
+      "empName": "HANDREAN WAHYU NUGROHO"
+    },
+    {
+      "internalId": "74191",
+      "docNumber": "AD26040264",
+      "label": "AD26040264",
+      "empCode": "POM00275",
+      "empName": "EKO RAMADHAN"
+    },
+    {
+      "internalId": "74190",
+      "docNumber": "AD26040263",
+      "label": "AD26040263",
+      "empCode": "POM00270",
+      "empName": "BINTANG PUJIYONO"
+    },
+    {
+      "internalId": "74189",
+      "docNumber": "AD26040262",
+      "label": "AD26040262",
+      "empCode": "POM00272",
+      "empName": "ANGGY"
+    },
+    {
+      "internalId": "74188",
+      "docNumber": "AD26040261",
+      "label": "AD26040261",
+      "empCode": "POM00251",
+      "empName": "M. DIFFARIO KUSUMA"
+    },
+    {
+      "internalId": "74187",
+      "docNumber": "AD26040260",
+      "label": "AD26040260",
+      "empCode": "POM00191",
+      "empName": "TINO POETRA"
+    },
+    {
+      "internalId": "74186",
+      "docNumber": "AD26040259",
+      "label": "AD26040259",
+      "empCode": "POM00030",
+      "empName": "Zurianto"
+    },
+    {
+      "internalId": "74185",
+      "docNumber": "AD26040258",
+      "label": "AD26040258",
+      "empCode": "POM00210",
+      "empName": "WANDA ANDIKA"
+    },
+    {
+      "internalId": "74184",
+      "docNumber": "AD26040257",
+      "label": "AD26040257",
+      "empCode": "POM00259",
+      "empName": "WAHYU YULIANTO"
+    },
+    {
+      "internalId": "74183",
+      "docNumber": "AD26040256",
+      "label": "AD26040256",
+      "empCode": "POM00137",
+      "empName": "TAUFIK HIDAYAT"
+    },
+    {
+      "internalId": "74182",
+      "docNumber": "AD26040255",
+      "label": "AD26040255",
+      "empCode": "POM00103",
+      "empName": "Tri Bowono Yudo"
+    },
+    {
+      "internalId": "74181",
+      "docNumber": "AD26040254",
+      "label": "AD26040254",
+      "empCode": "POM00219",
+      "empName": "TIKI BASISTA"
+    },
+    {
+      "internalId": "74180",
+      "docNumber": "AD26040253",
+      "label": "AD26040253",
+      "empCode": "POM00020",
+      "empName": "Tigo"
+    },
+    {
+      "internalId": "74179",
+      "docNumber": "AD26040252",
+      "label": "AD26040252",
+      "empCode": "POM00211",
+      "empName": "TAUPIK HIDAYAT"
+    },
+    {
+      "internalId": "74178",
+      "docNumber": "AD26040251",
+      "label": "AD26040251",
+      "empCode": "POM00149",
+      "empName": "SYAHRIL"
+    },
+    {
+      "internalId": "74177",
+      "docNumber": "AD26040250",
+      "label": "AD26040250",
+      "empCode": "POM00255",
+      "empName": "SUWARI"
+    },
+    {
+      "internalId": "74176",
+      "docNumber": "AD26040249",
+      "label": "AD26040249",
+      "empCode": "POM00130",
+      "empName": "SYAFRILLIYANSYAH"
+    },
+    {
+      "internalId": "74175",
+      "docNumber": "AD26040248",
+      "label": "AD26040248",
+      "empCode": "POM00132",
+      "empName": "SEPTIAN ADE PRATAMA"
+    },
+    {
+      "internalId": "74174",
+      "docNumber": "AD26040247",
+      "label": "AD26040247",
+      "empCode": "POM00115",
+      "empName": "SAMSIR"
+    },
+    {
+      "internalId": "74173",
+      "docNumber": "AD26040246",
+      "label": "AD26040246",
+      "empCode": "POM00033",
+      "empName": "Supandi"
+    },
+    {
+      "internalId": "74172",
+      "docNumber": "AD26040245",
+      "label": "AD26040245",
+      "empCode": "POM00186",
+      "empName": "SULTHONIK PELUBI"
+    },
+    {
+      "internalId": "74171",
+      "docNumber": "AD26040244",
+      "label": "AD26040244",
+      "empCode": "POM00217",
+      "empName": "SUHERMAN SAPUTRA"
+    },
+    {
+      "internalId": "74170",
+      "docNumber": "AD26040243",
+      "label": "AD26040243",
+      "empCode": "POM00051",
+      "empName": "Suhartomo"
+    },
+    {
+      "internalId": "74169",
+      "docNumber": "AD26040242",
+      "label": "AD26040242",
+      "empCode": "POM00067",
+      "empName": "Suharjono"
+    },
+    {
+      "internalId": "74168",
+      "docNumber": "AD26040241",
+      "label": "AD26040241",
+      "empCode": "POM00042",
+      "empName": "Sudiar"
+    },
+    {
+      "internalId": "74167",
+      "docNumber": "AD26040240",
+      "label": "AD26040240",
+      "empCode": "POM00078",
+      "empName": "Slamet Widodo"
+    },
+    {
+      "internalId": "74166",
+      "docNumber": "AD26040239",
+      "label": "AD26040239",
+      "empCode": "POM00094",
+      "empName": "Siaga Pratama"
+    },
+    {
+      "internalId": "74165",
+      "docNumber": "AD26040238",
+      "label": "AD26040238",
+      "empCode": "POM00258",
+      "empName": "RIDHO PURNAMA"
+    },
+    {
+      "internalId": "74164",
+      "docNumber": "AD26040237",
+      "label": "AD26040237",
+      "empCode": "POM00254",
+      "empName": "RIZAL SAHRONI"
+    },
+    {
+      "internalId": "74163",
+      "docNumber": "AD26040236",
+      "label": "AD26040236",
+      "empCode": "POM00204",
+      "empName": "RIZKY"
+    },
+    {
+      "internalId": "74162",
+      "docNumber": "AD26040235",
+      "label": "AD26040235",
+      "empCode": "POM00197",
+      "empName": "Rivaldi Prasetyo"
+    },
+    {
+      "internalId": "74161",
+      "docNumber": "AD26040234",
+      "label": "AD26040234",
+      "empCode": "POM00192",
+      "empName": "RIO"
+    },
+    {
+      "internalId": "74160",
+      "docNumber": "AD26040233",
+      "label": "AD26040233",
+      "empCode": "POM00190",
+      "empName": "RIDHO ANDYTHIA"
+    },
+    {
+      "internalId": "74159",
+      "docNumber": "AD26040232",
+      "label": "AD26040232",
+      "empCode": "POM00175",
+      "empName": "RAJU ARISTO"
+    },
+    {
+      "internalId": "74158",
+      "docNumber": "AD26040231",
+      "label": "AD26040231",
+      "empCode": "POM00247",
+      "empName": "RIZKY ABDILLAH"
+    },
+    {
+      "internalId": "74157",
+      "docNumber": "AD26040230",
+      "label": "AD26040230",
+      "empCode": "POM00143",
+      "empName": "REZA WAHYUDI"
+    },
+    {
+      "internalId": "74156",
+      "docNumber": "AD26040229",
+      "label": "AD26040229",
+      "empCode": "POM00220",
+      "empName": "RETNO SUGIARTO"
+    },
+    {
+      "internalId": "74155",
+      "docNumber": "AD26040228",
+      "label": "AD26040228",
+      "empCode": "POM00237",
+      "empName": "RIZKY SUGANDA"
+    },
+    {
+      "internalId": "74154",
+      "docNumber": "AD26040227",
+      "label": "AD26040227",
+      "empCode": "POM00235",
+      "empName": "Risky Sumantri"
+    },
+    {
+      "internalId": "74153",
+      "docNumber": "AD26040226",
+      "label": "AD26040226",
+      "empCode": "POM00179",
+      "empName": "RENDY NOPRIYANDI"
+    },
+    {
+      "internalId": "74152",
+      "docNumber": "AD26040225",
+      "label": "AD26040225",
+      "empCode": "POM00121",
+      "empName": "RENDY GUSTOYO"
+    },
+    {
+      "internalId": "74151",
+      "docNumber": "AD26040224",
+      "label": "AD26040224",
+      "empCode": "POM00092",
+      "empName": "Riky Maryanto Susanto"
+    },
+    {
+      "internalId": "74150",
+      "docNumber": "AD26040223",
+      "label": "AD26040223",
+      "empCode": "POM00245",
+      "empName": "RENDY"
+    },
+    {
+      "internalId": "74149",
+      "docNumber": "AD26040222",
+      "label": "AD26040222",
+      "empCode": "POM00068",
+      "empName": "Rastanto"
+    },
+    {
+      "internalId": "74148",
+      "docNumber": "AD26040221",
+      "label": "AD26040221",
+      "empCode": "POM00226",
+      "empName": "RASAT"
+    },
+    {
+      "internalId": "74147",
+      "docNumber": "AD26040220",
+      "label": "AD26040220",
+      "empCode": "POM00022",
+      "empName": "Ramadani"
+    },
+    {
+      "internalId": "74146",
+      "docNumber": "AD26040219",
+      "label": "AD26040219",
+      "empCode": "POM00162",
+      "empName": "PERLY FEBRIANTO"
+    },
+    {
+      "internalId": "74145",
+      "docNumber": "AD26040218",
+      "label": "AD26040218",
+      "empCode": "POM00062",
+      "empName": "Pujiono"
+    },
+    {
+      "internalId": "74144",
+      "docNumber": "AD26040217",
+      "label": "AD26040217",
+      "empCode": "POM00038",
+      "empName": "Pordiman Samosir"
+    },
+    {
+      "internalId": "74143",
+      "docNumber": "AD26040216",
+      "label": "AD26040216",
+      "empCode": "POM00262",
+      "empName": "PANJI MEKA BUANA"
+    },
+    {
+      "internalId": "74142",
+      "docNumber": "AD26040215",
+      "label": "AD26040215",
+      "empCode": "POM00199",
+      "empName": "OKTORIO DWI SAKTI"
+    },
+    {
+      "internalId": "74141",
+      "docNumber": "AD26040214",
+      "label": "AD26040214",
+      "empCode": "POM00026",
+      "empName": "Nursamsi"
+    },
+    {
+      "internalId": "74140",
+      "docNumber": "AD26040213",
+      "label": "AD26040213",
+      "empCode": "POM00043",
+      "empName": "Najmi"
+    },
+    {
+      "internalId": "74139",
+      "docNumber": "AD26040212",
+      "label": "AD26040212",
+      "empCode": "POM00127",
+      "empName": "MUHAMAD KHALIQ"
+    },
+    {
+      "internalId": "74138",
+      "docNumber": "AD26040211",
+      "label": "AD26040211",
+      "empCode": "POM00061",
+      "empName": "Mediarta"
+    },
+    {
+      "internalId": "74137",
+      "docNumber": "AD26040210",
+      "label": "AD26040210",
+      "empCode": "POM00101",
+      "empName": "Marja Isnata"
+    },
+    {
+      "internalId": "74136",
+      "docNumber": "AD26040209",
+      "label": "AD26040209",
+      "empCode": "POM00221",
+      "empName": "MAMAN SURYADI"
+    },
+    {
+      "internalId": "74135",
+      "docNumber": "AD26040208",
+      "label": "AD26040208",
+      "empCode": "POM00267",
+      "empName": "MUHAMMAD RIDHO AKBAR PAPILAYA"
+    },
+    {
+      "internalId": "74134",
+      "docNumber": "AD26040207",
+      "label": "AD26040207",
+      "empCode": "POM00238",
+      "empName": "LIO PRATAMA"
+    },
+    {
+      "internalId": "74133",
+      "docNumber": "AD26040206",
+      "label": "AD26040206",
+      "empCode": "POM00109",
+      "empName": "LIGA FIRDANA"
+    },
+    {
+      "internalId": "74132",
+      "docNumber": "AD26040205",
+      "label": "AD26040205",
+      "empCode": "POM00174",
+      "empName": "KIKI FIRMANSYAH"
+    },
+    {
+      "internalId": "74131",
+      "docNumber": "AD26040204",
+      "label": "AD26040204",
+      "empCode": "POM00209",
+      "empName": "JOKO PRIONO"
+    },
+    {
+      "internalId": "74130",
+      "docNumber": "AD26040203",
+      "label": "AD26040203",
+      "empCode": "POM00163",
+      "empName": "JUMHADI"
+    },
+    {
+      "internalId": "74129",
+      "docNumber": "AD26040202",
+      "label": "AD26040202",
+      "empCode": "POM00176",
+      "empName": "ISBANDI"
+    },
+    {
+      "internalId": "74128",
+      "docNumber": "AD26040201",
+      "label": "AD26040201",
+      "empCode": "POM00260",
+      "empName": "IHSAN ALFAHRY"
+    },
+    {
+      "internalId": "74127",
+      "docNumber": "AD26040200",
+      "label": "AD26040200",
+      "empCode": "POM00093",
+      "empName": "Ibnu Wardana"
+    },
+    {
+      "internalId": "74126",
+      "docNumber": "AD26040199",
+      "label": "AD26040199",
+      "empCode": "POM00036",
+      "empName": "Ichsanudin"
+    },
+    {
+      "internalId": "74125",
+      "docNumber": "AD26040198",
+      "label": "AD26040198",
+      "empCode": "POM00265",
+      "empName": "HERLY HIDAYAT"
+    },
+    {
+      "internalId": "74124",
+      "docNumber": "AD26040197",
+      "label": "AD26040197",
+      "empCode": "POM00024",
+      "empName": "Husaini"
+    },
+    {
+      "internalId": "74123",
+      "docNumber": "AD26040196",
+      "label": "AD26040196",
+      "empCode": "POM00240",
+      "empName": "HENDRA JAYA"
+    },
+    {
+      "internalId": "74122",
+      "docNumber": "AD26040195",
+      "label": "AD26040195",
+      "empCode": "POM00229",
+      "empName": "HERU SURADI"
+    },
+    {
+      "internalId": "74121",
+      "docNumber": "AD26040194",
+      "label": "AD26040194",
+      "empCode": "POM00076",
+      "empName": "Helmi"
+    },
+    {
+      "internalId": "74120",
+      "docNumber": "AD26040193",
+      "label": "AD26040193",
+      "empCode": "POM00188",
+      "empName": "HARRY NUGROHO PRABOWO"
+    },
+    {
+      "internalId": "74119",
+      "docNumber": "AD26040192",
+      "label": "AD26040192",
+      "empCode": "POM00063",
+      "empName": "Hanip"
+    },
+    {
+      "internalId": "74118",
+      "docNumber": "AD26040191",
+      "label": "AD26040191",
+      "empCode": "POM00208",
+      "empName": "GUNTUR"
+    },
+    {
+      "internalId": "74117",
+      "docNumber": "AD26040190",
+      "label": "AD26040190",
+      "empCode": "POM00124",
+      "empName": "GALUH FERDIANJAYA"
+    },
+    {
+      "internalId": "74116",
+      "docNumber": "AD26040189",
+      "label": "AD26040189",
+      "empCode": "POM00184",
+      "empName": "FIKRIANSYAH"
+    },
+    {
+      "internalId": "74115",
+      "docNumber": "AD26040188",
+      "label": "AD26040188",
+      "empCode": "POM00177",
+      "empName": "Fedrico Diazta"
+    },
+    {
+      "internalId": "74114",
+      "docNumber": "AD26040187",
+      "label": "AD26040187",
+      "empCode": "POM00246",
+      "empName": "FEBRIAN SAPUTRA"
+    },
+    {
+      "internalId": "74113",
+      "docNumber": "AD26040186",
+      "label": "AD26040186",
+      "empCode": "POM00207",
+      "empName": "FAIZAL"
+    },
+    {
+      "internalId": "74112",
+      "docNumber": "AD26040185",
+      "label": "AD26040185",
+      "empCode": "POM00120",
+      "empName": "EDDO PRATHAMA"
+    },
+    {
+      "internalId": "74111",
+      "docNumber": "AD26040184",
+      "label": "AD26040184",
+      "empCode": "POM00239",
+      "empName": "ERWIN SUSANTO"
+    },
+    {
+      "internalId": "74110",
+      "docNumber": "AD26040183",
+      "label": "AD26040183",
+      "empCode": "POM00066",
+      "empName": "Eko Juniyansah"
+    },
+    {
+      "internalId": "74109",
+      "docNumber": "AD26040182",
+      "label": "AD26040182",
+      "empCode": "POM00168",
+      "empName": "DAVID FIRDAUS"
+    },
+    {
+      "internalId": "74108",
+      "docNumber": "AD26040181",
+      "label": "AD26040181",
+      "empCode": "POM00144",
+      "empName": "Danang Budi Santoso"
+    },
+    {
+      "internalId": "74107",
+      "docNumber": "AD26040180",
+      "label": "AD26040180",
+      "empCode": "POM00128",
+      "empName": "DEFI FANTERA"
+    },
+    {
+      "internalId": "74106",
+      "docNumber": "AD26040179",
+      "label": "AD26040179",
+      "empCode": "POM00104",
+      "empName": "Darma Setiawan"
+    },
+    {
+      "internalId": "74105",
+      "docNumber": "AD26040178",
+      "label": "AD26040178",
+      "empCode": "POM00065",
+      "empName": "Dick Havianto"
+    },
+    {
+      "internalId": "74104",
+      "docNumber": "AD26040177",
+      "label": "AD26040177",
+      "empCode": "POM00028",
+      "empName": "Derry"
+    },
+    {
+      "internalId": "74103",
+      "docNumber": "AD26040176",
+      "label": "AD26040176",
+      "empCode": "POM00040",
+      "empName": "dedy Burhansyah"
+    },
+    {
+      "internalId": "74102",
+      "docNumber": "AD26040175",
+      "label": "AD26040175",
+      "empCode": "POM00046",
+      "empName": "Dedi"
+    },
+    {
+      "internalId": "74100",
+      "docNumber": "AD26040174",
+      "label": "AD26040174",
+      "empCode": "POM00263",
+      "empName": "DEKA SETIAWAN"
+    },
+    {
+      "internalId": "74099",
+      "docNumber": "AD26040173",
+      "label": "AD26040173",
+      "empCode": "POM00261",
+      "empName": "DEDI"
+    },
+    {
+      "internalId": "74098",
+      "docNumber": "AD26040172",
+      "label": "AD26040172",
+      "empCode": "POM00236",
+      "empName": "DEDY PRASAPTA"
+    },
+    {
+      "internalId": "74097",
+      "docNumber": "AD26040171",
+      "label": "AD26040171",
+      "empCode": "POM00164",
+      "empName": "CHERPIANSYAH"
+    },
+    {
+      "internalId": "74096",
+      "docNumber": "AD26040170",
+      "label": "AD26040170",
+      "empCode": "POM00079",
+      "empName": "Beni Apriyanto"
+    },
+    {
+      "internalId": "74095",
+      "docNumber": "AD26040169",
+      "label": "AD26040169",
+      "empCode": "POM00159",
+      "empName": "ANDRIANSYAH"
+    },
+    {
+      "internalId": "74094",
+      "docNumber": "AD26040168",
+      "label": "AD26040168",
+      "empCode": "POM00151",
+      "empName": "ARI YANTO"
+    },
+    {
+      "internalId": "74093",
+      "docNumber": "AD26040167",
+      "label": "AD26040167",
+      "empCode": "POM00145",
+      "empName": "Aturi"
+    },
+    {
+      "internalId": "74092",
+      "docNumber": "AD26040166",
+      "label": "AD26040166",
+      "empCode": "POM00140",
+      "empName": "ASQALANY"
+    },
+    {
+      "internalId": "74091",
+      "docNumber": "AD26040165",
+      "label": "AD26040165",
+      "empCode": "POM00253",
+      "empName": "ARYAT DHIMI OCTOVAN"
+    },
+    {
+      "internalId": "74090",
+      "docNumber": "AD26040164",
+      "label": "AD26040164",
+      "empCode": "POM00138",
+      "empName": "ANDRIANO SANOPRIANSYAH"
+    },
+    {
+      "internalId": "74089",
+      "docNumber": "AD26040163",
+      "label": "AD26040163",
+      "empCode": "POM00125",
+      "empName": "ASWANDI"
+    },
+    {
+      "internalId": "74088",
+      "docNumber": "AD26040162",
+      "label": "AD26040162",
+      "empCode": "POM00242",
+      "empName": "ARDIANSYAH"
+    },
+    {
+      "internalId": "74087",
+      "docNumber": "AD26040161",
+      "label": "AD26040161",
+      "empCode": "POM00114",
+      "empName": "ANWAR"
+    },
+    {
+      "internalId": "74086",
+      "docNumber": "AD26040160",
+      "label": "AD26040160",
+      "empCode": "POM00223",
+      "empName": "AGUSTIAN"
+    },
+    {
+      "internalId": "74085",
+      "docNumber": "AD26040159",
+      "label": "AD26040159",
+      "empCode": "POM00214",
+      "empName": "AGUS SETIAWAN"
+    },
+    {
+      "internalId": "74084",
+      "docNumber": "AD26040158",
+      "label": "AD26040158",
+      "empCode": "POM00214",
+      "empName": "AGUS SETIAWAN"
+    },
+    {
+      "internalId": "74083",
+      "docNumber": "AD26040157",
+      "label": "AD26040157",
+      "empCode": "POM00183",
+      "empName": "AGUS RIYADI"
+    },
+    {
+      "internalId": "74082",
+      "docNumber": "AD26040156",
+      "label": "AD26040156",
+      "empCode": "POM00106",
+      "empName": "Agus Irawan"
+    },
+    {
+      "internalId": "74081",
+      "docNumber": "AD26040155",
+      "label": "AD26040155",
+      "empCode": "POM00051",
+      "empName": "Suhartomo"
+    },
+    {
+      "internalId": "74080",
+      "docNumber": "AD26040154",
+      "label": "AD26040154",
+      "empCode": "POM00180",
+      "empName": "ARI WIDODO"
+    },
+    {
+      "internalId": "74079",
+      "docNumber": "AD26040153",
+      "label": "AD26040153",
+      "empCode": "POM00067",
+      "empName": "Suharjono"
+    },
+    {
+      "internalId": "74078",
+      "docNumber": "AD26040152",
+      "label": "AD26040152",
+      "empCode": "POM00102",
+      "empName": "Ari Widodo"
+    },
+    {
+      "internalId": "74077",
+      "docNumber": "AD26040151",
+      "label": "AD26040151",
+      "empCode": "POM00051",
+      "empName": "Suhartomo"
+    },
+    {
+      "internalId": "74076",
+      "docNumber": "AD26040150",
+      "label": "AD26040150",
+      "empCode": "POM00256",
+      "empName": "AZMAR"
+    },
+    {
+      "internalId": "74075",
+      "docNumber": "AD26040149",
+      "label": "AD26040149",
+      "empCode": "POM00067",
+      "empName": "Suharjono"
+    },
+    {
+      "internalId": "74074",
+      "docNumber": "AD26040148",
+      "label": "AD26040148",
+      "empCode": "POM00042",
+      "empName": "Sudiar"
+    },
+    {
+      "internalId": "74073",
+      "docNumber": "AD26040147",
+      "label": "AD26040147",
+      "empCode": "POM00054",
+      "empName": "Atmo Haryo"
+    },
+    {
+      "internalId": "74072",
+      "docNumber": "AD26040146",
+      "label": "AD26040146",
+      "empCode": "POM00055",
+      "empName": "Asmadi"
+    },
+    {
+      "internalId": "74071",
+      "docNumber": "AD26040145",
+      "label": "AD26040145",
+      "empCode": "POM00078",
+      "empName": "Slamet Widodo"
+    },
+    {
+      "internalId": "74070",
+      "docNumber": "AD26040144",
+      "label": "AD26040144",
+      "empCode": "POM00241",
+      "empName": "AGUSTIAWAN"
+    },
+    {
+      "internalId": "74069",
+      "docNumber": "AD26040143",
+      "label": "AD26040143",
+      "empCode": "POM00094",
+      "empName": "Siaga Pratama"
+    },
+    {
+      "internalId": "74068",
+      "docNumber": "AD26040142",
+      "label": "AD26040142",
+      "empCode": "POM00103",
+      "empName": "Tri Bowono Yudo"
+    },
+    {
+      "internalId": "74067",
+      "docNumber": "AD26040141",
+      "label": "AD26040141",
+      "empCode": "POM00023",
+      "empName": "Arianto"
+    },
+    {
+      "internalId": "74066",
+      "docNumber": "AD26040140",
+      "label": "AD26040140",
+      "empCode": "POM00078",
+      "empName": "Slamet Widodo"
+    },
+    {
+      "internalId": "74065",
+      "docNumber": "AD26040139",
+      "label": "AD26040139",
+      "empCode": "POM00266",
+      "empName": "ALDI WINATA"
+    },
+    {
+      "internalId": "74064",
+      "docNumber": "AD26040138",
+      "label": "AD26040138",
+      "empCode": "POM00064",
+      "empName": "Andri Iswadi"
+    },
+    {
+      "internalId": "74063",
+      "docNumber": "AD26040137",
+      "label": "AD26040137",
+      "empCode": "POM00213",
+      "empName": "ADYKA"
+    },
+    {
+      "internalId": "74062",
+      "docNumber": "AD26040136",
+      "label": "AD26040136",
+      "empCode": "POM00224",
+      "empName": "ABU HURAIROH"
+    },
+    {
+      "internalId": "74061",
+      "docNumber": "AD26040135",
+      "label": "AD26040135",
+      "empCode": "POM00041",
+      "empName": "Adi Apriadi"
+    },
+    {
+      "internalId": "74060",
+      "docNumber": "AD26040134",
+      "label": "AD26040134",
+      "empCode": "POM00181",
+      "empName": "ADE PRASETYA"
+    },
+    {
+      "internalId": "74059",
+      "docNumber": "AD26040133",
+      "label": "AD26040133",
+      "empCode": "POM00135",
+      "empName": "IRWAN"
+    },
+    {
+      "internalId": "74058",
+      "docNumber": "AD26040132",
+      "label": "AD26040132",
+      "empCode": "POM00208",
+      "empName": "GUNTUR"
+    },
+    {
+      "internalId": "74057",
+      "docNumber": "AD26040131",
+      "label": "AD26040131",
+      "empCode": "POM00207",
+      "empName": "FAIZAL"
+    },
+    {
+      "internalId": "74056",
+      "docNumber": "AD26040130",
+      "label": "AD26040130",
+      "empCode": "POM00040",
+      "empName": "dedy Burhansyah"
+    },
+    {
+      "internalId": "74055",
+      "docNumber": "AD26040129",
+      "label": "AD26040129",
+      "empCode": "POM00054",
+      "empName": "Atmo Haryo"
+    },
+    {
+      "internalId": "74054",
+      "docNumber": "AD26040128",
+      "label": "AD26040128",
+      "empCode": "POM00055",
+      "empName": "Asmadi"
+    },
+    {
+      "internalId": "74053",
+      "docNumber": "AD26040122",
+      "label": "AD26040122",
+      "empCode": "POM00280",
+      "empName": "DONI SAISAN"
+    },
+    {
+      "internalId": "74052",
+      "docNumber": "AD26040121",
+      "label": "AD26040121",
+      "empCode": "POM00157",
+      "empName": "INNES SYAHFITRI"
+    },
+    {
+      "internalId": "74051",
+      "docNumber": "AD26040120",
+      "label": "AD26040120",
+      "empCode": "POM00264",
+      "empName": "ABDUL GHOFAR"
+    },
+    {
+      "internalId": "74050",
+      "docNumber": "AD26040119",
+      "label": "AD26040119",
+      "empCode": "POM00202",
+      "empName": "REGA SAPUTRA"
+    },
+    {
+      "internalId": "74049",
+      "docNumber": "AD26040118",
+      "label": "AD26040118",
+      "empCode": "POM00039",
+      "empName": "Suhartono"
+    },
+    {
+      "internalId": "74048",
+      "docNumber": "AD26040117",
+      "label": "AD26040117",
+      "empCode": "POM00072",
+      "empName": "Bala Murbantinus Guntur"
+    },
+    {
+      "internalId": "74047",
+      "docNumber": "AD26040116",
+      "label": "AD26040116",
+      "empCode": "POM00075",
+      "empName": "Hendri Kusuma Wijaya"
+    },
+    {
+      "internalId": "74046",
+      "docNumber": "AD26040115",
+      "label": "AD26040115",
+      "empCode": "POM00060",
+      "empName": "Moh.Suhairi"
+    },
+    {
+      "internalId": "74045",
+      "docNumber": "AD26040114",
+      "label": "AD26040114",
+      "empCode": "POM00113",
+      "empName": "TUR SETIAWAN"
+    },
+    {
+      "internalId": "74044",
+      "docNumber": "AD26040113",
+      "label": "AD26040113",
+      "empCode": "POM00016",
+      "empName": "ERMA"
+    },
+    {
+      "internalId": "74043",
+      "docNumber": "AD26040112",
+      "label": "AD26040112",
+      "empCode": "POM00073",
+      "empName": "bintara"
+    },
+    {
+      "internalId": "74042",
+      "docNumber": "AD26040111",
+      "label": "AD26040111",
+      "empCode": "POM00071",
+      "empName": "Ariadi"
+    },
+    {
+      "internalId": "74041",
+      "docNumber": "AD26040110",
+      "label": "AD26040110",
+      "empCode": "POM00300",
+      "empName": "TANTOWI THOMAS"
+    },
+    {
+      "internalId": "74040",
+      "docNumber": "AD26040109",
+      "label": "AD26040109",
+      "empCode": "POM00295",
+      "empName": "FIRTI LESTARI"
+    },
+    {
+      "internalId": "74039",
+      "docNumber": "AD26040108",
+      "label": "AD26040108",
+      "empCode": "POM00293",
+      "empName": "ARI ANUGRAH"
+    },
+    {
+      "internalId": "74038",
+      "docNumber": "AD26040107",
+      "label": "AD26040107",
+      "empCode": "POM00280",
+      "empName": "DONI SAISAN"
+    },
+    {
+      "internalId": "74037",
+      "docNumber": "AD26040106",
+      "label": "AD26040106",
+      "empCode": "POM00282",
+      "empName": "DHEA AGATHA PASARIBU"
+    },
+    {
+      "internalId": "74036",
+      "docNumber": "AD26040105",
+      "label": "AD26040105",
+      "empCode": "POM00157",
+      "empName": "INNES SYAHFITRI"
+    },
+    {
+      "internalId": "74035",
+      "docNumber": "AD26040104",
+      "label": "AD26040104",
+      "empCode": "POM00264",
+      "empName": "ABDUL GHOFAR"
+    },
+    {
+      "internalId": "74034",
+      "docNumber": "AD26040103",
+      "label": "AD26040103",
+      "empCode": "POM00250",
+      "empName": "ABDU RICKEN"
+    },
+    {
+      "internalId": "74033",
+      "docNumber": "AD26040102",
+      "label": "AD26040102",
+      "empCode": "POM00202",
+      "empName": "REGA SAPUTRA"
+    },
+    {
+      "internalId": "74032",
+      "docNumber": "AD26040101",
+      "label": "AD26040101",
+      "empCode": "POM00112",
+      "empName": "PRIMA WIDISONO"
+    },
+    {
+      "internalId": "74031",
+      "docNumber": "AD26040100",
+      "label": "AD26040100",
+      "empCode": "POM00234",
+      "empName": "NESY OKTOVIANI"
+    },
+    {
+      "internalId": "74030",
+      "docNumber": "AD26040099",
+      "label": "AD26040099",
+      "empCode": "POM00039",
+      "empName": "Suhartono"
+    },
+    {
+      "internalId": "74029",
+      "docNumber": "AD26040098",
+      "label": "AD26040098",
+      "empCode": "POM00072",
+      "empName": "Bala Murbantinus Guntur"
+    },
+    {
+      "internalId": "74028",
+      "docNumber": "AD26040097",
+      "label": "AD26040097",
+      "empCode": "POM00198",
+      "empName": "MARI LESTARI"
+    },
+    {
+      "internalId": "74027",
+      "docNumber": "AD26040096",
+      "label": "AD26040096",
+      "empCode": "POM00134",
+      "empName": "Siti Rodiah"
+    },
+    {
+      "internalId": "74026",
+      "docNumber": "AD26040095",
+      "label": "AD26040095",
+      "empCode": "POM00119",
+      "empName": "HERLIN FAJARINI SISKA"
+    },
+    {
+      "internalId": "74025",
+      "docNumber": "AD26040094",
+      "label": "AD26040094",
+      "empCode": "POM00075",
+      "empName": "Hendri Kusuma Wijaya"
+    },
+    {
+      "internalId": "74024",
+      "docNumber": "AD26040093",
+      "label": "AD26040093",
+      "empCode": "POM00060",
+      "empName": "Moh.Suhairi"
+    },
+    {
+      "internalId": "74023",
+      "docNumber": "AD26040092",
+      "label": "AD26040092",
+      "empCode": "POM00129",
+      "empName": "DWI ASTRIALNI"
+    },
+    {
+      "internalId": "74022",
+      "docNumber": "AD26040091",
+      "label": "AD26040091",
+      "empCode": "POM00056",
+      "empName": "Zulhari lbn Tobing"
+    },
+    {
+      "internalId": "74021",
+      "docNumber": "AD26040090",
+      "label": "AD26040090",
+      "empCode": "POM00113",
+      "empName": "TUR SETIAWAN"
+    },
+    {
+      "internalId": "74020",
+      "docNumber": "AD26040089",
+      "label": "AD26040089",
+      "empCode": "POM00015",
+      "empName": "YURLITA DWINDA SARI"
+    },
+    {
+      "internalId": "74018",
+      "docNumber": "AD26040087",
+      "label": "AD26040087",
+      "empCode": "POM00007",
+      "empName": "SUHARDI"
+    },
+    {
+      "internalId": "74017",
+      "docNumber": "AD26040086",
+      "label": "AD26040086",
+      "empCode": "POM00012",
+      "empName": "NUR FEBRIANA SARI"
+    },
+    {
+      "internalId": "74016",
+      "docNumber": "AD26040085",
+      "label": "AD26040085",
+      "empCode": "POM00016",
+      "empName": "ERMA"
+    },
+    {
+      "internalId": "74015",
+      "docNumber": "AD26040084",
+      "label": "AD26040084",
+      "empCode": "POM00017",
+      "empName": "AGUS SRI ASTUTI"
+    },
+    {
+      "internalId": "74014",
+      "docNumber": "AD26040083",
+      "label": "AD26040083",
+      "empCode": "POM00073",
+      "empName": "bintara"
+    },
+    {
+      "internalId": "74013",
+      "docNumber": "AD26040082",
+      "label": "AD26040082",
+      "empCode": "POM00071",
+      "empName": "Ariadi"
+    },
+    {
+      "internalId": "74012",
+      "docNumber": "AD26040081",
+      "label": "AD26040081",
+      "empCode": "POM00081",
+      "empName": "Erwanto"
+    },
+    {
+      "internalId": "74011",
+      "docNumber": "AD26040080",
+      "label": "AD26040080",
+      "empCode": "POM00034",
+      "empName": "Andison Supriyanto"
+    },
+    {
+      "internalId": "74010",
+      "docNumber": "AD26040079",
+      "label": "AD26040079",
+      "empCode": "POM00300",
+      "empName": "TANTOWI THOMAS"
+    },
+    {
+      "internalId": "74009",
+      "docNumber": "AD26040078",
+      "label": "AD26040078",
+      "empCode": "POM00295",
+      "empName": "FIRTI LESTARI"
+    },
+    {
+      "internalId": "74008",
+      "docNumber": "AD26040077",
+      "label": "AD26040077",
+      "empCode": "POM00293",
+      "empName": "ARI ANUGRAH"
+    },
+    {
+      "internalId": "74007",
+      "docNumber": "AD26040076",
+      "label": "AD26040076",
+      "empCode": "POM00282",
+      "empName": "DHEA AGATHA PASARIBU"
+    },
+    {
+      "internalId": "74006",
+      "docNumber": "AD26040075",
+      "label": "AD26040075",
+      "empCode": "POM00157",
+      "empName": "INNES SYAHFITRI"
+    },
+    {
+      "internalId": "74005",
+      "docNumber": "AD26040074",
+      "label": "AD26040074",
+      "empCode": "POM00264",
+      "empName": "ABDUL GHOFAR"
+    },
+    {
+      "internalId": "74004",
+      "docNumber": "AD26040073",
+      "label": "AD26040073",
+      "empCode": "POM00250",
+      "empName": "ABDU RICKEN"
+    },
+    {
+      "internalId": "74003",
+      "docNumber": "AD26040072",
+      "label": "AD26040072",
+      "empCode": "POM00202",
+      "empName": "REGA SAPUTRA"
+    },
+    {
+      "internalId": "74002",
+      "docNumber": "AD26040071",
+      "label": "AD26040071",
+      "empCode": "POM00112",
+      "empName": "PRIMA WIDISONO"
+    },
+    {
+      "internalId": "74001",
+      "docNumber": "AD26040070",
+      "label": "AD26040070",
+      "empCode": "POM00234",
+      "empName": "NESY OKTOVIANI"
+    },
+    {
+      "internalId": "74000",
+      "docNumber": "AD26040069",
+      "label": "AD26040069",
+      "empCode": "POM00039",
+      "empName": "Suhartono"
+    },
+    {
+      "internalId": "73999",
+      "docNumber": "AD26040068",
+      "label": "AD26040068",
+      "empCode": "POM00198",
+      "empName": "MARI LESTARI"
+    },
+    {
+      "internalId": "73998",
+      "docNumber": "AD26040067",
+      "label": "AD26040067",
+      "empCode": "POM00134",
+      "empName": "Siti Rodiah"
+    },
+    {
+      "internalId": "73997",
+      "docNumber": "AD26040066",
+      "label": "AD26040066",
+      "empCode": "POM00119",
+      "empName": "HERLIN FAJARINI SISKA"
+    },
+    {
+      "internalId": "73996",
+      "docNumber": "AD26040065",
+      "label": "AD26040065",
+      "empCode": "POM00075",
+      "empName": "Hendri Kusuma Wijaya"
+    },
+    {
+      "internalId": "73995",
+      "docNumber": "AD26040064",
+      "label": "AD26040064",
+      "empCode": "POM00060",
+      "empName": "Moh.Suhairi"
+    },
+    {
+      "internalId": "73994",
+      "docNumber": "AD26040063",
+      "label": "AD26040063",
+      "empCode": "POM00129",
+      "empName": "DWI ASTRIALNI"
+    },
+    {
+      "internalId": "73993",
+      "docNumber": "AD26040062",
+      "label": "AD26040062",
+      "empCode": "POM00056",
+      "empName": "Zulhari lbn Tobing"
+    },
+    {
+      "internalId": "73992",
+      "docNumber": "AD26040061",
+      "label": "AD26040061",
+      "empCode": "POM00113",
+      "empName": "TUR SETIAWAN"
+    },
+    {
+      "internalId": "73991",
+      "docNumber": "AD26040060",
+      "label": "AD26040060",
+      "empCode": "POM00015",
+      "empName": "YURLITA DWINDA SARI"
+    },
+    {
+      "internalId": "73990",
+      "docNumber": "AD26040059",
+      "label": "AD26040059",
+      "empCode": "POM00007",
+      "empName": "SUHARDI"
+    },
+    {
+      "internalId": "73989",
+      "docNumber": "AD26040058",
+      "label": "AD26040058",
+      "empCode": "POM00012",
+      "empName": "NUR FEBRIANA SARI"
+    },
+    {
+      "internalId": "73988",
+      "docNumber": "AD26040057",
+      "label": "AD26040057",
+      "empCode": "POM00016",
+      "empName": "ERMA"
+    },
+    {
+      "internalId": "73987",
+      "docNumber": "AD26040056",
+      "label": "AD26040056",
+      "empCode": "POM00017",
+      "empName": "AGUS SRI ASTUTI"
+    },
+    {
+      "internalId": "73986",
+      "docNumber": "AD26040055",
+      "label": "AD26040055",
+      "empCode": "POM00073",
+      "empName": "bintara"
+    },
+    {
+      "internalId": "73985",
+      "docNumber": "AD26040054",
+      "label": "AD26040054",
+      "empCode": "POM00071",
+      "empName": "Ariadi"
+    },
+    {
+      "internalId": "73984",
+      "docNumber": "AD26040053",
+      "label": "AD26040053",
+      "empCode": "POM00081",
+      "empName": "Erwanto"
+    },
+    {
+      "internalId": "73983",
+      "docNumber": "AD26040052",
+      "label": "AD26040052",
+      "empCode": "POM00034",
+      "empName": "Andison Supriyanto"
+    },
+    {
+      "internalId": "73982",
+      "docNumber": "AD26040051",
+      "label": "AD26040051",
+      "empCode": "POM00072",
+      "empName": "Bala Murbantinus Guntur"
+    },
+    {
+      "internalId": "73981",
+      "docNumber": "AD26040050",
+      "label": "AD26040050",
+      "empCode": "POM00250",
+      "empName": "ABDU RICKEN"
+    },
+    {
+      "internalId": "73980",
+      "docNumber": "AD26040049",
+      "label": "AD26040049",
+      "empCode": "POM00282",
+      "empName": "DHEA AGATHA PASARIBU"
+    },
+    {
+      "internalId": "73979",
+      "docNumber": "AD26040048",
+      "label": "AD26040048",
+      "empCode": "POM00300",
+      "empName": "TANTOWI THOMAS"
+    },
+    {
+      "internalId": "73978",
+      "docNumber": "AD26040047",
+      "label": "AD26040047",
+      "empCode": "POM00295",
+      "empName": "FIRTI LESTARI"
+    },
+    {
+      "internalId": "73977",
+      "docNumber": "AD26040046",
+      "label": "AD26040046",
+      "empCode": "POM00293",
+      "empName": "ARI ANUGRAH"
+    },
+    {
+      "internalId": "73976",
+      "docNumber": "AD26040045",
+      "label": "AD26040045",
+      "empCode": "POM00280",
+      "empName": "DONI SAISAN"
+    },
+    {
+      "internalId": "73975",
+      "docNumber": "AD26040044",
+      "label": "AD26040044",
+      "empCode": "DHEA AGATHA PASARIBU",
+      "empName": "POM00282"
+    },
+    {
+      "internalId": "73974",
+      "docNumber": "AD26040043",
+      "label": "AD26040043",
+      "empCode": "POM00157",
+      "empName": "INNES SYAHFITRI"
+    },
+    {
+      "internalId": "73973",
+      "docNumber": "AD26040042",
+      "label": "AD26040042",
+      "empCode": "POM00264",
+      "empName": "ABDUL GHOFAR"
+    },
+    {
+      "internalId": "73972",
+      "docNumber": "AD26040041",
+      "label": "AD26040041",
+      "empCode": "POM00250",
+      "empName": "ABDU RICKEN"
+    },
+    {
+      "internalId": "73971",
+      "docNumber": "AD26040040",
+      "label": "AD26040040",
+      "empCode": "POM00202",
+      "empName": "REGA SAPUTRA"
+    },
+    {
+      "internalId": "73970",
+      "docNumber": "AD26040039",
+      "label": "AD26040039",
+      "empCode": "POM00112",
+      "empName": "PRIMA WIDISONO"
+    },
+    {
+      "internalId": "73969",
+      "docNumber": "AD26040038",
+      "label": "AD26040038",
+      "empCode": "POM00234",
+      "empName": "NESY OKTOVIANI"
+    },
+    {
+      "internalId": "73968",
+      "docNumber": "AD26040037",
+      "label": "AD26040037",
+      "empCode": "POM00039",
+      "empName": "Suhartono"
+    },
+    {
+      "internalId": "73967",
+      "docNumber": "AD26040036",
+      "label": "AD26040036",
+      "empCode": "POM00072",
+      "empName": "Bala Murbantinus Guntur"
+    },
+    {
+      "internalId": "73966",
+      "docNumber": "AD26040035",
+      "label": "AD26040035",
+      "empCode": "POM00198",
+      "empName": "MARI LESTARI"
+    },
+    {
+      "internalId": "73965",
+      "docNumber": "AD26040034",
+      "label": "AD26040034",
+      "empCode": "POM00134",
+      "empName": "Siti Rodiah"
+    },
+    {
+      "internalId": "73964",
+      "docNumber": "AD26040033",
+      "label": "AD26040033",
+      "empCode": "POM00119",
+      "empName": "HERLIN FAJARINI SISKA"
+    },
+    {
+      "internalId": "73963",
+      "docNumber": "AD26040032",
+      "label": "AD26040032",
+      "empCode": "POM00075",
+      "empName": "Hendri Kusuma Wijaya"
+    },
+    {
+      "internalId": "73962",
+      "docNumber": "AD26040031",
+      "label": "AD26040031",
+      "empCode": "POM00060",
+      "empName": "Moh.Suhairi"
+    },
+    {
+      "internalId": "73961",
+      "docNumber": "AD26040030",
+      "label": "AD26040030",
+      "empCode": "POM00129",
+      "empName": "DWI ASTRIALNI"
+    },
+    {
+      "internalId": "73960",
+      "docNumber": "AD26040029",
+      "label": "AD26040029",
+      "empCode": "POM00056",
+      "empName": "Zulhari lbn Tobing"
+    },
+    {
+      "internalId": "73959",
+      "docNumber": "AD26040028",
+      "label": "AD26040028",
+      "empCode": "POM00113",
+      "empName": "TUR SETIAWAN"
+    },
+    {
+      "internalId": "73958",
+      "docNumber": "AD26040027",
+      "label": "AD26040027",
+      "empCode": "POM00015",
+      "empName": "YURLITA DWINDA SARI"
+    },
+    {
+      "internalId": "73957",
+      "docNumber": "AD26040026",
+      "label": "AD26040026",
+      "empCode": "POM00007",
+      "empName": "SUHARDI"
+    },
+    {
+      "internalId": "73956",
+      "docNumber": "AD26040025",
+      "label": "AD26040025",
+      "empCode": "POM00012",
+      "empName": "NUR FEBRIANA SARI"
+    },
+    {
+      "internalId": "73955",
+      "docNumber": "AD26040024",
+      "label": "AD26040024",
+      "empCode": "POM00016",
+      "empName": "ERMA"
+    },
+    {
+      "internalId": "73954",
+      "docNumber": "AD26040023",
+      "label": "AD26040023",
+      "empCode": "POM00017",
+      "empName": "AGUS SRI ASTUTI"
+    },
+    {
+      "internalId": "73953",
+      "docNumber": "AD26040022",
+      "label": "AD26040022",
+      "empCode": "POM00073",
+      "empName": "bintara"
+    },
+    {
+      "internalId": "73952",
+      "docNumber": "AD26040021",
+      "label": "AD26040021",
+      "empCode": "POM00071",
+      "empName": "Ariadi"
+    },
+    {
+      "internalId": "73951",
+      "docNumber": "AD26040020",
+      "label": "AD26040020",
+      "empCode": "POM00081",
+      "empName": "Erwanto"
+    },
+    {
+      "internalId": "73949",
+      "docNumber": "AD26040018",
+      "label": "AD26040018",
+      "empCode": "POM00034",
+      "empName": "Andison Supriyanto"
+    },
+    {
+      "internalId": "73948",
+      "docNumber": "AD26040017",
+      "label": "AD26040017",
+      "empCode": "POM00081",
+      "empName": "Erwanto"
+    },
+    {
+      "internalId": "73947",
+      "docNumber": "AD26040016",
+      "label": "AD26040016",
+      "empCode": "POM00034",
+      "empName": "Andison Supriyanto"
+    },
+    {
+      "internalId": "73946",
+      "docNumber": "BF999",
+      "label": "BF999",
+      "empCode": "POM00282",
+      "empName": "DHEA AGATHA PASARIBU"
+    },
+    {
+      "internalId": "73363",
+      "docNumber": "AD26040005",
+      "label": "AD26040005",
+      "empCode": "POM00250",
+      "empName": "ABDU RICKEN"
+    },
+    {
+      "internalId": "73033",
+      "docNumber": "AD26040003",
+      "label": "AD26040003",
+      "empCode": "POM00103",
+      "empName": "Tri Bowono Yudo"
+    },
+    {
+      "internalId": "72979",
+      "docNumber": "AD26040002",
+      "label": "AD26040002",
+      "empCode": "POM00217",
+      "empName": "SUHERMAN SAPUTRA"
+    },
+    {
+      "internalId": "72882",
+      "docNumber": "AD26040001",
+      "label": "AD26040001",
+      "empCode": "POM00023",
+      "empName": "Arianto"
+    }
+  ],
+  "employees": []
+}

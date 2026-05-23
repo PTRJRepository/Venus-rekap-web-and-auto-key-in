@@ -5,6 +5,8 @@ const toNumber = (value) => {
     return Number.isFinite(numberValue) ? numberValue : 0;
 };
 
+const toDeductionAmount = (value) => Math.abs(toNumber(value));
+
 const quoteSql = (value) => `'${String(value).replace(/'/g, "''")}'`;
 
 const getPhyPeriodFromStartDate = (startDate) => {
@@ -181,11 +183,11 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
             const premiBrondol = toNumber(ad.premi_brondol);
             const premiInsentif = toNumber(ad.premi_insentif);
             const premiLain = toNumber(ad.premi_lain);
-            const potonganPph21 = toNumber(ad.potongan_pph21);
-            const potonganBpjsKes = toNumber(ad.potongan_bpjs_kes);
-            const potonganBpjsPen = toNumber(ad.potongan_bpjs_pen);
-            const potonganSpsi = toNumber(ad.potongan_spsi);
-            const potonganLain = toNumber(ad.lainnya);
+            const potonganPph21 = toDeductionAmount(ad.potongan_pph21);
+            const potonganBpjsKes = toDeductionAmount(ad.potongan_bpjs_kes);
+            const potonganBpjsPen = toDeductionAmount(ad.potongan_bpjs_pen);
+            const potonganSpsi = toDeductionAmount(ad.potongan_spsi);
+            const potonganLain = toDeductionAmount(ad.lainnya);
 
             const gajiPokokCalc = paidHk * payRate;
             const tunjanganBerasCalc = tunjanganBerasManual > 0 ? tunjanganBerasManual : (paidHk * riceRation);
@@ -198,6 +200,7 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
                 emp_code: empCode,
                 paid_hk: paidHk,
                 pay_rate: payRate,
+                rice_ration: riceRation,
                 gaji_pokok: gajiPokokCalc,
                 upj: (payRate * 30) / 173,
                 tunjangan_jabatan: tunjanganJabatan,
