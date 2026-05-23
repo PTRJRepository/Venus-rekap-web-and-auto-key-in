@@ -7,6 +7,11 @@ const toNumber = (value) => {
 
 const toDeductionAmount = (value) => Math.abs(toNumber(value));
 
+const normalizeSpsiDeduction = (value, phyMonth) => {
+    const amount = toDeductionAmount(value);
+    return phyMonth === 4 ? amount / 2 : amount;
+};
+
 const quoteSql = (value) => `'${String(value).replace(/'/g, "''")}'`;
 
 const getPhyPeriodFromStartDate = (startDate) => {
@@ -186,7 +191,7 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
             const potonganPph21 = toDeductionAmount(ad.potongan_pph21);
             const potonganBpjsKes = toDeductionAmount(ad.potongan_bpjs_kes);
             const potonganBpjsPen = toDeductionAmount(ad.potongan_bpjs_pen);
-            const potonganSpsi = toDeductionAmount(ad.potongan_spsi);
+            const potonganSpsi = normalizeSpsiDeduction(ad.potongan_spsi, phyMonth);
             const potonganLain = toDeductionAmount(ad.lainnya);
 
             const gajiPokokCalc = paidHk * payRate;
@@ -233,5 +238,6 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
 };
 
 module.exports = {
-    fetchMillwarePayroll
+    fetchMillwarePayroll,
+    normalizeSpsiDeduction
 };

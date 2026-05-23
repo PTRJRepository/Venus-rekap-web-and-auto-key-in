@@ -52,11 +52,11 @@ const calculateEffectiveMillwareNetpay = (mw, venusAutoDeductions) => {
     const bpjsKesMillware = Math.abs(toNumber(mw.potongan_bpjs_kesehatan));
     const bpjsPenMillware = Math.abs(toNumber(mw.potongan_bpjs_pensiun));
     const otherMillware = Math.abs(toNumber(mw.potongan_lain));
-    const bpjsKesAuto = Math.max(toNumber(venusAutoDeductions.bpjsKes) - bpjsKesMillware, 0);
-    const bpjsPenAuto = Math.max(toNumber(venusAutoDeductions.bpjsPen) - bpjsPenMillware, 0);
+    const bpjsKesAdjustment = bpjsKesMillware - toNumber(venusAutoDeductions.bpjsKes);
+    const bpjsPenAdjustment = bpjsPenMillware - toNumber(venusAutoDeductions.bpjsPen);
     const otherAuto = Math.max(toNumber(venusAutoDeductions.other) - otherMillware, 0);
 
-    return toNumber(mw.upah_bersih) - bpjsKesAuto - bpjsPenAuto - otherAuto;
+    return toNumber(mw.upah_bersih) + bpjsKesAdjustment + bpjsPenAdjustment - otherAuto;
 };
 
 const buildNetpayAnalysis = (rows) => {
@@ -299,13 +299,27 @@ const fetchPayrollData = async (month, year) => {
                 bpjsPen: vBpjsPen,
                 other: vOtherAutoDeductions
             });
+            const millwareBpjsKesRaw = mw ? Math.abs(toNumber(mw.potongan_bpjs_kesehatan)) : 0;
+            const millwareBpjsPenRaw = mw ? Math.abs(toNumber(mw.potongan_bpjs_pensiun)) : 0;
+            const effectiveMillwarePotonganTotal = mw ? (
+                Math.abs(toNumber(mw.potongan_pph21)) +
+                vBpjsKes +
+                vBpjsPen +
+                Math.abs(toNumber(mw.potongan_spsi)) +
+                Math.abs(toNumber(mw.potongan_lain))
+            ) : 0;
 
             const effectiveMillware = mw ? {
                 ...mw,
+                potongan_bpjs_kesehatan_raw: mw.potongan_bpjs_kesehatan || 0,
+                potongan_bpjs_pensiun_raw: mw.potongan_bpjs_pensiun || 0,
+                potongan_bpjs_kesehatan: vBpjsKes,
+                potongan_bpjs_pensiun: vBpjsPen,
+                potongan_total: effectiveMillwarePotonganTotal,
                 auto_tunjangan_perusahaan: vCompanyPaidBenefits,
                 auto_tunjangan_perusahaan_details: companyPaidBenefitDetails,
-                auto_potongan_bpjs_kesehatan: Math.max(vBpjsKes - Math.abs(toNumber(mw.potongan_bpjs_kesehatan)), 0),
-                auto_potongan_bpjs_pensiun: Math.max(vBpjsPen - Math.abs(toNumber(mw.potongan_bpjs_pensiun)), 0),
+                auto_potongan_bpjs_kesehatan: Math.max(vBpjsKes - millwareBpjsKesRaw, 0),
+                auto_potongan_bpjs_pensiun: Math.max(vBpjsPen - millwareBpjsPenRaw, 0),
                 auto_potongan_lain: Math.max(vOtherAutoDeductions - Math.abs(toNumber(mw.potongan_lain)), 0),
                 auto_potongan_lain_details: otherAutoDeductionDetails,
                 upah_bersih_raw: mw.upah_bersih || 0,
@@ -324,8 +338,8 @@ const fetchPayrollData = async (month, year) => {
                     millware: mw ? mw.premi_total || 0 : 0
                 },
                 pph21: { venus: vPph21, millware: mw ? Math.abs(mw.potongan_pph21 || 0) : 0 },
-                bpjsKes: { venus: vBpjsKes, millware: mw ? Math.abs(mw.potongan_bpjs_kesehatan || 0) : 0 },
-                bpjsPen: { venus: vBpjsPen, millware: mw ? Math.abs(mw.potongan_bpjs_pensiun || 0) : 0 },
+                bpjsKes: { venus: vBpjsKes, millware: mw ? vBpjsKes : 0 },
+                bpjsPen: { venus: vBpjsPen, millware: mw ? vBpjsPen : 0 },
                 spsi: { venus: vSpsi, millware: mw ? Math.abs(mw.potongan_spsi || 0) : 0 },
                 upahBersih: { venus: py.upahBersih, millware: effectiveMillwareNetpay }
             };
