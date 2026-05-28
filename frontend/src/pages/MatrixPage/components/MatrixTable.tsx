@@ -45,6 +45,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
+import { List } from 'react-window';
 
 import { tokens } from '../tokens';
 import { attendanceStatusToLabel } from '../domain/statusMapping';
@@ -161,9 +162,6 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
   }, [departmentOptions]);
 
   const hasSummary = employeeSummaries != null && employeeSummaries.size > 0;
-  const gridTemplateColumns = hasSummary
-    ? `${empColWidth}px repeat(${days.length}, ${cellWidth}px) ${SUMMARY_TOTAL_WIDTH}px`
-    : `${empColWidth}px repeat(${days.length}, ${cellWidth}px)`;
 
   const showEmpty = !isLoading && employees.length === 0;
 
@@ -217,39 +215,7 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
     </Stack>
   );
 
-  // ─── Header row contents (rendered inside the CSS grid) ───────────────
-  const cornerCell = (
-    <Box
-      key="__corner"
-      sx={{
-        position: 'sticky',
-        top: 0,
-        left: 0,
-        zIndex: 31,
-        height: 56,
-        backgroundColor: tokens.bg.surface,
-        borderBottom: `1px solid ${tokens.header.borderBottom}`,
-        borderRight: `1px solid ${tokens.border.subtle}`,
-        display: 'flex',
-        alignItems: 'center',
-      }}
-    >
-      <Typography
-        sx={{
-          px: 1,
-          py: 1,
-          fontSize: 11,
-          textTransform: 'uppercase',
-          letterSpacing: 0.5,
-          color: tokens.text.muted,
-          fontWeight: 600,
-        }}
-      >
-        Karyawan
-      </Typography>
-    </Box>
-  );
-
+  // ─── Header row contents ─────────────────────────────────────────────
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const dateHeaderCells = days.map((day) => {
@@ -263,9 +229,8 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
         role="columnheader"
         aria-label={`${day.day} ${day.weekdayShort}`}
         sx={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 30,
+          width: cellWidth,
+          minWidth: cellWidth,
           height: 56,
           backgroundColor: headerBg,
           borderTop: resolveHeaderBorderTop(day),
@@ -303,102 +268,6 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
           {day.weekdayShort}
         </Typography>
       </Box>
-    );
-  });
-
-  // ─── Body rows ────────────────────────────────────────────────────────
-  const handleRowMouseEnter = (employeeId: string) => () => {
-    setHoveredRow(employeeId);
-  };
-
-  const handleEmployeeRowClick = (employeeId: string) => () => {
-    if (onRowClick) onRowClick(employeeId);
-  };
-
-  const bodyRows = employees.map((emp) => {
-    const isRowHovered = hoveredRow === emp.employeeId;
-
-    return (
-      <React.Fragment key={emp.employeeId}>
-        <Box
-          sx={{
-            position: 'sticky',
-            left: 0,
-            zIndex: 1,
-            backgroundColor: tokens.bg.page,
-            borderRight: `1px solid ${tokens.border.subtle}`,
-            borderBottom: `1px solid ${tokens.border.cell}`,
-          }}
-          onMouseEnter={handleRowMouseEnter(emp.employeeId)}
-          onClick={handleEmployeeRowClick(emp.employeeId)}
-        >
-          <EmployeeColumn
-            employee={emp}
-            width={empColWidth}
-            height={cellHeight}
-            isHovered={isRowHovered}
-            onMenuClick={onEmployeeMenu}
-          />
-        </Box>
-
-        {days.map((day) => {
-          const key = `${emp.employeeId}|${day.date}`;
-          const record = attendance.get(key);
-          const status = record?.status ?? null;
-          const ariaLabel = `${emp.name} · ${formatDateIdLong(day.date)} · ${
-            status ? attendanceStatusToLabel(status) : 'Tidak ada data'
-          }`;
-          const isSelected =
-            selectedCell != null &&
-            selectedCell.employeeId === emp.employeeId &&
-            selectedCell.date === day.date;
-          const isColHovered = hoveredCol === day.date;
-
-          const cellInfo = matrixMode !== 'status'
-            ? getCellRenderInfo(matrixMode, status, record?.regularHours, record?.overtimeHours, heatmapMetric)
-            : null;
-
-          return (
-            <Box
-              key={key}
-              sx={{ borderBottom: `1px solid ${tokens.border.cell}` }}
-            >
-              <MatrixCell
-                status={status}
-                isWeekend={day.isWeekend}
-                isSaturday={day.isSaturday}
-                isSunday={day.isSunday}
-                isToday={day.date === todayStr}
-                isSelected={isSelected}
-                isRowHovered={isRowHovered}
-                isColHovered={isColHovered}
-                width={cellWidth}
-                height={cellHeight}
-                ariaLabel={ariaLabel}
-                displayValue={cellInfo?.displayValue}
-                heatmapBg={cellInfo?.heatmapBg}
-                heatmapText={cellInfo?.heatmapText}
-                onMouseEnter={() => {
-                  setHoveredRow(emp.employeeId);
-                  setHoveredCol(day.date);
-                }}
-                onMouseLeave={() => {
-                }}
-                onClick={(anchorEl) =>
-                  onCellClick(emp.employeeId, day.date, anchorEl)
-                }
-              />
-            </Box>
-          );
-        })}
-        {hasSummary && (
-          <SummaryColumnsRow
-            employeeId={emp.employeeId}
-            summary={employeeSummaries!.get(emp.employeeId)}
-            cellHeight={cellHeight}
-          />
-        )}
-      </React.Fragment>
     );
   });
 
@@ -448,6 +317,157 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
     </React.Fragment>
   ));
 
+  // ─── Virtualized row component for react-window v2 ──────────────────
+  const rowWidth = empColWidth + days.length * cellWidth + (hasSummary ? SUMMARY_TOTAL_WIDTH : 0);
+
+  interface VirtualRowProps {
+    employees: Employee[];
+    days: DayMeta[];
+    attendance: Map<string, AttendanceRecord>;
+    selectedCell: { employeeId: string; date: string } | null | undefined;
+    hoveredRow: string | null;
+    hoveredCol: string | null;
+    empColWidth: number;
+    cellWidth: number;
+    cellHeight: number;
+    matrixMode: MatrixMode;
+    heatmapMetric: HeatmapMetric;
+    hasSummary: boolean;
+    employeeSummaries: Map<string, EmployeeSummaryRow> | undefined;
+    todayStr: string;
+    onCellClick: (employeeId: string, date: string, anchorEl: HTMLElement) => void;
+    onRowClick?: (employeeId: string) => void;
+    onEmployeeMenu?: (employeeId: string, anchorEl: HTMLElement) => void;
+    setHoveredRow: (id: string | null) => void;
+    setHoveredCol: (id: string | null) => void;
+  }
+
+  const rowProps: VirtualRowProps = {
+    employees,
+    days,
+    attendance,
+    selectedCell,
+    hoveredRow,
+    hoveredCol,
+    empColWidth,
+    cellWidth,
+    cellHeight,
+    matrixMode,
+    heatmapMetric,
+    hasSummary,
+    employeeSummaries,
+    todayStr,
+    onCellClick,
+    onRowClick,
+    onEmployeeMenu,
+    setHoveredRow,
+    setHoveredCol,
+  };
+
+  // ─── Virtual row component (react-window v2 API) ────────────────────
+  const VirtualRowComponent = React.useCallback(
+    (props: { ariaAttributes: Record<string, unknown>; index: number; style: React.CSSProperties } & VirtualRowProps) => {
+      const { index, style, employees: emps, days: ds, attendance: att, selectedCell: sel,
+        hoveredRow: hRow, hoveredCol: hCol, empColWidth: ew, cellWidth: cw, cellHeight: ch,
+        matrixMode: mm, heatmapMetric: hm, hasSummary: hs, employeeSummaries: es,
+        todayStr: ts, onCellClick: occ, onRowClick: orc, onEmployeeMenu: oem,
+        setHoveredRow: shr, setHoveredCol: shc } = props;
+
+      const emp = emps[index];
+      if (!emp) return null;
+      const isRowHov = hRow === emp.employeeId;
+
+      return (
+        <div style={{ ...style, display: 'flex', flexDirection: 'row' }}>
+          <Box
+            sx={{
+              position: 'sticky',
+              left: 0,
+              zIndex: 1,
+              width: ew,
+              minWidth: ew,
+              backgroundColor: tokens.bg.page,
+              borderRight: `1px solid ${tokens.border.subtle}`,
+              borderBottom: `1px solid ${tokens.border.cell}`,
+            }}
+            onMouseEnter={() => shr(emp.employeeId)}
+            onClick={() => orc?.(emp.employeeId)}
+          >
+            <EmployeeColumn
+              employee={emp}
+              width={ew}
+              height={ch}
+              isHovered={isRowHov}
+              onMenuClick={oem}
+            />
+          </Box>
+
+          {ds.map((day) => {
+            const key = `${emp.employeeId}|${day.date}`;
+            const record = att.get(key);
+            const status = record?.status ?? null;
+            const ariaLabel = `${emp.name} · ${formatDateIdLong(day.date)} · ${
+              status ? attendanceStatusToLabel(status) : 'Tidak ada data'
+            }`;
+            const isSelected = sel != null && sel.employeeId === emp.employeeId && sel.date === day.date;
+            const isColHov = hCol === day.date;
+            const cellInfo = mm !== 'status'
+              ? getCellRenderInfo(mm, status, record?.regularHours, record?.overtimeHours, hm)
+              : null;
+
+            return (
+              <Box key={key} sx={{ borderBottom: `1px solid ${tokens.border.cell}` }}>
+                <MatrixCell
+                  status={status}
+                  isWeekend={day.isWeekend}
+                  isSaturday={day.isSaturday}
+                  isSunday={day.isSunday}
+                  isToday={day.date === ts}
+                  isSelected={isSelected}
+                  isRowHovered={isRowHov}
+                  isColHovered={isColHov}
+                  width={cw}
+                  height={ch}
+                  ariaLabel={ariaLabel}
+                  displayValue={cellInfo?.displayValue}
+                  heatmapBg={cellInfo?.heatmapBg}
+                  heatmapText={cellInfo?.heatmapText}
+                  onMouseEnter={() => { shr(emp.employeeId); shc(day.date); }}
+                  onMouseLeave={() => {}}
+                  onClick={(anchorEl) => occ(emp.employeeId, day.date, anchorEl)}
+                />
+              </Box>
+            );
+          })}
+
+          {hs && es && (
+            <SummaryColumnsRow
+              employeeId={emp.employeeId}
+              summary={es.get(emp.employeeId)}
+              cellHeight={ch}
+            />
+          )}
+        </div>
+      );
+    },
+    [],
+  );
+
+  // ─── Container ref for measuring available height ───────────────────
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [listHeight, setListHeight] = React.useState(500);
+
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setListHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   // ─── Render ───────────────────────────────────────────────────────────
   return (
     <Box
@@ -464,54 +484,94 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
     >
       {filterBar}
 
-      <Box
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          overflowX: isNarrow ? 'auto' : 'hidden',
-          overflowY: 'auto',
-          maxHeight: 'calc(100vh - 380px)',
-          backgroundColor: tokens.bg.page,
-        }}
-        onMouseLeave={handleClearHover}
-      >
-        {showEmpty ? (
+      {showEmpty ? (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 8,
+            minHeight: 240,
+          }}
+        >
+          <Typography sx={{ color: tokens.text.secondary, fontSize: 14 }}>
+            Tidak ada karyawan untuk periode ini.
+          </Typography>
+        </Box>
+      ) : (
+        <Box
+          ref={containerRef}
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            overflowX: isNarrow ? 'auto' : 'hidden',
+            overflowY: 'hidden',
+            backgroundColor: tokens.bg.page,
+          }}
+          onMouseLeave={handleClearHover}
+        >
+          {/* Sticky header row */}
           <Box
             sx={{
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              p: 8,
-              minHeight: 240,
-            }}
-          >
-            <Typography
-              sx={{ color: tokens.text.secondary, fontSize: 14 }}
-            >
-              Tidak ada karyawan untuk periode ini.
-            </Typography>
-          </Box>
-        ) : (
-          <Box
-            role="grid"
-            aria-rowcount={
-              isLoading ? 6 : employees.length + 1 /* header */
-            }
-            aria-colcount={days.length + 1 /* employee column */}
-            sx={{
-              display: 'grid',
-              gridTemplateColumns,
-              width: 'fit-content',
+              flexDirection: 'row',
+              position: 'sticky',
+              top: 0,
+              zIndex: 30,
+              width: rowWidth,
               minWidth: '100%',
             }}
           >
-            {cornerCell}
+            <Box
+              sx={{
+                position: 'sticky',
+                left: 0,
+                zIndex: 31,
+                width: empColWidth,
+                minWidth: empColWidth,
+                height: 56,
+                backgroundColor: tokens.bg.surface,
+                borderBottom: `1px solid ${tokens.header.borderBottom}`,
+                borderRight: `1px solid ${tokens.border.subtle}`,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <Typography
+                sx={{
+                  px: 1,
+                  py: 1,
+                  fontSize: 11,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  color: tokens.text.muted,
+                  fontWeight: 600,
+                }}
+              >
+                Karyawan
+              </Typography>
+            </Box>
             {dateHeaderCells}
             {hasSummary && <SummaryColumnsHeader />}
-            {isLoading ? skeletonRows : bodyRows}
           </Box>
-        )}
-      </Box>
+
+          {/* Virtualized body rows */}
+          {isLoading ? (
+            <Box sx={{ width: rowWidth, minWidth: '100%' }}>
+              {skeletonRows}
+            </Box>
+          ) : (
+            <List
+              style={{ minWidth: '100%', width: rowWidth, height: Math.max(listHeight - 56, 200) }}
+              rowCount={employees.length}
+              rowHeight={cellHeight}
+              overscanCount={5}
+              rowProps={rowProps as any}
+              rowComponent={VirtualRowComponent as any}
+            />
+          )}
+        </Box>
+      )}
     </Box>
   );
 }
