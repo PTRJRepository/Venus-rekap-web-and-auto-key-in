@@ -529,10 +529,12 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
           sx={{
             gridColumn: state.sidebarMode === 'hidden' ? 1 : 2,
             minWidth: 0,
+            minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
             gap: state.viewMode === 'focus' ? '4px' : '12px',
             height: '100%',
+            overflow: 'hidden',
           }}
         >
           <TopHeader
