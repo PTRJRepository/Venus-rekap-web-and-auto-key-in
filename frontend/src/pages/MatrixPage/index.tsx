@@ -443,7 +443,6 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
           gridTemplateRows: '1fr',
           width: '100%',
           height: '100%',
-          minHeight: '100vh',
           backgroundColor: tokens.bg.page,
           color: tokens.text.primary,
           // Outer 12–16 px gutter (req 1.6, mid-point 14 px).
