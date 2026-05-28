@@ -48,6 +48,8 @@ import type { SelectChangeEvent } from '@mui/material/Select';
 
 import { tokens } from '../tokens';
 import { attendanceStatusToLabel } from '../domain/statusMapping';
+import { getCellRenderInfo } from '../domain/heatmap';
+import type { MatrixMode, HeatmapMetric } from '../domain/heatmap';
 import type { AttendanceRecord, DayMeta, Employee } from '../types';
 import type { EmployeeSummaryRow } from '../domain/employeeSummary';
 import { EmployeeColumn } from './EmployeeColumn';
@@ -73,6 +75,8 @@ export interface MatrixTableProps {
   isLoading?: boolean;
   isNarrow?: boolean;
   employeeSummaries?: Map<string, EmployeeSummaryRow>;
+  matrixMode?: MatrixMode;
+  heatmapMetric?: HeatmapMetric;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -130,6 +134,8 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
     isLoading = false,
     isNarrow = false,
     employeeSummaries,
+    matrixMode = 'status',
+    heatmapMetric = 'work_hours',
   } = props;
 
   const [hoveredRow, setHoveredRow] = React.useState<string | null>(null);
@@ -348,6 +354,10 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
             selectedCell.date === day.date;
           const isColHovered = hoveredCol === day.date;
 
+          const cellInfo = matrixMode !== 'status'
+            ? getCellRenderInfo(matrixMode, status, record?.regularHours, record?.overtimeHours, heatmapMetric)
+            : null;
+
           return (
             <Box
               key={key}
@@ -365,6 +375,9 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
                 width={cellWidth}
                 height={cellHeight}
                 ariaLabel={ariaLabel}
+                displayValue={cellInfo?.displayValue}
+                heatmapBg={cellInfo?.heatmapBg}
+                heatmapText={cellInfo?.heatmapText}
                 onMouseEnter={() => {
                   setHoveredRow(emp.employeeId);
                   setHoveredCol(day.date);

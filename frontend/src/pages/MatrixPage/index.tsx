@@ -58,8 +58,10 @@ import { FooterLegend } from './components/FooterLegend';
 import { RightInsightPanel } from './components/RightInsightPanel';
 import { CellDetailPopover } from './components/CellDetailPopover';
 import { ErrorState } from './components/ErrorState';
+import { MatrixModeSelector } from './components/MatrixModeSelector';
 
 import type { AttendanceStatus, QuickFilterState } from './types';
+import type { MatrixMode, HeatmapMetric } from './domain/heatmap';
 
 // ─── Public props ──────────────────────────────────────────────────────────
 
@@ -407,6 +409,16 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
     [dispatch, state.viewMode],
   );
 
+  const handleMatrixModeChange = useCallback(
+    (mode: MatrixMode) => dispatch({ type: 'SET_MATRIX_MODE', mode }),
+    [dispatch],
+  );
+
+  const handleHeatmapMetricChange = useCallback(
+    (metric: HeatmapMetric) => dispatch({ type: 'SET_HEATMAP_METRIC', metric }),
+    [dispatch],
+  );
+
   const handleNavigate = useCallback(
     (tabKey: string) => {
       // Stay on Matrix when "Kehadiran" is clicked; otherwise lift the
@@ -542,6 +554,13 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
           />
           )}
 
+          <MatrixModeSelector
+            mode={state.matrixMode}
+            heatmapMetric={state.heatmapMetric}
+            onModeChange={handleMatrixModeChange}
+            onHeatmapMetricChange={handleHeatmapMetricChange}
+          />
+
           {/*
             Matrix region: error → ErrorState; otherwise the table itself
             handles loading skeleton + empty-state internally so
@@ -575,6 +594,8 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
               isLoading={isLoading}
               isNarrow={isNarrow}
               employeeSummaries={employeeSummaries}
+              matrixMode={state.matrixMode}
+              heatmapMetric={state.heatmapMetric}
             />
           )}
 

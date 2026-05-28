@@ -67,6 +67,12 @@ export interface MatrixCellProps {
   height: number;
   /** Tooltip title and `aria-label` (e.g. "Budi · 5 Mei 2026 · Hadir"). */
   ariaLabel: string;
+  /** Numeric display value for non-status modes (e.g. "7.5", "-2.0"). */
+  displayValue?: string | null;
+  /** Heatmap background color for numeric modes. */
+  heatmapBg?: string;
+  /** Heatmap text color for numeric modes. */
+  heatmapText?: string;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   /** Called with the cell DOM element so the popover can anchor to it. */
@@ -120,6 +126,9 @@ function MatrixCellInner(props: MatrixCellProps): React.ReactElement {
     width,
     height,
     ariaLabel,
+    displayValue,
+    heatmapBg,
+    heatmapText,
     onMouseEnter,
     onMouseLeave,
     onClick,
@@ -133,7 +142,8 @@ function MatrixCellInner(props: MatrixCellProps): React.ReactElement {
   const IconComponent = iconKey !== null ? (ICON_MAP[iconKey] ?? null) : null;
   const iconColor = status !== null ? getStatusColor(status) : undefined;
 
-  const background = resolveBackground(props);
+  const isNumericMode = displayValue != null;
+  const background = isNumericMode && heatmapBg ? heatmapBg : resolveBackground(props);
   const todayBorder = props.isToday
     ? `1px solid ${tokens.today.border}`
     : `1px solid ${tokens.border.cell}`;
@@ -163,11 +173,22 @@ function MatrixCellInner(props: MatrixCellProps): React.ReactElement {
           userSelect: 'none',
         }}
       >
-        {IconComponent !== null ? (
+        {isNumericMode ? (
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: heatmapText || tokens.text.secondary,
+              fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+              lineHeight: 1,
+            }}
+          >
+            {displayValue}
+          </span>
+        ) : IconComponent !== null ? (
           <IconComponent
             sx={{
               color: iconColor,
-              // Target 14–16 px per req 6.8; rendering up to 18 px allowed.
               fontSize: 16,
             }}
           />
