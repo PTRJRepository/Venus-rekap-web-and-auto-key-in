@@ -60,13 +60,16 @@ import {
 import type { SelectChangeEvent } from '@mui/material';
 
 import DonutSummary from './DonutSummary';
+import { AnalysisTabs } from './AnalysisTabs';
 import { attendanceStatusToLabel } from '../domain/statusMapping';
 import { tokens } from '../tokens';
 import type {
   AttendanceStatus,
+  Employee,
   MonthlySummary,
   QuickFilterState,
 } from '../types';
+import type { EmployeeSummaryRow } from '../domain/employeeSummary';
 
 // ─── Closed list of attendance statuses for the Status filter ──────────────
 
@@ -107,28 +110,19 @@ function formatLastUpdated(value: Date | null): string {
 // ─── Props ─────────────────────────────────────────────────────────────────
 
 export interface RightInsightPanelProps {
-  /** Aggregated counts for the visible month (powers the donut). */
   summary: MonthlySummary;
-  /** Currently active filter selections. */
   filters: QuickFilterState;
-  /** Indonesian-localized label for the visible month, e.g. "Mei 2026". */
   monthLabel: string;
-  /** Number of working days in the visible month. */
   workdayCount: number;
-  /** Timestamp of the last successful Monthly_Grid_API response. */
   lastUpdated: Date | null;
-  /** Optional list of department names for the Departemen filter. */
   departmentOptions?: string[];
-  /** Optional list of location names for the Lokasi filter. */
   locationOptions?: string[];
-  /** Invoked when any quick filter changes. */
   onFilterChange: (next: QuickFilterState) => void;
-  /** When true the panel renders inside `<Drawer anchor="right">`. */
   isNarrow?: boolean;
-  /** Drawer open state (only consulted when `isNarrow` is true). */
   drawerOpen?: boolean;
-  /** Drawer close handler (only consulted when `isNarrow` is true). */
   onDrawerClose?: () => void;
+  employeeSummaries?: Map<string, EmployeeSummaryRow>;
+  employees?: Employee[];
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
@@ -148,6 +142,8 @@ export function RightInsightPanel(
     isNarrow = false,
     drawerOpen = false,
     onDrawerClose,
+    employeeSummaries,
+    employees = [],
   } = props;
 
   // ─── Filter change handlers ─────────────────────────────────────────────
@@ -212,6 +208,14 @@ export function RightInsightPanel(
       </Stack>
 
       <Divider sx={{ borderColor: tokens.border.subtle }} />
+
+      {/* ─── 2. Analisis (Lembur / Jam Kurang / Alfa) ──────────────── */}
+      {employeeSummaries && employeeSummaries.size > 0 && (
+        <>
+          <AnalysisTabs employeeSummaries={employeeSummaries} employees={employees} />
+          <Divider sx={{ borderColor: tokens.border.subtle }} />
+        </>
+      )}
 
       {/* ─── 3. Filter Cepat ────────────────────────────────────────── */}
       <Stack direction="column" spacing={1.5}>

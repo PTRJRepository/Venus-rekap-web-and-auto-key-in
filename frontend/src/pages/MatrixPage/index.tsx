@@ -625,6 +625,8 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
             isNarrow
             drawerOpen={state.insightDrawerOpenOnNarrow}
             onDrawerClose={handleToggleInsightDrawer}
+            employeeSummaries={employeeSummaries}
+            employees={filtered.employees}
           />
         ) : state.rightPanelVisible ? (
           <Box
@@ -643,6 +645,8 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
               lastUpdated={state.lastUpdated}
               departmentOptions={departmentOptions}
               onFilterChange={handleQuickFilterChange}
+              employeeSummaries={employeeSummaries}
+              employees={filtered.employees}
             />
           </Box>
         ) : null}
