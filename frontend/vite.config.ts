@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -13,5 +14,13 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
-  }
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/test/setup.ts'],
+    // Only TS/TSX tests are managed by Vitest. Existing legacy `*.test.js`
+    // files use Node's built-in `node:test` runner and must not be picked up.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+  },
 })
