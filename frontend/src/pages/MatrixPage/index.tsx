@@ -319,6 +319,15 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  // ── Effect: Auto-focus after 10 seconds of data loaded ──────────────
+  useEffect(() => {
+    if (state.fetchStatus !== 'loaded' || state.viewMode === 'focus') return;
+    const timer = setTimeout(() => {
+      dispatch({ type: 'SET_VIEW_MODE', mode: 'focus' });
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, [state.fetchStatus, state.viewMode, dispatch]);
+
   // ── Handlers ─────────────────────────────────────────────────────────
   const handleMonthChange = useCallback(
     (newMonth: number) => {
@@ -647,6 +656,7 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
               lastUpdated={state.lastUpdated}
               departmentOptions={departmentOptions}
               onFilterChange={handleQuickFilterChange}
+              onClose={handleToggleRightPanel}
               employeeSummaries={employeeSummaries}
               employees={filtered.employees}
             />

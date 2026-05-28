@@ -51,13 +51,16 @@ import {
   Divider,
   Drawer,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Select,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
+import CloseRounded from '@mui/icons-material/CloseRounded';
 
 import DonutSummary from './DonutSummary';
 import { AnalysisTabs } from './AnalysisTabs';
@@ -121,6 +124,7 @@ export interface RightInsightPanelProps {
   isNarrow?: boolean;
   drawerOpen?: boolean;
   onDrawerClose?: () => void;
+  onClose?: () => void;
   employeeSummaries?: Map<string, EmployeeSummaryRow>;
   employees?: Employee[];
 }
@@ -142,6 +146,7 @@ export function RightInsightPanel(
     isNarrow = false,
     drawerOpen = false,
     onDrawerClose,
+    onClose,
     employeeSummaries,
     employees = [],
   } = props;
@@ -200,10 +205,19 @@ export function RightInsightPanel(
       }}
     >
       {/* ─── 1. Ringkasan Bulan Ini ─────────────────────────────────── */}
-      <Stack direction="column" spacing={1.25}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between">
         <Typography component="h3" sx={sectionHeaderSx}>
           Ringkasan Bulan Ini
         </Typography>
+        {onClose && (
+          <Tooltip title="Tutup panel">
+            <IconButton size="small" onClick={onClose} sx={{ color: tokens.text.muted }}>
+              <CloseRounded sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Stack>
+      <Stack direction="column" spacing={1.25}>
         <DonutSummary summary={summary} />
       </Stack>
 
