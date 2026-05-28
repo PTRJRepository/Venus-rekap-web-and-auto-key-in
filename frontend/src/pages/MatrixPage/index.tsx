@@ -421,11 +421,21 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
 
   const handleNavigate = useCallback(
     (tabKey: string) => {
-      // Stay on Matrix when "Kehadiran" is clicked; otherwise lift the
-      // navigation event to App.jsx so it can switch tabs.
-      if (tabKey !== 'matrix') {
-        props.onNavigate?.(tabKey);
-      }
+      if (tabKey === 'matrix') return;
+      // Map sidebar keys to App.jsx tab system
+      const tabMap: Record<string, string> = {
+        dashboard: 'matrix',
+        employees: 'matrix',
+        overtime: 'report',
+        leave: 'report',
+        sick: 'report',
+        late: 'report',
+        report: 'report',
+        payroll: 'payroll',
+        settings: 'matrix',
+        help: 'matrix',
+      };
+      props.onNavigate?.(tabMap[tabKey] ?? tabKey);
     },
     [props],
   );
