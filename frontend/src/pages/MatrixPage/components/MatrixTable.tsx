@@ -49,8 +49,10 @@ import type { SelectChangeEvent } from '@mui/material/Select';
 import { tokens } from '../tokens';
 import { attendanceStatusToLabel } from '../domain/statusMapping';
 import type { AttendanceRecord, DayMeta, Employee } from '../types';
+import type { EmployeeSummaryRow } from '../domain/employeeSummary';
 import { EmployeeColumn } from './EmployeeColumn';
 import { MatrixCell } from './MatrixCell';
+import { SummaryColumnsHeader, SummaryColumnsRow, SUMMARY_TOTAL_WIDTH } from './SummaryColumns';
 
 // ─── Public props ──────────────────────────────────────────────────────────
 
@@ -70,6 +72,7 @@ export interface MatrixTableProps {
   onDepartmentChange: (newValue: string) => void;
   isLoading?: boolean;
   isNarrow?: boolean;
+  employeeSummaries?: Map<string, EmployeeSummaryRow>;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -126,6 +129,7 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
     onDepartmentChange,
     isLoading = false,
     isNarrow = false,
+    employeeSummaries,
   } = props;
 
   const [hoveredRow, setHoveredRow] = React.useState<string | null>(null);
@@ -150,7 +154,10 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
     );
   }, [departmentOptions]);
 
-  const gridTemplateColumns = `${empColWidth}px repeat(${days.length}, ${cellWidth}px)`;
+  const hasSummary = employeeSummaries != null && employeeSummaries.size > 0;
+  const gridTemplateColumns = hasSummary
+    ? `${empColWidth}px repeat(${days.length}, ${cellWidth}px) ${SUMMARY_TOTAL_WIDTH}px`
+    : `${empColWidth}px repeat(${days.length}, ${cellWidth}px)`;
 
   const showEmpty = !isLoading && employees.length === 0;
 
@@ -363,9 +370,6 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
                   setHoveredCol(day.date);
                 }}
                 onMouseLeave={() => {
-                  // Single-cell leave doesn't clear (parent container does);
-                  // keeps row+column highlight stable while moving across
-                  // the matrix.
                 }}
                 onClick={(anchorEl) =>
                   onCellClick(emp.employeeId, day.date, anchorEl)
@@ -374,6 +378,13 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
             </Box>
           );
         })}
+        {hasSummary && (
+          <SummaryColumnsRow
+            employeeId={emp.employeeId}
+            summary={employeeSummaries!.get(emp.employeeId)}
+            cellHeight={cellHeight}
+          />
+        )}
       </React.Fragment>
     );
   });
@@ -483,6 +494,7 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
           >
             {cornerCell}
             {dateHeaderCells}
+            {hasSummary && <SummaryColumnsHeader />}
             {isLoading ? skeletonRows : bodyRows}
           </Box>
         )}

@@ -195,6 +195,8 @@ export function decodeBackendResponse(
         checkIn: toNonEmptyString(cell.checkIn),
         checkOut: toNonEmptyString(cell.checkOut),
         workHours: totalHours > 0 ? totalHours : null,
+        regularHours: regular > 0 ? regular : null,
+        overtimeHours: overtime > 0 ? overtime : null,
         note: toNonEmptyString(cell.chargeJob),
       });
     }

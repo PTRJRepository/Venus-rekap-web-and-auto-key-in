@@ -42,6 +42,7 @@ import { useMatrixState, initialMatrixState } from './hooks/useMatrixState';
 import { useMonthlyGrid } from './hooks/useMonthlyGrid';
 import { applyFilters } from './domain/filter';
 import { computeMonthlySummary } from './domain/summary';
+import { computeEmployeeSummaries } from './domain/employeeSummary';
 import {
   computeCellWidth,
   empColWidth as resolveEmpColWidth,
@@ -206,12 +207,15 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
   );
 
   // ── Derived: monthly summary computed from FILTERED attendance ──────
-  // KPI cards reflect the user's current filter selection (req 4.x +
-  // 9.4). When no filter is active, this is identical to the summary
-  // reduced over the full payload.
   const summary = useMemo(
     () => computeMonthlySummary(Array.from(filtered.attendance.values())),
     [filtered.attendance],
+  );
+
+  // ── Derived: per-employee summaries for summary columns ────────────
+  const employeeSummaries = useMemo(
+    () => computeEmployeeSummaries(filtered.employees, filtered.attendance, state.days),
+    [filtered.employees, filtered.attendance, state.days],
   );
 
   // ── Derived: layout widths ──────────────────────────────────────────
@@ -570,6 +574,7 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
               onDepartmentChange={handleDeptChange}
               isLoading={isLoading}
               isNarrow={isNarrow}
+              employeeSummaries={employeeSummaries}
             />
           )}
 

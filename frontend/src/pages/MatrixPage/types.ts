@@ -67,6 +67,8 @@ export interface AttendanceRecord {
   checkIn?: string | null;
   checkOut?: string | null;
   workHours?: number | null;
+  regularHours?: number | null;
+  overtimeHours?: number | null;
   note?: string | null;
 }
 
