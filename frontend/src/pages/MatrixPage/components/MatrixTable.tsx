@@ -90,9 +90,15 @@ export function formatDateIdLong(dateStr: string): string {
 }
 
 function resolveHeaderBackground(day: DayMeta): string {
-  if (day.isSaturday) return tokens.weekend.saturdayTint;
-  if (day.isSunday) return tokens.weekend.sundayTint;
+  if (day.isSaturday) return tokens.weekend.saturdayHeaderBg;
+  if (day.isSunday) return tokens.weekend.sundayHeaderBg;
   return tokens.bg.surface;
+}
+
+function resolveHeaderBorderTop(day: DayMeta): string {
+  if (day.isSaturday) return `2px solid ${tokens.weekend.saturdayHeaderBorder}`;
+  if (day.isSunday) return `2px solid ${tokens.weekend.sundayHeaderBorder}`;
+  return '2px solid transparent';
 }
 
 function resolveDayNumberColor(day: DayMeta): string {
@@ -206,10 +212,10 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
         position: 'sticky',
         top: 0,
         left: 0,
-        zIndex: 3,
+        zIndex: 31,
         height: 56,
         backgroundColor: tokens.bg.surface,
-        borderBottom: `1px solid ${tokens.border.subtle}`,
+        borderBottom: `1px solid ${tokens.header.borderBottom}`,
         borderRight: `1px solid ${tokens.border.subtle}`,
         display: 'flex',
         alignItems: 'center',
@@ -231,53 +237,61 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
     </Box>
   );
 
-  const dateHeaderCells = days.map((day) => (
-    <Box
-      key={`hdr-${day.date}`}
-      role="columnheader"
-      aria-label={`${day.day} ${day.weekdayShort}`}
-      sx={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 2,
-        height: 56,
-        backgroundColor: resolveHeaderBackground(day),
-        borderBottom: `1px solid ${tokens.border.subtle}`,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '2px',
-        // Brighter background when this column is hovered (req 7.2).
-        boxShadow:
-          hoveredCol === day.date
-            ? 'inset 0 0 0 9999px rgba(255,255,255,0.06)'
-            : 'none',
-      }}
-    >
-      <Typography
-        component="span"
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const dateHeaderCells = days.map((day) => {
+    const isToday = day.date === todayStr;
+    let headerBg = resolveHeaderBackground(day);
+    if (isToday) headerBg = tokens.today.headerBg;
+
+    return (
+      <Box
+        key={`hdr-${day.date}`}
+        role="columnheader"
+        aria-label={`${day.day} ${day.weekdayShort}`}
         sx={{
-          fontSize: 14,
-          fontWeight: 600,
-          lineHeight: 1.1,
-          color: resolveDayNumberColor(day),
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
+          height: 56,
+          backgroundColor: headerBg,
+          borderTop: resolveHeaderBorderTop(day),
+          borderBottom: `1px solid ${tokens.header.borderBottom}`,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '2px',
+          boxShadow:
+            hoveredCol === day.date
+              ? 'inset 0 0 0 9999px rgba(255,255,255,0.08)'
+              : 'none',
         }}
       >
-        {day.day}
-      </Typography>
-      <Typography
-        component="span"
-        sx={{
-          fontSize: 10,
-          lineHeight: 1.2,
-          color: tokens.text.secondary,
-        }}
-      >
-        {day.weekdayShort}
-      </Typography>
-    </Box>
-  ));
+        <Typography
+          component="span"
+          sx={{
+            fontSize: 14,
+            fontWeight: 600,
+            lineHeight: 1.1,
+            color: isToday ? tokens.accent.cyan : resolveDayNumberColor(day),
+          }}
+        >
+          {day.day}
+        </Typography>
+        <Typography
+          component="span"
+          sx={{
+            fontSize: 10,
+            lineHeight: 1.2,
+            color: tokens.text.secondary,
+          }}
+        >
+          {day.weekdayShort}
+        </Typography>
+      </Box>
+    );
+  });
 
   // ─── Body rows ────────────────────────────────────────────────────────
   const handleRowMouseEnter = (employeeId: string) => () => {
@@ -337,6 +351,7 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
                 isWeekend={day.isWeekend}
                 isSaturday={day.isSaturday}
                 isSunday={day.isSunday}
+                isToday={day.date === todayStr}
                 isSelected={isSelected}
                 isRowHovered={isRowHovered}
                 isColHovered={isColHovered}

@@ -53,6 +53,8 @@ export interface MatrixCellProps {
   isSaturday?: boolean;
   /** True when the column is specifically Sunday — drives sunday tint. */
   isSunday?: boolean;
+  /** True when this column is today's date. */
+  isToday?: boolean;
   /** True when this cell is the currently selected popover anchor. */
   isSelected: boolean;
   /** True when the lifted hover row matches this cell's employee. */
@@ -103,6 +105,7 @@ function resolveBackground(props: MatrixCellProps): string {
   if (props.isSelected) return 'rgba(19,109,255,0.20)';
   if (props.isRowHovered && props.isColHovered) return 'rgba(255,255,255,0.08)';
   if (props.isRowHovered || props.isColHovered) return 'rgba(255,255,255,0.04)';
+  if (props.isToday) return tokens.today.bodyTint;
   if (props.isSaturday) return tokens.weekend.saturdayTint;
   if (props.isSunday) return tokens.weekend.sundayTint;
   return 'transparent';
@@ -131,6 +134,9 @@ function MatrixCellInner(props: MatrixCellProps): React.ReactElement {
   const iconColor = status !== null ? getStatusColor(status) : undefined;
 
   const background = resolveBackground(props);
+  const todayBorder = props.isToday
+    ? `1px solid ${tokens.today.border}`
+    : `1px solid ${tokens.border.cell}`;
 
   return (
     <Tooltip enterDelay={300} leaveDelay={0} title={ariaLabel}>
@@ -149,12 +155,10 @@ function MatrixCellInner(props: MatrixCellProps): React.ReactElement {
           alignItems: 'center',
           justifyContent: 'center',
           boxSizing: 'border-box',
-          border: `1px solid ${tokens.border.cell}`,
+          border: todayBorder,
           borderRadius: tokens.radius.cell,
           backgroundColor: background,
           cursor: status === null ? 'default' : 'pointer',
-          // Hover/highlight transitions instantaneous per req 7.4 — we keep a
-          // very small fade so hover feels smooth without lagging the user.
           transition: 'background-color 60ms linear',
           userSelect: 'none',
         }}

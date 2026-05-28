@@ -50,6 +50,43 @@ export const tokens = {
     sundayTint: 'rgba(239,68,68,0.12)',
     saturdayText: '#60A5FA',
     sundayText: '#F87171',
+    saturdayHeaderBg: '#0B2748',
+    sundayHeaderBg: '#35151A',
+    saturdayHeaderBorder: '#2563EB',
+    sundayHeaderBorder: '#EF4444',
+  },
+  today: {
+    headerBg: '#123B63',
+    bodyTint: 'rgba(56,189,248,0.08)',
+    border: 'rgba(56,189,248,0.35)',
+  },
+  header: {
+    borderBottom: 'rgba(255,255,255,0.16)',
+  },
+  heatmap: {
+    workHours: {
+      green: { bg: '#12351F', text: '#22C55E' },
+      yellow: { bg: '#3A2F12', text: '#FACC15' },
+      red: { bg: '#3B1115', text: '#F87171' },
+      gray: { bg: '#1F2937', text: '#6B7280' },
+    },
+    shortHours: {
+      green: { bg: '#12351F', text: '#22C55E' },
+      yellow: { bg: '#3A2F12', text: '#FACC15' },
+      orange: { bg: '#3B2411', text: '#FB923C' },
+      red: { bg: '#3B1115', text: '#F87171' },
+    },
+    overtime: {
+      none: { bg: 'transparent', text: '#6F8196' },
+      green: { bg: '#12351F', text: '#22C55E' },
+      blue: { bg: '#123B63', text: '#38BDF8' },
+      orange: { bg: '#3A2F12', text: '#F59E0B' },
+      red: { bg: '#3B1115', text: '#F87171' },
+    },
+  },
+  summary: {
+    bg: '#0B1A2A',
+    border: 'rgba(255,255,255,0.14)',
   },
   radius: {
     sidebarItem: 10,

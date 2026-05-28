@@ -1,31 +1,8 @@
 /**
  * DateHeader — column header strip for the Matrix Table.
  *
- * Stateless presentational component that renders one cell per `DayMeta`,
- * showing the day-of-month number on top and the 3-character Indonesian
- * weekday short name underneath (e.g. `1 / Jum`).
- *
- * Coloring rules:
- * - Saturday day-numbers use `tokens.weekend.saturdayText` (#60A5FA).
- * - Sunday day-numbers use `tokens.weekend.sundayText` (#F87171).
- * - Other day-numbers use `tokens.text.primary`.
- * - Weekday short labels always use `tokens.text.secondary`.
- *
- * Background rules (priority order):
- * 1. If `day.date === hoveredDate` → rgba(255,255,255,0.08) for column-highlight mirroring.
- * 2. Else if `day.isSaturday` → `tokens.weekend.saturdayTint`.
- * 3. Else if `day.isSunday` → `tokens.weekend.sundayTint`.
- * 4. Else → transparent.
- *
- * Sticky-top positioning is intentionally NOT applied here — `MatrixTable`
- * places this component inside a sticky container (`position: sticky; top: 0`)
- * so the header strip floats over scrolled rows.
- *
- * Layout: a flex row of fixed-width column cells. Width is driven by the
- * `cellWidth` prop (computed in pixels by `domain/layout.ts`), so the header
- * stays aligned with the cell grid regardless of breakpoint.
- *
- * Requirements: 5.6, 5.7, 5.8
+ * Renders one cell per DayMeta showing day-of-month number and weekday short.
+ * Solid opaque background, strong border, weekend solid colors, today highlight.
  */
 import { memo } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
@@ -34,25 +11,20 @@ import { tokens } from '../tokens';
 import type { DayMeta } from '../types';
 
 export interface DateHeaderProps {
-  /** Calendar day metadata for the currently visible month. */
   days: DayMeta[];
-  /** Per-cell pixel width (matches the matrix grid column width). */
   cellWidth: number;
-  /**
-   * Date string (`yyyy-MM-dd`) of the currently hovered column. When set,
-   * the matching header cell gets a brighter highlight so the user keeps
-   * column context while scanning the grid.
-   */
   hoveredDate?: string | null;
+  todayDate?: string | null;
 }
 
-function resolveBackground(day: DayMeta, hoveredDate: string | null | undefined): string {
+function resolveBackground(day: DayMeta, hoveredDate: string | null | undefined, todayDate: string | null | undefined): string {
   if (hoveredDate && day.date === hoveredDate) {
-    return 'rgba(255,255,255,0.08)';
+    return 'rgba(255,255,255,0.12)';
   }
-  if (day.isSaturday) return tokens.weekend.saturdayTint;
-  if (day.isSunday) return tokens.weekend.sundayTint;
-  return 'transparent';
+  if (todayDate && day.date === todayDate) return tokens.today.headerBg;
+  if (day.isSaturday) return tokens.weekend.saturdayHeaderBg;
+  if (day.isSunday) return tokens.weekend.sundayHeaderBg;
+  return tokens.bg.surface;
 }
 
 function resolveDayNumberColor(day: DayMeta): string {
@@ -61,8 +33,14 @@ function resolveDayNumberColor(day: DayMeta): string {
   return tokens.text.primary;
 }
 
+function resolveBorderTop(day: DayMeta): string {
+  if (day.isSaturday) return `2px solid ${tokens.weekend.saturdayHeaderBorder}`;
+  if (day.isSunday) return `2px solid ${tokens.weekend.sundayHeaderBorder}`;
+  return '2px solid transparent';
+}
+
 function DateHeaderImpl(props: DateHeaderProps): React.ReactElement {
-  const { days, cellWidth, hoveredDate = null } = props;
+  const { days, cellWidth, hoveredDate = null, todayDate = null } = props;
 
   return (
     <Box
@@ -89,8 +67,9 @@ function DateHeaderImpl(props: DateHeaderProps): React.ReactElement {
             height: 56,
             py: 1,
             textAlign: 'center',
-            backgroundColor: resolveBackground(day, hoveredDate),
-            borderBottom: `1px solid ${tokens.border.subtle}`,
+            backgroundColor: resolveBackground(day, hoveredDate, todayDate),
+            borderTop: resolveBorderTop(day),
+            borderBottom: `1px solid ${tokens.header.borderBottom}`,
             transition: 'background-color 120ms ease-out',
           }}
         >
@@ -122,11 +101,6 @@ function DateHeaderImpl(props: DateHeaderProps): React.ReactElement {
   );
 }
 
-/**
- * Memoized export. Re-renders only when `days`, `cellWidth`, or
- * `hoveredDate` change — the parent `MatrixTable` is responsible for
- * passing stable references.
- */
 export const DateHeader = memo(DateHeaderImpl);
 DateHeader.displayName = 'DateHeader';
 
