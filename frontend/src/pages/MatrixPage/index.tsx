@@ -181,10 +181,10 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
 
   // ── Auto-collapse sidebar on narrow per req 11.4 ────────────────────
   useEffect(() => {
-    if (breakpoint === 'narrow' && state.sidebarExpanded) {
-      dispatch({ type: 'TOGGLE_SIDEBAR' });
+    if (breakpoint === 'narrow' && state.sidebarMode === 'expanded') {
+      dispatch({ type: 'SET_SIDEBAR_MODE', mode: 'collapsed' });
     }
-  }, [breakpoint, state.sidebarExpanded, dispatch]);
+  }, [breakpoint, state.sidebarMode, dispatch]);
 
   // ── Derived: filtered employees + attendance ────────────────────────
   const filtered = useMemo(
@@ -216,13 +216,13 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
 
   // ── Derived: layout widths ──────────────────────────────────────────
   const sidebarWidthPx = useMemo(
-    () => resolveSidebarWidth(breakpoint, state.sidebarExpanded),
-    [breakpoint, state.sidebarExpanded],
+    () => resolveSidebarWidth(breakpoint, state.sidebarMode),
+    [breakpoint, state.sidebarMode],
   );
 
   const insightWidthPx = useMemo(
-    () => resolveInsightWidth(breakpoint),
-    [breakpoint],
+    () => state.rightPanelVisible ? resolveInsightWidth(breakpoint) : 0,
+    [breakpoint, state.rightPanelVisible],
   );
 
   const empColWidthPx = useMemo(
@@ -235,10 +235,10 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
       computeCellWidth(
         viewportWidth,
         breakpoint,
-        state.sidebarExpanded,
+        state.sidebarMode !== 'hidden' && state.sidebarMode === 'expanded',
         state.days.length || 31,
       ),
-    [viewportWidth, breakpoint, state.sidebarExpanded, state.days.length],
+    [viewportWidth, breakpoint, state.sidebarMode, state.days.length],
   );
 
   // ── Derived: department options for the filter dropdowns ───────────
@@ -379,6 +379,30 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
     [dispatch],
   );
 
+  const handleSetSidebarMode = useCallback(
+    (mode: 'expanded' | 'collapsed' | 'hidden') =>
+      dispatch({ type: 'SET_SIDEBAR_MODE', mode }),
+    [dispatch],
+  );
+
+  const handleToggleKpi = useCallback(
+    () => dispatch({ type: 'TOGGLE_KPI' }),
+    [dispatch],
+  );
+
+  const handleToggleRightPanel = useCallback(
+    () => dispatch({ type: 'TOGGLE_RIGHT_PANEL' }),
+    [dispatch],
+  );
+
+  const handleFocusMode = useCallback(
+    () => dispatch({
+      type: 'SET_VIEW_MODE',
+      mode: state.viewMode === 'focus' ? 'default' : 'focus',
+    }),
+    [dispatch, state.viewMode],
+  );
+
   const handleNavigate = useCallback(
     (tabKey: string) => {
       // Stay on Matrix when "Kehadiran" is clicked; otherwise lift the
@@ -428,9 +452,12 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
   }, [filtered.attendance, state.quickFilters.status]);
 
   // ── Layout: column template ──────────────────────────────────────────
-  const gridTemplateColumns = isNarrow
-    ? `${sidebarWidthPx}px 1fr`
-    : `${sidebarWidthPx}px 1fr ${insightWidthPx}px`;
+  const gridTemplateColumns = (() => {
+    if (sidebarWidthPx === 0 && insightWidthPx === 0) return '1fr';
+    if (sidebarWidthPx === 0) return `1fr ${insightWidthPx}px`;
+    if (insightWidthPx === 0 || isNarrow) return `${sidebarWidthPx}px 1fr`;
+    return `${sidebarWidthPx}px 1fr ${insightWidthPx}px`;
+  })();
 
   // ── Render ───────────────────────────────────────────────────────────
   return (
@@ -452,6 +479,7 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
         }}
       >
         {/* ── Column 1: Left sidebar ────────────────────────────────── */}
+        {state.sidebarMode !== 'hidden' && (
         <Box
           sx={{
             gridColumn: 1,
@@ -468,6 +496,7 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
             onToggleCollapse={handleToggleSidebar}
           />
         </Box>
+        )}
 
         {/* ── Column 2: Main workspace ─────────────────────────────── */}
         <Box
@@ -491,13 +520,23 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
             onToggleInsightDrawer={handleToggleInsightDrawer}
             showInsightDrawerToggle={isNarrow}
             searchInputRef={searchInputRef}
+            onToggleKpi={handleToggleKpi}
+            kpiVisible={state.kpiVisible}
+            onToggleRightPanel={handleToggleRightPanel}
+            rightPanelVisible={state.rightPanelVisible}
+            onFocusMode={handleFocusMode}
+            isFocusMode={state.viewMode === 'focus'}
+            sidebarMode={state.sidebarMode}
+            onSetSidebarMode={handleSetSidebarMode}
           />
 
+          {state.kpiVisible && (
           <KPIRow
             summary={summary}
             exportEnabled={exportEnabled}
             onExportClick={handleExportClick}
           />
+          )}
 
           {/*
             Matrix region: error → ErrorState; otherwise the table itself
@@ -551,10 +590,9 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
             drawerOpen={state.insightDrawerOpenOnNarrow}
             onDrawerClose={handleToggleInsightDrawer}
           />
-        ) : (
+        ) : state.rightPanelVisible ? (
           <Box
             sx={{
-              gridColumn: 3,
               minWidth: 0,
               height: '100%',
               borderRadius: `${tokens.radius.card}px`,
@@ -571,7 +609,7 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
               onFilterChange={handleQuickFilterChange}
             />
           </Box>
-        )}
+        ) : null}
 
         {/* ── Cell detail popover (anchored to clicked cell) ──────── */}
         <CellDetailPopover

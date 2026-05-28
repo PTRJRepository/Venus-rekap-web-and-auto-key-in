@@ -47,41 +47,34 @@ import HelpOutlineRounded from '@mui/icons-material/HelpOutlineRounded';
 import InfoRounded from '@mui/icons-material/InfoRounded';
 import NotificationsNoneRounded from '@mui/icons-material/NotificationsNoneRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
+import VisibilityRounded from '@mui/icons-material/VisibilityRounded';
+import VisibilityOffRounded from '@mui/icons-material/VisibilityOffRounded';
+import FullscreenRounded from '@mui/icons-material/FullscreenRounded';
+import FullscreenExitRounded from '@mui/icons-material/FullscreenExitRounded';
+import ViewSidebarRounded from '@mui/icons-material/ViewSidebarRounded';
+import MenuRounded from '@mui/icons-material/MenuRounded';
 
 import { tokens } from '../tokens';
 
 export interface TopHeaderProps {
-  /** Currently selected month (1..12). */
   month: number;
-  /** Currently selected year (e.g. 2026). */
   year: number;
-  /** Current search query (controlled). */
   searchValue: string;
-  /** Fired when user picks a different month from the dropdown. */
   onMonthChange: (newMonth: number) => void;
-  /** Fired when user picks a different year from the dropdown. */
   onYearChange: (newYear: number) => void;
-  /** Fired when user clicks the "Hari Ini" button. */
   onTodayClick: () => void;
-  /** Fired on every keystroke in the search input. */
   onSearchChange: (newValue: string) => void;
-  /**
-   * Fired when the narrow-only info button is pressed; opens / closes the
-   * right-insight drawer in the parent (`MatrixPage`). Only meaningful
-   * when `showInsightDrawerToggle === true`.
-   */
   onToggleInsightDrawer?: () => void;
-  /**
-   * When true, an extra info <IconButton> is rendered to the right of the
-   * avatar so users on narrow viewports can reveal the right-insight
-   * panel as a drawer. Off (or omitted) on wider breakpoints.
-   */
   showInsightDrawerToggle?: boolean;
-  /**
-   * Forwarded ref to the underlying search `<input>` element. The parent
-   * uses this to programmatically focus the field via Ctrl/Cmd+K.
-   */
   searchInputRef?: Ref<HTMLInputElement>;
+  onToggleKpi?: () => void;
+  kpiVisible?: boolean;
+  onToggleRightPanel?: () => void;
+  rightPanelVisible?: boolean;
+  onFocusMode?: () => void;
+  isFocusMode?: boolean;
+  sidebarMode?: 'expanded' | 'collapsed' | 'hidden';
+  onSetSidebarMode?: (mode: 'expanded' | 'collapsed' | 'hidden') => void;
 }
 
 /**
@@ -141,6 +134,14 @@ export function TopHeader(props: TopHeaderProps): ReactElement {
     onToggleInsightDrawer,
     showInsightDrawerToggle = false,
     searchInputRef,
+    onToggleKpi,
+    kpiVisible = true,
+    onToggleRightPanel,
+    rightPanelVisible = true,
+    onFocusMode,
+    isFocusMode = false,
+    sidebarMode = 'expanded',
+    onSetSidebarMode,
   } = props;
 
   // Recomputed each render — cheap (≤19 entries) and guarantees the list
@@ -320,6 +321,65 @@ export function TopHeader(props: TopHeaderProps): ReactElement {
             ),
           }}
         />
+
+        {/* Sidebar toggle — show menu icon when sidebar is hidden. */}
+        {sidebarMode === 'hidden' && onSetSidebarMode && (
+          <Tooltip title="Tampilkan sidebar">
+            <IconButton
+              size="small"
+              aria-label="Tampilkan sidebar"
+              onClick={() => onSetSidebarMode('expanded')}
+              sx={{ color: tokens.text.secondary }}
+            >
+              <MenuRounded sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {/* KPI toggle */}
+        {onToggleKpi && (
+          <Tooltip title={kpiVisible ? 'Sembunyikan KPI' : 'Tampilkan KPI'}>
+            <IconButton
+              size="small"
+              aria-label={kpiVisible ? 'Sembunyikan KPI' : 'Tampilkan KPI'}
+              onClick={onToggleKpi}
+              sx={{ color: kpiVisible ? tokens.text.secondary : tokens.accent.blue }}
+            >
+              {kpiVisible ? <VisibilityRounded sx={{ fontSize: 18 }} /> : <VisibilityOffRounded sx={{ fontSize: 18 }} />}
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {/* Right panel toggle */}
+        {onToggleRightPanel && (
+          <Tooltip title={rightPanelVisible ? 'Sembunyikan panel' : 'Tampilkan panel'}>
+            <IconButton
+              size="small"
+              aria-label={rightPanelVisible ? 'Sembunyikan panel analisis' : 'Tampilkan panel analisis'}
+              onClick={onToggleRightPanel}
+              sx={{ color: rightPanelVisible ? tokens.text.secondary : tokens.accent.blue }}
+            >
+              <ViewSidebarRounded sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {/* Focus mode toggle */}
+        {onFocusMode && (
+          <Tooltip title={isFocusMode ? 'Keluar Fokus' : 'Fokus Matrix'}>
+            <IconButton
+              size="small"
+              aria-label={isFocusMode ? 'Keluar mode fokus' : 'Masuk mode fokus'}
+              onClick={onFocusMode}
+              sx={{
+                color: isFocusMode ? tokens.accent.cyan : tokens.text.secondary,
+                backgroundColor: isFocusMode ? 'rgba(56,189,248,0.12)' : 'transparent',
+              }}
+            >
+              {isFocusMode ? <FullscreenExitRounded sx={{ fontSize: 20 }} /> : <FullscreenRounded sx={{ fontSize: 20 }} />}
+            </IconButton>
+          </Tooltip>
+        )}
 
         {/* Notification — placeholder, no handler wired yet. */}
         <Tooltip title="Notifikasi">

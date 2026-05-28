@@ -66,40 +66,32 @@ export interface MatrixState {
 
   /** Top_Header search box value (raw, before debounce). */
   search: string;
-  /**
-   * Department filter from the Right_Insight_Panel "Departemen" select.
-   * Sentinel `'all'` means inactive. Stored as `string` (not `'all'` |
-   * dept name) so a future "custom department" feature can drop in
-   * without changing this type.
-   */
   departmentFilter: string;
   quickFilters: QuickFilterState;
 
-  /**
-   * Cell currently anchoring the popover. `null` when no popover is
-   * open. The discriminator is a single record (NOT an array) so the
-   * Property 10 invariant — at most one popover selection at any time —
-   * is enforced structurally.
-   */
   selectedCell: {
     employeeId: string;
     date: string;
     anchorRect: DOMRect;
   } | null;
 
-  /**
-   * Most recent hovered cell, used for row + column highlight in the
-   * matrix. `null` when no cell is hovered. Same single-slot shape as
-   * `selectedCell`.
-   */
   hoveredCell: { employeeId: string; date: string } | null;
 
-  /** Left_Sidebar expand/collapse state on Desktop_Wide / Desktop_Standard. */
+  /** Left sidebar: expanded (220px), collapsed (56px icon-only), hidden (0px). */
+  sidebarMode: 'expanded' | 'collapsed' | 'hidden';
+  /** Backward compat — derived from sidebarMode. */
   sidebarExpanded: boolean;
-  /**
-   * On `narrow` breakpoint the Right_Insight_Panel collapses into a
-   * drawer; this flag tracks whether the drawer is open.
-   */
+  /** KPI cards row visibility. */
+  kpiVisible: boolean;
+  /** Right insight panel visibility. */
+  rightPanelVisible: boolean;
+  /** Page view mode: default (full), focus (matrix maximized). */
+  viewMode: 'default' | 'focus';
+  /** Matrix display mode. */
+  matrixMode: 'status' | 'work_hours' | 'short_hours' | 'overtime' | 'heatmap' | 'recap';
+  /** Heatmap sub-metric (only used when matrixMode === 'heatmap'). */
+  heatmapMetric: 'work_hours' | 'short_hours' | 'overtime';
+
   insightDrawerOpenOnNarrow: boolean;
   breakpoint: Breakpoint;
 }
@@ -129,6 +121,12 @@ export type MatrixAction =
   | { type: 'HOVER_CELL'; employeeId: string; date: string }
   | { type: 'CLEAR_HOVER' }
   | { type: 'TOGGLE_SIDEBAR' }
+  | { type: 'SET_SIDEBAR_MODE'; mode: 'expanded' | 'collapsed' | 'hidden' }
+  | { type: 'TOGGLE_KPI' }
+  | { type: 'TOGGLE_RIGHT_PANEL' }
+  | { type: 'SET_VIEW_MODE'; mode: 'default' | 'focus' }
+  | { type: 'SET_MATRIX_MODE'; mode: MatrixState['matrixMode'] }
+  | { type: 'SET_HEATMAP_METRIC'; metric: MatrixState['heatmapMetric'] }
   | { type: 'SET_BREAKPOINT'; breakpoint: Breakpoint }
   | { type: 'OPEN_INSIGHT_DRAWER' }
   | { type: 'CLOSE_INSIGHT_DRAWER' };
@@ -185,7 +183,13 @@ export function initialMatrixState(month: number, year: number): MatrixState {
     selectedCell: null,
     hoveredCell: null,
 
+    sidebarMode: 'expanded',
     sidebarExpanded: true,
+    kpiVisible: true,
+    rightPanelVisible: true,
+    viewMode: 'default',
+    matrixMode: 'status',
+    heatmapMetric: 'work_hours',
     insightDrawerOpenOnNarrow: false,
     breakpoint: 'wide',
   };
@@ -288,8 +292,50 @@ export function matrixReducer(
     case 'CLEAR_HOVER':
       return { ...state, hoveredCell: null };
 
-    case 'TOGGLE_SIDEBAR':
-      return { ...state, sidebarExpanded: !state.sidebarExpanded };
+    case 'TOGGLE_SIDEBAR': {
+      const next = state.sidebarMode === 'expanded' ? 'collapsed' : 'expanded';
+      return { ...state, sidebarMode: next, sidebarExpanded: next === 'expanded' };
+    }
+
+    case 'SET_SIDEBAR_MODE':
+      return {
+        ...state,
+        sidebarMode: action.mode,
+        sidebarExpanded: action.mode === 'expanded',
+      };
+
+    case 'TOGGLE_KPI':
+      return { ...state, kpiVisible: !state.kpiVisible };
+
+    case 'TOGGLE_RIGHT_PANEL':
+      return { ...state, rightPanelVisible: !state.rightPanelVisible };
+
+    case 'SET_VIEW_MODE': {
+      if (action.mode === 'focus') {
+        return {
+          ...state,
+          viewMode: 'focus',
+          sidebarMode: 'hidden',
+          sidebarExpanded: false,
+          kpiVisible: false,
+          rightPanelVisible: false,
+        };
+      }
+      return {
+        ...state,
+        viewMode: 'default',
+        sidebarMode: 'expanded',
+        sidebarExpanded: true,
+        kpiVisible: true,
+        rightPanelVisible: true,
+      };
+    }
+
+    case 'SET_MATRIX_MODE':
+      return { ...state, matrixMode: action.mode };
+
+    case 'SET_HEATMAP_METRIC':
+      return { ...state, heatmapMetric: action.metric };
 
     case 'SET_BREAKPOINT':
       return { ...state, breakpoint: action.breakpoint };

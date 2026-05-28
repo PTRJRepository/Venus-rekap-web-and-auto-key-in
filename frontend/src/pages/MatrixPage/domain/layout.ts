@@ -71,11 +71,13 @@ export type Breakpoint = 'wide' | 'standard' | 'narrow';
  * Design reference: §"All 31 days visible without horizontal scroll".
  * Requirements: 1.2, 2.9, 11.4.
  */
-export function sidebarWidth(b: Breakpoint, expanded: boolean): number {
+export function sidebarWidth(b: Breakpoint, expanded: boolean | 'expanded' | 'collapsed' | 'hidden'): number {
+  const mode: 'expanded' | 'collapsed' | 'hidden' =
+    typeof expanded === 'string' ? expanded : (expanded ? 'expanded' : 'collapsed');
+  if (mode === 'hidden') return 0;
   if (b === 'narrow') return 56;
-  if (b === 'wide') return expanded ? 230 : 56;
-  // b === 'standard'
-  return expanded ? 220 : 56;
+  if (b === 'wide') return mode === 'expanded' ? 230 : 56;
+  return mode === 'expanded' ? 220 : 56;
 }
 
 /**
