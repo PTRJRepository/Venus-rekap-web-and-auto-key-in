@@ -527,11 +527,11 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
         {/* ── Column 2: Main workspace ─────────────────────────────── */}
         <Box
           sx={{
-            gridColumn: 2,
+            gridColumn: state.sidebarMode === 'hidden' ? 1 : 2,
             minWidth: 0,
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px',
+            gap: state.viewMode === 'focus' ? '4px' : '12px',
             height: '100%',
           }}
         >

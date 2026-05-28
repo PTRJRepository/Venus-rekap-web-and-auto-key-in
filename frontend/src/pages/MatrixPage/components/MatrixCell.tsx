@@ -144,9 +144,6 @@ function MatrixCellInner(props: MatrixCellProps): React.ReactElement {
 
   const isNumericMode = displayValue != null;
   const background = isNumericMode && heatmapBg ? heatmapBg : resolveBackground(props);
-  const todayBorder = props.isToday
-    ? `1px solid ${tokens.today.border}`
-    : `1px solid ${tokens.border.cell}`;
 
   return (
     <Tooltip enterDelay={300} leaveDelay={0} title={ariaLabel}>
@@ -165,8 +162,11 @@ function MatrixCellInner(props: MatrixCellProps): React.ReactElement {
           alignItems: 'center',
           justifyContent: 'center',
           boxSizing: 'border-box',
-          border: todayBorder,
-          borderRadius: tokens.radius.cell,
+          borderRight: `1px solid ${tokens.border.cell}`,
+          borderBottom: `1px solid ${tokens.border.cell}`,
+          borderTop: 'none',
+          borderLeft: props.isToday ? `1px solid ${tokens.today.border}` : 'none',
+          borderRadius: 0,
           backgroundColor: background,
           cursor: status === null ? 'default' : 'pointer',
           transition: 'background-color 60ms linear',

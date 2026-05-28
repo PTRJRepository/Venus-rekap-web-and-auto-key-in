@@ -416,27 +416,26 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
               : null;
 
             return (
-              <Box key={key} sx={{ borderBottom: `1px solid ${tokens.border.cell}` }}>
-                <MatrixCell
-                  status={status}
-                  isWeekend={day.isWeekend}
-                  isSaturday={day.isSaturday}
-                  isSunday={day.isSunday}
-                  isToday={day.date === ts}
-                  isSelected={isSelected}
-                  isRowHovered={isRowHov}
-                  isColHovered={isColHov}
-                  width={cw}
-                  height={ch}
-                  ariaLabel={ariaLabel}
-                  displayValue={cellInfo?.displayValue}
-                  heatmapBg={cellInfo?.heatmapBg}
-                  heatmapText={cellInfo?.heatmapText}
-                  onMouseEnter={() => { shr(emp.employeeId); shc(day.date); }}
-                  onMouseLeave={() => {}}
-                  onClick={(anchorEl) => occ(emp.employeeId, day.date, anchorEl)}
-                />
-              </Box>
+              <MatrixCell
+                key={key}
+                status={status}
+                isWeekend={day.isWeekend}
+                isSaturday={day.isSaturday}
+                isSunday={day.isSunday}
+                isToday={day.date === ts}
+                isSelected={isSelected}
+                isRowHovered={isRowHov}
+                isColHovered={isColHov}
+                width={cw}
+                height={ch}
+                ariaLabel={ariaLabel}
+                displayValue={cellInfo?.displayValue}
+                heatmapBg={cellInfo?.heatmapBg}
+                heatmapText={cellInfo?.heatmapText}
+                onMouseEnter={() => { shr(emp.employeeId); shc(day.date); }}
+                onMouseLeave={() => {}}
+                onClick={(anchorEl) => occ(emp.employeeId, day.date, anchorEl)}
+              />
             );
           })}
 
