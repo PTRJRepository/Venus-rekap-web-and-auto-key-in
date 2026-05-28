@@ -452,15 +452,15 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
     [],
   );
 
-  // ─── Container ref for measuring available height ───────────────────
+  // ─── Container ref + height measurement ─────────────────────────────
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const [listHeight, setListHeight] = React.useState(500);
+  const [containerHeight, setContainerHeight] = React.useState(600);
 
   React.useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        setListHeight(entry.contentRect.height);
+        setContainerHeight(entry.contentRect.height);
       }
     });
     observer.observe(containerRef.current);
@@ -503,6 +503,8 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
           sx={{
             flex: 1,
             minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
             overflowX: isNarrow ? 'auto' : 'hidden',
             overflowY: 'hidden',
             backgroundColor: tokens.bg.page,
@@ -560,14 +562,16 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
               {skeletonRows}
             </Box>
           ) : (
-            <List
-              style={{ minWidth: '100%', width: rowWidth, height: Math.max(listHeight - 56, 200) }}
-              rowCount={employees.length}
-              rowHeight={cellHeight}
-              overscanCount={5}
-              rowProps={rowProps as any}
-              rowComponent={VirtualRowComponent as any}
-            />
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+              <List
+                style={{ minWidth: '100%', width: rowWidth, height: Math.max(containerHeight - 56, 200) }}
+                rowCount={employees.length}
+                rowHeight={cellHeight}
+                overscanCount={5}
+                rowProps={rowProps as any}
+                rowComponent={VirtualRowComponent as any}
+              />
+            </Box>
           )}
         </Box>
       )}
