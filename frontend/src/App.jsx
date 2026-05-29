@@ -551,6 +551,38 @@ const App = () => {
 
             <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
                 <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    {activeTab === 'matrix' && (
+                    <Paper elevation={0} sx={{ zIndex: 11, borderBottom: '1px solid #DFE1E6', px: 2.5, py: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 800 }}>MATRIX</Typography>
+                            <ToggleButtonGroup value={viewMode} exclusive onChange={(e, v) => handleViewModeChange(v)} size="small" sx={{ height: 32 }}>
+                                <ToggleButton value="attendance" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Presence</ToggleButton>
+                                <ToggleButton value="overtime" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Overtime</ToggleButton>
+                                <ToggleButton value="comparison" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Komparasi</ToggleButton>
+                            </ToggleButtonGroup>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <FormControlLabel
+                                control={<Switch checked={isEditMode} onChange={(e) => setIsEditMode(e.target.checked)} color="warning" size="small" />}
+                                label={<Typography sx={{ fontWeight: 700, fontSize: '0.72rem', color: isEditMode ? '#D97706' : 'text.secondary' }}>EDIT</Typography>}
+                            />
+                            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                            <Button variant={compareMode !== 'off' ? "contained" : "outlined"} size="small" color={compareMode !== 'off' ? "secondary" : "inherit"} startIcon={isComparing ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <CompareIcon />} onClick={handleCompareToggle} disabled={isComparing} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
+                                {isComparing ? 'Syncing...' : 'COMPARE'}
+                            </Button>
+                            <Button variant="contained" size="small" color="success" startIcon={<SyncIcon />} onClick={() => openSyncDialog('all')} disabled={!data || data.length === 0} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
+                                Sinkron ({selectedEmployeeIds.length > 0 ? selectedEmployeeIds.length : (data ? data.length : 0)})
+                            </Button>
+                            <Button variant="outlined" size="small" color="error" startIcon={<DeleteIcon />} onClick={openOTResetDialog} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
+                                Hapus OT
+                            </Button>
+                            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                            <Button variant="outlined" size="small" startIcon={<FilterListIcon />} onClick={() => setIsSidebarOpen(true)} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
+                                PARAMETER
+                            </Button>
+                        </Box>
+                    </Paper>
+                    )}
                     {activeTab !== 'matrix' && (
                     <Paper elevation={0} sx={{ zIndex: 11, borderBottom: '1px solid #DFE1E6', px: 2.5, py: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
