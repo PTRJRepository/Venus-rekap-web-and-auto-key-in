@@ -504,10 +504,11 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
           gridTemplateColumns,
           gridTemplateRows: '1fr',
           width: '100%',
-          height: '100%',
+          height: 'calc(100vh - 64px)',
+          maxHeight: 'calc(100vh - 64px)',
+          overflow: 'hidden',
           backgroundColor: tokens.bg.page,
           color: tokens.text.primary,
-          // Outer 12–16 px gutter (req 1.6, mid-point 14 px).
           padding: '14px',
           gap: '14px',
           boxSizing: 'border-box',

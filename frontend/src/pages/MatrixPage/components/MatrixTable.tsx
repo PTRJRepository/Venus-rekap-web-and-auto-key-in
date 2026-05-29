@@ -475,10 +475,10 @@ export function MatrixTable(props: MatrixTableProps): React.ReactElement {
         flexDirection: 'column',
         flex: 1,
         minHeight: 0,
+        overflow: 'hidden',
         backgroundColor: tokens.bg.surface,
         border: `1px solid ${tokens.border.subtle}`,
         borderRadius: `${tokens.radius.card}px`,
-        overflow: 'hidden',
       }}
     >
       {filterBar}
