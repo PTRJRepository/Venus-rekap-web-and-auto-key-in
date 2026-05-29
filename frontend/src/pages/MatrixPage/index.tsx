@@ -156,7 +156,7 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
   }, [props.month, props.year]);
 
   // ── Hooks driven by state ────────────────────────────────────────────
-  const grid = useMonthlyGrid(state.month, state.year);
+  const grid = useMonthlyGrid(state.month, state.year, props.showStaff);
   const breakpoint = useBreakpoint(state.days.length || 31);
   const debouncedSearch = useDebouncedSearch(state.search, 150);
   const viewportWidth = useViewportWidth();
@@ -530,6 +530,7 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
             activeTab="matrix"
             onNavigate={handleNavigate}
             onToggleCollapse={handleToggleSidebar}
+            onHide={() => handleSetSidebarMode('hidden')}
           />
         </Box>
         )}

@@ -142,6 +142,7 @@ function describeError(error: unknown): string {
 export function useMonthlyGrid(
   month: number,
   year: number,
+  showStaff?: boolean,
 ): UseMonthlyGridResult {
   const [status, setStatus] = useState<UseMonthlyGridResult['status']>('idle');
   const [data, setData] = useState<BackendMonthlyGridResponse | null>(null);
@@ -209,7 +210,7 @@ export function useMonthlyGrid(
         const response = await axios.get<BackendMonthlyGridResponse>(
           '/api/monthly-grid',
           {
-            params: { month, year },
+            params: { month, year, showStaff: showStaff || undefined },
             signal: controller.signal,
           },
         );
@@ -263,7 +264,7 @@ export function useMonthlyGrid(
         controllerRef.current = null;
       }
     };
-  }, [month, year, retryToken]);
+  }, [month, year, showStaff, retryToken]);
 
   return { status, data, error, lastUpdated, retry };
 }

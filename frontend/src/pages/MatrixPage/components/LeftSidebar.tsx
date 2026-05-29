@@ -63,6 +63,7 @@ import SettingsRounded from '@mui/icons-material/SettingsRounded';
 import HelpOutlineRounded from '@mui/icons-material/HelpOutlineRounded';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
+import CloseRounded from '@mui/icons-material/CloseRounded';
 
 import { tokens } from '../tokens';
 import { SidebarItem } from './SidebarItem';
@@ -99,20 +100,17 @@ const MENU_ITEMS: ReadonlyArray<MenuEntry> = [
 // ─── Props ─────────────────────────────────────────────────────────────────
 
 export interface LeftSidebarProps {
-  /** Whether the sidebar is in expanded (label-visible) mode. */
   expanded: boolean;
-  /** Currently active tab key (e.g. `'matrix'` while on Matrix_Page). */
   activeTab: string;
-  /** Invoked with the clicked item's `tabKey` for parent-driven navigation. */
   onNavigate: (tabKey: string) => void;
-  /** Invoked when the bottom collapse toggle is clicked. */
   onToggleCollapse: () => void;
+  onHide?: () => void;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function LeftSidebar(props: LeftSidebarProps): ReactElement {
-  const { expanded, activeTab, onNavigate, onToggleCollapse } = props;
+  const { expanded, activeTab, onNavigate, onToggleCollapse, onHide } = props;
 
   const collapseLabel = expanded ? 'Ciutkan sidebar' : 'Perluas sidebar';
 
@@ -216,6 +214,26 @@ export function LeftSidebar(props: LeftSidebarProps): ReactElement {
             {expanded ? <ChevronLeftRounded /> : <ChevronRightRounded />}
           </IconButton>
         </Tooltip>
+        {onHide && (
+          <Tooltip title="Sembunyikan sidebar" placement="right">
+            <IconButton
+              aria-label="Sembunyikan sidebar"
+              onClick={onHide}
+              size="small"
+              sx={{
+                color: tokens.text.sidebarSecondary,
+                borderRadius: `${tokens.radius.sidebarItem}px`,
+                '&:hover': {
+                  backgroundColor: 'rgba(255,0,0,0.08)',
+                  color: tokens.accent.red,
+                },
+                transition: 'background-color 120ms ease, color 120ms ease',
+              }}
+            >
+              <CloseRounded sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
     </Box>
   );
