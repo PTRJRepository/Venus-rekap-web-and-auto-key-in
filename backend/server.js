@@ -15,6 +15,7 @@ const { saveAutomationData, startAutomationProcess, stopAutomationProcess } = re
 const { queryTaskRegData, compareWithTaskReg, getMissData, getSyncSummaryByEmployee } = require('./services/comparisonService');
 const validationService = require('./services/validationService');
 const { fetchPayrollData } = require('./services/payrollService');
+const { parseDocIdsInput } = require('./services/docIdUtils');
 require('dotenv').config();
 
 // --- Helper Functions for Holidays ---
@@ -1016,6 +1017,7 @@ const { triggerPayrollAutomation } = require('./services/payrollAutomationServic
 const { startPayrollAutomationProcess, stopPayrollAutomationProcess } = require('./services/automationService');
 const {
     fetchPayrollADDocIdsFromDB,
+    fetchDuplicatePayrollADDocIdsFromDB,
     triggerPayrollADResetAutomation,
     startPayrollADResetProcess,
     stopPayrollADResetProcess
@@ -1123,9 +1125,9 @@ app.post('/api/payroll/automation/stop', (req, res) => {
 
 // Reset Monthly Allowance/Deduction (PR_ADTRANS) through Millware AD Lists
 app.post('/api/payroll/ad-reset/automation/run', async (req, res) => {
-    const { month, year, employees, docIds } = req.body;
+    const { month, year, employees } = req.body;
     const requestedMode = String(req.body.targetMode || req.body.scope || req.body.mode || 'all').toLowerCase();
-    const targetMode = ['all', 'selected', 'docids'].includes(requestedMode) ? requestedMode : 'all';
+    const targetMode = ['all', 'selected', 'docids', 'duplicates'].includes(requestedMode) ? requestedMode : 'all';
     const dryRun = req.body.dryRun === true || String(req.body.runMode || '').toLowerCase() === 'dry-run';
     const headless = req.body.headless === true || String(req.body.browserMode || '').toLowerCase() === 'headless';
     const limit = Math.max(0, parseInt(req.body.limit || req.body.docLimit || 0, 10) || 0);
@@ -1137,7 +1139,7 @@ app.post('/api/payroll/ad-reset/automation/run', async (req, res) => {
 
     try {
         const effectiveEmployees = Array.isArray(employees) ? employees : [];
-        let effectiveDocIds = Array.isArray(docIds) ? docIds.map(String).filter(Boolean) : [];
+        let effectiveDocIds = parseDocIdsInput([req.body.docIds, req.body.docIdList, req.body.docIdText, req.body.docIDs]);
         let docTargets = effectiveDocIds.map(docId => ({ docNumber: docId, label: docId }));
 
         if (targetMode === 'all' && effectiveDocIds.length === 0) {
@@ -1161,6 +1163,23 @@ app.post('/api/payroll/ad-reset/automation/run', async (req, res) => {
             docTargets = dbResult.details || [];
         }
 
+        if (targetMode === 'duplicates' && effectiveDocIds.length === 0) {
+            const empCodes = effectiveEmployees
+                .map(e => e.empCode || e.ptrjEmployeeID || e.PTRJEmployeeID || e.ptrjId || e.id)
+                .map(code => String(code || '').trim())
+                .filter(Boolean);
+            const dbResult = await fetchDuplicatePayrollADDocIdsFromDB(month, year, empCodes, {
+                limit,
+                keepStrategy: req.body.keepStrategy
+            });
+            effectiveDocIds = dbResult.docIds || [];
+            docTargets = dbResult.details || [];
+
+            if (effectiveDocIds.length === 0) {
+                return res.status(400).json({ error: 'Tidak ada duplicate Monthly Allowance/Deduction untuk dihapus.' });
+            }
+        }
+
         if (targetMode === 'docids' && effectiveDocIds.length === 0) {
             return res.status(400).json({ error: 'DocID manual belum diisi.' });
         }
@@ -1172,13 +1191,14 @@ app.post('/api/payroll/ad-reset/automation/run', async (req, res) => {
         const triggerResult = triggerPayrollADResetAutomation({
             docIds: effectiveDocIds,
             docTargets,
-            employees: targetMode === 'selected' ? effectiveEmployees : [],
+            employees: ['selected', 'duplicates'].includes(targetMode) ? effectiveEmployees : [],
             month,
             year,
             dryRun,
             headless,
             limit,
-            windowCount
+            windowCount,
+            source: targetMode === 'duplicates' ? 'payroll_ad_duplicate_reset' : 'payroll_ad_reset'
         });
 
         if (!triggerResult.success) {
@@ -1201,7 +1221,7 @@ app.post('/api/payroll/ad-reset/automation/run', async (req, res) => {
 
         sendChunk('status', 'starting');
         sendChunk('info', {
-            message: `Starting Monthly AD Reset: docIds=${metadata.totalDocIds}, dryRun=${metadata.dryRun}, workers=${metadata.windowCount}`,
+            message: `Starting Monthly AD Reset: source=${metadata.source}, docIds=${metadata.totalDocIds}, dryRun=${metadata.dryRun}, workers=${metadata.windowCount}`,
             metadata
         });
 
@@ -1294,12 +1314,38 @@ app.get('/api/payroll/ad-reset/doc-ids', async (req, res) => {
     }
 });
 
+app.get('/api/payroll/ad-reset/duplicate-doc-ids', async (req, res) => {
+    const { month, year, empCodes } = req.query;
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        const codes = empCodes ? empCodes.split(',').map(code => code.trim()).filter(Boolean) : [];
+        const limit = Math.max(0, parseInt(req.query.limit || req.query.docLimit || 0, 10) || 0);
+        const result = await fetchDuplicatePayrollADDocIdsFromDB(month, year, codes, {
+            limit,
+            keepStrategy: req.query.keepStrategy
+        });
+        res.json({
+            success: true,
+            docIds: result.docIds,
+            details: result.details,
+            duplicateGroups: result.duplicateGroups,
+            count: result.docIds.length
+        });
+    } catch (error) {
+        console.error('[PayrollADReset Duplicate DocIds API] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- OT Reset Routes ---
-const { triggerOTResetAutomation, startOTResetProcess, stopOTResetProcess, fetchDocIdsFromDB } = require('./services/otResetService');
+const { triggerOTResetAutomation, startOTResetProcess, stopOTResetProcess, fetchDocIdsFromDB, resolveDocTargetsFromDB } = require('./services/otResetService');
 
 // Run OT Reset automation
 app.post('/api/ot-reset/automation/run', async (req, res) => {
-    const { docIds, employees, startDate, endDate, category, month, year } = req.body;
+    const { employees, startDate, endDate, category, month, year } = req.body;
     const requestedMode = String(req.body.targetMode || req.body.scope || req.body.mode || 'all').toLowerCase();
     const targetMode = ['all', 'selected', 'docids'].includes(requestedMode) ? requestedMode : 'all';
     const dryRun = req.body.dryRun === true || String(req.body.runMode || '').toLowerCase() === 'dry-run';
@@ -1319,7 +1365,7 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
     }
 
     try {
-        let effectiveDocIds = Array.isArray(docIds) ? docIds.filter(Boolean) : [];
+        let effectiveDocIds = parseDocIdsInput([req.body.docIds, req.body.docIdList, req.body.docIdText, req.body.docIDs]);
         let docTargets = effectiveDocIds.map(id => ({ internalId: id, label: id }));
         const effectiveEmployees = Array.isArray(employees) ? employees : [];
 
@@ -1366,6 +1412,23 @@ app.post('/api/ot-reset/automation/run', async (req, res) => {
 
             if (effectiveDocIds.length === 0) {
                 return res.status(400).json({ error: 'Tidak ada DocID Millware untuk karyawan terpilih pada periode ini.' });
+            }
+        }
+
+        if (targetMode === 'docids' && effectiveDocIds.length > 0) {
+            const requestedDocIds = effectiveDocIds;
+            const dbResult = await resolveDocTargetsFromDB(parseInt(month, 10), parseInt(year, 10), requestedDocIds, { category });
+            const resolvedTargets = dbResult.docTargets || [];
+            const missingTargets = (dbResult.missing || []).map(id => ({ docNumber: id, label: id }));
+
+            effectiveDocIds = [
+                ...(dbResult.docIds || []),
+                ...missingTargets.map(target => target.docNumber)
+            ];
+            docTargets = [...resolvedTargets, ...missingTargets];
+
+            if (dbResult.missing && dbResult.missing.length > 0) {
+                console.warn(`[OTReset API] Manual DocID not resolved in DB, runner will search list page: ${dbResult.missing.join(', ')}`);
             }
         }
 

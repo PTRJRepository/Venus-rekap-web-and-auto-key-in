@@ -153,6 +153,97 @@ const fetchDocIdsFromDB = async (month, year, empCodes = [], options = {}) => {
 // ──────────────────────────────────────────────
 // File System Helpers
 // ──────────────────────────────────────────────
+
+const quoteSql = (value) => `'${String(value || '').replace(/'/g, "''")}'`;
+
+const resolveDocTargetsFromDB = async (month, year, docIds = [], options = {}) => {
+    const requestedDocIds = Array.isArray(docIds)
+        ? docIds.map(id => String(id || '').trim()).filter(Boolean)
+        : [];
+
+    if (requestedDocIds.length === 0) {
+        return { docIds: [], docTargets: [], details: [], missing: [] };
+    }
+
+    const category = typeof options === 'string' ? options : options.category;
+    const categoryFilter = buildLineCategoryFilter(category);
+    const numericIds = requestedDocIds.filter(id => /^\d+$/.test(id));
+    const docNumberValues = requestedDocIds.map(quoteSql).join(', ');
+    const numericFilter = numericIds.length > 0 ? `OR H.ID IN (${numericIds.join(', ')})` : '';
+
+    const makeSql = (headerTable, lineTable) => `
+        SELECT
+            H.ID AS doc_id,
+            H.DocID AS doc_number,
+            H.DocDate,
+            H.PhyMonth,
+            H.PhyYear,
+            H.Status,
+            H.LocCode,
+            COUNT(1) AS matching_line_count,
+            SUM(CASE WHEN ISNULL(L.OT, 0) = 1 THEN 1 ELSE 0 END) AS ot_line_count,
+            SUM(CASE WHEN ISNULL(L.OT, 0) = 0 THEN 1 ELSE 0 END) AS normal_line_count
+        FROM [db_ptrj_mill].[dbo].[${headerTable}] H
+        INNER JOIN [db_ptrj_mill].[dbo].[${lineTable}] L ON H.ID = L.MasterID
+        WHERE H.PhyMonth = '${parseInt(month, 10)}'
+          AND H.PhyYear = '${parseInt(year, 10)}'
+          AND (RTRIM(H.DocID) IN (${docNumberValues}) ${numericFilter})
+          ${categoryFilter}
+        GROUP BY H.ID, H.DocID, H.DocDate, H.PhyMonth, H.PhyYear, H.Status, H.LocCode
+    `;
+
+    const rows = await executeQuery(makeSql('PR_TASKREG', 'PR_TASKREGLN'));
+    const arcRows = await executeQuery(makeSql('PR_TASKREG_ARC', 'PR_TASKREGLN_ARC'));
+    const foundByKey = new Map();
+
+    for (const row of [...rows, ...arcRows]) {
+        const detail = {
+            docId: String(row.doc_id || '').trim(),
+            docNumber: String(row.doc_number || '').trim(),
+            date: row.DocDate,
+            month: row.PhyMonth,
+            year: row.PhyYear,
+            status: row.Status,
+            locCode: row.LocCode,
+            matchingLineCount: Number(row.matching_line_count || 0),
+            otLineCount: Number(row.ot_line_count || 0),
+            normalLineCount: Number(row.normal_line_count || 0),
+            category: normalizeTargetCategory(category)
+        };
+
+        if (detail.docId) foundByKey.set(detail.docId.toUpperCase(), detail);
+        if (detail.docNumber) foundByKey.set(detail.docNumber.toUpperCase(), detail);
+    }
+
+    const seen = new Set();
+    const details = [];
+    const missing = [];
+
+    for (const requested of requestedDocIds) {
+        const detail = foundByKey.get(requested.toUpperCase());
+        if (!detail) {
+            missing.push(requested);
+            continue;
+        }
+        if (seen.has(detail.docId)) continue;
+        seen.add(detail.docId);
+        details.push(detail);
+    }
+
+    return {
+        docIds: details.map(detail => detail.docId),
+        docTargets: details.map(detail => ({
+            internalId: detail.docId,
+            docNumber: detail.docNumber,
+            label: detail.docNumber || detail.docId,
+            matchingLineCount: detail.matchingLineCount,
+            otLineCount: detail.otLineCount,
+            normalLineCount: detail.normalLineCount
+        })),
+        details,
+        missing
+    };
+};
 const ensureDataDir = () => {
     if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -386,6 +477,7 @@ const stopOTResetProcess = () => {
 
 module.exports = {
     fetchDocIdsFromDB,
+    resolveDocTargetsFromDB,
     prepareOTResetData,
     triggerOTResetAutomation,
     startOTResetProcess,

@@ -23,6 +23,21 @@ const normalizeEmpCode = (employee) => (
     ''
 ).trim();
 
+const quoteSql = (value) => `'${String(value || '').replace(/'/g, "''")}'`;
+
+const buildEmpFilter = (empCodes = [], alias = '') => {
+    if (!Array.isArray(empCodes) || empCodes.length === 0) return '';
+
+    const prefix = alias ? `${alias}.` : '';
+    const codes = empCodes
+        .map(code => String(code || '').trim())
+        .filter(Boolean)
+        .map(quoteSql)
+        .join(', ');
+
+    return codes ? `AND RTRIM(${prefix}EmpCode) IN (${codes})` : "";
+};
+
 const fetchPayrollADDocIdsFromDB = async (month, year, empCodes = [], options = {}) => {
     const numericMonth = parseInt(month, 10);
     const numericYear = parseInt(year, 10);
@@ -33,15 +48,7 @@ const fetchPayrollADDocIdsFromDB = async (month, year, empCodes = [], options = 
         throw new Error('month and year are required');
     }
 
-    let empFilter = '';
-    if (Array.isArray(empCodes) && empCodes.length > 0) {
-        const codes = empCodes
-            .map(code => String(code || '').trim())
-            .filter(Boolean)
-            .map(code => `'${code.replace(/'/g, "''")}'`)
-            .join(', ');
-        if (codes) empFilter = `AND RTRIM(EmpCode) IN (${codes})`;
-    }
+    const empFilter = buildEmpFilter(empCodes);
 
     const sql = `
         SELECT ${topClause}
@@ -101,6 +108,127 @@ const fetchPayrollADDocIdsFromDB = async (month, year, empCodes = [], options = 
     };
 };
 
+const fetchDuplicatePayrollADDocIdsFromDB = async (month, year, empCodes = [], options = {}) => {
+    const numericMonth = parseInt(month, 10);
+    const numericYear = parseInt(year, 10);
+    const numericLimit = Math.max(0, parseInt(options.limit || 0, 10) || 0);
+    const topClause = numericLimit > 0 ? `TOP ${numericLimit}` : '';
+
+    if (!numericMonth || !numericYear) {
+        throw new Error('month and year are required');
+    }
+
+    const empFilter = buildEmpFilter(empCodes, 'P');
+    const keepStrategy = String(options.keepStrategy || 'latest').toLowerCase();
+    const keepOrder = keepStrategy === 'oldest'
+        ? 'P.CreatedDate ASC, P.UpdatedDate ASC, P.ID ASC'
+        : 'P.CreatedDate DESC, P.UpdatedDate DESC, P.ID DESC';
+
+    const sql = `
+        WITH normalized_adtrans AS (
+            SELECT
+                P.ID,
+                P.DocID,
+                P.DocDate,
+                P.DocDesc,
+                P.EmpCode,
+                P.EmpName,
+                P.LocCode,
+                P.AccMonth,
+                P.AccYear,
+                P.PhyMonth,
+                P.PhyYear,
+                P.Status,
+                P.CreatedDate,
+                P.UpdatedDate,
+                P.TransType,
+                UPPER(LTRIM(RTRIM(ISNULL(P.DocDesc, '')))) AS normalized_doc_desc,
+                ROW_NUMBER() OVER (
+                    PARTITION BY RTRIM(P.EmpCode), UPPER(LTRIM(RTRIM(ISNULL(P.DocDesc, ''))))
+                    ORDER BY ${keepOrder}
+                ) AS duplicate_rank,
+                COUNT(1) OVER (
+                    PARTITION BY RTRIM(P.EmpCode), UPPER(LTRIM(RTRIM(ISNULL(P.DocDesc, ''))))
+                ) AS duplicate_count
+            FROM [db_ptrj_mill].[dbo].[PR_ADTRANS] P
+            WHERE P.PhyMonth = '${numericMonth}'
+              AND P.PhyYear = '${numericYear}'
+              AND NULLIF(LTRIM(RTRIM(ISNULL(P.EmpCode, ''))), '') IS NOT NULL
+              AND NULLIF(LTRIM(RTRIM(ISNULL(P.DocDesc, ''))), '') IS NOT NULL
+              ${empFilter}
+        )
+        SELECT ${topClause}
+            ID,
+            DocID,
+            DocDate,
+            DocDesc,
+            EmpCode,
+            EmpName,
+            LocCode,
+            AccMonth,
+            AccYear,
+            PhyMonth,
+            PhyYear,
+            Status,
+            CreatedDate,
+            UpdatedDate,
+            TransType,
+            duplicate_rank,
+            duplicate_count
+        FROM normalized_adtrans
+        WHERE duplicate_count > 1
+          AND duplicate_rank > 1
+        ORDER BY EmpCode, normalized_doc_desc, duplicate_rank
+    `;
+
+    const rows = await executeQuery(sql);
+    const seen = new Set();
+    const details = [];
+
+    for (const row of rows) {
+        const docNumber = String(row.DocID || '').trim();
+        const internalId = String(row.ID || '').trim();
+        const key = docNumber || internalId;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        details.push({
+            internalId,
+            docNumber,
+            label: docNumber || internalId,
+            empCode: String(row.EmpCode || '').trim(),
+            empName: String(row.EmpName || '').trim(),
+            docDate: row.DocDate,
+            docDesc: row.DocDesc,
+            month: row.PhyMonth,
+            year: row.PhyYear,
+            status: row.Status,
+            locCode: row.LocCode,
+            transType: row.TransType,
+            createdDate: row.CreatedDate,
+            updatedDate: row.UpdatedDate,
+            duplicateRank: Number(row.duplicate_rank || 0),
+            duplicateCount: Number(row.duplicate_count || 0),
+            duplicateKey: `${String(row.EmpCode || '').trim()}|${String(row.DocDesc || '').trim()}`
+        });
+    }
+
+    return {
+        docIds: details.map(detail => detail.docNumber || detail.internalId),
+        details,
+        duplicateGroups: details.reduce((groups, detail) => {
+            groups[detail.duplicateKey] = groups[detail.duplicateKey] || {
+                empCode: detail.empCode,
+                empName: detail.empName,
+                docDesc: detail.docDesc,
+                duplicateCount: detail.duplicateCount,
+                deleteCount: 0
+            };
+            groups[detail.duplicateKey].deleteCount += 1;
+            return groups;
+        }, {})
+    };
+};
+
 const preparePayrollADResetData = (payload = {}) => {
     ensureDataDir();
 
@@ -123,7 +251,7 @@ const preparePayrollADResetData = (payload = {}) => {
             windowCount,
             totalDocIds: targets.length,
             totalEmployees: employees.length,
-            source: 'payroll_ad_reset'
+            source: payload.source || 'payroll_ad_reset'
         },
         docTargets: targets.map(target => ({
             internalId: String(target.internalId || target.ID || target.id || '').trim(),
@@ -191,6 +319,7 @@ const stopPayrollADResetProcess = () => {
 
 module.exports = {
     fetchPayrollADDocIdsFromDB,
+    fetchDuplicatePayrollADDocIdsFromDB,
     preparePayrollADResetData,
     triggerPayrollADResetAutomation,
     startPayrollADResetProcess,
