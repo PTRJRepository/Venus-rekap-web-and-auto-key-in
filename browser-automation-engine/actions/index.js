@@ -2168,6 +2168,83 @@ const actions = {
     },
 
     /**
+     * Type input dengan trigger pattern untuk ASP.NET amount calculation
+     * Pattern: keyboard type → backspace → retype last char
+     * Ini memicu change event agar Amount ter-calculate dengan benar
+     */
+    typeWithTrigger: async (page, params, context = {}) => {
+        const selector = params.selector || '#MainContent_txtHours';
+        const index = params.index || 0;
+        const value = String(params.value || '');
+        const label = params.label || 'Hours';
+        const restoreBeforeAdd = params.restoreBeforeAdd !== false;
+
+        console.log(`⌨️  [typeWithTrigger] ${label}: "${value}" → keyboard trigger pattern`);
+
+        if (!value) {
+            console.log(`  ⚠️ Empty value, skip trigger`);
+            return;
+        }
+
+        // Step 1: Wait for element and get all matching elements
+        try {
+            await waitForElement(page, selector, 15000);
+        } catch (error) {
+            throw new Error(`[typeWithTrigger] Element not found: ${selector}`);
+        }
+
+        // Step 2: Focus on the input using evaluate to handle multiple inputs
+        const elements = await page.$$(selector);
+        if (index >= elements.length) {
+            throw new Error(`[typeWithTrigger] Element index ${index} not found (only ${elements.length} elements)`);
+        }
+
+        // Click to focus first
+        await elements[index].click();
+        await sleep(100);
+
+        // Clear any existing value with Ctrl+A then Delete
+        await page.keyboard.down('Control');
+        await page.keyboard.press('a');
+        await page.keyboard.up('Control');
+        await sleep(50);
+        await page.keyboard.press('Delete');
+        await sleep(100);
+
+        console.log(`  ⌨️ Typing initial value: "${value}"`);
+        // Step 3: Type the value using keyboard
+        await page.keyboard.type(value, { delay: 50 });
+        await sleep(200);
+
+        // Step 4: Press Backspace to delete last character
+        console.log(`  ⌨️ Backspace to trigger change event`);
+        await page.keyboard.press('Backspace');
+        await sleep(150);
+
+        // Step 5: Get the last character and type it back
+        const lastChar = value.slice(-1);
+        console.log(`  ⌨️ Retype last char: "${lastChar}"`);
+        await page.keyboard.type(lastChar);
+        await sleep(300);
+
+        console.log(`  ✅ Trigger pattern applied: "${value}" → backspace → "${lastChar}"`);
+
+        // Register DOM value pair for pre-Add verification
+        context.__lastInputTarget = { selector, index };
+        registerDomValuePair(context, {
+            kind: 'input',
+            selector,
+            index,
+            value,
+            actualValue: value,
+            label,
+            restoreBeforeAdd,
+            requiredBeforeAdd: params.requiredBeforeAdd !== false,
+            noPostback: false
+        });
+    },
+
+    /**
      * Alias for pressKey
      */
     press: async (page, params, context = {}) => {

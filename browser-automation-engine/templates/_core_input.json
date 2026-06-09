@@ -242,14 +242,14 @@
                                     }
                                 },
                                 {
-                                    "comment": "═══ INPUT HOURS ═══",
-                                    "action": "typeInput",
+                                    "comment": "═══ INPUT HOURS (dengan trigger pattern) ═══",
+                                    "action": "typeWithTrigger",
                                     "params": {
                                         "selector": "#MainContent_txtHours",
                                         "value": "${hoursValue}",
                                         "label": "Hours",
                                         "restoreBeforeAdd": true,
-                                        "noPostback": true
+                                        "noPostback": false
                                     }
                                 },
                                 {
