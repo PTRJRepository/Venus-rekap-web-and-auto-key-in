@@ -1214,6 +1214,8 @@ const {
     triggerPayrollADResetByDCOIDAutomation,
     triggerPayrollADResetByDifferenceAutomation,
     triggerPayrollADResetByAmountDifferenceAutomation,
+    fetchMinusOvtADDocIdsFromDB,
+    triggerPayrollADResetByMinusOvtAutomation,
     preparePayrollADResetData,
     startPayrollADResetProcess,
     stopPayrollADResetProcess
@@ -1575,16 +1577,13 @@ app.post('/api/payroll/beras/run', async (req, res) => {
     }
 });
 
-// Prepare lembur adjustment data (snapshot-only; inputs only Venus - Millware shortfall)
+// Prepare lembur adjustment data (supports both snapshot and live data; inputs only Venus - Millware shortfall)
 app.post('/api/payroll/lembur-adjustment/prepare', async (req, res) => {
     const { month, year } = req.body;
     const payrollSource = buildPayrollSourceOptions(req.body);
 
     if (!month || !year) {
         return res.status(400).json({ error: 'month and year are required' });
-    }
-    if (payrollSource.source !== 'snapshot') {
-        return res.status(400).json({ error: 'Adjustment lembur hanya tersedia saat sumber payroll menggunakan snapshot.' });
     }
 
     try {
@@ -1641,9 +1640,6 @@ app.post('/api/payroll/lembur-adjustment/run', async (req, res) => {
 
     if (!month || !year) {
         return res.status(400).json({ error: 'month and year are required' });
-    }
-    if (payrollSource.source !== 'snapshot') {
-        return res.status(400).json({ error: 'Adjustment lembur hanya tersedia saat sumber payroll menggunakan snapshot.' });
     }
 
     try {
@@ -2423,6 +2419,146 @@ app.post('/api/payroll/ad-reset/amount-differences/run', async (req, res) => {
 
     } catch (error) {
         console.error('[PayrollADReset AmountDiff API] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Preview MINUS_OVT ADTRANS deletion (Kurang Bayar Overtime)
+ * GET /api/payroll/ad-reset/minus-ovt/preview?month=6&year=2026&empCodes=POM00020,POM00023
+ */
+app.get('/api/payroll/ad-reset/minus-ovt/preview', async (req, res) => {
+    const { month, year, empCodes, limit } = req.query;
+    const payrollSource = buildPayrollSourceOptions(req.query);
+    const parsedLimit = Math.max(0, parseInt(limit || 0, 10) || 0);
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        console.log(`[PayrollADReset MinusOvt API] Preview: month=${month}, year=${year}, empCodes=${empCodes?.length || 0}`);
+
+        const result = await fetchMinusOvtADDocIdsFromDB(
+            parseInt(month, 10),
+            parseInt(year, 10),
+            empCodes ? empCodes.split(',').map(e => e.trim()) : [],
+            { limit: parsedLimit, payrollSource }
+        );
+
+        res.json({
+            success: true,
+            foundCount: result.docIds.length,
+            employeeCount: result.employeeCount,
+            employees: result.employees.map(e => ({
+                empCode: e.empCode,
+                empName: e.empName,
+                minusOvt: e.minusOvt,
+                ot1: e.ot1,
+                ot2: e.ot2,
+                ot3: e.ot3,
+                totalLembur: e.totalLembur
+            })),
+            docIds: result.docIds,
+            docTargets: result.details,
+            venusEmployeeCount: result.venusEmployeeCount,
+            millwareEmployeeCount: result.millwareEmployeeCount,
+            message: result.employeeCount > 0
+                ? `${result.docIds.length} ADTRANS (lembur) dari ${result.employeeCount} employee dengan MINUS_OVT`
+                : result.message
+        });
+
+    } catch (error) {
+        console.error('[PayrollADReset MinusOvt API] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Run MINUS_OVT ADTRANS deletion (Kurang Bayar Overtime)
+ * POST /api/payroll/ad-reset/minus-ovt/run
+ */
+app.post('/api/payroll/ad-reset/minus-ovt/run', async (req, res) => {
+    const { month, year, empCodes } = req.body;
+    const payrollSource = buildPayrollSourceOptions(req.body);
+    const dryRun = req.body.dryRun === true;
+    const headless = req.body.headless === true;
+    const windowCount = Math.max(1, Math.min(10, parseInt(req.body.windowCount || req.body.windows || 5, 10) || 5));
+    const limit = Math.max(0, parseInt(req.body.limit || 0, 10) || 0);
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        console.log(`[PayrollADReset MinusOvt API] Run: month=${month}, year=${year}, empCodes=${empCodes?.length || 0}, dryRun=${dryRun}`);
+
+        const result = await triggerPayrollADResetByMinusOvtAutomation({
+            month, year, empCodes,
+            dryRun, headless, windowCount, limit,
+            payrollSource
+        });
+
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+
+        if (dryRun) {
+            return res.json({
+                success: true,
+                dryRun: true,
+                foundCount: result.foundCount,
+                employees: result.employees,
+                employeeCount: result.employeeCount,
+                docTargets: result.data?.docTargets,
+                message: result.message
+            });
+        }
+
+        // Start automation process
+        const child = startPayrollADResetProcess({ dryRun, headless, windowCount });
+
+        child.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n').filter(Boolean);
+            lines.forEach(line => {
+                try {
+                    const parsed = JSON.parse(line);
+                    res.write(`data: ${JSON.stringify(parsed)}\n\n`);
+                } catch (_) {
+                    res.write(`data: ${JSON.stringify({ type: 'log', message: line })}\n\n`);
+                }
+            });
+        });
+
+        child.stderr.on('data', (data) => {
+            res.write(`data: ${JSON.stringify({ type: 'error', message: data.toString() })}\n\n`);
+        });
+
+        child.on('exit', (code) => {
+            res.write(`data: ${JSON.stringify({ type: 'exit', code })}\n\n`);
+            res.end();
+        });
+
+        child.on('error', (error) => {
+            res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
+            res.end();
+        });
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+
+        res.write(`data: ${JSON.stringify({
+            type: 'start',
+            success: true,
+            foundCount: result.foundCount,
+            employeeCount: result.employeeCount,
+            message: result.message
+        })}\n\n`);
+
+    } catch (error) {
+        console.error('[PayrollADReset MinusOvt API] Error:', error);
         res.status(500).json({ error: error.message });
     }
 });

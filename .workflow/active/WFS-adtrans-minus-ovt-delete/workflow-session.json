@@ -1,0 +1,7 @@
+{
+  "session_id": "WFS-adtrans-minus-ovt-delete",
+  "project": "adtrans-minus-ovt-delete: Create a runner to delete ADTRANS documents that have minus overtime (Kurang Bayar Overtime) records",
+  "status": "planning",
+  "type": "workflow",
+  "created_at": "2026-06-13T00:00:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "session_id": "WFS-adtrans-minus-ovt-delete",
+  "created_at": "2026-06-13T00:00:00Z",
+  "conflictRisk": "low",
+  "critical_files": [
+    "backend/services/payrollADResetService.js",
+    "backend/services/payrollService.js",
+    "browser-automation-engine/payroll-ad-delete-runner.js"
+  ],
+  "architecture": {
+    "pattern": "filter-then-delete",
+    "input": "Venus payroll MINUS_OVT",
+    "process": "find ADTRANS DocIds by employee + lembur description",
+    "output": "delete via browser automation"
+  },
+  "constraints": [
+    "Must filter employees with MINUS_OVT > 0 first",
+    "Must find DocIds matching lembur description",
+    "Must use existing ADTRANS deletion pattern",
+    "Test with --dry-run before production"
+  ],
+  "integration_points": [
+    "payrollService.js - MINUS_OVT detection",
+    "payrollADResetService.js - ADTRANS deletion service",
+    "payroll-ad-delete-runner.js - browser automation"
+  ]
+}

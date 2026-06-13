@@ -1,0 +1,35 @@
+{
+  "id": "IMPL-2",
+  "session_id": "WFS-adtrans-minus-ovt-delete",
+  "title": "Add triggerPayrollADResetByMinusOvtAutomation function",
+  "description": "Add trigger function to orchestrate MINUS_OVT ADTRANS deletion workflow: 1) Call fetchMinusOvtADDocIdsFromDB, 2) Prepare data for payroll-ad-delete-runner.js, 3) Return preview with counts",
+  "file": "backend/services/payrollADResetService.js",
+  "type": "backend",
+  "phase": "implementation",
+  "priority": "high",
+  "tasks": [
+    {
+      "step": 1,
+      "action": "Create triggerPayrollADResetByMinusOvtAutomation function",
+      "detail": "Orchestrate the filter → find → prepare workflow"
+    },
+    {
+      "step": 2,
+      "action": "Return proper response format",
+      "detail": "Include employeeCount, docIdCount, and preview data"
+    },
+    {
+      "step": 3,
+      "action": "Update module.exports",
+      "detail": "Export the new function for API endpoints"
+    }
+  ],
+  "verification": {
+    "method": "test",
+    "checkpoints": [
+      "Function returns success with employee/docId counts",
+      "Function handles empty results with appropriate message",
+      "Function supports dryRun parameter"
+    ]
+  }
+}

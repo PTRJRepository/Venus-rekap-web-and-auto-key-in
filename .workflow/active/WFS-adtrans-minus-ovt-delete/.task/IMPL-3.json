@@ -1,0 +1,35 @@
+{
+  "id": "IMPL-3",
+  "session_id": "WFS-adtrans-minus-ovt-delete",
+  "title": "Add API endpoints for MINUS_OVT deletion",
+  "description": "Add two API endpoints: GET /api/payroll/ad-reset/minus-ovt/preview and POST /api/payroll/ad-reset/minus-ovt/run",
+  "file": "backend/server.js",
+  "type": "backend",
+  "phase": "implementation",
+  "priority": "high",
+  "tasks": [
+    {
+      "step": 1,
+      "action": "Add GET /api/payroll/ad-reset/minus-ovt/preview endpoint",
+      "detail": "Preview employees with MINUS_OVT and their ADTRANS DocIds"
+    },
+    {
+      "step": 2,
+      "action": "Add POST /api/payroll/ad-reset/minus-ovt/run endpoint",
+      "detail": "Trigger automation to delete identified DocIds"
+    },
+    {
+      "step": 3,
+      "action": "Register routes",
+      "detail": "Ensure new endpoints are registered in server.js"
+    }
+  ],
+  "verification": {
+    "method": "test",
+    "checkpoints": [
+      "Preview endpoint returns employee list with MINUS_OVT info",
+      "Preview endpoint returns DocId list",
+      "Run endpoint triggers browser automation"
+    ]
+  }
+}

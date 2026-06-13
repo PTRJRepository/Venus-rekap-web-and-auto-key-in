@@ -67,13 +67,14 @@ const LemburAdjustmentDialog = ({
             addLog('warn', 'Pilih bulan dan tahun terlebih dahulu');
             return;
         }
-        if (payrollSource?.source !== 'snapshot' || !payrollSource?.snapshotId) {
-            addLog('warn', 'Adjustment lembur hanya tersedia saat payroll menggunakan snapshot');
-            return;
-        }
 
         setFetchingPreview(true);
         addLog('info', `Mengambil data adjustment lembur untuk ${month}/${year}...`);
+        if (payrollSource?.source === 'snapshot') {
+            addLog('info', `Sumber: Snapshot ${payrollSource.snapshotId?.slice(0, 8)}...`);
+        } else {
+            addLog('info', 'Sumber: Data Live (Venus HR)');
+        }
 
         try {
             const res = await fetch('/api/payroll/lembur-adjustment/prepare', {

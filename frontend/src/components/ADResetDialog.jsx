@@ -25,7 +25,7 @@ const ADResetDialog = ({
 }) => {
     const [logs, setLogs] = useState([]);
     const [status, setStatus] = useState('idle'); // idle|running|completed|failed|stopped|preview
-    const [scope, setScope] = useState('dcoid');   // dcoid | month | duplicates | differences | amount-differences
+    const [scope, setScope] = useState('dcoid');   // dcoid | month | duplicates | differences | amount-differences | minus-ovt
     const [runMode, setRunMode] = useState('dry-run'); // dry-run | delete
     const [browserMode, setBrowserMode] = useState('headful'); // headful | headless
     const [windowCount, setWindowCount] = useState('5');
@@ -185,6 +185,34 @@ const ADResetDialog = ({
                     setDcoidFetchError(`Tidak ada ADTRANS dengan selisih amount ditemukan (tolerance: ${data.tolerance || 50} rupiah).`);
                     addLog('error', `Tidak ada ADTRANS dengan selisih amount ditemukan untuk ${month}/${year}`);
                 }
+            } else if (scope === 'minus-ovt') {
+                // Fetch ADTRANS for employees with MINUS_OVT (Kurang Bayar Overtime)
+                const params = new URLSearchParams({
+                    month,
+                    year,
+                    source: payrollSource.source || 'live'
+                });
+                if (payrollSource.snapshotId) params.set('snapshotId', payrollSource.snapshotId);
+                res = await fetch(`/api/payroll/ad-reset/minus-ovt/preview?${params}`);
+                data = await res.json();
+                if (data.success && data.foundCount > 0) {
+                    setDisplayDcoids(data.docIds || []);
+                    setFetchedDetails(data.docTargets || []);
+                    addLog('info', `Ditemukan ${data.foundCount} ADTRANS LEMBUR untuk MINUS_OVT (${month}/${year})`);
+                    addLog('info', `${data.employeeCount || 0} employee(s) dengan MINUS_OVT`);
+                    if (data.employees && data.employees.length > 0) {
+                        addLog('info', 'Employee dengan MINUS_OVT:');
+                        data.employees.slice(0, 5).forEach(emp => {
+                            addLog('info', `  - ${emp.empCode} (${emp.empName}): MINUS_OVT = Rp${emp.minusOvt.toLocaleString()}`);
+                        });
+                        if (data.employees.length > 5) {
+                            addLog('info', `  ... dan ${data.employees.length - 5} employee(s) lainnya`);
+                        }
+                    }
+                } else {
+                    setDcoidFetchError(data.message || 'Tidak ada ADTRANS dengan MINUS_OVT ditemukan.');
+                    addLog('error', data.message || `Tidak ada ADTRANS dengan MINUS_OVT ditemukan untuk ${month}/${year}`);
+                }
             } else {
                 // Fetch all DocIDs by month/year
                 params = new URLSearchParams({ month, year });
@@ -224,14 +252,14 @@ const ADResetDialog = ({
         const dcoidsToProcess = getDcoids();
         const parsedWindowCount = Math.max(1, Math.min(10, parseInt(windowCount || '5', 10) || 5));
 
-        // Allow empty dcoids for duplicates/differences/amount-differences scope - they use API directly
-        if (!['duplicates', 'differences', 'amount-differences'].includes(scope) && dcoidsToProcess.length === 0) {
+        // Allow empty dcoids for duplicates/differences/amount-differences/minus-ovt scope - they use API directly
+        if (!['duplicates', 'differences', 'amount-differences', 'minus-ovt'].includes(scope) && dcoidsToProcess.length === 0) {
             addLog('error', 'Tidak ada DCOID untuk diproses.');
             setStatus('failed');
             return;
         }
 
-        addLog('info', `ADTRANS Reset: scope=${scope}, run=${runMode}, dcoids=${scope === 'duplicates' || scope === 'differences' || scope === 'amount-differences' ? 'from-db' : dcoidsToProcess.length}`);
+        addLog('info', `ADTRANS Reset: scope=${scope}, run=${runMode}, dcoids=${scope === 'duplicates' || scope === 'differences' || scope === 'amount-differences' || scope === 'minus-ovt' ? 'from-db' : dcoidsToProcess.length}`);
         addLog('info', `Window count: ${parsedWindowCount}`);
 
         if (scope === 'dcoid') {
@@ -280,6 +308,16 @@ const ADResetDialog = ({
                 };
             } else if (scope === 'amount-differences') {
                 apiEndpoint = '/api/payroll/ad-reset/amount-differences/run';
+                requestBody = {
+                    month,
+                    year,
+                    ...payrollSource,
+                    dryRun: runMode === 'dry-run',
+                    headless: browserMode === 'headless',
+                    windowCount: parsedWindowCount
+                };
+            } else if (scope === 'minus-ovt') {
+                apiEndpoint = '/api/payroll/ad-reset/minus-ovt/run';
                 requestBody = {
                     month,
                     year,
@@ -347,6 +385,17 @@ const ADResetDialog = ({
                         data.employees.slice(0, 5).forEach(emp => {
                             const diffDetails = emp.differences.map(d => `${d.componentName}: Rp${d.venusAmount.toLocaleString()} vs Rp${d.millwareAmount.toLocaleString()} (selisih: Rp${d.diff.toLocaleString()})`).join(', ');
                             addLog('info', `  - ${emp.empCode} (${emp.empName}): ${diffDetails}`);
+                        });
+                        if (data.employees.length > 5) {
+                            addLog('info', `  ... dan ${data.employees.length - 5} employee(s) lainnya`);
+                        }
+                    }
+
+                    // Handle minus-ovt response format
+                    if (scope === 'minus-ovt' && data.employees && data.employees.length > 0) {
+                        addLog('info', `${data.employees.length} employee(s) dengan MINUS_OVT terdeteksi`);
+                        data.employees.slice(0, 5).forEach(emp => {
+                            addLog('info', `  - ${emp.empCode} (${emp.empName}): MINUS_OVT = Rp${emp.minusOvt.toLocaleString()}`);
                         });
                         if (data.employees.length > 5) {
                             addLog('info', `  ... dan ${data.employees.length - 5} employee(s) lainnya`);
@@ -480,7 +529,7 @@ const ADResetDialog = ({
                         {month && year && (
                             <Chip label={`Bulan: ${month}/${year}`} size="small" sx={{ bgcolor: alpha(DARK.accent, 0.15), color: DARK.accent, fontWeight: 700, fontSize: '0.75rem' }} />
                         )}
-                        <Chip label={scope === 'dcoid' ? `${dcoidsToProcess.length} DCOID(s) Manual` : scope === 'duplicates' ? `Duplikat DocDesc` : scope === 'differences' ? `Selisih Count` : scope === 'amount-differences' ? `Selisih Amount` : `${dcoidsToProcess.length} DCOID(s) dari DB`} size="small" sx={{ bgcolor: alpha(DARK.green, 0.15), color: DARK.green, fontWeight: 700, fontSize: '0.75rem' }} />
+                        <Chip label={scope === 'dcoid' ? `${dcoidsToProcess.length} DCOID(s) Manual` : scope === 'duplicates' ? `Duplikat DocDesc` : scope === 'differences' ? `Selisih Count` : scope === 'amount-differences' ? `Selisih Amount` : scope === 'minus-ovt' ? `Minus OVT` : `${dcoidsToProcess.length} DCOID(s) dari DB`} size="small" sx={{ bgcolor: alpha(DARK.green, 0.15), color: DARK.green, fontWeight: 700, fontSize: '0.75rem' }} />
                         <Chip label={runMode === 'dry-run' ? 'Cek saja' : 'Hapus'} size="small" sx={{ bgcolor: alpha(runMode === 'dry-run' ? DARK.accent : DARK.red, 0.15), color: runMode === 'dry-run' ? DARK.accent : DARK.red, fontWeight: 700, fontSize: '0.75rem' }} />
                         <Chip label={browserMode === 'headful' ? 'Browser tampil' : 'Headless'} size="small" sx={{ bgcolor: alpha(DARK.amber, 0.15), color: DARK.amber, fontWeight: 700, fontSize: '0.75rem' }} />
                         <Chip label={`${windowCount || 1} Window`} size="small" sx={{ bgcolor: alpha(DARK.green, 0.12), color: DARK.green, fontWeight: 700, fontSize: '0.75rem' }} />
@@ -498,6 +547,7 @@ const ADResetDialog = ({
                             <FormControlLabel value="duplicates" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.orange } }} />} label={<Typography variant="caption" sx={{ color: DARK.orange, fontWeight: 700 }}>Duplikat DocDesc</Typography>} />
                             <FormControlLabel value="differences" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.red } }} />} label={<Typography variant="caption" sx={{ color: DARK.red, fontWeight: 700 }}>Selisih Count</Typography>} />
                             <FormControlLabel value="amount-differences" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.amber } }} />} label={<Typography variant="caption" sx={{ color: DARK.amber, fontWeight: 700 }}>Selisih Amount</Typography>} />
+                            <FormControlLabel value="minus-ovt" control={<Radio size="small" sx={{ color: DARK.muted, '&.Mui-checked': { color: DARK.red } }} />} label={<Typography variant="caption" sx={{ color: DARK.red, fontWeight: 700 }}>Minus OVT</Typography>} />
                         </RadioGroup>
                     </FormControl>
 
@@ -550,16 +600,16 @@ const ADResetDialog = ({
                     <Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                             <Typography variant="caption" sx={{ color: DARK.muted, fontWeight: 700, fontSize: '0.7rem' }}>
-                                {scope === 'duplicates' ? 'DUPLIKAT DOCDESC' : scope === 'differences' ? 'SELISIH COUNT' : scope === 'amount-differences' ? 'SELISIH AMOUNT' : 'DCOID (Document ID)'}
+                                {scope === 'duplicates' ? 'DUPLIKAT DOCDESC' : scope === 'differences' ? 'SELISIH COUNT' : scope === 'amount-differences' ? 'SELISIH AMOUNT' : scope === 'minus-ovt' ? 'MINUS OVT' : 'DCOID (Document ID)'}
                             </Typography>
-                            {(scope === 'month' || scope === 'duplicates' || scope === 'differences' || scope === 'amount-differences') && (
+                            {(scope === 'month' || scope === 'duplicates' || scope === 'differences' || scope === 'amount-differences' || scope === 'minus-ovt') && (
                                 <Button size="small" startIcon={fetchingDcoids ? <CircularProgress size={10} color="inherit" /> : <RefreshIcon sx={{ fontSize: 13 }} />}
                                     onClick={handleFetchDcoids} disabled={fetchingDcoids || status === 'running' || !month || !year}
-                                    sx={{ color: scope === 'duplicates' ? DARK.orange : scope === 'differences' ? DARK.red : scope === 'amount-differences' ? DARK.amber : DARK.accent, fontSize: '0.7rem', py: 0.25, px: 1 }}>
-                                    {fetchingDcoids ? 'Mengambil...' : (scope === 'duplicates' ? 'Cari Duplikat' : scope === 'differences' ? 'Cari Selisih' : scope === 'amount-differences' ? 'Cari Amount' : 'Ambil dari DB')}
+                                    sx={{ color: scope === 'duplicates' ? DARK.orange : scope === 'differences' ? DARK.red : scope === 'amount-differences' ? DARK.amber : scope === 'minus-ovt' ? DARK.red : DARK.accent, fontSize: '0.7rem', py: 0.25, px: 1 }}>
+                                    {fetchingDcoids ? 'Mengambil...' : (scope === 'duplicates' ? 'Cari Duplikat' : scope === 'differences' ? 'Cari Selisih' : scope === 'amount-differences' ? 'Cari Amount' : scope === 'minus-ovt' ? 'Cari Minus OVT' : 'Ambil dari DB')}
                                 </Button>
                             )}
-                            {(scope === 'duplicates' || scope === 'differences' || scope === 'amount-differences') && !month && !year && (
+                            {(scope === 'duplicates' || scope === 'differences' || scope === 'amount-differences' || scope === 'minus-ovt') && !month && !year && (
                                 <Typography variant="caption" sx={{ color: DARK.orange, fontSize: '0.65rem' }}>
                                     ⚠ Pilih bulan & tahun
                                 </Typography>
@@ -568,23 +618,23 @@ const ADResetDialog = ({
                         <TextField
                             multiline minRows={2} maxRows={5}
                             fullWidth size="small"
-                            placeholder={scope === 'dcoid' ? 'Masukkan DCOID (format: AD26051752, AD26051473, ...)\nPisahkan dengan koma, spasi, atau baris baru' : scope === 'duplicates' ? 'Klik "Cari Duplikat" untuk mencari record duplikat berdasarkan DocDesc' : scope === 'differences' ? 'Klik "Cari Selisih" untuk mencari ADTRANS dengan perbedaan count' : scope === 'amount-differences' ? 'Klik "Cari Amount" untuk mencari ADTRANS dengan perbedaan amount Venus vs Millware' : 'Ambil dari database atau masukkan manual'}
+                            placeholder={scope === 'dcoid' ? 'Masukkan DCOID (format: AD26051752, AD26051473, ...)\nPisahkan dengan koma, spasi, atau baris baru' : scope === 'duplicates' ? 'Klik "Cari Duplikat" untuk mencari record duplikat berdasarkan DocDesc' : scope === 'differences' ? 'Klik "Cari Selisih" untuk mencari ADTRANS dengan perbedaan count' : scope === 'amount-differences' ? 'Klik "Cari Amount" untuk mencari ADTRANS dengan perbedaan amount Venus vs Millware' : scope === 'minus-ovt' ? 'Klik "Cari Minus OVT" untuk mencari ADTRANS lembur untuk employee dengan MINUS_OVT' : 'Ambil dari database atau masukkan manual'}
                             value={manualDcoids}
                             onChange={e => { setManualDcoids(e.target.value); setScope('dcoid'); }}
-                            disabled={status === 'running' || scope === 'duplicates' || scope === 'differences' || scope === 'amount-differences'}
+                            disabled={status === 'running' || scope === 'duplicates' || scope === 'differences' || scope === 'amount-differences' || scope === 'minus-ovt'}
                             inputProps={{ style: { color: DARK.text, backgroundColor: DARK.card, borderRadius: 6, fontSize: '0.82rem', fontFamily: 'monospace' } }}
                         />
                         {dcoidFetchError && (
                             <Alert severity="warning" sx={{ mt: 0.5, py: 0.25, fontSize: '0.72rem' }}>{dcoidFetchError}</Alert>
                         )}
-                        {(displayDcoids.length > 0 && (scope === 'month' || scope === 'duplicates' || scope === 'differences' || scope === 'amount-differences')) && (
+                        {(displayDcoids.length > 0 && (scope === 'month' || scope === 'duplicates' || scope === 'differences' || scope === 'amount-differences' || scope === 'minus-ovt')) && (
                             <Box sx={{ mt: 1 }}>
-                                <Typography variant="caption" sx={{ color: scope === 'differences' ? DARK.red : scope === 'amount-differences' ? DARK.amber : scope === 'duplicates' ? DARK.orange : DARK.muted, fontSize: '0.68rem' }}>
-                                    {scope === 'differences' ? `${displayDcoids.length} ADTRANS dengan selisih` : scope === 'amount-differences' ? `${displayDcoids.length} ADTRANS dengan selisih amount` : scope === 'duplicates' ? `${displayDcoids.length} record duplikat` : `${displayDcoids.length} DCOID(s) dari database`}
+                                <Typography variant="caption" sx={{ color: scope === 'differences' ? DARK.red : scope === 'amount-differences' ? DARK.amber : scope === 'duplicates' ? DARK.orange : scope === 'minus-ovt' ? DARK.red : DARK.muted, fontSize: '0.68rem' }}>
+                                    {scope === 'differences' ? `${displayDcoids.length} ADTRANS dengan selisih` : scope === 'amount-differences' ? `${displayDcoids.length} ADTRANS dengan selisih amount` : scope === 'duplicates' ? `${displayDcoids.length} record duplikat` : scope === 'minus-ovt' ? `${displayDcoids.length} ADTRANS lembur (Minus OVT)` : `${displayDcoids.length} DCOID(s) dari database`}
                                 </Typography>
                                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5, maxHeight: 80, overflowY: 'auto', p: 1, bgcolor: DARK.card, borderRadius: 1 }}>
                                     {displayDcoids.map(id => (
-                                        <Chip key={id} label={id} size="small" sx={{ fontSize: '0.68rem', bgcolor: alpha(scope === 'amount-differences' ? DARK.amber : scope === 'differences' ? DARK.red : DARK.green, 0.1), color: scope === 'amount-differences' ? DARK.amber : scope === 'differences' ? DARK.red : DARK.green, border: `1px solid ${alpha(scope === 'amount-differences' ? DARK.amber : scope === 'differences' ? DARK.red : DARK.green, 0.3)}` }} />
+                                        <Chip key={id} label={id} size="small" sx={{ fontSize: '0.68rem', bgcolor: alpha(scope === 'amount-differences' ? DARK.amber : scope === 'differences' ? DARK.red : scope === 'minus-ovt' ? DARK.red : DARK.green, 0.1), color: scope === 'amount-differences' ? DARK.amber : scope === 'differences' ? DARK.red : scope === 'minus-ovt' ? DARK.red : DARK.green, border: `1px solid ${alpha(scope === 'amount-differences' ? DARK.amber : scope === 'differences' ? DARK.red : scope === 'minus-ovt' ? DARK.red : DARK.green, 0.3)}` }} />
                                     ))}
                                 </Box>
                             </Box>

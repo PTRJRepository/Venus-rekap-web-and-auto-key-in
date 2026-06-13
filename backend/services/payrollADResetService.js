@@ -996,6 +996,261 @@ const triggerPayrollADResetByAmountDifferenceAutomation = async (payload = {}) =
     }
 };
 
+/**
+ * Fetch ADTRANS DocIds for employees with MINUS_OVT (Kurang Bayar Overtime)
+ * @param {number} month - Month (1-12)
+ * @param {number} year - Year (YYYY)
+ * @param {string[]} empCodes - Optional employee codes filter
+ * @param {object} options - Options
+ */
+const fetchMinusOvtADDocIdsFromDB = async (month, year, empCodes = [], options = {}) => {
+    const numericMonth = parseInt(month, 10);
+    const numericYear = parseInt(year, 10);
+    const numericLimit = Math.max(0, parseInt(options.limit || 0, 10) || 0);
+
+    if (!numericMonth || !numericYear) {
+        throw new Error('month and year are required');
+    }
+
+    console.log(`[PayrollADReset MinusOvt] Starting: month=${numericMonth}, year=${numericYear}`);
+
+    // Step 1: Fetch Venus payroll data to find employees with MINUS_OVT
+    let venusPayroll;
+    try {
+        venusPayroll = await fetchPayrollData(numericMonth, numericYear, options.payrollSource || {});
+        if (!venusPayroll.success || !Array.isArray(venusPayroll.data)) {
+            throw new Error(venusPayroll.error || 'Failed to fetch Venus payroll data');
+        }
+        console.log(`[PayrollADReset MinusOvt] Fetched ${venusPayroll.data.length} employees from payrollService`);
+    } catch (error) {
+        console.error('[PayrollADReset MinusOvt] Error fetching Venus data:', error);
+        throw new Error(`Failed to fetch Venus payroll data: ${error.message}`);
+    }
+
+    // Step 2: Filter employees with MINUS_OVT > 0
+    const employeesWithMinusOvt = [];
+
+    for (const emp of venusPayroll.data) {
+        if (!emp.sync) continue;
+
+        const ptrjId = emp.ptrjId;
+        if (!ptrjId || ptrjId === '-') continue;
+
+        // Optional filter by empCodes
+        if (empCodes.length > 0 && !empCodes.includes(ptrjId)) {
+            continue;
+        }
+
+        // Check if employee has MINUS_OVT > 0
+        const minusOvt = toNumber(emp.sync.lembur?.venusDetail?.minusOvt || 0);
+        if (minusOvt <= 0) continue;
+
+        // Store employee with minus overtime info
+        employeesWithMinusOvt.push({
+            empCode: ptrjId,
+            empName: emp.name || ptrjId,
+            ptrjId,
+            minusOvt,
+            ot1: toNumber(emp.sync.lembur?.venusDetail?.ot1 || 0),
+            ot2: toNumber(emp.sync.lembur?.venusDetail?.ot2 || 0),
+            ot3: toNumber(emp.sync.lembur?.venusDetail?.ot3 || 0),
+            totalLembur: toNumber(emp.sync.lembur?.venus || 0)
+        });
+    }
+
+    console.log(`[PayrollADReset MinusOvt] Found ${employeesWithMinusOvt.length} employees with MINUS_OVT > 0`);
+
+    if (employeesWithMinusOvt.length === 0) {
+        return {
+            docIds: [],
+            details: [],
+            employees: [],
+            employeeCount: 0,
+            totalRecords: 0,
+            payrollSource: venusPayroll.sourceInfo?.source || options.payrollSource?.source || 'live',
+            snapshotId: venusPayroll.sourceInfo?.snapshotId || options.payrollSource?.snapshotId || null,
+            message: 'Tidak ada employee dengan MINUS_OVT'
+        };
+    }
+
+    // Step 3: Fetch Millware ADTRANS for these employees with lembur description
+    const empCodesWithMinusOvt = employeesWithMinusOvt.map(e => e.empCode).filter(Boolean);
+    const empCodeFilter = empCodesWithMinusOvt.map(quoteSql).join(', ');
+
+    const sql = `
+        SELECT
+            a.ID,
+            a.DocID,
+            a.DocDate,
+            a.DocDesc,
+            a.EmpCode,
+            a.EmpName,
+            a.LocCode,
+            a.AccMonth,
+            a.AccYear,
+            a.PhyMonth,
+            a.PhyYear,
+            a.Status,
+            a.CreatedDate,
+            a.UpdatedDate,
+            a.TransType,
+            b.MasterID,
+            b.TaskCode,
+            b.Amount
+        FROM [db_ptrj_mill].[dbo].[PR_ADTRANS] a
+        LEFT JOIN [db_ptrj_mill].[dbo].[PR_ADTRANSLN] b ON a.ID = b.MasterID
+        WHERE a.PhyMonth = '${numericMonth}'
+          AND a.PhyYear = '${numericYear}'
+          AND RTRIM(a.EmpCode) IN (${empCodeFilter})
+          AND UPPER(LTRIM(RTRIM(ISNULL(a.DocDesc, '')))) LIKE '%LEMBUR%'
+        ORDER BY a.EmpCode, a.DocID, b.TaskCode
+    `;
+
+    let millwareRows;
+    try {
+        millwareRows = await executeQuery(sql);
+    } catch (error) {
+        console.error('[PayrollADReset MinusOvt] Error fetching Millware ADTRANS:', error);
+        throw new Error(`Failed to fetch Millware ADTRANS data: ${error.message}`);
+    }
+
+    // Step 4: Group and deduplicate DocIds
+    const docIdDetails = {};
+    const docIdsToDelete = new Set();
+
+    for (const row of millwareRows) {
+        const docId = String(row.DocID || '').trim();
+        const empCode = String(row.EmpCode || '').trim();
+
+        if (!docId) continue;
+
+        // Store DocId details (first occurrence)
+        if (!docIdDetails[docId]) {
+            docIdDetails[docId] = {
+                docId,
+                internalId: String(row.ID || '').trim(),
+                empCode,
+                empName: String(row.EmpName || '').trim(),
+                docDate: row.DocDate,
+                docDesc: row.DocDesc,
+                month: row.PhyMonth,
+                year: row.PhyYear,
+                status: row.Status,
+                locCode: row.LocCode,
+                transType: row.TransType,
+                createdDate: row.CreatedDate,
+                updatedDate: row.UpdatedDate,
+                taskCodes: []
+            };
+        }
+
+        // Track TaskCodes in this DocId
+        const taskCode = String(row.TaskCode || '').trim();
+        if (taskCode && !docIdDetails[docId].taskCodes.includes(taskCode)) {
+            docIdDetails[docId].taskCodes.push(taskCode);
+        }
+
+        // Mark for deletion
+        docIdsToDelete.add(docId);
+    }
+
+    // Step 5: Build final result
+    const allDocIds = [...docIdsToDelete];
+    const limitedDocIds = numericLimit > 0 ? allDocIds.slice(0, numericLimit) : allDocIds;
+
+    const details = limitedDocIds.map(docId => {
+        const d = docIdDetails[docId];
+        return {
+            internalId: d.internalId,
+            docNumber: d.docId,
+            label: d.docId,
+            empCode: d.empCode,
+            empName: d.empName,
+            docDate: d.docDate,
+            docDesc: d.docDesc,
+            month: d.month,
+            year: d.year,
+            status: d.status,
+            locCode: d.locCode,
+            transType: d.transType,
+            createdDate: d.createdDate,
+            updatedDate: d.updatedDate
+        };
+    });
+
+    return {
+        docIds: limitedDocIds,
+        details,
+        employees: employeesWithMinusOvt,
+        employeeCount: employeesWithMinusOvt.length,
+        totalRecords: limitedDocIds.length,
+        venusEmployeeCount: venusPayroll.data.length,
+        millwareEmployeeCount: empCodesWithMinusOvt.length
+    };
+};
+
+/**
+ * Trigger ADTRANS reset by MINUS_OVT (Kurang Bayar Overtime)
+ * @param {object} payload - { month, year, empCodes, dryRun, headless, windowCount }
+ */
+const triggerPayrollADResetByMinusOvtAutomation = async (payload = {}) => {
+    const { month, year, empCodes } = payload;
+
+    if (!month || !year) {
+        return { success: false, error: 'month and year are required' };
+    }
+
+    try {
+        // Fetch MINUS_OVT ADTRANS
+        const dbResult = await fetchMinusOvtADDocIdsFromDB(month, year, empCodes, {
+            limit: payload.limit,
+            payrollSource: payload.payrollSource
+        });
+
+        if (dbResult.docIds.length === 0) {
+            return {
+                success: true,
+                dryRun: payload.dryRun,
+                foundCount: 0,
+                employeeCount: dbResult.employeeCount,
+                message: dbResult.employeeCount > 0
+                    ? `Employee dengan MINUS_OVT: ${dbResult.employeeCount}, tapi tidak ada ADTRANS dengan deskripsi LEMBUR`
+                    : `Tidak ada employee dengan MINUS_OVT untuk periode ${month}/${year}`
+            };
+        }
+
+        console.log(`[PayrollADReset MinusOvt] Found ${dbResult.totalRecords} DocIds from ${dbResult.employeeCount} employees`);
+
+        // Prepare data for runner
+        const data = preparePayrollADResetData({
+            docTargets: dbResult.details,
+            docIds: dbResult.docIds,
+            employees: dbResult.employees,
+            month,
+            year,
+            dryRun: payload.dryRun,
+            headless: payload.headless,
+            windowCount: payload.windowCount,
+            source: 'payroll_ad_reset_minus_ovt'
+        });
+
+        return {
+            success: true,
+            data,
+            foundCount: dbResult.docIds.length,
+            employees: dbResult.employees,
+            employeeCount: dbResult.employeeCount,
+            venusEmployeeCount: dbResult.venusEmployeeCount,
+            millwareEmployeeCount: dbResult.millwareEmployeeCount,
+            message: `${dbResult.docIds.length} ADTRANS (lembur) dari ${dbResult.employeeCount} employee dengan MINUS_OVT`
+        };
+
+    } catch (error) {
+        console.error('[PayrollADReset MinusOvt] Error:', error);
+        return { success: false, error: error.message };
+    }
+};
+
 const toNumber = (value) => {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : 0;
@@ -1007,12 +1262,14 @@ module.exports = {
     fetchDuplicatePayrollADDocIdsFromDB,
     fetchDifferenceADDocIdsFromDB,
     fetchAmountDifferenceADDocIdsFromDB,
+    fetchMinusOvtADDocIdsFromDB,
     mapADCodeToComponentKey,
     preparePayrollADResetData,
     triggerPayrollADResetAutomation,
     triggerPayrollADResetByDCOIDAutomation,
     triggerPayrollADResetByDifferenceAutomation,
     triggerPayrollADResetByAmountDifferenceAutomation,
+    triggerPayrollADResetByMinusOvtAutomation,
     startPayrollADResetProcess,
     stopPayrollADResetProcess
 };

@@ -1,0 +1,35 @@
+{
+  "id": "IMPL-1",
+  "session_id": "WFS-adtrans-minus-ovt-delete",
+  "title": "Add fetchMinusOvtADDocIdsFromDB function",
+  "description": "Add a new function to fetch ADTRANS DocIds for employees with MINUS_OVT (Kurang Bayar Overtime) in Venus payroll. Steps: 1) Fetch Venus payroll data, 2) Filter employees where sync.lembur.venusDetail.minusOvt > 0, 3) Query PR_ADTRANS for those employees with lembur description, 4) Return DocIds and employee details",
+  "file": "backend/services/payrollADResetService.js",
+  "type": "backend",
+  "phase": "implementation",
+  "priority": "high",
+  "tasks": [
+    {
+      "step": 1,
+      "action": "Add fetchMinusOvtADDocIdsFromDB function",
+      "detail": "Create function that fetches Venus payroll and filters for MINUS_OVT"
+    },
+    {
+      "step": 2,
+      "action": "Query PR_ADTRANS for lembur DocIds",
+      "detail": "Join PR_ADTRANS and PR_ADTRANSLN to find DocIds with overtime"
+    },
+    {
+      "step": 3,
+      "action": "Return structured result",
+      "detail": "Return docIds, details, employees array with breakdown"
+    }
+  ],
+  "verification": {
+    "method": "test",
+    "checkpoints": [
+      "Function returns employees with minusOvt > 0",
+      "Function returns matching ADTRANS DocIds",
+      "Function handles empty results gracefully"
+    ]
+  }
+}

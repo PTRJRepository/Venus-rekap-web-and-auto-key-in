@@ -1,108 +1,533 @@
 {
   "metadata": {
-    "export_date": "2026-06-12T16:07:10.056Z",
-    "month": null,
-    "year": null,
-    "dryRun": false,
+    "export_date": "2026-06-13T11:44:29.469Z",
+    "month": 5,
+    "year": 2026,
+    "dryRun": true,
     "headless": false,
     "limit": 0,
     "windowCount": 5,
-    "totalDocIds": 13,
-    "totalEmployees": 0,
-    "source": "payroll_ad_reset_by_dcoid"
+    "totalDocIds": 5,
+    "totalEmployees": 96,
+    "source": "payroll_ad_reset_minus_ovt"
   },
   "docTargets": [
     {
-      "internalId": "76752",
-      "docNumber": "AD26051290",
-      "label": "AD26051290",
-      "empCode": "POM00104",
-      "empName": "Darma Setiawan"
+      "internalId": "77907",
+      "docNumber": "AD26052361",
+      "label": "AD26052361",
+      "empCode": "POM00020",
+      "empName": "Tigo"
     },
     {
-      "internalId": "76747",
-      "docNumber": "AD26051285",
-      "label": "AD26051285",
-      "empCode": "POM00065",
-      "empName": "Dick Havianto"
+      "internalId": "77895",
+      "docNumber": "AD26052349",
+      "label": "AD26052349",
+      "empCode": "POM00022",
+      "empName": "Ramadani"
     },
     {
-      "internalId": "76744",
-      "docNumber": "AD26051282",
-      "label": "AD26051282",
+      "internalId": "77868",
+      "docNumber": "AD26052322",
+      "label": "AD26052322",
+      "empCode": "POM00023",
+      "empName": "Arianto"
+    },
+    {
+      "internalId": "77935",
+      "docNumber": "AD26052389",
+      "label": "AD26052389",
+      "empCode": "POM00026",
+      "empName": "Nursamsi"
+    },
+    {
+      "internalId": "77945",
+      "docNumber": "AD26052399",
+      "label": "AD26052399",
       "empCode": "POM00028",
       "empName": "Derry"
-    },
-    {
-      "internalId": "76730",
-      "docNumber": "AD26051268",
-      "label": "AD26051268",
-      "empCode": "POM00164",
-      "empName": "CHERPIANSYAH"
-    },
-    {
-      "internalId": "76569",
-      "docNumber": "AD26051107",
-      "label": "AD26051107",
-      "empCode": "POM00219",
-      "empName": "TIKI BASISTA"
-    },
-    {
-      "internalId": "76563",
-      "docNumber": "AD26051101",
-      "label": "AD26051101",
-      "empCode": "POM00149",
-      "empName": "SYAHRIL"
-    },
-    {
-      "internalId": "76556",
-      "docNumber": "AD26051094",
-      "label": "AD26051094",
-      "empCode": "POM00033",
-      "empName": "Supandi"
-    },
-    {
-      "internalId": "76542",
-      "docNumber": "AD26051080",
-      "label": "AD26051080",
-      "empCode": "POM00051",
-      "empName": "Suhartomo"
-    },
-    {
-      "internalId": "76540",
-      "docNumber": "AD26051078",
-      "label": "AD26051078",
-      "empCode": "POM00042",
-      "empName": "Sudiar"
-    },
-    {
-      "internalId": "76530",
-      "docNumber": "AD26051068",
-      "label": "AD26051068",
-      "empCode": "POM00094",
-      "empName": "Siaga Pratama"
-    },
-    {
-      "internalId": "76526",
-      "docNumber": "AD26051064",
-      "label": "AD26051064",
-      "empCode": "POM00254",
-      "empName": "RIZAL SAHRONI"
-    },
-    {
-      "internalId": "76523",
-      "docNumber": "AD26051061",
-      "label": "AD26051061",
-      "empCode": "POM00204",
-      "empName": "RIZKY"
-    },
-    {
-      "internalId": "76515",
-      "docNumber": "AD26051053",
-      "label": "AD26051053",
-      "empCode": "POM00192",
-      "empName": "RIO"
     }
   ],
-  "employees": []
+  "employees": [
+    {
+      "empCode": "POM00181",
+      "empName": "Ade Prasetya",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00224",
+      "empName": "Abu Hurairoh",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00064",
+      "empName": "Andri Iswadi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00266",
+      "empName": "Aldi Winata",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00023",
+      "empName": "Arianto",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00055",
+      "empName": "Asmadi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00054",
+      "empName": "Atmo Haryo",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00102",
+      "empName": "Ari Widodo 102",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00180",
+      "empName": "Ari Widodo 180",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00106",
+      "empName": "Agus Irawan",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00183",
+      "empName": "Agus Riyadi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00214",
+      "empName": "Agus Setiawan",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00223",
+      "empName": "Agustian",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00242",
+      "empName": "Ardiansyah",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00125",
+      "empName": "Aswandi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00140",
+      "empName": "Asqalany",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00159",
+      "empName": "Andriansyah",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00079",
+      "empName": "Beni Apriyanto",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00216",
+      "empName": "Charyadi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00164",
+      "empName": "Cherpiansyah",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00236",
+      "empName": "Dedy Prasapta",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00261",
+      "empName": "Dedi 261",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00263",
+      "empName": "Deka Setiawan",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00040",
+      "empName": "Dedy Burhansyah",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00028",
+      "empName": "Derry",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00065",
+      "empName": "Dick Havianto",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00144",
+      "empName": "Danang Budhi Santoso",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00168",
+      "empName": "David Firdaus",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00066",
+      "empName": "Eko Juniansah",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00239",
+      "empName": "Erwin Susanto",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00120",
+      "empName": "Eddo Prathama",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00207",
+      "empName": "Faizal",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00246",
+      "empName": "Febrian Saputra",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00184",
+      "empName": "Fikriansyah",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00208",
+      "empName": "Guntur",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00063",
+      "empName": "Hanip",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00076",
+      "empName": "Helmi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00048",
+      "empName": "Hendra Winardi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00240",
+      "empName": "Hendra Jaya",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00265",
+      "empName": "Herly Hidayat",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00093",
+      "empName": "Ibnu Wardana",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00260",
+      "empName": "Ihsan Alfahry",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00135",
+      "empName": "Irwan",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00087",
+      "empName": "Jaya Saputra",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00163",
+      "empName": "Jumhadi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00174",
+      "empName": "Kiki Firmansyah",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00109",
+      "empName": "Liga Pirdana",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00238",
+      "empName": "Lio Pratama",
+      "empId": ""
+    },
+    {
+      "empCode": "pom00227",
+      "empName": "Mahmudi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00267",
+      "empName": "Muhammad Ridho Akbar Papilaya",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00221",
+      "empName": "Maman Suryadi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00061",
+      "empName": "Mediarta",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00127",
+      "empName": "Muhamad Khaliq",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00043",
+      "empName": "Najmi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00026",
+      "empName": "Nursamsih",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00199",
+      "empName": "Oktorio Dwi Sakti",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00262",
+      "empName": "Panji Meka Buana",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00062",
+      "empName": "Pujiyono",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00022",
+      "empName": "Ramadani",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00226",
+      "empName": "Rasat",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00245",
+      "empName": "Rendy",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00179",
+      "empName": "Rendy Nopriyandi",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00235",
+      "empName": "Risky Sumantri",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00220",
+      "empName": "Retno Sugiarto",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00247",
+      "empName": "Rizky Abdillah",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00190",
+      "empName": "Ridho Andythia",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00192",
+      "empName": "Rio",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00204",
+      "empName": "Rizky",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00254",
+      "empName": "Rizal Sahroni",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00078",
+      "empName": "Selamet Widodo",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00067",
+      "empName": "Suharjono",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00051",
+      "empName": "Suhartomo",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00244",
+      "empName": "Sabani Waruwu",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00217",
+      "empName": "Suherman Saputra",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00132",
+      "empName": "Septian Ade Pratama",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00130",
+      "empName": "Syafrilliyansyah",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00255",
+      "empName": "Suwari",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00149",
+      "empName": "Syahril",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00211",
+      "empName": "Taupik Hidayat",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00020",
+      "empName": "Tigo",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00219",
+      "empName": "Tiki Basista",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00210",
+      "empName": "Wanda Andika",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00191",
+      "empName": "Tino Poetra",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00272",
+      "empName": "Anggy",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00270",
+      "empName": "Bintang Pujiyono",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00269",
+      "empName": "Handrean Wahyu Nugroho",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00271",
+      "empName": "Kelvin Agustianto",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00268",
+      "empName": "Maxima Cahyani",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00273",
+      "empName": "Viranda",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00291",
+      "empName": "NOVI",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00287",
+      "empName": "Aan Kris Wanda",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00288",
+      "empName": "Yossi Pranata",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00289",
+      "empName": "Fuji Prastama",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00286",
+      "empName": "Anugrah Pratama Putra",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00302",
+      "empName": "DAVIN MEIGIYAWAN PUTRA",
+      "empId": ""
+    },
+    {
+      "empCode": "POM00304",
+      "empName": "Reza Sanjaya",
+      "empId": ""
+    }
+  ]
 }
