@@ -249,7 +249,7 @@ const LemburAdjustmentDialog = ({
             <Box sx={{ px: 2.5, py: 1.5, bgcolor: alpha(DARK.orange, 0.08), borderBottom: `1px solid ${alpha(DARK.orange, 0.2)}`, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <AccessTimeIcon sx={{ fontSize: 16, color: DARK.orange }} />
                 <Typography variant="caption" sx={{ color: DARK.orange, fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>
-                    DATA LIVE: MINUS_OVT dieksklusi (hanya OT1+OT2+OT3) | Input SELISIH jika Venus > Millware
+                    DATA LIVE | MINUS_OVT EXCLUDED | Standard/Workshop/Vehicle Lembur Types
                 </Typography>
             </Box>
 
@@ -308,19 +308,24 @@ const LemburAdjustmentDialog = ({
                                         <TableCell sx={{ color: DARK.muted, fontWeight: 700, fontSize: '0.7rem', borderColor: DARK.border }}>No</TableCell>
                                         <TableCell sx={{ color: DARK.muted, fontWeight: 700, fontSize: '0.7rem', borderColor: DARK.border }}>Nama</TableCell>
                                         <TableCell sx={{ color: DARK.muted, fontWeight: 700, fontSize: '0.7rem', borderColor: DARK.border }}>PTRJ ID</TableCell>
-                                        <TableCell sx={{ color: DARK.muted, fontWeight: 700, fontSize: '0.7rem', borderColor: DARK.border, textAlign: 'right' }}>Venus Lembur</TableCell>
-                                        <TableCell sx={{ color: DARK.muted, fontWeight: 700, fontSize: '0.7rem', borderColor: DARK.border, textAlign: 'right' }}>Millware Lembur</TableCell>
-                                        <TableCell sx={{ color: DARK.amber, fontWeight: 700, fontSize: '0.7rem', borderColor: DARK.border, textAlign: 'right' }}>SELISIH (Input)</TableCell>
+                                        <TableCell sx={{ color: DARK.muted, fontWeight: 700, fontSize: '0.7rem', borderColor: DARK.border }}>Type</TableCell>
+                                        <TableCell sx={{ color: DARK.muted, fontWeight: 700, fontSize: '0.7rem', borderColor: DARK.border, textAlign: 'right' }}>Venus</TableCell>
+                                        <TableCell sx={{ color: DARK.muted, fontWeight: 700, fontSize: '0.7rem', borderColor: DARK.border, textAlign: 'right' }}>Millware</TableCell>
+                                        <TableCell sx={{ color: DARK.amber, fontWeight: 700, fontSize: '0.7rem', borderColor: DARK.border, textAlign: 'right' }}>SELISIH</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
                                     {previewData.employees.map((emp, idx) => {
                                         const comp = emp.component || {};
+                                        const lemburType = emp.lemburType || 'standard';
+                                        const typeLabel = lemburType === 'workshop_control_account' ? 'WORKSHOP' : lemburType === 'vehicle_running' ? 'VEHICLE' : 'STANDARD';
+                                        const typeColor = lemburType === 'workshop_control_account' ? DARK.green : lemburType === 'vehicle_running' ? DARK.orange : DARK.muted;
                                         return (
                                             <TableRow key={emp.ptrjId} sx={{ '&:hover': { bgcolor: alpha(DARK.accent, 0.1) } }}>
                                                 <TableCell sx={{ color: DARK.text, fontSize: '0.75rem', borderColor: DARK.border }}>{idx + 1}</TableCell>
                                                 <TableCell sx={{ color: DARK.text, fontSize: '0.75rem', borderColor: DARK.border }}>{emp.name}</TableCell>
                                                 <TableCell sx={{ color: DARK.accent, fontSize: '0.75rem', borderColor: DARK.border, fontFamily: 'monospace' }}>{emp.ptrjId}</TableCell>
+                                                <TableCell sx={{ color: typeColor, fontSize: '0.65rem', borderColor: DARK.border, fontWeight: 700 }}>{typeLabel}</TableCell>
                                                 <TableCell sx={{ color: DARK.text, fontSize: '0.75rem', borderColor: DARK.border, textAlign: 'right' }}>{formatAmount(comp.venusAmount)}</TableCell>
                                                 <TableCell sx={{ color: DARK.muted, fontSize: '0.75rem', borderColor: DARK.border, textAlign: 'right' }}>{formatAmount(comp.millwareAmount)}</TableCell>
                                                 <TableCell sx={{ color: DARK.amber, fontWeight: 700, fontSize: '0.75rem', borderColor: DARK.border, textAlign: 'right' }}>{formatAmount(comp.inputAmount)}</TableCell>

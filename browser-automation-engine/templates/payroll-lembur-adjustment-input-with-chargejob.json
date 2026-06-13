@@ -182,24 +182,79 @@
                         "comment": "═══ INPUT DESCRIPTION ═══",
                         "action": "executeJavascript",
                         "params": {
-                            "script": "const value = \"TUNJANGAN LEMBUR\"; const selectors = ['#MainContent_txtDocDesc', '#MainContent_txtDescription', '#MainContent_txtDesc', '#MainContent_txtRemarks', 'input[id*=DocDesc]', 'input[id*=Description]', 'textarea[id*=Description]', 'textarea[id*=Remarks]']; const el = selectors.map(s => document.querySelector(s)).find(Boolean); if (el) { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); console.log('Payroll description set:', value); } else { console.log('Payroll description field not found'); }"
+                            "script": "const value = \"TUNJANGAN LEMBUR\"; const selectors = ['#MainContent_txtDocDesc', '#MainContent_txtDescription', '#MainContent_txtDocDesc', 'input[id*=DocDesc]', 'input[id*=Description]', 'textarea[id*=Description]']; const el = selectors.map(s => document.querySelector(s)).find(Boolean); if (el) { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); console.log('Payroll description set:', value); } else { console.log('Payroll description field not found'); }"
                         }
                     },
                     {
-                        "comment": "═══ INPUT TASK CODE (LEMBUR/AL0019) ═══",
-                        "action": "typeInput",
+                        "comment": "═══ INPUT TASK CODE (Dynamic based on lemburType) ═══",
+                        "action": "log",
                         "params": {
-                            "selector": "#MainContent_ddlTaskCode + input.ui-autocomplete-input",
-                            "value": "LEMBUR",
-                            "confirmKey": "Enter",
-                            "smartSelect": true,
-                            "selectFirstOption": true,
-                            "slowUntilSingle": true,
-                            "slowValue": "LEMBUR",
-                            "fallbackValues": [
-                                "AL0019",
-                                "TUNJANGAN LEMBUR",
-                                "OVERTIME"
+                            "message": "  Lembur Type: ${employee.lemburType}"
+                        }
+                    },
+                    {
+                        "comment": "Standard Lembur (AL0019) ═══",
+                        "action": "if",
+                        "params": {
+                            "condition": "employee.lemburType === 'standard'",
+                            "thenSteps": [
+                                {
+                                    "action": "typeInput",
+                                    "params": {
+                                        "selector": "#MainContent_ddlTaskCode + input.ui-autocomplete-input",
+                                        "value": "LEMBUR",
+                                        "confirmKey": "Enter",
+                                        "smartSelect": true,
+                                        "selectFirstOption": true,
+                                        "slowUntilSingle": true,
+                                        "slowValue": "LEMBUR",
+                                        "fallbackValues": ["AL0019", "TUNJANGAN LEMBUR", "OVERTIME"]
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "comment": "Workshop Control Account (AL0021) ═══",
+                        "action": "if",
+                        "params": {
+                            "condition": "employee.lemburType === 'workshop_control_account'",
+                            "thenSteps": [
+                                {
+                                    "action": "typeInput",
+                                    "params": {
+                                        "selector": "#MainContent_ddlTaskCode + input.ui-autocomplete-input",
+                                        "value": "WORKSHOP",
+                                        "confirmKey": "Enter",
+                                        "smartSelect": true,
+                                        "selectFirstOption": true,
+                                        "slowUntilSingle": true,
+                                        "slowValue": "WORKSHOP",
+                                        "fallbackValues": ["AL0021", "LEMBUR WORKSHOP", "WORKSHOP CONTROL"]
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "comment": "Vehicle Running (AL0022) ═══",
+                        "action": "if",
+                        "params": {
+                            "condition": "employee.lemburType === 'vehicle_running'",
+                            "thenSteps": [
+                                {
+                                    "action": "typeInput",
+                                    "params": {
+                                        "selector": "#MainContent_ddlTaskCode + input.ui-autocomplete-input",
+                                        "value": "VEHICLE",
+                                        "confirmKey": "Enter",
+                                        "smartSelect": true,
+                                        "selectFirstOption": true,
+                                        "slowUntilSingle": true,
+                                        "slowValue": "VEHICLE",
+                                        "fallbackValues": ["AL0022", "LEMBUR VEHICLE", "VEHICLE RUNNING"]
+                                    }
+                                }
                             ]
                         }
                     },
@@ -220,7 +275,7 @@
                     {
                         "action": "log",
                         "params": {
-                            "message": "  Parsed dimensions: Station=${chargeJobPart2}, Machine=${chargeJobPart3}, Expense=${chargeJobPart4}"
+                            "message": "  Parsed: Station=${chargeJobPart2}, Machine=${chargeJobPart3}, Expense=${chargeJobPart4}"
                         }
                     },
                     {
@@ -246,7 +301,9 @@
                                         "maxRetries": 2,
                                         "expectedFieldCount": "${expectedFieldCount}",
                                         "forceInput": true,
-                                        "checkIfAlreadyFilled": false
+                                        "checkIfAlreadyFilled": false,
+                                        "fallbackValue": " ",
+                                        "fallbackSearchValue": " "
                                     }
                                 }
                             ]
@@ -259,7 +316,7 @@
                         }
                     },
                     {
-                        "comment": "═══ INPUT MACHINE CODE (Part 3 dari ChargeJob) - AD Lists index 3 ═══",
+                        "comment": "═══ INPUT MACHINE/VEHICLE CODE (Part 3 dari ChargeJob) - AD Lists index 3 ═══",
                         "action": "if",
                         "params": {
                             "condition": "hasChargeJobPart3",
@@ -273,8 +330,32 @@
                                         "validationSelector": "#MainContent_MultiDimAcc_reqValSubBlk",
                                         "maxRetries": 2,
                                         "expectedFieldCount": "${expectedFieldCount}",
-                                        "fallbackValue": "LABOUR COST",
-                                        "fallbackSearchValue": "LABOUR",
+                                        "fallbackValue": " ",
+                                        "fallbackSearchValue": " ",
+                                        "forceInput": true,
+                                        "checkIfAlreadyFilled": false
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "comment": "Vehicle Running: Force vehicle code input if Part3 empty ═══",
+                        "action": "if",
+                        "params": {
+                            "condition": "employee.lemburType === 'vehicle_running' && !hasChargeJobPart3",
+                            "thenSteps": [
+                                {
+                                    "action": "retryInputWithValidation",
+                                    "params": {
+                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                        "index": 3,
+                                        "value": " ",
+                                        "validationSelector": "#MainContent_MultiDimAcc_reqValSubBlk",
+                                        "maxRetries": 2,
+                                        "expectedFieldCount": "${expectedFieldCount}",
+                                        "fallbackValue": " ",
+                                        "fallbackSearchValue": " ",
                                         "forceInput": true,
                                         "checkIfAlreadyFilled": false
                                     }
@@ -304,6 +385,30 @@
                                         "maxRetries": 2,
                                         "expectedFieldCount": "${expectedFieldCount}",
                                         "fallbackValue": "LABOUR",
+                                        "forceInput": true,
+                                        "checkIfAlreadyFilled": false
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "comment": "Workshop/Vehicle: Force expense code selection if Part4 empty ═══",
+                        "action": "if",
+                        "params": {
+                            "condition": "(employee.lemburType === 'workshop_control_account' || employee.lemburType === 'vehicle_running') && !hasChargeJobPart4",
+                            "thenSteps": [
+                                {
+                                    "action": "retryInputWithValidation",
+                                    "params": {
+                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                        "index": 4,
+                                        "value": "LABOUR",
+                                        "validationSelector": "#MainContent_MultiDimAcc_reqValExpCode",
+                                        "maxRetries": 2,
+                                        "expectedFieldCount": "${expectedFieldCount}",
+                                        "fallbackValue": " ",
+                                        "fallbackSearchValue": " ",
                                         "forceInput": true,
                                         "checkIfAlreadyFilled": false
                                     }

@@ -20,6 +20,53 @@ const getPayrollDocDate = (month, year) => {
 
 const toRoundedAmount = (value) => Math.round(Number(value) || 0);
 
+/**
+ * Detect lembur type based on chargeJob pattern
+ * Returns: 'workshop_control_account' | 'vehicle_running' | 'standard'
+ */
+const detectLemburType = (chargeJob) => {
+    if (!chargeJob) return 'standard';
+    const upperChargeJob = String(chargeJob).toUpperCase();
+
+    // Workshop Control Account patterns
+    if (upperChargeJob.includes('WORKSHOP') && upperChargeJob.includes('CONTROL ACCOUNT')) {
+        return 'workshop_control_account';
+    }
+
+    // Vehicle Running patterns
+    if (upperChargeJob.includes('VEHICLE') && upperChargeJob.includes('RUNNING')) {
+        return 'vehicle_running';
+    }
+
+    return 'standard';
+};
+
+/**
+ * Get AD code and search keyword based on lembur type
+ */
+const getLemburAdCode = (lemburType) => {
+    switch (lemburType) {
+        case 'workshop_control_account':
+            return {
+                adCode: 'AL0021',
+                adCodeDesc: '(AL) LEMBUR WORKSHOP CONTROL ACCOUNT',
+                adSearchKeyword: 'WORKSHOP'
+            };
+        case 'vehicle_running':
+            return {
+                adCode: 'AL0022',
+                adCodeDesc: '(AL) LEMBUR VEHICLE RUNNING',
+                adSearchKeyword: 'VEHICLE'
+            };
+        default:
+            return {
+                adCode: 'AL0019',
+                adCodeDesc: '(AL) TUNJANGAN LEMBUR',
+                adSearchKeyword: 'LEMBUR'
+            };
+    }
+};
+
 const ROUNDABLE_AMOUNT_FIELDS = [
     'venusAmount',
     'millwareAmount',
@@ -799,36 +846,41 @@ const prepareLemburAdjustmentData = async (month, year, options = {}) => {
                 continue;
             }
 
+            // Detect lembur type based on chargeJob
+            const lemburType = detectLemburType(emp.chargeJob);
+            const lemburAdCode = getLemburAdCode(lemburType);
+
             automationData.push({
                 employeeId: emp.id,
                 employeeName: emp.name,
                 ptrjId: emp.ptrjId,
                 chargeJob: emp.chargeJob,
+                lemburType,  // 'standard' | 'workshop_control_account' | 'vehicle_running'
                 components: [{
                     status: 'MISS',
                     componentKey: 'lembur',
-                    componentName: 'TUNJANGAN LEMBUR',
-                    sourceNames: ['TUNJANGAN LEMBUR'],
+                    componentName: lemburAdCode.adCodeDesc,
+                    sourceNames: [lemburAdCode.adSearchKeyword],
                     venusCompCode: 'LEMBUR',
                     venusAmount: shortfallAmount,
                     millwareAmount,
                     diff: shortfallAmount,
-                    adCode: 'AL0019',
-                    adCodeDesc: '(AL) TUNJANGAN LEMBUR',
-                    adCodeSource: 'fixed-adjustment',
-                    adSearchKeyword: 'LEMBUR',
+                    adCode: lemburAdCode.adCode,
+                    adCodeDesc: lemburAdCode.adCodeDesc,
+                    adCodeSource: 'detected-type',
+                    adSearchKeyword: lemburAdCode.adSearchKeyword,
                     type: 'Addition',
                     inputAmount: shortfallAmount,
                     shortfallAmount,
                     originalVenusAmount: venusAmount,
                     originalMillwareAmount: millwareAmount,
                     note: millwareAmount === 0
-                        ? 'Full lembur adjustment (Millware=0)'
-                        : `Partial lembur adjustment (Venus - MW = ${shortfallAmount})`
+                        ? `Full ${lemburType} lembur adjustment (Millware=0)`
+                        : `Partial ${lemburType} lembur adjustment (Venus - MW = ${shortfallAmount})`
                 }]
             });
 
-            console.log(`[PayrollLemburAdjustment] ${emp.name} (${emp.ptrjId}): Venus=${venusAmount}, MW=${millwareAmount}, Input=${shortfallAmount}`);
+            console.log(`[PayrollLemburAdjustment] ${emp.name} (${emp.ptrjId}): Type=${lemburType}, ADCode=${lemburAdCode.adCode}, Venus=${venusAmount}, MW=${millwareAmount}, Input=${shortfallAmount}`);
         }
 
         const singleRecordAutomationData = splitAutomationDataToSingleComponentRecords(automationData);
