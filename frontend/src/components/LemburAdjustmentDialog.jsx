@@ -70,11 +70,7 @@ const LemburAdjustmentDialog = ({
 
         setFetchingPreview(true);
         addLog('info', `Mengambil data adjustment lembur untuk ${month}/${year}...`);
-        if (payrollSource?.source === 'snapshot') {
-            addLog('info', `Sumber: Snapshot ${payrollSource.snapshotId?.slice(0, 8)}...`);
-        } else {
-            addLog('info', 'Sumber: Data Live (Venus HR)');
-        }
+        addLog('info', '⚡ MEMAKSAKAN DATA LIVE (MINUS_OVT dieksklusi dari Venus total)');
 
         try {
             const res = await fetch('/api/payroll/lembur-adjustment/prepare', {
@@ -253,7 +249,7 @@ const LemburAdjustmentDialog = ({
             <Box sx={{ px: 2.5, py: 1.5, bgcolor: alpha(DARK.orange, 0.08), borderBottom: `1px solid ${alpha(DARK.orange, 0.2)}`, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <AccessTimeIcon sx={{ fontSize: 16, color: DARK.orange }} />
                 <Typography variant="caption" sx={{ color: DARK.orange, fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase' }}>
-                    Input SELISIH snapshot: hanya jika Venus lembur lebih besar dari Millware
+                    DATA LIVE: MINUS_OVT dieksklusi (hanya OT1+OT2+OT3) | Input SELISIH jika Venus > Millware
                 </Typography>
             </Box>
 

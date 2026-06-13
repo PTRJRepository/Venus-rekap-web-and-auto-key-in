@@ -722,6 +722,10 @@ const prepareBerasAutomationData = async (month, year, options = {}) => {
  * Prepare lembur adjustment data - input only the DIFFERENCE (selisih) amount.
  * Only employees where Venus overtime allowance is greater than Millware are included.
  *
+ * NOTE: Selalu gunakan data LIVE untuk calculation ini.
+ * MINUS_OVT sudah dieksklusi dari total Venus lembur di payrollService.js
+ * (hanya OT1 + OT2 + OT3 yang dihitung, MINUS_OVT dilacak terpisah)
+ *
  * @param {number} month
  * @param {number} year
  */
@@ -729,10 +733,19 @@ const prepareLemburAdjustmentData = async (month, year, options = {}) => {
     try {
         console.log(`[PayrollAutomation] Preparing LEMBUR adjustment data for ${month}/${year}`);
 
-        const payrollResult = await fetchPayrollData(month, year, options.payrollSource || {});
+        // Force LIVE data untuk lembur adjustment - MINUS_OVT sudah dieksklusi di payrollService
+        const lemburOptions = {
+            ...options.payrollSource,
+            source: 'live'  // Selalu gunakan data live untuk perhitungan lembur
+        };
+        console.log(`[PayrollAutomation] Lembur adjustment: MEMAKSAKAN data LIVE (exclude snapshot)`);
+
+        const payrollResult = await fetchPayrollData(month, year, lemburOptions);
         if (!payrollResult.success) {
             throw new Error(payrollResult.error);
         }
+
+        console.log(`[PayrollAutomation] Lembur adjustment: Data source = ${payrollResult.sourceInfo?.source || 'live'}`);
 
         const automationData = [];
         const diagnostics = [];
@@ -758,11 +771,17 @@ const prepareLemburAdjustmentData = async (month, year, options = {}) => {
                 continue;
             }
 
+            // NOTE: emp.sync.lembur.venus SUDAH exclude MINUS_OVT (hanya OT1+OT2+OT3)
+            // Detail breakdown ada di emp.sync.lembur.venusDetail
             const rawVenusAmount = Math.abs(Number(emp.sync?.lembur?.venus) || 0);
             const rawMillwareAmount = Math.abs(Number(emp.sync?.lembur?.millware) || 0);
             const venusAmount = toRoundedAmount(rawVenusAmount);
             const millwareAmount = toRoundedAmount(rawMillwareAmount);
             const shortfallAmount = toRoundedAmount(Math.max(0, rawVenusAmount - rawMillwareAmount));
+
+            // Log breakdown untuk verification
+            const venusDetail = emp.sync?.lembur?.venusDetail || {};
+            console.log(`[PayrollLemburAdjustment] ${emp.name}: Venus=${venusAmount} (OT1=${venusDetail.ot1 || 0}, OT2=${venusDetail.ot2 || 0}, OT3=${venusDetail.ot3 || 0}, MinusOvt=${venusDetail.minusOvt || 0} EXCLUDED), MW=${millwareAmount}, Input=${shortfallAmount}`);
 
             if (shortfallAmount <= tolerance) {
                 diagnostics.push({
