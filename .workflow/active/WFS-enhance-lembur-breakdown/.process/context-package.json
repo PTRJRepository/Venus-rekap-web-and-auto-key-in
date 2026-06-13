@@ -1,0 +1,45 @@
+{
+  "session_id": "WFS-enhance-lembur-breakdown",
+  "created_at": "2026-06-13T12:00:00Z",
+  "project": "enhance-lembur-breakdown",
+  "conflict_risk": "low",
+  "context_summary": {
+    "goal": "Enhance lembur breakdown display di payroll comparison matrix",
+    "millware_breakdown": {
+      "current": "tunjangan_lembur (combined total)",
+      "components": [
+        "tunjangan_lembur_taskreg (from PR_TASKREGLN)",
+        "tunjangan_lembur_adtrans (from PR_ADTRANSLN)"
+      ]
+    },
+    "venus_breakdown": {
+      "current": "lembur.venus (combined total from OT1+OT2+OT3)",
+      "components": [
+        "#OT1# - OT Jam ke 1",
+        "#OT2# - OT Jam ke 2",
+        "#OT3# - OT Jam ke 3",
+        "#MINUS_OVT# - Kurang Bayar Overtime"
+      ]
+    }
+  },
+  "critical_files": [
+    "backend/services/payrollService.js",
+    "backend/services/payrollComparisonService.js",
+    "frontend/src/components/PayrollReport.jsx"
+  ],
+  "integration_points": {
+    "backend": {
+      "payrollService": "Calculates Venus lembur breakdown (OT1, OT2, OT3, MINUS_OVT)",
+      "payrollComparisonService": "Provides Millware breakdown (taskreg + adtrans)"
+    },
+    "frontend": {
+      "PayrollReport": "Matrix display + detail expansion",
+      "EmployeePayrollRow": "Detail tabs for variance analysis"
+    }
+  },
+  "constraints": [
+    "OT1/2/3 only included in Venus lembur",
+    "MINUS_OVT is salary adjustment, not overtime",
+    "OT4+ should be excluded"
+  ]
+}

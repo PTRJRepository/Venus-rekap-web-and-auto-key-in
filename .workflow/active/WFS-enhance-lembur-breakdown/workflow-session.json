@@ -1,0 +1,7 @@
+{
+  "session_id": "WFS-enhance-lembur-breakdown",
+  "project": "enhance-lembur-breakdown: Enhance lembur breakdown display di payroll comparison matrix. Millware: breakdown ADTRANS + TASKREG + TOTAL. Venus: breakdown OT1 + OT2 + OT3 + MINUS_OVT + TOTAL.",
+  "status": "planning",
+  "type": "workflow",
+  "created_at": "2026-06-13T12:00:00Z"
+}

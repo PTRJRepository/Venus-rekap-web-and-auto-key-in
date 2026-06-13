@@ -1,0 +1,39 @@
+{
+  "id": "IMPL-3",
+  "session_id": "WFS-enhance-lembur-breakdown",
+  "title": "Update Frontend Matrix Display for Lembur Breakdown",
+  "description": "Update PayrollComponentMatrix to show detailed lembur breakdown for both Venus and Millware",
+  "file": "frontend/src/components/PayrollReport.jsx",
+  "type": "frontend",
+  "phase": "implementation",
+  "priority": "high",
+  "tasks": [
+    {
+      "step": 1,
+      "action": "Locate lembur cell renderer",
+      "detail": "Find where cell.venus and cell.millware are rendered for lembur"
+    },
+    {
+      "step": 2,
+      "action": "Add Venus breakdown display",
+      "detail": "Show OT1, OT2, OT3 breakdown below main value"
+    },
+    {
+      "step": 3,
+      "action": "Add Millware breakdown display",
+      "detail": "Show TaskReg and AdTrans breakdown"
+    },
+    {
+      "step": 4,
+      "action": "Test visual display",
+      "detail": "Check matrix view shows breakdown correctly"
+    }
+  ],
+  "verification": {
+    "method": "visual",
+    "checkpoints": [
+      "Matrix Lembur column shows Venus breakdown",
+      "Matrix Lembur column shows Millware breakdown"
+    ]
+  }
+}

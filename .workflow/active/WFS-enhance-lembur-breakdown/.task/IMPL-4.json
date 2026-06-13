@@ -1,0 +1,40 @@
+{
+  "id": "IMPL-4",
+  "session_id": "WFS-enhance-lembur-breakdown",
+  "title": "Update Variance Analysis Tab for Detailed Lembur",
+  "description": "Expand EmployeePayrollRow Variance Analysis tab to show all lembur components separately",
+  "file": "frontend/src/components/PayrollReport.jsx",
+  "type": "frontend",
+  "phase": "implementation",
+  "priority": "medium",
+  "tasks": [
+    {
+      "step": 1,
+      "action": "Locate Variance Analysis tab renderer",
+      "detail": "Find where variance table is rendered in EmployeePayrollRow"
+    },
+    {
+      "step": 2,
+      "action": "Expand lembur row",
+      "detail": "Show OT1, OT2, OT3, MINUS_OVT as separate rows"
+    },
+    {
+      "step": 3,
+      "action": "Show Millware breakdown",
+      "detail": "Show TaskReg and AdTrans as separate comparison rows"
+    },
+    {
+      "step": 4,
+      "action": "Test employee detail expansion",
+      "detail": "Click employee row, verify breakdown in Variance tab"
+    }
+  ],
+  "verification": {
+    "method": "visual",
+    "checkpoints": [
+      "Employee row expansion shows detailed lembur breakdown",
+      "Venus components (OT1/2/3/MINUS_OVT) displayed",
+      "Millware components (TaskReg/AdTrans) displayed"
+    ]
+  }
+}

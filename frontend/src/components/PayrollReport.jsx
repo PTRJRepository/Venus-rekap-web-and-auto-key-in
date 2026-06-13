@@ -510,8 +510,39 @@ const PayrollComponentMatrix = ({ data, onPayrollAutomation, onBerasAutomation, 
                                 {row.cells.map((cell) => (
                                     <TableCell key={cell.key} align="center" sx={{ bgcolor: cell.status.code === 'EMPTY' ? '#fff' : cell.status.bg, borderLeft: '1px solid #eef2f7' }}>
                                         <Chip label={cell.syncable ? cell.status.label : 'INFO'} size="small" sx={{ height: 18, fontSize: '0.58rem', fontWeight: 900, color: cell.syncable ? cell.status.color : '#64748b', bgcolor: '#fff' }} />
-                                        <Typography sx={{ mt: 0.4, fontSize: '0.62rem', fontWeight: 800, color: '#0f172a' }}>{formatCurrency(cell.venus)}</Typography>
-                                        <Typography sx={{ fontSize: '0.58rem', color: '#64748b' }}>MW {formatCurrency(cell.millware)}</Typography>
+                                        {cell.key === 'lembur' ? (
+                                            // Lembur breakdown display
+                                            <React.Fragment>
+                                                <Typography sx={{ mt: 0.4, fontSize: '0.62rem', fontWeight: 800, color: '#0f172a' }}>Total: {formatCurrency(cell.venus)}</Typography>
+                                                <Typography sx={{ fontSize: '0.5rem', color: '#64748b' }}>
+                                                    OT1: {formatCurrency(cell.venusDetail?.ot1 || 0)}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '0.5rem', color: '#64748b' }}>
+                                                    OT2: {formatCurrency(cell.venusDetail?.ot2 || 0)}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '0.5rem', color: '#64748b' }}>
+                                                    OT3: {formatCurrency(cell.venusDetail?.ot3 || 0)}
+                                                </Typography>
+                                                {(cell.venusDetail?.minusOvt || 0) !== 0 && (
+                                                    <Typography sx={{ fontSize: '0.5rem', color: '#dc2626', fontWeight: 700 }}>
+                                                        Minus: {formatCurrency(cell.venusDetail?.minusOvt || 0)}
+                                                    </Typography>
+                                                )}
+                                                <Divider sx={{ my: 0.5 }} />
+                                                <Typography sx={{ fontSize: '0.52rem', color: '#00695c', fontWeight: 700 }}>MW: {formatCurrency(cell.millware)}</Typography>
+                                                <Typography sx={{ fontSize: '0.48rem', color: '#64748b' }}>
+                                                    TaskReg: {formatCurrency(cell.millwareDetail?.taskreg || 0)}
+                                                </Typography>
+                                                <Typography sx={{ fontSize: '0.48rem', color: '#64748b' }}>
+                                                    AdTrans: {formatCurrency(cell.millwareDetail?.adtrans || 0)}
+                                                </Typography>
+                                            </React.Fragment>
+                                        ) : (
+                                            <React.Fragment>
+                                                <Typography sx={{ mt: 0.4, fontSize: '0.62rem', fontWeight: 800, color: '#0f172a' }}>{formatCurrency(cell.venus)}</Typography>
+                                                <Typography sx={{ fontSize: '0.58rem', color: '#64748b' }}>MW {formatCurrency(cell.millware)}</Typography>
+                                            </React.Fragment>
+                                        )}
                                         {cell.key === 'beras' && (
                                             <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: '#475569' }}>
                                                 Base {formatCurrency(row.millware?.tunjangan_beras_base || 0)} + Tambalan {formatCurrency(row.millware?.tunjangan_beras_adtrans || 0)}
@@ -758,29 +789,61 @@ const EmployeePayrollRow = ({ row, index, perspective }) => {
                                                     <TableBody>
                                                         {[
                                                             { label: 'Gaji Pokok (HK x Rate)', key: 'gajiPokok' },
-                                                            { label: 'Lembur (Accumulated)', key: 'lembur' },
+                                                            // Lembur breakdown rows
+                                                            { label: '  - Lembur OT1 (OT Jam ke 1)', key: 'lembur_ot1', venusKey: 'lembur', venusField: 'ot1', subType: 'venus' },
+                                                            { label: '  - Lembur OT2 (OT Jam ke 2)', key: 'lembur_ot2', venusKey: 'lembur', venusField: 'ot2', subType: 'venus' },
+                                                            { label: '  - Lembur OT3 (OT Jam ke 3)', key: 'lembur_ot3', venusKey: 'lembur', venusField: 'ot3', subType: 'venus' },
+                                                            { label: '  - Minus Ovt (Kurang Bayar)', key: 'lembur_minus', venusKey: 'lembur', venusField: 'minusOvt', subType: 'venus', italic: true },
+                                                            { label: '  - Millware TaskReg (OT Hours)', key: 'lembur_taskreg', millwareKey: 'lembur', millwareField: 'taskreg', subType: 'millware' },
+                                                            { label: '  - Millware AdTrans (Topup)', key: 'lembur_adtrans', millwareKey: 'lembur', millwareField: 'adtrans', subType: 'millware' },
+                                                            { label: 'LEMBUR TOTAL', key: 'lembur', bold: true, bgColor: '#f0fdf4' },
+                                                            // Other components
                                                             { label: 'Tj. Jabatan', key: 'jabatan' },
                                                             { label: 'Tj. Beras', key: 'beras' },
                                                             { label: 'Total Premi', key: 'premi' },
                                                             { label: 'UPAH BERSIH (NET)', key: 'upahBersih', bold: true }
                                                         ].map(cat => {
-                                                            const v = sync?.[cat.key]?.venus || 0;
-                                                            const m = sync?.[cat.key]?.millware || 0;
-                                                            const diff = v - m;
+                                                            let v = 0, m = 0, diff = 0;
+                                                            let showVenus = true, showMillware = true;
+
+                                                            if (cat.subType === 'venus') {
+                                                                // Sub-detail for Venus lembur breakdown
+                                                                v = sync?.lembur?.venusDetail?.[cat.venusField] || 0;
+                                                                showMillware = false;
+                                                            } else if (cat.subType === 'millware') {
+                                                                // Sub-detail for Millware lembur breakdown
+                                                                m = sync?.lembur?.millwareDetail?.[cat.millwareField] || 0;
+                                                                showVenus = false;
+                                                            } else if (cat.key === 'lembur') {
+                                                                // Lembur total row
+                                                                v = sync?.lembur?.venus || 0;
+                                                                m = sync?.lembur?.millware || 0;
+                                                            } else {
+                                                                v = sync?.[cat.key]?.venus || 0;
+                                                                m = sync?.[cat.key]?.millware || 0;
+                                                            }
+
+                                                            diff = v - m;
+
                                                             return (
-                                                                <TableRow key={cat.key} sx={{ bgcolor: cat.bold ? '#f0f9ff' : 'transparent' }}>
-                                                                    <TableCell sx={{ fontSize: '0.75rem', fontWeight: cat.bold ? 800 : 400 }}>{cat.label}</TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: '0.75rem' }}>{formatCurrency(v)}</TableCell>
+                                                                <TableRow key={cat.key} sx={{
+                                                                    bgcolor: cat.bold ? (cat.bgColor || '#f0f9ff') : 'transparent',
+                                                                    fontStyle: cat.italic ? 'italic' : 'normal'
+                                                                }}>
+                                                                    <TableCell sx={{ fontSize: '0.75rem', fontWeight: cat.bold ? 800 : 400, fontStyle: cat.italic ? 'italic' : 'normal' }}>{cat.label}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: '0.75rem', fontStyle: cat.italic ? 'italic' : 'normal' }}>
+                                                                        {showVenus && formatCurrency(v)}
+                                                                    </TableCell>
                                                                     <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
-                                                                        {formatCurrency(m)}
+                                                                        {showMillware && formatCurrency(m)}
                                                                         {cat.key === 'beras' && (
                                                                             <Typography component="div" sx={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700 }}>
                                                                                 Base {formatCurrency(mw?.tunjangan_beras_base || 0)} + Tambalan {formatCurrency(mw?.tunjangan_beras_adtrans || 0)}
                                                                             </Typography>
                                                                         )}
                                                                     </TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: '0.75rem', fontWeight: 800, color: Math.abs(diff) > 50 ? '#dc2626' : '#16a34a' }}>
-                                                                        {formatCurrency(diff)}
+                                                                    <TableCell align="right" sx={{ fontSize: '0.75rem', fontWeight: 800, color: cat.bold ? '#00695c' : (Math.abs(diff) > 50 ? '#dc2626' : '#16a34a') }}>
+                                                                        {cat.bold ? formatCurrency(diff) : (showVenus || showMillware ? formatCurrency(diff) : '-')}
                                                                     </TableCell>
                                                                 </TableRow>
                                                             );

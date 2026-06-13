@@ -257,12 +257,31 @@ const fetchLivePayrollData = async (month, year) => {
             const mw = millwareData[py.ptrjId] || null;
 
             // Calculate Venus aggregations for comparison
-            let vLembur = 0, vJabatan = 0, vBeras = 0, vMasaKerja = 0, vPremi = 0, vCompanyPaidBenefits = 0;
+            // Lembur breakdown: OT1, OT2, OT3 (exclude MINUS_OVT from total)
+            let vLemburOT1 = 0, vLemburOT2 = 0, vLemburOT3 = 0, vLemburMinusOvt = 0;
+            let vJabatan = 0, vBeras = 0, vMasaKerja = 0, vPremi = 0, vCompanyPaidBenefits = 0;
             const companyPaidBenefitDetails = [];
             py.tunjanganDetails.forEach(d => {
                 const key = getPayrollComponentKey(d);
-                if (key === 'lembur') vLembur += d.amount;
-                else if (key === 'jabatan') vJabatan += d.amount;
+                const code = String(d.code || d.PYCompCode || '').toUpperCase();
+                const name = String(d.name || d.PYCompName || '').toUpperCase();
+
+                // Lembur breakdown by code
+                if (code === '#OT1#' || name.includes('OT JAM KE-1') || name.includes('OT JAM KE 1')) {
+                    vLemburOT1 += d.amount;
+                } else if (code === '#OT2#' || name.includes('OT JAM KE-2') || name.includes('OT JAM KE 2')) {
+                    vLemburOT2 += d.amount;
+                } else if (code === '#OT3#' || name.includes('OT JAM KE-3') || name.includes('OT JAM KE 3')) {
+                    vLemburOT3 += d.amount;
+                } else if (code === '#MINUS_OVT#' || (name.includes('KURANG') && name.includes('BAYAR') && name.includes('OVERTIME'))) {
+                    // Kurang bayar overtime - track separately, exclude from total
+                    vLemburMinusOvt += d.amount;
+                } else if (key === 'lembur') {
+                    // Generic lembur fallback (should not match after code-specific checks above)
+                    vLemburOT1 += d.amount; // Treat as OT1 if generic
+                }
+
+                if (key === 'jabatan') vJabatan += d.amount;
                 else if (key === 'beras') vBeras += d.amount;
                 else if (key === 'masaKerja') vMasaKerja += d.amount;
                 else if (key === 'premi') vPremi += d.amount;
@@ -277,6 +296,9 @@ const fetchLivePayrollData = async (month, year) => {
                     });
                 }
             });
+
+            // Total Venus Lembur = OT1 + OT2 + OT3 (exclude MINUS_OVT)
+            const vLembur = vLemburOT1 + vLemburOT2 + vLemburOT3;
 
             let vPph21 = 0, vBpjsKes = 0, vBpjsPen = 0, vSpsi = 0, vOtherAutoDeductions = 0;
             const otherAutoDeductionDetails = [];
@@ -345,7 +367,20 @@ const fetchLivePayrollData = async (month, year) => {
             const sync = {
                 isSynced: false,
                 gajiPokok: { venus: py.gajiPokok, millware: mw ? mw.gaji_pokok || 0 : 0 },
-                lembur: { venus: vLembur, millware: mw ? mw.tunjangan_lembur || 0 : 0 },
+                lembur: {
+                    venus: vLembur,
+                    millware: mw ? mw.tunjangan_lembur || 0 : 0,
+                    venusDetail: {
+                        ot1: vLemburOT1,
+                        ot2: vLemburOT2,
+                        ot3: vLemburOT3,
+                        minusOvt: vLemburMinusOvt
+                    },
+                    millwareDetail: mw ? {
+                        taskreg: mw.tunjangan_lembur_taskreg || mw.tunjangan_lembur || 0,
+                        adtrans: mw.tunjangan_lembur_adtrans || 0
+                    } : null
+                },
                 jabatan: { venus: vJabatan, millware: mw ? mw.tunjangan_jabatan || 0 : 0 },
                 beras: { venus: vBeras, millware: mw ? mw.tunjangan_beras || 0 : 0 },
                 masaKerja: { venus: vMasaKerja, millware: mw ? mw.tunjangan_masa_kerja || 0 : 0 },

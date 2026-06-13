@@ -1,0 +1,32 @@
+{
+  "id": "IMPL-2",
+  "session_id": "WFS-enhance-lembur-breakdown",
+  "title": "Enhance Millware Lembur Breakdown in payrollComparisonService.js",
+  "description": "Ensure Millware lembur breakdown (taskreg + adtrans) is properly exposed in sync object",
+  "file": "backend/services/payrollComparisonService.js",
+  "type": "backend",
+  "phase": "implementation",
+  "priority": "high",
+  "tasks": [
+    {
+      "step": 1,
+      "action": "Verify existing breakdown calculation",
+      "detail": "Check calculateMillwareOvertimeAllowance returns taskRegisterAmount and adTransAmount"
+    },
+    {
+      "step": 2,
+      "action": "Add millwareDetail to finalResults",
+      "detail": "Add millwareDetail object with taskreg and adtrans breakdown"
+    },
+    {
+      "step": 3,
+      "action": "Test API response",
+      "detail": "Verify breakdown appears in /api/payroll response"
+    }
+  ],
+  "verification": {
+    "method": "api_test",
+    "command": "curl /api/payroll?month=5&year=2026 | jq '.data[0].millware.tunjangan_lembur_taskreg'",
+    "expected": "Returns numeric value > 0"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "id": "IMPL-1",
+  "session_id": "WFS-enhance-lembur-breakdown",
+  "title": "Enhance Venus Lembur Breakdown in payrollService.js",
+  "description": "Parse individual Venus overtime components (OT1, OT2, OT3, MINUS_OVT) and add breakdown to sync object",
+  "file": "backend/services/payrollService.js",
+  "type": "backend",
+  "phase": "implementation",
+  "priority": "high",
+  "tasks": [
+    {
+      "step": 1,
+      "action": "Create Venus lembur breakdown variables",
+      "detail": "Add vLemburOT1, vLemburOT2, vLemburOT3, vLemburMinusOvt variables"
+    },
+    {
+      "step": 2,
+      "action": "Parse individual components",
+      "detail": "Map #OT1#, #OT2#, #OT3#, #MINUS_OVT# codes to separate variables"
+    },
+    {
+      "step": 3,
+      "action": "Calculate Venus lembur total",
+      "detail": "Sum OT1+OT2+OT3 (exclude MINUS_OVT from total)"
+    },
+    {
+      "step": 4,
+      "action": "Add to sync object",
+      "detail": "Add venusDetail with ot1, ot2, ot3, minusOvt breakdown"
+    },
+    {
+      "step": 5,
+      "action": "Test API response",
+      "detail": "Verify breakdown appears in /api/payroll response"
+    }
+  ],
+  "verification": {
+    "method": "api_test",
+    "command": "curl /api/payroll?month=5&year=2026 | jq '.data[0].sync.lembur'",
+    "expected": "Has venusDetail.ot1, venusDetail.ot2, venusDetail.ot3, venusDetail.minusOvt"
+  }
+}
