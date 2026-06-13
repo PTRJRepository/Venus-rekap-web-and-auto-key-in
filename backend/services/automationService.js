@@ -43,6 +43,17 @@ const getMillwareDetail = (millwareInfo, key) => {
     return undefined;
 };
 
+const toNumber = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const isRegularHoursMatched = (att = {}) => {
+    const hasRegularRecord = getMillwareDetail(att.millwareInfo, 'hasRegularRecord') === true;
+    const millwareNormal = toNumber(getMillwareDetail(att.millwareInfo, 'millwareNormal'));
+    return hasRegularRecord && millwareNormal > 0;
+};
+
 const buildLatestEmployeeMap = async (month, year) => {
     const matrixEmployees = await fetchAttendanceData(Number(month), Number(year), { showStaff: true });
     const byVenusId = {};
@@ -238,7 +249,7 @@ const saveAutomationData = async (data) => {
                     // Granular skipping logic
                     // If detailed info exists, use it to determine if specific parts should be skipped
                     if (att.millwareInfo) {
-                        att.skipRegular = getMillwareDetail(att.millwareInfo, 'regularMatched') === true;
+                        att.skipRegular = isRegularHoursMatched(att);
                         att.skipOvertime = getMillwareDetail(att.millwareInfo, 'otMatched') === true;
                         // DEBUG LOG for user assurance
                         if (att.skipRegular) {
@@ -287,7 +298,27 @@ const saveAutomationData = async (data) => {
                 // We use multiple conditions to ensure ONLY truly missing data passes through
                 // CRITICAL: Only input data that DOESN'T exist at all in Millware
 
-                if (att.syncStatus === 'MATCH' || att.syncDetail === 'synced' || att.status === 'ALFA') {
+                if (syncRegularOnly) {
+                    const statusUpper = String(att.status || '').trim().toUpperCase();
+                    const needsRegular = !['ALFA', 'N/A'].includes(statusUpper);
+                    const hasRegularRecord = getMillwareDetail(att.millwareInfo, 'hasRegularRecord') === true;
+                    const millwareNormal = toNumber(getMillwareDetail(att.millwareInfo, 'millwareNormal'));
+                    const venusRegular = toNumber(att.regularHours);
+                    const regularExists = isRegularHoursMatched(att);
+
+                    if (!needsRegular) {
+                        shouldKeep = false;
+                        reason = `Status ${statusUpper || '-'} tidak perlu regular`;
+                    } else if (regularExists) {
+                        shouldKeep = false;
+                        reason = `Regular sudah ada (Venus ${venusRegular}h, Millware ${millwareNormal}h)`;
+                    } else {
+                        shouldKeep = true;
+                        reason = hasRegularRecord
+                            ? `Regular kosong/0h di Millware`
+                            : `Regular MISSING`;
+                    }
+                } else if (att.syncStatus === 'MATCH' || att.syncDetail === 'synced' || att.status === 'ALFA') {
                     shouldKeep = false;
                     reason = `Already synced (MATCH) or ALFA`;
                 } else if (att.syncStatus !== 'MISS') {
@@ -299,32 +330,16 @@ const saveAutomationData = async (data) => {
                         // OT Mode: Only keep if OT is MISSING in Millware
                         const venusOT = att.overtimeHours || 0;
                         const hasOTRecord = getMillwareDetail(att.millwareInfo, 'hasOTRecord') === true;
-                        const hasRegularRecord = getMillwareDetail(att.millwareInfo, 'hasRegularRecord') === true;
 
                         if (venusOT === 0) {
                             shouldKeep = false;
                             reason = `Venus OT = 0 (tidak ada lembur)`;
-                        } else if (!hasRegularRecord) {
-                            shouldKeep = false;
-                            reason = `⛔ Prerequisites not met: Regular attendance belum ada`;
                         } else if (!hasOTRecord) {
                             shouldKeep = true;
                             reason = `OT MISSING`;
                         } else {
                             shouldKeep = false;
                             reason = `OT sudah ada record-nya`;
-                        }
-                    }
-                    else if (syncRegularOnly) {
-                        // Regular Mode: Only keep if Regular is MISSING in Millware
-                        const hasRegularRecord = getMillwareDetail(att.millwareInfo, 'hasRegularRecord') === true;
-
-                        if (hasRegularRecord) {
-                            shouldKeep = false;
-                            reason = `Regular record exists in Millware`;
-                        } else {
-                            shouldKeep = true;
-                            reason = `Regular MISSING`;
                         }
                     }
                     else {

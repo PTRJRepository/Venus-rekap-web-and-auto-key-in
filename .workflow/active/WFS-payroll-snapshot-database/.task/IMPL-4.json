@@ -1,0 +1,29 @@
+﻿{
+    "id":  "IMPL-4",
+    "title":  "Propagate snapshot source to export, automation, beras, and AD reset",
+    "description":  "Thread payroll source options through backend payroll export, normal payroll automation, beras automation, and AD reset amount-difference flows so downstream operations use the same source shown to the user.",
+    "files":  [
+                  "backend/services/payrollAutomationService.js",
+                  "backend/services/payrollADResetService.js",
+                  "backend/services/payrollExportService.js",
+                  "backend/server.js"
+              ],
+    "depends_on":  [
+                       "IMPL-2",
+                       "IMPL-3"
+                   ],
+    "convergence":  [
+                        "Export accepts source and snapshotId.",
+                        "Payroll automation accepts source and snapshotId.",
+                        "Beras automation accepts source and snapshotId.",
+                        "AD reset amount-difference preview/run accepts source and snapshotId.",
+                        "Live default behavior is unchanged."
+                    ],
+    "meta":  {
+                 "type":  "backend-integration",
+                 "agent":  "code_developer",
+                 "risk":  "high"
+             },
+    "status":  "completed",
+    "completed_at":  "2026-06-12T15:38:42.8654669+07:00"
+}

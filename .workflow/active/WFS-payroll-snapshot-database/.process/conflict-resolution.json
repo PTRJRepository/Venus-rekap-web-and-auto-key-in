@@ -1,0 +1,27 @@
+{
+  "resolved_at": "2026-06-12T00:00:00+07:00",
+  "conflicts": [
+    {
+      "area": "payroll backend files",
+      "severity": "high",
+      "description": "Multiple target files already have uncommitted changes. Blind edits can overwrite active work.",
+      "strategy": "Before implementation, inspect file-level diffs and integrate snapshot changes as small targeted patches.",
+      "impact": "Implementation order must start with database/service files that have no existing edits, then carefully adapt existing payroll services."
+    },
+    {
+      "area": "payroll UI",
+      "severity": "high",
+      "description": "PayrollReport.jsx is already modified and is the primary UI integration point.",
+      "strategy": "Add snapshot controls in a compact toolbar area after reading current component structure. Avoid large UI rewrites.",
+      "impact": "UI task should be executed after backend API contract is stable."
+    },
+    {
+      "area": "automation and reset source consistency",
+      "severity": "medium",
+      "description": "Automation, export, beras automation, and AD reset currently fetch live payroll data independently.",
+      "strategy": "Introduce a single payroll source options object and pass it through all downstream calls.",
+      "impact": "Tests must prove snapshot source does not call live gateway functions."
+    }
+  ],
+  "summary": "Proceed with a sequential implementation plan. Start with additive snapshot service/schema, then source selection, then routes, downstream integrations, UI, and tests."
+}

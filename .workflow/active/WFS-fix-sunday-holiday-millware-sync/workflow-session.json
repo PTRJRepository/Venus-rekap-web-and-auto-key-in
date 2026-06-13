@@ -1,0 +1,15 @@
+﻿{
+  "session_id": "WFS-fix-sunday-holiday-millware-sync",
+  "status": "planning",
+  "created_at": "2026-06-09T10:55:00+07:00",
+  "task_description": "Fix attendance comparison so Sunday and national holiday auto-attendance in Venus is not treated as synced unless required Millware PR_TASKREGLN regular data exists. POM00214 Sunday case must show not synced when Millware data is missing.",
+  "mode": "plan",
+  "scope": [
+    "backend/services/comparisonService.js",
+    "frontend/src/components/AttendanceMatrix.jsx",
+    "frontend/src/App.jsx",
+    "focused regression tests or scripts for Sunday/holiday missing Millware records"
+  ],
+  "conflict_risk": "high",
+  "conflict_notes": "git status shows pre-existing modifications in backend/services/comparisonService.js, frontend/src/components/AttendanceMatrix.jsx, frontend/src/App.jsx, and related files. Do not overwrite; inspect diffs before implementation and edit only targeted lines."
+}

@@ -1,0 +1,50 @@
+﻿{
+  "session_id": "WFS-fix-sunday-holiday-millware-sync",
+  "goal": "Ensure Sunday/holiday Venus auto-attendance is only marked synced when Millware has corresponding regular PR_TASKREGLN data.",
+  "code_context": [
+    {
+      "path": "backend/services/comparisonService.js",
+      "responsibility": "Queries PR_TASKREGLN and emits per employee-date comparison results.",
+      "relevant_logic": [
+        "queryTaskRegData(startDate, endDate, empCodes)",
+        "compareWithTaskReg(venusData, startDate, endDate, options)",
+        "hasRegularRecord = millwareRecords.some(r => r.OT == 0 || r.OT == false)",
+        "needsRegularRecord currently based on not ALFA/N/A",
+        "details carries hasRegularRecord/regularMatched to frontend"
+      ]
+    },
+    {
+      "path": "frontend/src/App.jsx",
+      "responsibility": "Runs /api/comparison/compare and converts result details into comparisonData map.",
+      "relevant_logic": [
+        "handleComparisonComplete(result)",
+        "map[key].hasRegularRecord = r.details.hasRegularRecord === true",
+        "map[key].regularMatched = r.details.regularMatched === true"
+      ]
+    },
+    {
+      "path": "frontend/src/components/AttendanceMatrix.jsx",
+      "responsibility": "Renders attendance matrix comparison states and summary counts.",
+      "relevant_logic": [
+        "renderWarning comparison tooltip has needsRegular excluding OFF",
+        "getSyncStatus requires hasRegularRecord for non ALFA/N/A",
+        "summary counts call getSyncStatus for presence and OT"
+      ]
+    },
+    {
+      "path": "backend/services/attendanceService.js",
+      "responsibility": "Builds Venus attendance day records and auto-attendance statuses for Sunday/holiday.",
+      "relevant_logic": [
+        "Sunday missing Venus record is displayed as OFF with regularHours = 7",
+        "Holiday missing Venus record is displayed as LBR with regularHours based on day type"
+      ]
+    }
+  ],
+  "known_example": {
+    "ptrjId": "POM00214",
+    "dates": ["2026-05-03", "2026-05-10"],
+    "expected_when_millware_missing": "status MISS / syncStatus mismatch or not_synced; UI red not synced"
+  },
+  "conflict_risk": "high",
+  "testing_notes": "Backend has node:test style tests in backend/services/*.test.js. Frontend has utility tests and build script, but AttendanceMatrix appears not covered by unit tests. Prefer adding a small pure helper export if feasible, otherwise add focused backend regression and build verification."
+}

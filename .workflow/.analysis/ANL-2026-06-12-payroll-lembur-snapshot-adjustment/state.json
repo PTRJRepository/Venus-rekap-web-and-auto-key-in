@@ -1,0 +1,26 @@
+{
+  "session_id": "ANL-2026-06-12-payroll-lembur-snapshot-adjustment",
+  "topic": "Pelajari fitur adjustment/penyesuaian lembur saat opsi snapshot dipilih di payroll matrix comparison. Selisih yang diinput adalah Venus lembur lebih besar dari Plantware/Millware, masuk Monthly Allowance and Deduction dengan ADCode AL0019 TUNJANGAN LEMBUR dan charge job seperti task register.",
+  "depth": "standard",
+  "dimensions": ["implementation", "architecture"],
+  "perspectives": ["technical"],
+  "current_round": 1,
+  "current_phase": "synthesis",
+  "confidence": {
+    "overall": 0.78,
+    "weakest": "browser automation selector certainty",
+    "dimensions": {
+      "implementation": 0.82,
+      "architecture": 0.78,
+      "browser automation selector certainty": 0.66
+    }
+  },
+  "quality": {
+    "pressure_pass_done": true,
+    "challenge_modes_used": ["scope-minimizer"],
+    "residual_risks": [
+      "Need live smoke/dry-run against Millware AD Lists for AL0019 with charge job because selector indexes are inferred from beras template.",
+      "Worktree has many existing uncommitted changes; implementation should avoid broad refactors."
+    ]
+  }
+}

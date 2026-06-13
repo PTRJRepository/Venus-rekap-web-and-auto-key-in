@@ -117,4 +117,30 @@ export const fetchComparisonData = async (startDate, endDate, empCodes = null, o
     }
 };
 
+// Export payroll comparison to CSV
+export const exportPayrollCSV = async (month, year, filter = 'all') => {
+    try {
+        const response = await apiClient.get('/payroll/export', {
+            params: { month, year, format: 'csv', filter }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error exporting payroll CSV:', error);
+        throw error;
+    }
+};
+
+// Export payroll comparison to Excel
+export const exportPayrollExcel = async (month, year, filter = 'all') => {
+    try {
+        const response = await apiClient.get('/payroll/export', {
+            params: { month, year, format: 'xlsx', filter }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error exporting payroll Excel:', error);
+        throw error;
+    }
+};
+
 export default apiClient;

@@ -63,6 +63,65 @@ assert.equal(employeeLoop.params.steps.some(step => step.comment === '═══ 
 assert.equal(employeeLoop.params.steps.some(step => step.comment === '═══ VERIFY PAYROLL DOC DATE BEFORE ADD ═══'), true);
 assert.equal(employeeLoop.params.steps.some(step => step.comment === '═══ VERIFY PAYROLL DOC DATE BEFORE SAVE ═══'), true);
 
+const berasTemplatePath = path.join(__dirname, 'templates', 'payroll-beras-input-with-chargejob.json');
+assert.equal(fs.existsSync(berasTemplatePath), true);
+const berasTemplate = JSON.parse(fs.readFileSync(berasTemplatePath, 'utf8'));
+const berasEmployeeLoop = berasTemplate.steps.find(step => step.action === 'forEachProperty' && step.params?.object === 'employees');
+assert.equal(Boolean(berasEmployeeLoop), true);
+const berasSteps = berasEmployeeLoop.params.steps;
+const findRetryDimensionStepIndex = (condition, validationSelector) => berasSteps.findIndex(step =>
+    step.action === 'if'
+    && step.params?.condition === condition
+    && step.params?.thenSteps?.some(inner =>
+        inner.action === 'retryInputWithValidation'
+        && inner.params?.validationSelector === validationSelector
+    )
+);
+const getRetryDimensionParams = (index) => berasSteps[index].params.thenSteps.find(inner => inner.action === 'retryInputWithValidation').params;
+const parseChargeJobIndex = berasSteps.findIndex(step => step.action === 'parseChargeJob');
+const stationIndex = findRetryDimensionStepIndex('hasChargeJobPart2', '#MainContent_MultiDimAcc_reqValBlock');
+const machineIndex = findRetryDimensionStepIndex('hasChargeJobPart3', '#MainContent_MultiDimAcc_reqValSubBlk');
+const expenseIndex = findRetryDimensionStepIndex('hasChargeJobPart4', '#MainContent_MultiDimAcc_reqValExpCode');
+const berasAmountIndex = berasSteps.findIndex(step => step.action === 'typeInput' && step.params?.selector === '#MainContent_txtAmount');
+assert.equal(parseChargeJobIndex >= 0, true);
+assert.equal(stationIndex > parseChargeJobIndex, true);
+assert.equal(machineIndex > stationIndex, true);
+assert.equal(expenseIndex > machineIndex, true);
+assert.equal(berasAmountIndex > expenseIndex, true);
+assert.deepEqual(getRetryDimensionParams(stationIndex), {
+    selector: '.ui-autocomplete-input.CBOBox',
+    index: 2,
+    value: '${chargeJobPart2}',
+    validationSelector: '#MainContent_MultiDimAcc_reqValBlock',
+    maxRetries: 2,
+    expectedFieldCount: '${expectedFieldCount}',
+    forceInput: true,
+    checkIfAlreadyFilled: false
+});
+assert.deepEqual(getRetryDimensionParams(machineIndex), {
+    selector: '.ui-autocomplete-input.CBOBox',
+    index: 3,
+    value: '${chargeJobPart3}',
+    validationSelector: '#MainContent_MultiDimAcc_reqValSubBlk',
+    maxRetries: 2,
+    expectedFieldCount: '${expectedFieldCount}',
+    fallbackValue: 'LABOUR COST',
+    fallbackSearchValue: 'LABOUR',
+    forceInput: true,
+    checkIfAlreadyFilled: false
+});
+assert.deepEqual(getRetryDimensionParams(expenseIndex), {
+    selector: '.ui-autocomplete-input.CBOBox',
+    index: 4,
+    value: '${chargeJobPart4}',
+    validationSelector: '#MainContent_MultiDimAcc_reqValExpCode',
+    maxRetries: 2,
+    expectedFieldCount: '${expectedFieldCount}',
+    fallbackValue: 'LABOUR',
+    forceInput: true,
+    checkIfAlreadyFilled: false
+});
+
 (async () => {
 const result = await runPayrollAutomation({
         dataFile: path.join(__dirname, 'testing_data', 'current_payroll_data.json'),

@@ -11,8 +11,9 @@ const { id } = require('date-fns/locale');
 
 // --- Constants ---
 const WORK_HOURS = {
-    NORMAL: 7.0,
-    SHORT: 5.0
+    NORMAL: 7.0,   // Weekdays (Mon-Fri) + Sunday + Weekday Holidays
+    SHORT: 5.0,    // Saturday + Saturday Holidays
+    SUNDAY: 7.0    // Sunday mandatory working hours
 };
 
 // --- Leave Type Configuration ---

@@ -1,0 +1,26 @@
+{
+  "session_id": "WFS-beras-selisih-monthly-allowance",
+  "task_ids": [
+    "IMPL-1",
+    "IMPL-2",
+    "IMPL-3",
+    "IMPL-4",
+    "IMPL-5"
+  ],
+  "recommended_execution": "sequential",
+  "complexity": "medium-high",
+  "shared_context": {
+    "goal": "Input beras selisih to Monthly Allowance/Deduction with account dimensions.",
+    "source_amount": "Venus - Millware positive shortfall",
+    "preferred_runner": "browser-automation-engine/payroll-runner.js",
+    "preferred_template": "browser-automation-engine/templates/payroll-ad-input.json",
+    "critical_risk": "Resolve beras AD code AL0011 vs AL0012 before live automation.",
+    "conflict_policy": "Preserve existing uncommitted work."
+  },
+  "quality_gate": {
+    "requires_dry_run": true,
+    "requires_mapping_confirmation": true,
+    "requires_template_order_test": true,
+    "live_automation_requires_user_confirmation": true
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "IMPL-1",
+  "status": "completed",
+  "summary_path": ".summaries/IMPL-1-summary.md",
+  "title": "Normalize beras selisih payload and resolve mapping",
+  "description": "Update/verify backend beras preparation so generated payroll payload contains one beras selisih record per employee, chargeJob data for account dimensions, original amount audit fields, and the correct AD code after resolving AL0011 versus AL0012.",
+  "depends_on": [],
+  "convergence": "Payload is valid for payroll-runner dry-run and contains enough data for Station/Machine/Expense input.",
+  "meta": {
+    "type": "backend",
+    "agent": "implementation",
+    "files": [
+      "backend/services/payrollAutomationService.js",
+      "backend/services/payrollComponentMapping.js",
+      "backend/config/payroll-comparison-config.json",
+      "browser-automation-engine/testing_data/payroll_taskcode_mapping.json"
+    ],
+    "tests": [
+      "backend/services/payrollAutomationService.test.js or focused node test",
+      "browser-automation-engine/payroll-dry-runner.js current_payroll_beras_data.json"
+    ]
+  }
+}

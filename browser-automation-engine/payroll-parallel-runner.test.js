@@ -1,9 +1,20 @@
 const assert = require('node:assert/strict');
-const { parseArgs, partitionEmployees, filterPayload, splitPayloadToSingleComponentRecords, runPayrollParallel } = require('./payroll-parallel-runner');
+const {
+    parseArgs,
+    partitionEmployees,
+    filterPayload,
+    splitPayloadToSingleComponentRecords,
+    buildIsolatedRowBatches,
+    runPayrollParallel
+} = require('./payroll-parallel-runner');
 
 assert.equal(parseArgs(['--tabs', '5', '--no-headless', 'data.json']).workers, 5);
 assert.equal(parseArgs(['--tabs=5', '--dry-run']).dryRunOnly, true);
 assert.equal(parseArgs(['--component-type=Addition']).componentType, 'Addition');
+assert.equal(parseArgs(['payroll-lembur-adjustment-input-with-chargejob', 'data.json']).templateName, 'payroll-lembur-adjustment-input-with-chargejob');
+assert.equal(parseArgs(['payroll-lembur-adjustment-input-with-chargejob', 'data.json']).dataFile, 'data.json');
+assert.equal(parseArgs(['--template=payroll-beras-input-with-chargejob', 'data.json']).templateName, 'payroll-beras-input-with-chargejob');
+assert.equal(parseArgs(['--isolate-rows']).isolateRows, true);
 
 const employees = [
     { employeeName: 'A', components: [{}, {}, {}, {}] },
@@ -18,6 +29,12 @@ const partitions = partitionEmployees(employees, 5);
 assert.equal(partitions.length, 5);
 assert.equal(partitions.flat().length, employees.length);
 assert.equal(new Set(partitions.flat().map(emp => emp.employeeName)).size, employees.length);
+
+const isolatedBatches = buildIsolatedRowBatches(employees, 4);
+assert.equal(isolatedBatches.length, 2);
+assert.equal(isolatedBatches[0].length, 4);
+assert.equal(isolatedBatches[0].every(partition => partition.length <= 1), true);
+assert.equal(isolatedBatches.flat(2).length, employees.length);
 
 const payload = {
     metadata: {},
@@ -61,6 +78,23 @@ assert.equal(singleRecordPayload.employees.every(employee => employee.components
     assert.equal(result.success, true);
     assert.equal(result.phase, 'dry-run');
     assert.equal(result.partitions.length, 5);
+
+    const isolateResult = await runPayrollParallel({
+        dataFile: require('node:path').join(__dirname, 'testing_data', 'current_payroll_data.json'),
+        templateName: 'payroll-lembur-adjustment-input-with-chargejob',
+        workers: 4,
+        isolateRows: true,
+        dryRunOnly: true,
+        headless: true,
+        componentType: '',
+        componentKey: '',
+        rowLimit: 4,
+        excludeRows: []
+    });
+    assert.equal(isolateResult.success, true);
+    assert.equal(isolateResult.phase, 'dry-run');
+    assert.equal(isolateResult.batches[0].partitions.length, 4);
+    assert.equal(isolateResult.batches[0].partitions.every(partition => partition.employeeCount <= 1), true);
     console.log('payroll-parallel-runner tests passed');
 })().catch(error => {
     console.error(error);

@@ -30,7 +30,6 @@ Venus Attendance Recap is a web application for automating attendance data manag
 - Express server on port **3002** (single source of truth)
 - **IN PRODUCTION**: serves both API + static frontend (`/frontend/dist`)
 - **IN DEVELOPMENT**: Vite dev server proxies `/api` → `http://127.0.0.1:3002`
-- Services: `attendanceService`, `automationService`, `otResetService`, `taskRegisterService`, `comparisonService`, `exportService`, `payrollService`, `payrollAutomationService`
 - Never hardcode port — use `process.env.PORT || 3002`
 
 ### Frontend (`/frontend`)
@@ -41,11 +40,6 @@ Venus Attendance Recap is a web application for automating attendance data manag
 - Employee mapping uses dual-server connection:
   - `ptrj_employee_id` from `SERVER_PROFILE_1` + `extend_db_ptrj` database (`employee_mill` table)
   - `charge_job` from `SERVER_PROFILE_1` + `VenusHR14` database (HR_M_EmployeePI table)
-
-### Frontend (`/frontend`) — Dev Only
-- React 19 with TypeScript, served by Vite dev server (port 5173)
-- Material-UI for components with dark/light theme support
-- API proxy: `/api` → `http://127.0.0.1:3002`
 
 ### Browser Automation Engine (`/browser-automation-engine`)
 - Puppeteer-based with modular action system
@@ -81,8 +75,11 @@ npm install
 # Run a template directly
 node index.js <template-name>
 
-# Example:
-node index.js template-flow
+# Parallel runner for payroll
+node parallel-runner.js payroll-ad-input
+
+# Payroll AD delete runner
+node payroll-ad-delete-runner.js --all --workers 5
 ```
 
 ### Full Stack Development
@@ -101,12 +98,12 @@ Backend (`.env` in `/backend`):
 ```
 API_TOKEN_QUERY=<token>          # Venus HR API authentication
 GITHUB_TOKEN=<token>             # GitHub access token
-SERVER_PROFILE=<profile>         # Server configuration
+SERVER_PROFILE=<profile>         # Server configuration (SERVER_PROFILE_1, SERVER_PROFILE_2, etc.)
 NO_ATTENDANCE=true|false         # Enable overtime-only mode
 PORT=3002                        # Server port (unified API + static frontend)
 ```
 
-Automation Engine (also uses backend `.env`):
+Automation Engine:
 ```
 HEADLESS=true|false              # Run browser headless
 AUTO_CLOSE=true|false            # Auto-close browser after completion
@@ -115,6 +112,20 @@ ENGINE_START_DELAY=2000          # Delay between engine starts (ms)
 BROWSER_KEEPALIVE_INTERVAL=2000  # Keepalive ping interval (ms)
 CHROME_MEMORY_LIMIT=512          # Memory limit per instance (MB)
 ```
+
+## Key Services (`/backend/services/`)
+
+| Service | Purpose |
+|---------|---------|
+| `attendanceService.js` | Fetch attendance data from Venus HR |
+| `payrollService.js` | Fetch payroll data with Venus-Millware comparison |
+| `payrollComparisonService.js` | Compare Venus payroll with Millware PR_ADTRANS |
+| `payrollAutomationService.js` | Prepare payroll automation data |
+| `payrollADResetService.js` | Delete/reset ADTRANS records based on differences |
+| `comparisonService.js` | Compare attendance data with Millware PR_TASKREGLN |
+| `gateway.js` | Database query executor with fallback support |
+| `employeeMillService.js` | Employee mapping between Venus and Millware |
+| `payrollComponentMapping.js` | Map Venus components to Millware TaskCodes |
 
 ## Key Workflows
 
@@ -127,6 +138,21 @@ CHROME_MEMORY_LIMIT=512          # Memory limit per instance (MB)
    - `HR_T_Absence` (absence records)
 3. Data returned as grid format with daily attendance per employee
 
+### Payroll Comparison Flow
+1. Frontend requests `/api/payroll?month=6&year=2026`
+2. Backend fetches Venus payroll from `HR_T_PYWeekly_M` and `HR_T_PYWeekly_DComponent`
+3. Backend fetches Millware data from `PR_ADTRANS` and `PR_ADTRANSLN`
+4. Comparison uses **PAYROLL_TOLERANCE = 50** rupiah per component
+5. Sync status: `isSynced = true` if all components match within tolerance
+
+### AD Reset/Delete Flow
+1. User opens ADResetDialog and selects "Selisih Amount"
+2. Backend fetches employees with Venus-Millware differences
+3. Finds DocIds in `PR_ADTRANS` containing components with differences
+4. Writes DocIds to `current_payroll_ad_delete_data.json`
+5. Spawns `payroll-ad-delete-runner.js` for browser automation
+6. Browser navigates Millware AD Lists and deletes selected records
+
 ### Automation Flow
 1. User selects employees and triggers automation from frontend
 2. Backend saves to `current_data.json` via `saveAutomationData()`
@@ -136,7 +162,8 @@ CHROME_MEMORY_LIMIT=512          # Memory limit per instance (MB)
 6. Actions executed sequentially (navigate, click, type, wait, etc.)
 7. Results logged; failed employees saved to CSV in `logs/emp_failed/`
 
-### Template System
+## Template System
+
 Templates are JSON files in `/browser-automation-engine/templates/`:
 ```json
 {
@@ -175,51 +202,82 @@ node parallel-runner.js payroll-ad-input
 
 ## Important File Locations
 
+### Backend
 - `/backend/server.js` - Main Express server with all API routes
-- `/backend/services/automationService.js` - Automation trigger and data preparation
-- `/backend/services/comparisonService.js` - Venus vs Millware comparison logic
-- `/backend/services/payrollAutomationService.js` - Payroll automation data preparation
+- `/backend/services/payrollADResetService.js` - AD delete/reset with amount comparison
+- `/backend/services/payrollService.js` - Payroll data fetching with sync status
+- `/backend/services/payrollComponentMapping.js` - Component key mapping (TOLERANCE_RUPIAH = 10)
+- `/backend/services/gateway.js` - Database query with primary/fallback gateway
+
+### Browser Automation
 - `/browser-automation-engine/engine.js` - Core AutomationEngine class
 - `/browser-automation-engine/parallel-runner.js` - Multi-engine orchestration
+- `/browser-automation-engine/payroll-ad-delete-runner.js` - AD deletion automation
 - `/browser-automation-engine/templates/` - Automation workflow definitions
-- `/browser-automation-engine/testing_data/current_data.json` - Attendance input data
-- `/browser-automation-engine/testing_data/current_payroll_data.json` - Payroll input data
+- `/browser-automation-engine/testing_data/` - Input data files (current_data.json, etc.)
 
-## Development Testing
-
-Testing scripts are located in `_dev_utils/tests/`:
-```bash
-# Test API endpoints
-node _dev_utils/tests/test_api_endpoints.js
-
-# Test frontend UI and data flow
-node _dev_utils/tests/test_frontend_ui.js
-```
-
-## Frontend Components
-
+### Frontend
 - `/frontend/src/App.jsx` - Main app with tabs (Report, Matrix, Comparison, Payroll)
+- `/frontend/src/components/ADResetDialog.jsx` - AD deletion dialog
 - `/frontend/src/components/PayrollReport.jsx` - Payroll comparison display
-- `/frontend/src/components/OvertimeReport.jsx` - Overtime filtering and display
-- `/frontend/src/components/AutomationDialog.jsx` - Attendance automation trigger
-- `/frontend/src/components/ComparisonDialog.jsx` - Comparison results dialog
 
 ## Conventions
 
 - Indonesian language used for UI labels and logging
-- Employee filtering: `is_karyawan = false` and `charge_job` containing "STAFF" are excluded from the employee list
+- Employee filtering: `is_karyawan = false` and `charge_job` containing "STAFF" are excluded
 - Naming: PascalCase for React components, camelCase for functions, snake_case for JSON keys
 - Date format: `yyyy-MM-dd` for API, locale `id-ID` for display
 - Employee IDs: `EmployeeID` (Venus), `PTRJEmployeeID` (Millware/TaskReg)
 - Error screenshots saved to `logs/screenshots/` on failure
+- **Tolerance**: 50 rupiah for payroll sync (PAYROLL_TOLERANCE in payrollService.js)
 
 ## Millware Integration
 
 Target system: `http://millwarep3.rebinmas.com:8003/`
 - Login page: `/` (credentials: `adm075/adm075`)
 - Task Register form: `/en/PR/trx/frmPrTrxTaskRegisterDet.aspx`
+- AD Lists form: `/en/PR/trx/frmPrTrxADLists.aspx`
 - Uses `.ui-autocomplete-input.CBOBox` selectors for autocomplete fields
-- Radio buttons for Overtime Type (OT=0 Regular, OT=1 Overtime)
+
+## Payroll Services
+
+### Key Database Tables
+
+**Venus HR (`VenusHR14`):**
+- `HR_T_PYWeekly_M` - Payroll header (EmployeeID, PYNumber, PYDate)
+- `HR_T_PYWeekly_DComponent` - Payroll components (PYNumber, PYCompCode, PYCompName, CompAmount, PYType, IsTakeHomePay)
+
+**Millware (`db_ptrj_mill`):**
+- `PR_ADTRANS` - AD transaction header (ID, DocID, DocDate, DocDesc, EmpCode, EmpName, PhyMonth, PhyYear)
+- `PR_ADTRANSLN` - AD line items (MasterID, TaskCode, Amount) - JOIN via `a.ID = b.MasterID`
+- `PR_TASKREGLN` - Task register lines for attendance sync
+
+### Component Mapping
+
+| Venus Component | Millware TaskCode | Component Key |
+|---------------|-------------------|---------------|
+| Tunjangan Jabatan | GA9128 | `jabatan` |
+| Tunjangan Masa Kerja | GA9129 | `masaKerja` |
+| Tunjangan Beras | AL0012 | `beras` |
+| Potongan PPH21 | DEPH21 | `pph21` |
+| Potongan SPSI | DE0003 | `spsi` |
+
+### Payroll Automation API
+- `GET /api/payroll` - Fetch payroll with Venus-Millware comparison
+- `POST /api/payroll/automation/run` - Trigger payroll AD Lists automation
+- `POST /api/payroll/automation/stop` - Stop running automation
+
+### AD Reset API
+- `GET /api/payroll/ad-reset/amount-differences` - Preview amount differences
+- `POST /api/payroll/ad-reset/amount-differences/run` - Run deletion for amount diffs
+- `GET /api/payroll/ad-reset/duplicate-doc-ids` - Find duplicate DocIds
+- `POST /api/payroll/ad-reset/duplicates/run` - Delete duplicates
+- `POST /api/payroll/ad-reset/by-dcoid/run` - Delete by specific DocIds
+
+### Millware AD Lists Integration
+- URL: `http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx`
+- Input page: `frmPrTrxADDets.aspx` (after clicking New)
+- Fields: Employee → TaskCode → Amount → Add → Save
 
 ## Comparison Service (Sync Validation)
 
@@ -229,20 +287,3 @@ The `comparisonService` compares Venus attendance data with Millware PR_TASKREGL
 - Used for filtering automation to only input missing data
 - Query `/api/comparison/compare` for full comparison
 - Query `/api/comparison/miss` for only mismatches
-
-## Payroll Services
-
-- `/backend/services/payrollService.js` - Fetches payroll data from Venus HR (HR_T_PYWeekly_M, HR_T_PYWeekly_DComponent)
-- `/backend/services/payrollComparisonService.js` - Compares Venus payroll with Millware PR_ADTRANS
-- `/backend/services/payrollAutomationService.js` - Prepares payroll automation data (MISS components only)
-- Uses TaskDesc matching to map Venus components to Millware ADCode (TaskCode)
-
-### Payroll Automation API
-- `POST /api/payroll/automation/run` - Trigger payroll AD Lists automation
-- `POST /api/payroll/automation/stop` - Stop running automation
-- Template: `payroll-ad-input.json` - Inputs tunjangan/potongan to AD Lists
-
-### Millware AD Lists Integration
-- URL: `http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx`
-- Input page: `frmPrTrxADDets.aspx` (after clicking New)
-- Fields: Employee → ADCode (TaskCode) → Amount → Add → Save

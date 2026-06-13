@@ -3,15 +3,18 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { validatePayrollPayload } = require('./payroll-dry-runner');
 
+const DEFAULT_TEMPLATE = 'payroll-ad-input';
 const DEFAULT_DATA_FILE = path.join(__dirname, 'testing_data', 'current_payroll_data.json');
 const PAYROLL_RUNNER = path.join(__dirname, 'payroll-runner.js');
 
 const parseArgs = (argv = process.argv.slice(2)) => {
     const args = {
+        templateName: DEFAULT_TEMPLATE,
         dataFile: DEFAULT_DATA_FILE,
         workers: Math.max(1, parseInt(process.env.PAYROLL_TABS || process.env.AUTOMATION_INSTANCES || '5', 10) || 5),
         headless: process.env.HEADLESS === 'true',
         dryRunOnly: false,
+        isolateRows: false,
         componentType: '',
         componentKey: '',
         rowLimit: 0,
@@ -27,6 +30,12 @@ const parseArgs = (argv = process.argv.slice(2)) => {
             args.workers = Math.max(1, parseInt(arg.split('=')[1] || '5', 10) || 5);
         } else if (arg === '--dry-run') {
             args.dryRunOnly = true;
+        } else if (arg === '--isolate-rows' || arg === '--one-row-per-worker') {
+            args.isolateRows = true;
+        } else if (arg === '--template') {
+            args.templateName = argv[++i] || DEFAULT_TEMPLATE;
+        } else if (arg.startsWith('--template=')) {
+            args.templateName = arg.split('=')[1] || DEFAULT_TEMPLATE;
         } else if (arg === '--headless') {
             args.headless = true;
         } else if (arg === '--no-headless') {
@@ -52,7 +61,14 @@ const parseArgs = (argv = process.argv.slice(2)) => {
         }
     }
 
-    if (positional[0]) args.dataFile = positional[0];
+    if (positional[0]) {
+        if (positional[0].endsWith('.json') || positional[0].includes('\\') || positional[0].includes('/')) {
+            args.dataFile = positional[0];
+        } else {
+            args.templateName = positional[0];
+            if (positional[1]) args.dataFile = positional[1];
+        }
+    }
     return args;
 };
 
@@ -148,6 +164,7 @@ const buildPartitionPayload = (payload, employees, index, totalWorkers) => {
         metadata: {
             ...(payload.metadata || {}),
             totalEmployees: employees.length,
+            totalRecords: employees.length,
             totalComponents,
             parallel: true,
             workerIndex: index,
@@ -181,7 +198,7 @@ const runWorker = (partition, args) => new Promise((resolve) => {
         '--auto-close',
         '--engine-id',
         `payroll_${partition.workerIndex}`,
-        'payroll-ad-input',
+        args.templateName || DEFAULT_TEMPLATE,
         partition.file
     ];
 
@@ -208,6 +225,26 @@ const runWorker = (partition, args) => new Promise((resolve) => {
     child.on('close', code => resolve({ ...partition, code, success: code === 0 }));
 });
 
+const buildIsolatedRowBatches = (employees, workers) => {
+    const batches = [];
+    const workerCount = Math.max(1, parseInt(workers || 1, 10) || 1);
+
+    for (let start = 0; start < employees.length; start += workerCount) {
+        const partitions = Array.from({ length: workerCount }, (_, index) => {
+            const employee = employees[start + index];
+            return employee ? [employee] : [];
+        });
+        batches.push(partitions);
+    }
+
+    return batches;
+};
+
+const runPartitionFiles = async (partitionFiles, args) => {
+    const runnable = partitionFiles.filter(p => p.componentCount > 0);
+    return Promise.all(runnable.map(partition => runWorker(partition, args)));
+};
+
 const runPayrollParallel = async (args = parseArgs()) => {
     const dataFile = path.resolve(args.dataFile);
     const rawPayload = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
@@ -226,11 +263,59 @@ const runPayrollParallel = async (args = parseArgs()) => {
     console.log('='.repeat(70));
     console.log('PAYROLL PARALLEL RUNNER');
     console.log('='.repeat(70));
+    console.log(`Template: ${args.templateName || DEFAULT_TEMPLATE}`);
     console.log(`Data file: ${dataFile}`);
     console.log(`Workers/tabs: ${args.workers}`);
+    console.log(`Isolate rows: ${args.isolateRows ? 'true' : 'false'}`);
     console.log(`Headless: ${args.headless ? 'true' : 'false'}`);
     console.log(`Employees: ${payload.employees.length}`);
     console.log(`Rows: ${totalComponents}`);
+
+    if (args.isolateRows) {
+        const batches = buildIsolatedRowBatches(payload.employees, args.workers);
+        console.log(`Batches: ${batches.length} (${args.workers} worker slot(s) per batch, max 1 row per worker)`);
+
+        if (args.dryRunOnly) {
+            return {
+                success: true,
+                phase: 'dry-run',
+                batches: batches.map((batch, index) => ({
+                    batchIndex: index + 1,
+                    partitions: batch.map((employees, workerIndex) => ({
+                        workerIndex: workerIndex + 1,
+                        employeeCount: employees.length,
+                        componentCount: employees.reduce((sum, employee) => sum + (employee.components || []).length, 0)
+                    }))
+                }))
+            };
+        }
+
+        const allResults = [];
+        for (let index = 0; index < batches.length; index += 1) {
+            console.log(`Batch ${index + 1}/${batches.length}: starting`);
+            const files = writePartitionFiles(payload, batches[index]);
+            files.forEach(partition => {
+                console.log(`Batch ${index + 1} Tab ${partition.workerIndex}: ${partition.employeeCount} employees, ${partition.componentCount} rows`);
+            });
+            const results = await runPartitionFiles(files, args);
+            allResults.push(...results.map(result => ({ ...result, batchIndex: index + 1 })));
+            const failedInBatch = results.filter(result => !result.success);
+            if (failedInBatch.length > 0) {
+                console.log(`Batch ${index + 1}/${batches.length}: ${failedInBatch.length} worker(s) failed`);
+            } else {
+                console.log(`Batch ${index + 1}/${batches.length}: completed`);
+            }
+        }
+
+        const failed = allResults.filter(result => !result.success);
+        return {
+            success: failed.length === 0,
+            phase: 'automation',
+            results: allResults,
+            failed
+        };
+    }
+
     partitionFiles.forEach(partition => {
         console.log(`Tab ${partition.workerIndex}: ${partition.employeeCount} employees, ${partition.componentCount} rows`);
     });
@@ -239,7 +324,7 @@ const runPayrollParallel = async (args = parseArgs()) => {
         return { success: true, phase: 'dry-run', partitions: partitionFiles };
     }
 
-    const results = await Promise.all(partitionFiles.filter(p => p.componentCount > 0).map(partition => runWorker(partition, args)));
+    const results = await runPartitionFiles(partitionFiles, args);
     const failed = results.filter(result => !result.success);
     return {
         success: failed.length === 0,
@@ -263,9 +348,11 @@ if (require.main === module) {
 }
 
 module.exports = {
+    DEFAULT_TEMPLATE,
     parseArgs,
     partitionEmployees,
     filterPayload,
     splitPayloadToSingleComponentRecords,
+    buildIsolatedRowBatches,
     runPayrollParallel
 };

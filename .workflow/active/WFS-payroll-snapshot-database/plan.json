@@ -1,0 +1,27 @@
+{
+  "session_id": "WFS-payroll-snapshot-database",
+  "task_ids": [
+    "IMPL-1",
+    "IMPL-2",
+    "IMPL-3",
+    "IMPL-4",
+    "IMPL-5",
+    "IMPL-6"
+  ],
+  "recommended_execution": "sequential",
+  "complexity": "high",
+  "shared_context": {
+    "goal": "Persist payroll snapshots in database and allow users to use frozen snapshot data instead of live Venus/Millware data.",
+    "storage_decision": "Use app-owned SQLite database at data/payroll_snapshot.db by default; schema is portable to SQL Server if centralized storage is required.",
+    "compatibility_rule": "Keep /api/payroll response shape compatible with existing PayrollReport, export, automation, and reset flows.",
+    "source_contract": "fetchPayrollData(month, year, { source: 'live' | 'snapshot', snapshotId, useActiveSnapshot })",
+    "conflict_policy": "Inspect dirty diffs before editing and never overwrite unrelated uncommitted changes."
+  },
+  "quality_gate": {
+    "requires_dirty_diff_review": true,
+    "requires_snapshot_no_live_query_test": true,
+    "requires_live_backward_compatibility_test": true,
+    "requires_backend_route_smoke_test": true,
+    "requires_frontend_build": true
+  }
+}

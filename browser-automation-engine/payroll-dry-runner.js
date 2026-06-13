@@ -91,6 +91,13 @@ const validatePayrollPayload = (payload) => {
                 errors.push(`${rowLabel}: venusAmount must be greater than 0`);
             }
 
+            const componentKey = String(component.componentKey || '').toLowerCase();
+            const requiresChargeJob = componentKey === 'beras'
+                || (componentKey === 'lembur' && payload.metadata?.requiresChargeJob === true);
+            if (requiresChargeJob && !String(employee.chargeJob || '').trim()) {
+                errors.push(`${rowLabel}: chargeJob is required for ${componentKey} account dimensions`);
+            }
+
             rows.push({
                 employeeName: employee.employeeName || '',
                 ptrjId: employee.ptrjId || '',

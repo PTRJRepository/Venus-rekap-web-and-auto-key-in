@@ -9,6 +9,29 @@
 
 const { executeQuery } = require('./gateway');
 
+const toNumber = (value) => {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeOTValue = (value) => {
+    if (value === true) return 1;
+    if (value === false) return 0;
+    if (value === null || value === undefined) return null;
+
+    const normalized = String(value).trim().toUpperCase();
+    if (normalized === '') return null;
+    if (normalized === 'TRUE') return 1;
+    if (normalized === 'FALSE') return 0;
+
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const isRegularMillwareRow = (row = {}) => normalizeOTValue(row.OT) === 0;
+const isOvertimeMillwareRow = (row = {}) => normalizeOTValue(row.OT) === 1;
+const hasPositiveHours = (row = {}) => toNumber(row.Hours) > 0;
+
 /**
  * Query PR_TASKREGLN data for comparison
  * @param {string} startDate - Start date YYYY-MM-DD
@@ -18,34 +41,37 @@ const { executeQuery } = require('./gateway');
  */
 const queryTaskRegData = async (startDate, endDate, empCodes = null, otFilter = null) => {
     try {
+        const empFilter = empCodes && empCodes.length > 0
+            ? ` AND RTRIM(L.EmpCode) IN (${empCodes.map(e => `'${String(e).trim()}'`).join(',')})`
+            : '';
+        const otLineFilter = otFilter !== null && otFilter !== undefined
+            ? ` AND L.OT = ${otFilter}`
+            : '';
+
         let sql = `
             SELECT
-                EmpCode,
-                TrxDate,
-                TaskCode,
-                Hours,
-                Amount,
-                OT,
-                Status,
-                ChargeTo,
-                NormalDay,
-                CreatedBy,
-                CreatedDate
-            FROM [db_ptrj_mill].[dbo].[PR_TASKREGLN]
-            WHERE TrxDate BETWEEN '${startDate}' AND '${endDate}'
+                RTRIM(L.EmpCode) AS EmpCode,
+                L.TrxDate,
+                CAST(NULL AS VARCHAR(100)) AS TaskCode,
+                L.Hours,
+                L.Amount,
+                L.OT,
+                CAST(NULL AS VARCHAR(20)) AS Status,
+                CAST(NULL AS VARCHAR(100)) AS ChargeTo,
+                CAST(NULL AS INT) AS NormalDay,
+                CAST(NULL AS VARCHAR(100)) AS CreatedBy,
+                CAST(NULL AS DATETIME) AS CreatedDate,
+                H.ID AS HeaderID,
+                H.DocID,
+                H.Status AS HeaderStatus
+            FROM [db_ptrj_mill].[dbo].[PR_TASKREG] H
+            INNER JOIN [db_ptrj_mill].[dbo].[PR_TASKREGLN] L ON H.ID = L.MasterID
+            WHERE CAST(L.TrxDate AS DATE) BETWEEN '${startDate}' AND '${endDate}'
+            ${empFilter}
+            ${otLineFilter}
         `;
 
-        if (empCodes && empCodes.length > 0) {
-            const empList = empCodes.map(e => `'${e}'`).join(',');
-            sql += ` AND EmpCode IN (${empList})`;
-        }
-
-        // Filter by OT: 0 = normal hours, 1 = overtime
-        if (otFilter !== null && otFilter !== undefined) {
-            sql += ` AND OT = ${otFilter}`;
-        }
-
-        sql += ` ORDER BY TrxDate, EmpCode`;
+        sql += ` ORDER BY L.TrxDate, L.EmpCode`;
 
         const otDesc = otFilter === 0 ? '(Normal)' : otFilter === 1 ? '(Overtime)' : '(All)';
         console.log(`[Comparison] Querying PR_TASKREGLN ${otDesc}: ${startDate} to ${endDate}`);
@@ -66,6 +92,16 @@ const normalizeVenusEmployee = (emp = {}) => ({
     ptrjEmployeeID: emp.ptrjEmployeeID ?? emp.PTRJEmployeeID,
     attendance: emp.attendance ?? emp.Attendance ?? {}
 });
+
+const requiresMillwareRegularRecord = (status, day = {}) => {
+    const dateStr = formatDateSQL(day.date);
+    const isSunday = day.isSunday === true || (dateStr && new Date(`${dateStr}T00:00:00`).getDay() === 0);
+    const isHoliday = day.isHoliday === true || Boolean(day.holidayName);
+    if (isSunday || isHoliday) return true;
+
+    const normalizedStatus = String(status || '').trim().toUpperCase();
+    return !['ALFA', 'N/A'].includes(normalizedStatus);
+};
 
 /**
  * Compare Venus attendance data with Millware PR_TASKREGLN
@@ -144,16 +180,16 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
         console.log(`[Compare] Employee ${emp.name} has ${attendanceDates.length} attendance records`);
 
         Object.values(attendance).forEach(day => {
-            // Skip ALFA / N/A - these shouldn't be synced
-            if (day.status === 'ALFA' || day.status === 'N/A') {
-                skippedAlfa++;
-                return;
-            }
-
             // Standardize date format to YYYY-MM-DD
             const dateStr = formatDateSQL(day.date);
             if (!dateStr || dateStr < startDate || dateStr > endDate) {
                 skippedOutOfRange++;
+                return;
+            }
+
+            const needsRegularRecord = requiresMillwareRegularRecord(day.status, { ...day, date: dateStr });
+            if (!needsRegularRecord && (Number(day.overtimeHours) || 0) <= 0) {
+                skippedAlfa++;
                 return;
             }
 
@@ -168,9 +204,11 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
 
             // Record found in Millware (or defaulted to empty array)
             // Handle BIT/Boolean type from SQL: Use loose equality or Number()
-            const normalHours = millwareRecords.filter(r => r.OT == 0).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
-            const otHours = millwareRecords.filter(r => r.OT == 1).reduce((sum, r) => sum + (parseFloat(r.Hours) || 0), 0);
-            const otAmount = millwareRecords.filter(r => r.OT == 1).reduce((sum, r) => sum + (parseFloat(r.Amount) || 0), 0);
+            const regularRows = millwareRecords.filter(isRegularMillwareRow);
+            const overtimeRows = millwareRecords.filter(isOvertimeMillwareRow);
+            const normalHours = regularRows.reduce((sum, r) => sum + toNumber(r.Hours), 0);
+            const otHours = overtimeRows.reduce((sum, r) => sum + toNumber(r.Hours), 0);
+            const otAmount = overtimeRows.reduce((sum, r) => sum + toNumber(r.Amount), 0);
             const totalHours = normalHours + otHours;
 
             const venusRegular = (day.regularHours || 0);
@@ -187,8 +225,8 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
             // Even if Venus has 0 hours (Sunday/holiday), we need a record in Millware to mark as synced.
 
             // 1. Check if data EXISTS in Millware
-            const hasRegularRecord = millwareRecords.some(r => r.OT == 0 || r.OT == false);
-            const hasOTRecord = millwareRecords.some(r => r.OT == 1 || r.OT == true);
+            const hasRegularRecord = regularRows.some(hasPositiveHours);
+            const hasOTRecord = overtimeRows.some(hasPositiveHours);
             const hasAnyRecord = millwareRecords.length > 0;
 
             // 2. Determine Sync Status
@@ -202,11 +240,8 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
             // This includes: Normal work days, Sunday (OFF), Holiday (LBR), Sick, Annual Leave
             // All of these are PAID and must be input to Millware with proper TaskCode
 
-            // ALFA and N/A are the only statuses that don't need input
-            const needsRegularRecord = day.status !== 'ALFA' && day.status !== 'N/A';
-
             if (needsRegularRecord) {
-                // Must have OT=0 record in Millware
+                // Must have OT=0 record with positive hours in Millware
                 if (hasRegularRecord) {
                     // Record exists in Millware. 
                     // Per user request: "kalo yan beda jam gappa, intinya datanya hrus ada... (ingta yang sakit dan cuti dinaggpa ada datanya)"
@@ -214,7 +249,7 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                     // The mere existence of a regular record is sufficient to be considered "synced".
                     regularSynced = true;
                 } else {
-                    // No OT=0 record in Millware → NOT SYNCED
+                    // No positive-hours OT=0 record in Millware -> NOT SYNCED
                     regularSynced = false;
                 }
             } else {
@@ -226,13 +261,13 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
             // RULE: If Venus has OT hours > 0, Millware MUST have OT=1 record with matching hours
             // If Venus has OT = 0, no OT record needed (unless there's a mismatch to detect)
             if (venusOt > 0) {
-                // Venus expects OT hours → Millware MUST have OT=1 record
+                // Venus expects OT hours -> Millware MUST have OT=1 record
                 if (hasOTRecord) {
                     // Record exists. Following the same logic: "kalo yan beda jam gappa"
                     // Existence of OT record is enough.
                     otSynced = true;
                 } else {
-                    // No OT=1 record in Millware but Venus has OT hours → NOT SYNCED
+                    // No OT=1 record in Millware but Venus has OT hours -> NOT SYNCED
                     otSynced = false;
                 }
             } else {
@@ -261,7 +296,7 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
 
             // Log mismatches for debugging
             if (!isSynced) {
-                console.log(`[Compare] ❌ MISS: ${key} | Regular: ${regularSynced ? '✓' : '✗'}, OT: ${otSynced ? '✓' : '✗'} | Venus: ${venusRegular}h+${venusOt}h | Millware: ${normalHours}h+${otHours}h | Records=${millwareRecords.length}`);
+                console.log(`[Compare] MISS: ${key} | Regular: ${regularSynced ? 'OK' : 'MISS'}, OT: ${otSynced ? 'OK' : 'MISS'} | Venus: ${venusRegular}h+${venusOt}h | Millware: ${normalHours}h+${otHours}h | Records=${millwareRecords.length}`);
             }
 
             // Set match flags for UI feedback (green checkmarks)
@@ -306,11 +341,11 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                 if (day.isSickLeave) {
                      // Check for GA9127 (Sick)
                      taskCodeMatch = millwareRecords.some(r => r.TaskCode && (r.TaskCode.includes('GA9127') || r.TaskCode.includes('SICK')));
-                     if (!taskCodeMatch) console.log(`[Compare] ⚠️ Task Code Mismatch for ${ptrjId} @ ${dateStr}: Expected SICK, found ${millwareRecords.map(r => r.TaskCode).join(', ')}`);
+                     if (!taskCodeMatch) console.log(`[Compare] Task Code Mismatch for ${ptrjId} @ ${dateStr}: Expected SICK, found ${millwareRecords.map(r => r.TaskCode).join(', ')}`);
                 } else if (day.isAnnualLeave) {
                      // Check for GA9130 (Annual)
                      taskCodeMatch = millwareRecords.some(r => r.TaskCode && (r.TaskCode.includes('GA9130') || r.TaskCode.includes('ANNUAL')));
-                     if (!taskCodeMatch) console.log(`[Compare] ⚠️ Task Code Mismatch for ${ptrjId} @ ${dateStr}: Expected ANNUAL, found ${millwareRecords.map(r => r.TaskCode).join(', ')}`);
+                     if (!taskCodeMatch) console.log(`[Compare] Task Code Mismatch for ${ptrjId} @ ${dateStr}: Expected ANNUAL, found ${millwareRecords.map(r => r.TaskCode).join(', ')}`);
                 }
 
                 // Combined sync status (All must match to be synced/MATCH)
@@ -338,7 +373,10 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                 regularMatched: regularMatch, // Use the computed strict variable
                 otMatched: otMatch, // Use the computed strict variable
                 hasRegularRecord: hasRegularRecord, // For checking if regular data exists
-                hasOTRecord: hasOTRecord // For checking if OT data exists
+                hasOTRecord: hasOTRecord, // For checking if OT data exists
+                regularRecordCount: regularRows.length,
+                overtimeRecordCount: overtimeRows.length,
+                needsRegularRecord
             };
 
             // Determine explicit MATCH/MISS status for frontend consistency
@@ -364,13 +402,13 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
 
     // Summary log
     const total = synced + mismatch;
-    console.log(`[Compare] ═══════════════════════════════════════════════════`);
+    console.log(`[Compare] ---------------------------------------------------`);
     console.log(`[Compare] SUMMARY: Total=${total}, Synced=${synced}, Mismatch=${mismatch}`);
     console.log(`[Compare] Match Rate: ${total > 0 ? ((synced / total) * 100).toFixed(1) : 0}%`);
     console.log(`[Compare] Records skipped - ALFA: ${skippedAlfa}, Out of range: ${skippedOutOfRange}`);
     console.log(`[Compare] Processed records: ${processedRecords}`);
     console.log(`[Compare] Results array length: ${results.length}`);
-    console.log(`[Compare] ═══════════════════════════════════════════════════`);
+    console.log(`[Compare] ---------------------------------------------------`);
 
     return {
         results,
@@ -432,5 +470,7 @@ module.exports = {
     queryTaskRegData,
     compareWithTaskReg,
     getMissData,
-    getSyncSummaryByEmployee
+    getSyncSummaryByEmployee,
+    requiresMillwareRegularRecord,
+    normalizeOTValue
 };

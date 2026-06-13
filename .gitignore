@@ -10,3 +10,5 @@ browser-automation-engine/chrome_data/
 *.temp
 cookies
 .worktrees/
+data/*.db
+data/*.db-*

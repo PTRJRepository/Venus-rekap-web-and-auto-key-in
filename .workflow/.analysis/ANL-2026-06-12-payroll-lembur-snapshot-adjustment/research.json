@@ -1,0 +1,42 @@
+{
+  "findings": [],
+  "best_practices": [],
+  "alternatives": [
+    {
+      "option": "Extend generic payroll automation for lembur",
+      "pros": ["Less new UI and route surface"],
+      "cons": ["Generic path inputs full Venus amount, not shortfall", "It does not fill charge job dimensions"],
+      "verdict": "Reject for this requirement."
+    },
+    {
+      "option": "Clone beras shortfall path into a dedicated lembur adjustment path",
+      "pros": ["Matches existing proven shortfall and charge job pattern", "Can enforce snapshot-only UI", "Easy to test independently"],
+      "cons": ["Adds a new route/dialog/template or parameterized template"],
+      "verdict": "Recommended."
+    },
+    {
+      "option": "Parameterize beras path into generic shortfall adjustment",
+      "pros": ["Reusable for future adjustment components"],
+      "cons": ["Higher refactor risk in a dirty worktree"],
+      "verdict": "Good later refactor; not first implementation."
+    }
+  ],
+  "pitfalls": [
+    {
+      "issue": "Using full Venus lembur amount instead of selisih",
+      "mitigation": "Dedicated prepareLemburAdjustmentData must override component.venusAmount to max(0, venus - millware)."
+    },
+    {
+      "issue": "Duplicate filter skips wrong amount signature",
+      "mitigation": "Existing AD signature must compare against AL0019 + shortfall amount, not original Venus total."
+    },
+    {
+      "issue": "Charge job dimensions missing",
+      "mitigation": "Dry-run should require chargeJob for lembur adjustment and diagnostics should skip rows without chargeJob."
+    }
+  ],
+  "_metadata": {
+    "external_research_skipped": true,
+    "reason": "Pure internal codebase pattern analysis."
+  }
+}

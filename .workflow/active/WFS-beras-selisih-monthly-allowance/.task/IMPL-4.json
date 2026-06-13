@@ -1,0 +1,26 @@
+{
+  "id": "IMPL-4",
+  "status": "completed",
+  "summary_path": ".summaries/IMPL-4-summary.md",
+  "title": "Add tests and dry-run verification",
+  "description": "Add focused tests for beras selisih calculation, payroll payload validation, chargeJob parsing, and payroll template dimension ordering. Run dry-run validation against generated/current beras payload.",
+  "depends_on": [
+    "IMPL-1",
+    "IMPL-2",
+    "IMPL-3"
+  ],
+  "convergence": "Automated tests and payroll dry-run pass without live Millware input.",
+  "meta": {
+    "type": "verification",
+    "agent": "implementation",
+    "files": [
+      "backend/services/*.test.js",
+      "browser-automation-engine/*.test.js"
+    ],
+    "tests": [
+      "node browser-automation-engine/charge-job-parser.test.js",
+      "node browser-automation-engine/payroll-dry-runner.js browser-automation-engine/testing_data/current_payroll_beras_data.json",
+      "node browser-automation-engine/payroll-runner.js browser-automation-engine/testing_data/current_payroll_beras_data.json --component-key=beras --dry-run"
+    ]
+  }
+}

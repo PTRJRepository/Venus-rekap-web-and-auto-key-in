@@ -1,0 +1,107 @@
+{
+  "critical_files": [
+    "backend/server.js",
+    "backend/services/stagingService.js",
+    "backend/services/payrollService.js",
+    "backend/services/payrollComparisonService.js",
+    "backend/services/payrollAutomationService.js",
+    "backend/services/payrollADResetService.js",
+    "backend/services/payrollExportService.js",
+    "backend/services/payrollComponentMapping.js",
+    "frontend/src/components/PayrollReport.jsx",
+    "frontend/src/App.jsx",
+    "frontend/src/services/api.js"
+  ],
+  "patterns": [
+    {
+      "name": "local-app-sqlite-storage",
+      "evidence": "backend/services/stagingService.js initializes data/staging_attendance.db, creates tables/indexes on startup, and exposes promise-based CRUD helpers."
+    },
+    {
+      "name": "payroll-live-response-shape",
+      "evidence": "backend/services/payrollService.js returns { success, data, analysis } where data rows include employee identity, Venus totals/details, millware object, and sync component pairs."
+    },
+    {
+      "name": "downstream-payroll-reuse",
+      "evidence": "payrollAutomationService.js, payrollADResetService.js, and payrollExportService.js all depend on fetchPayrollData(month, year)."
+    },
+    {
+      "name": "frontend-direct-fetch",
+      "evidence": "PayrollReport.jsx fetches /api/payroll directly and stores data/analysis locally."
+    }
+  ],
+  "dependencies": [
+    "express",
+    "sqlite3",
+    "uuid",
+    "mssql through employeeMillService for employee_mill mapping",
+    "gateway executeQuery for Venus and Millware live queries"
+  ],
+  "integration_points": [
+    {
+      "module": "database",
+      "files": [
+        "backend/services/payrollSnapshotService.js",
+        "data/payroll_snapshot.db"
+      ],
+      "notes": "New service should own schema init, snapshot CRUD, capture, activation, and conversion back to payroll response shape."
+    },
+    {
+      "module": "payroll-source",
+      "files": [
+        "backend/services/payrollService.js"
+      ],
+      "notes": "Refactor live fetch into provider that can return live data or snapshot data by options."
+    },
+    {
+      "module": "api",
+      "files": [
+        "backend/server.js"
+      ],
+      "notes": "Add snapshot endpoints and extend existing payroll endpoints with source/useSnapshot/snapshotId parameters."
+    },
+    {
+      "module": "downstream-payroll",
+      "files": [
+        "backend/services/payrollAutomationService.js",
+        "backend/services/payrollADResetService.js",
+        "backend/services/payrollExportService.js"
+      ],
+      "notes": "Pass source options into fetchPayrollData so automation/export/reset can use frozen data."
+    },
+    {
+      "module": "frontend-payroll",
+      "files": [
+        "frontend/src/components/PayrollReport.jsx",
+        "frontend/src/App.jsx",
+        "frontend/src/services/api.js"
+      ],
+      "notes": "Add snapshot capture/list/select/use-live controls and propagate chosen source to payroll actions."
+    }
+  ],
+  "conflict_risk": "high",
+  "conflict_areas": [
+    "Existing uncommitted payroll backend changes",
+    "Existing uncommitted PayrollReport.jsx changes",
+    "Existing beras automation workflow changes",
+    "Active attendance comparison workflow changes"
+  ],
+  "constraints": [
+    "Planning-only workflow; do not implement in this session.",
+    "Preserve existing /api/payroll response shape for compatibility.",
+    "Snapshot reads must not query Venus or Millware.",
+    "Snapshot rows should be immutable after capture except status/label/notes metadata.",
+    "Implementation must inspect dirty diffs before editing touched files.",
+    "Use focused tests for public snapshot service functions and payroll source selection."
+  ],
+  "recommended_schema": {
+    "storage": "SQLite data/payroll_snapshot.db by default; portable to SQL Server if central storage is required.",
+    "tables": [
+      "payroll_snapshots",
+      "payroll_snapshot_employees",
+      "payroll_snapshot_components",
+      "payroll_snapshot_raw_sources",
+      "payroll_snapshot_events"
+    ]
+  }
+}

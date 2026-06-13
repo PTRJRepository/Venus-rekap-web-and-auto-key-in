@@ -1,0 +1,25 @@
+{
+  "id": "IMPL-2",
+  "status": "completed",
+  "summary_path": ".summaries/IMPL-2-summary.md",
+  "title": "Add payroll account dimension input template/helper",
+  "description": "Extend payroll AD Lists automation to parse employee.chargeJob and fill Station Code, Machine Code, and Expense Code before Amount/Add while leaving component AD TaskCode untouched.",
+  "depends_on": [
+    "IMPL-1"
+  ],
+  "convergence": "Payroll AD template fills account dimensions in the right order and does not regress Task Register input.",
+  "meta": {
+    "type": "browser-automation",
+    "agent": "implementation",
+    "files": [
+      "browser-automation-engine/templates/payroll-ad-input.json",
+      "browser-automation-engine/templates/_payroll_account_dim_input.json",
+      "browser-automation-engine/actions/index.js",
+      "browser-automation-engine/charge-job-parser.test.js"
+    ],
+    "tests": [
+      "node browser-automation-engine/charge-job-parser.test.js",
+      "template structure test for payroll account dimension order"
+    ]
+  }
+}

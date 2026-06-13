@@ -243,12 +243,12 @@ const AttendancePage = () => {
                 const millwareRecord = comparisonData[key];
                 const statusUpper = (day.status || '').toUpperCase();
 
-                if (['ALFA', 'N/A', 'OFF'].includes(statusUpper)) return;
+                const isSunday = new Date(`${day.date}T00:00:00`).getDay() === 0;
+                const needsRegular = isSunday || day.isHoliday === true || Boolean(day.holidayName) || !['ALFA', 'N/A'].includes(statusUpper);
+                if (!needsRegular && (Number(day.overtimeHours) || 0) <= 0) return;
 
-                if (compareMode === 'presence') {
-                    if (!millwareRecord || !millwareRecord.hasRegularRecord) {
-                        regularMissCount++;
-                    } else if (!millwareRecord.regularMatched) {
+                if (compareMode === 'presence' || compareMode === 'regular') {
+                    if (!millwareRecord || !millwareRecord.hasRegularRecord || (Number(millwareRecord.normal) || 0) <= 0) {
                         regularMissCount++;
                     }
                 } else if (compareMode === 'overtime') {
@@ -256,23 +256,17 @@ const AttendancePage = () => {
                     if (vOT > 0) {
                         if (!millwareRecord || !millwareRecord.hasOTRecord) {
                             otMissCount += vOT;
-                        } else if (!millwareRecord.otMatched) {
-                            otMissCount += vOT;
                         }
                     }
                 } else {
                     // All mode: count both
-                    if (!millwareRecord || !millwareRecord.hasRegularRecord) {
-                        regularMissCount++;
-                    } else if (!millwareRecord.regularMatched) {
+                    if (!millwareRecord || !millwareRecord.hasRegularRecord || (Number(millwareRecord.normal) || 0) <= 0) {
                         regularMissCount++;
                     }
 
                     const vOT = Number(day.overtimeHours) || 0;
                     if (vOT > 0) {
                         if (!millwareRecord || !millwareRecord.hasOTRecord) {
-                            otMissCount += vOT;
-                        } else if (!millwareRecord.otMatched) {
                             otMissCount += vOT;
                         }
                     }
@@ -301,17 +295,28 @@ const AttendancePage = () => {
                 // Include ALL records - synced, mismatch, AND not_synced (MISS)
                 // This way UI can show proper status for each
                 if (r.details) {
+                    const venusStatus = String(r.venusStatus || '').trim().toUpperCase();
+                    const needsRegular = r.details.needsRegularRecord ?? !['ALFA', 'N/A'].includes(venusStatus);
+                    const millwareNormal = Number(r.details.millwareNormal) || 0;
+                    const hasRegularRecord = r.details.hasRegularRecord === true && millwareNormal > 0;
+                    const hasOTRecord = r.details.hasOTRecord === true;
+                    const venusOT = Number(r.venusOvertimeHours) || 0;
+                    const forcedMiss = (needsRegular && !hasRegularRecord) || (venusOT > 0 && !hasOTRecord);
+
                     map[key] = {
                         hours: r.details.millwareHours,
                         normal: r.details.millwareNormal,
                         ot: r.details.millwareOT,
                         TaskCode: r.details.millwareTaskCode || r.millwareTaskCode,
-                        status: r.status, // MATCH or MISS
-                        syncStatus: r.syncStatus, // synced, mismatch, or not_synced
-                        regularMatched: r.details.regularMatched === true,
-                        otMatched: r.details.otMatched === true,
-                        hasRegularRecord: r.details.hasRegularRecord === true,
-                        hasOTRecord: r.details.hasOTRecord === true
+                        status: forcedMiss ? 'MISS' : r.status, // MATCH or MISS
+                        syncStatus: forcedMiss ? 'not_synced' : r.syncStatus, // synced, mismatch, or not_synced
+                        regularMatched: hasRegularRecord,
+                        otMatched: !forcedMiss && r.details.otMatched === true,
+                        hasRegularRecord,
+                        hasOTRecord,
+                        regularRecordCount: r.details.regularRecordCount || 0,
+                        overtimeRecordCount: r.details.overtimeRecordCount || 0,
+                        needsRegularRecord: needsRegular
                     };
                 }
             });
@@ -334,7 +339,7 @@ const AttendancePage = () => {
         if (compareMode === 'off') {
             setCompareMode('presence');
             performComparison();
-        } else if (compareMode === 'presence') {
+        } else if (compareMode === 'presence' || compareMode === 'regular') {
             setCompareMode('overtime');
             if (!comparisonData) performComparison();
         } else {

@@ -1,0 +1,7 @@
+﻿id,title,status,files_modified,tests_passed,acceptance_met,summary_path,error
+IMPL-1,Add payroll snapshot database service,completed,"backend/services/payrollSnapshotService.js",true,"Snapshot service created and tested",.summaries/IMPL-1-summary.md,
+IMPL-2,Refactor payroll source selection,completed,"backend/services/payrollService.js",true,"Live default and snapshot source supported",.summaries/IMPL-2-summary.md,
+IMPL-3,Add backend API routes and startup initialization,completed,"backend/server.js",true,"Snapshot routes and init added",.summaries/IMPL-3-summary.md,
+IMPL-4,Propagate snapshot source to export automation beras and AD reset,completed,"backend/services/payrollExportService.js;backend/services/payrollAutomationService.js;backend/services/payrollADResetService.js;backend/server.js",true,"Downstream source propagation added",.summaries/IMPL-4-summary.md,
+IMPL-5,Add frontend snapshot controls,completed,"frontend/src/components/PayrollReport.jsx;frontend/src/App.jsx;frontend/src/components/ADResetDialog.jsx;frontend/src/components/BerasAutomationDialog.jsx",true,"UI controls and action propagation added",.summaries/IMPL-5-summary.md,
+IMPL-6,Add tests and verification,completed,"backend/services/payrollSnapshotService.test.js;backend/services/payrollService.test.js",true,"Focused tests and frontend build passed",.summaries/IMPL-6-summary.md,

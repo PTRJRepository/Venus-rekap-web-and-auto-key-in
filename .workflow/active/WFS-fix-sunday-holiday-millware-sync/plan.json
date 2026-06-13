@@ -1,0 +1,50 @@
+﻿{
+  "session_id": "WFS-fix-sunday-holiday-millware-sync",
+  "status": "planned",
+  "conflict_risk": "high",
+  "tasks": [
+    {
+      "id": "IMPL-1",
+      "title": "Normalize required regular record rule",
+      "files": [
+        "backend/services/comparisonService.js",
+        "frontend/src/components/AttendanceMatrix.jsx"
+      ],
+      "depends_on": [],
+      "risk": "medium"
+    },
+    {
+      "id": "IMPL-2",
+      "title": "Add backend regression coverage for Sunday/holiday missing Millware data",
+      "files": [
+        "backend/services/comparisonService.test.js"
+      ],
+      "depends_on": ["IMPL-1"],
+      "risk": "medium"
+    },
+    {
+      "id": "IMPL-3",
+      "title": "Align UI comparison rendering and remove noisy debug logs",
+      "files": [
+        "frontend/src/components/AttendanceMatrix.jsx",
+        "frontend/src/App.jsx"
+      ],
+      "depends_on": ["IMPL-1"],
+      "risk": "medium"
+    },
+    {
+      "id": "IMPL-4",
+      "title": "Run focused tests and build verification",
+      "files": [],
+      "depends_on": ["IMPL-2", "IMPL-3"],
+      "risk": "low"
+    }
+  ],
+  "acceptance_criteria": [
+    "OFF Sunday without Millware OT=0 record returns MISS/not synced",
+    "LBR/LIBUR holiday without Millware OT=0 record returns MISS/not synced",
+    "ALFA and N/A remain non-required",
+    "Frontend cell/tooltip does not show synced when hasRegularRecord is false",
+    "Focused regression tests or verification pass"
+  ]
+}

@@ -1,0 +1,20 @@
+﻿{
+  "id": "IMPL-1",
+  "title": "Normalize required regular record rule",
+  "objective": "Make Sunday OFF and holiday LBR/LIBUR require a Millware regular PR_TASKREGLN record everywhere sync status is computed.",
+  "files": [
+    "backend/services/comparisonService.js",
+    "frontend/src/components/AttendanceMatrix.jsx"
+  ],
+  "steps": [
+    "Inspect current diffs for target files before editing.",
+    "Introduce or reuse a helper that returns false only for ALFA and N/A regular attendance requirements.",
+    "Apply the rule in backend comparison and frontend comparison UI paths.",
+    "Keep overtime requirement separate: OT record required only when Venus OT > 0."
+  ],
+  "acceptance": [
+    "OFF is not excluded from regular Millware requirement.",
+    "LBR/LIBUR are treated as requiring regular Millware data.",
+    "ALFA/N/A remain non-required."
+  ]
+}

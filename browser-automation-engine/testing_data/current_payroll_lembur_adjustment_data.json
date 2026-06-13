@@ -1,0 +1,4813 @@
+{
+  "metadata": {
+    "month": 5,
+    "year": 2026,
+    "payrollSource": "snapshot",
+    "snapshotId": "72c67c26-f62e-4fd7-9ed4-3acee9e97263",
+    "payrollDocDateIso": "2026-05-31",
+    "payrollDocDate": "31/05/2026",
+    "generatedAt": "2026-06-13T01:36:19.802Z",
+    "totalEmployees": 144,
+    "totalRecords": 144,
+    "totalComponents": 144,
+    "skippedDuplicates": 0,
+    "skippedAlreadyExists": 0,
+    "tolerance": 50,
+    "oneDocPerComponent": true,
+    "isLemburAdjustmentOnly": true,
+    "inputType": "SELISIH",
+    "requiresChargeJob": true
+  },
+  "employees": [
+    {
+      "employeeId": "PTRJ.241000001",
+      "employeeName": "Ade Prasetya",
+      "ptrjId": "POM00181",
+      "chargeJob": "(PLTU) / (OC7190) BOILER OPERATION / STN-BLR (STATION BOILER) / BLR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 163260,
+          "millwareAmount": 5177867,
+          "diff": 163260,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 163260,
+          "shortfallAmount": 163260,
+          "originalVenusAmount": 5341127,
+          "originalMillwareAmount": 5177867,
+          "note": "Partial lembur adjustment (Venus - MW = 163260)"
+        }
+      ],
+      "recordKey": "POM00181:lembur:AL0019:163260"
+    },
+    {
+      "employeeId": "PTRJ.241000002",
+      "employeeName": "Adi Apriadi",
+      "ptrjId": "POM00041",
+      "chargeJob": "(PROSES 2) / (OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 164592,
+          "millwareAmount": 4080322,
+          "diff": 164592,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 164592,
+          "shortfallAmount": 164592,
+          "originalVenusAmount": 4244913,
+          "originalMillwareAmount": 4080322,
+          "note": "Partial lembur adjustment (Venus - MW = 164592)"
+        }
+      ],
+      "recordKey": "POM00041:lembur:AL0019:164592"
+    },
+    {
+      "employeeId": "PTRJ.241000003",
+      "employeeName": "Abu Hurairoh",
+      "ptrjId": "POM00224",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 895839,
+          "millwareAmount": 7862210,
+          "diff": 895839,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 895839,
+          "shortfallAmount": 895839,
+          "originalVenusAmount": 8758050,
+          "originalMillwareAmount": 7862210,
+          "note": "Partial lembur adjustment (Venus - MW = 895839)"
+        }
+      ],
+      "recordKey": "POM00224:lembur:AL0019:895839"
+    },
+    {
+      "employeeId": "PTRJ.241000004",
+      "employeeName": "Adyka",
+      "ptrjId": "POM00213",
+      "chargeJob": "(COMPOSTING) / (GA9010) VEHICLE RUNNING / BE001 ((XGMA1) Whell Loader) / 11 (DRIVER WAGES)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 164594,
+          "millwareAmount": 3310637,
+          "diff": 164594,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 164594,
+          "shortfallAmount": 164594,
+          "originalVenusAmount": 3475231,
+          "originalMillwareAmount": 3310637,
+          "note": "Partial lembur adjustment (Venus - MW = 164594)"
+        }
+      ],
+      "recordKey": "POM00213:lembur:AL0019:164594"
+    },
+    {
+      "employeeId": "PTRJ.241000006",
+      "employeeName": "Andri Iswadi",
+      "ptrjId": "POM00064",
+      "chargeJob": "(PROJECT) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1671628,
+          "millwareAmount": 6106825,
+          "diff": 1671628,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1671628,
+          "shortfallAmount": 1671628,
+          "originalVenusAmount": 7778454,
+          "originalMillwareAmount": 6106825,
+          "note": "Partial lembur adjustment (Venus - MW = 1671628)"
+        }
+      ],
+      "recordKey": "POM00064:lembur:AL0019:1671628"
+    },
+    {
+      "employeeId": "PTRJ.241000007",
+      "employeeName": "Aldi Winata",
+      "ptrjId": "POM00266",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1015733,
+          "millwareAmount": 5019215,
+          "diff": 1015733,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1015733,
+          "shortfallAmount": 1015733,
+          "originalVenusAmount": 6034948,
+          "originalMillwareAmount": 5019215,
+          "note": "Partial lembur adjustment (Venus - MW = 1015733)"
+        }
+      ],
+      "recordKey": "POM00266:lembur:AL0019:1015733"
+    },
+    {
+      "employeeId": "PTRJ.241000008",
+      "employeeName": "Arianto",
+      "ptrjId": "POM00023",
+      "chargeJob": "(PROSES 1) / (OC7150) EFB PREBREAKER STATION / STN-PBS (STATION PREBREAKER (EFB)) / PBS00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 467800,
+          "millwareAmount": 4441840,
+          "diff": 467800,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 467800,
+          "shortfallAmount": 467800,
+          "originalVenusAmount": 4909640,
+          "originalMillwareAmount": 4441840,
+          "note": "Partial lembur adjustment (Venus - MW = 467800)"
+        }
+      ],
+      "recordKey": "POM00023:lembur:AL0019:467800"
+    },
+    {
+      "employeeId": "PTRJ.241000009",
+      "employeeName": "Agustiawan",
+      "ptrjId": "POM00241",
+      "chargeJob": "(PROSES 1) / (OC7150) EFB PREBREAKER STATION / STN-PBS (STATION PREBREAKER (EFB)) / PBS00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 164591,
+          "millwareAmount": 3800438,
+          "diff": 164591,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 164591,
+          "shortfallAmount": 164591,
+          "originalVenusAmount": 3965029,
+          "originalMillwareAmount": 3800438,
+          "note": "Partial lembur adjustment (Venus - MW = 164591)"
+        }
+      ],
+      "recordKey": "POM00241:lembur:AL0019:164591"
+    },
+    {
+      "employeeId": "PTRJ.241000010",
+      "employeeName": "Asmadi",
+      "ptrjId": "POM00055",
+      "chargeJob": "(OC7220) EFFLUENT TREATMENT PLANT / STN-ETP (STATION EFFLUENT TREATMENT PLANT) / ETP00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 275712,
+          "millwareAmount": 5695155,
+          "diff": 275712,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 275712,
+          "shortfallAmount": 275712,
+          "originalVenusAmount": 5970867,
+          "originalMillwareAmount": 5695155,
+          "note": "Partial lembur adjustment (Venus - MW = 275712)"
+        }
+      ],
+      "recordKey": "POM00055:lembur:AL0019:275712"
+    },
+    {
+      "employeeId": "PTRJ.241000011",
+      "employeeName": "Atmo Haryo",
+      "ptrjId": "POM00054",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1069269,
+          "millwareAmount": 6977407,
+          "diff": 1069269,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1069269,
+          "shortfallAmount": 1069269,
+          "originalVenusAmount": 8046676,
+          "originalMillwareAmount": 6977407,
+          "note": "Partial lembur adjustment (Venus - MW = 1069269)"
+        }
+      ],
+      "recordKey": "POM00054:lembur:AL0019:1069269"
+    },
+    {
+      "employeeId": "PTRJ.241000012",
+      "employeeName": "Azmar",
+      "ptrjId": "POM00256",
+      "chargeJob": "(PLTU) / (OC7190) BOILER OPERATION / STN-BLR (STATION BOILER) / BLR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 384056,
+          "millwareAmount": 5680106,
+          "diff": 384056,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 384056,
+          "shortfallAmount": 384056,
+          "originalVenusAmount": 6064162,
+          "originalMillwareAmount": 5680106,
+          "note": "Partial lembur adjustment (Venus - MW = 384056)"
+        }
+      ],
+      "recordKey": "POM00256:lembur:AL0019:384056"
+    },
+    {
+      "employeeId": "PTRJ.241000013",
+      "employeeName": "Ari Widodo 102",
+      "ptrjId": "POM00102",
+      "chargeJob": "(PROSES 1) / (GA9010) VEHICLE RUNNING / BE004 (Backhoe Loader CASE) / 11 (DRIVER WAGES)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 221568,
+          "millwareAmount": 4711394,
+          "diff": 221568,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 221568,
+          "shortfallAmount": 221568,
+          "originalVenusAmount": 4932962,
+          "originalMillwareAmount": 4711394,
+          "note": "Partial lembur adjustment (Venus - MW = 221568)"
+        }
+      ],
+      "recordKey": "POM00102:lembur:AL0019:221568"
+    },
+    {
+      "employeeId": "PTRJ.241000014",
+      "employeeName": "Ari Widodo 180",
+      "ptrjId": "POM00180",
+      "chargeJob": "(OC7220) EFFLUENT TREATMENT PLANT / STN-ETP (STATION EFFLUENT TREATMENT PLANT) / ETP00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 713310,
+          "millwareAmount": 5257558,
+          "diff": 713310,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 713310,
+          "shortfallAmount": 713310,
+          "originalVenusAmount": 5970868,
+          "originalMillwareAmount": 5257558,
+          "note": "Partial lembur adjustment (Venus - MW = 713310)"
+        }
+      ],
+      "recordKey": "POM00180:lembur:AL0019:713310"
+    },
+    {
+      "employeeId": "PTRJ.241000015",
+      "employeeName": "Agus Irawan",
+      "ptrjId": "POM00106",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1014578,
+          "millwareAmount": 2017503,
+          "diff": 1014578,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1014578,
+          "shortfallAmount": 1014578,
+          "originalVenusAmount": 3032081,
+          "originalMillwareAmount": 2017503,
+          "note": "Partial lembur adjustment (Venus - MW = 1014578)"
+        }
+      ],
+      "recordKey": "POM00106:lembur:AL0019:1014578"
+    },
+    {
+      "employeeId": "PTRJ.241000016",
+      "employeeName": "Agus Riyadi",
+      "ptrjId": "POM00183",
+      "chargeJob": "(STORE) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 951376,
+          "millwareAmount": 3923277,
+          "diff": 951376,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 951376,
+          "shortfallAmount": 951376,
+          "originalVenusAmount": 4874653,
+          "originalMillwareAmount": 3923277,
+          "note": "Partial lembur adjustment (Venus - MW = 951376)"
+        }
+      ],
+      "recordKey": "POM00183:lembur:AL0019:951376"
+    },
+    {
+      "employeeId": "PTRJ.241000017",
+      "employeeName": "Agus Setiawan",
+      "ptrjId": "POM00214",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 967869,
+          "millwareAmount": 4909703,
+          "diff": 967869,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 967869,
+          "shortfallAmount": 967869,
+          "originalVenusAmount": 5877572,
+          "originalMillwareAmount": 4909703,
+          "note": "Partial lembur adjustment (Venus - MW = 967869)"
+        }
+      ],
+      "recordKey": "POM00214:lembur:AL0019:967869"
+    },
+    {
+      "employeeId": "PTRJ.241000018",
+      "employeeName": "Agustian",
+      "ptrjId": "POM00223",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 713307,
+          "millwareAmount": 5630739,
+          "diff": 713307,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 713307,
+          "shortfallAmount": 713307,
+          "originalVenusAmount": 6344046,
+          "originalMillwareAmount": 5630739,
+          "note": "Partial lembur adjustment (Venus - MW = 713307)"
+        }
+      ],
+      "recordKey": "POM00223:lembur:AL0019:713307"
+    },
+    {
+      "employeeId": "PTRJ.241000019",
+      "employeeName": "Anwar",
+      "ptrjId": "POM00114",
+      "chargeJob": "(PROSES 2) / (OC7150) EFB PREBREAKER STATION / STN-PBS (STATION PREBREAKER (EFB)) / PBS00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 329189,
+          "millwareAmount": 4020681,
+          "diff": 329189,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 329189,
+          "shortfallAmount": 329189,
+          "originalVenusAmount": 4349870,
+          "originalMillwareAmount": 4020681,
+          "note": "Partial lembur adjustment (Venus - MW = 329189)"
+        }
+      ],
+      "recordKey": "POM00114:lembur:AL0019:329189"
+    },
+    {
+      "employeeId": "PTRJ.241000020",
+      "employeeName": "Ardiansyah",
+      "ptrjId": "POM00242",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 752402,
+          "millwareAmount": 5358407,
+          "diff": 752402,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 752402,
+          "shortfallAmount": 752402,
+          "originalVenusAmount": 6110809,
+          "originalMillwareAmount": 5358407,
+          "note": "Partial lembur adjustment (Venus - MW = 752402)"
+        }
+      ],
+      "recordKey": "POM00242:lembur:AL0019:752402"
+    },
+    {
+      "employeeId": "PTRJ.241000021",
+      "employeeName": "Aswandi",
+      "ptrjId": "POM00125",
+      "chargeJob": "(GA9234) UPKEEP OF BUILDINGS / STN-OFF (STATION OFFICE) / OFFICE (OFFICE) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 199575,
+          "millwareAmount": 1421423,
+          "diff": 199575,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 199575,
+          "shortfallAmount": 199575,
+          "originalVenusAmount": 1620998,
+          "originalMillwareAmount": 1421423,
+          "note": "Partial lembur adjustment (Venus - MW = 199575)"
+        }
+      ],
+      "recordKey": "POM00125:lembur:AL0019:199575"
+    },
+    {
+      "employeeId": "PTRJ.241000022",
+      "employeeName": "Andriano Sanopriansyah",
+      "ptrjId": "POM00138",
+      "chargeJob": "(PROSES 2) / (OC7180) KERNEL OPERATION / STN-KER (STATION KERNEL) / KER00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 58912,
+          "millwareAmount": 6016911,
+          "diff": 58912,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 58912,
+          "shortfallAmount": 58912,
+          "originalVenusAmount": 6075824,
+          "originalMillwareAmount": 6016911,
+          "note": "Partial lembur adjustment (Venus - MW = 58912)"
+        }
+      ],
+      "recordKey": "POM00138:lembur:AL0019:58912"
+    },
+    {
+      "employeeId": "PTRJ.241000023",
+      "employeeName": "Aryat Dhimi Octovan",
+      "ptrjId": "POM00253",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 781266,
+          "millwareAmount": 4363649,
+          "diff": 781266,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 781266,
+          "shortfallAmount": 781266,
+          "originalVenusAmount": 5144915,
+          "originalMillwareAmount": 4363649,
+          "note": "Partial lembur adjustment (Venus - MW = 781266)"
+        }
+      ],
+      "recordKey": "POM00253:lembur:AL0019:781266"
+    },
+    {
+      "employeeId": "PTRJ.241000025",
+      "employeeName": "Asqalany",
+      "ptrjId": "POM00140",
+      "chargeJob": "(PROSES 1) / (OC7170) CLARIFICATION OPERATION / STN-CLR (STATION CLARIFICATION) / CLR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 737351,
+          "millwareAmount": 6772880,
+          "diff": 737351,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 737351,
+          "shortfallAmount": 737351,
+          "originalVenusAmount": 7510231,
+          "originalMillwareAmount": 6772880,
+          "note": "Partial lembur adjustment (Venus - MW = 737351)"
+        }
+      ],
+      "recordKey": "POM00140:lembur:AL0019:737351"
+    },
+    {
+      "employeeId": "PTRJ.241000026",
+      "employeeName": "Aturi",
+      "ptrjId": "POM00145",
+      "chargeJob": "(LABORATORY) / (OC7240) LABORATORY ANALYSIS / STN-LAB (STATION LABORATORY) / LAB00000 (LABOUR COST ) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 164591,
+          "millwareAmount": 3730467,
+          "diff": 164591,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 164591,
+          "shortfallAmount": 164591,
+          "originalVenusAmount": 3895058,
+          "originalMillwareAmount": 3730467,
+          "note": "Partial lembur adjustment (Venus - MW = 164591)"
+        }
+      ],
+      "recordKey": "POM00145:lembur:AL0019:164591"
+    },
+    {
+      "employeeId": "PTRJ.241000027",
+      "employeeName": "Ari Yanto",
+      "ptrjId": "POM00151",
+      "chargeJob": "(COMPOSTING) / (CA4814) CRoll Wages (Compos) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 315475,
+          "millwareAmount": 3031476,
+          "diff": 315475,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 315475,
+          "shortfallAmount": 315475,
+          "originalVenusAmount": 3346951,
+          "originalMillwareAmount": 3031476,
+          "note": "Partial lembur adjustment (Venus - MW = 315475)"
+        }
+      ],
+      "recordKey": "POM00151:lembur:AL0019:315475"
+    },
+    {
+      "employeeId": "PTRJ.241000028",
+      "employeeName": "Andriansyah",
+      "ptrjId": "POM00159",
+      "chargeJob": "(PROSES 2) / (OC7120) STERILIZER OPERATION / STN-STR (STATION STERILIZER) / STR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1039951,
+          "millwareAmount": 7269506,
+          "diff": 1039951,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1039951,
+          "shortfallAmount": 1039951,
+          "originalVenusAmount": 8309457,
+          "originalMillwareAmount": 7269506,
+          "note": "Partial lembur adjustment (Venus - MW = 1039951)"
+        }
+      ],
+      "recordKey": "POM00159:lembur:AL0019:1039951"
+    },
+    {
+      "employeeId": "PTRJ.241000029",
+      "employeeName": "Azrul Khan",
+      "ptrjId": "POM00165",
+      "chargeJob": "(PROSES 2) / (OC7130) THRESHING STATION OPERATION / STN-THR (STATION THRESHING) / THR00000 (LABOUR COST) /  L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 137157,
+          "millwareAmount": 2789967,
+          "diff": 137157,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 137157,
+          "shortfallAmount": 137157,
+          "originalVenusAmount": 2927124,
+          "originalMillwareAmount": 2789967,
+          "note": "Partial lembur adjustment (Venus - MW = 137157)"
+        }
+      ],
+      "recordKey": "POM00165:lembur:AL0019:137157"
+    },
+    {
+      "employeeId": "PTRJ.241000031",
+      "employeeName": "Beni Apriyanto",
+      "ptrjId": "POM00079",
+      "chargeJob": "(K3) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 945937,
+          "millwareAmount": 2960783,
+          "diff": 945937,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 945937,
+          "shortfallAmount": 945937,
+          "originalVenusAmount": 3906720,
+          "originalMillwareAmount": 2960783,
+          "note": "Partial lembur adjustment (Venus - MW = 945937)"
+        }
+      ],
+      "recordKey": "POM00079:lembur:AL0019:945937"
+    },
+    {
+      "employeeId": "PTRJ.241000032",
+      "employeeName": "Charyadi",
+      "ptrjId": "POM00216",
+      "chargeJob": "(GA9234) UPKEEP OF BUILDINGS / STN-OFF (STATION OFFICE) / OFFICE (OFFICE) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 199578,
+          "millwareAmount": 954946,
+          "diff": 199578,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 199578,
+          "shortfallAmount": 199578,
+          "originalVenusAmount": 1154524,
+          "originalMillwareAmount": 954946,
+          "note": "Partial lembur adjustment (Venus - MW = 199578)"
+        }
+      ],
+      "recordKey": "POM00216:lembur:AL0019:199578"
+    },
+    {
+      "employeeId": "PTRJ.241000033",
+      "employeeName": "Cherpiansyah",
+      "ptrjId": "POM00164",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 467801,
+          "millwareAmount": 4220263,
+          "diff": 467801,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 467801,
+          "shortfallAmount": 467801,
+          "originalVenusAmount": 4688063,
+          "originalMillwareAmount": 4220263,
+          "note": "Partial lembur adjustment (Venus - MW = 467801)"
+        }
+      ],
+      "recordKey": "POM00164:lembur:AL0019:467801"
+    },
+    {
+      "employeeId": "PTRJ.241000034",
+      "employeeName": "Dedy Prasapta",
+      "ptrjId": "POM00236",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 787388,
+          "millwareAmount": 7049375,
+          "diff": 787388,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 787388,
+          "shortfallAmount": 787388,
+          "originalVenusAmount": 7836764,
+          "originalMillwareAmount": 7049375,
+          "note": "Partial lembur adjustment (Venus - MW = 787388)"
+        }
+      ],
+      "recordKey": "POM00236:lembur:AL0019:787388"
+    },
+    {
+      "employeeId": "PTRJ.241000035",
+      "employeeName": "Dedi 261",
+      "ptrjId": "POM00261",
+      "chargeJob": "(PROSES 1) / (OC7180) KERNEL OPERATION / STN-KER (STATION KERNEL) / KER00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 584417,
+          "millwareAmount": 5812108,
+          "diff": 584417,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 584417,
+          "shortfallAmount": 584417,
+          "originalVenusAmount": 6396525,
+          "originalMillwareAmount": 5812108,
+          "note": "Partial lembur adjustment (Venus - MW = 584417)"
+        }
+      ],
+      "recordKey": "POM00261:lembur:AL0019:584417"
+    },
+    {
+      "employeeId": "PTRJ.241000036",
+      "employeeName": "Deka Setiawan",
+      "ptrjId": "POM00263",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1236094,
+          "millwareAmount": 3393660,
+          "diff": 1236094,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1236094,
+          "shortfallAmount": 1236094,
+          "originalVenusAmount": 4629755,
+          "originalMillwareAmount": 3393660,
+          "note": "Partial lembur adjustment (Venus - MW = 1236094)"
+        }
+      ],
+      "recordKey": "POM00263:lembur:AL0019:1236094"
+    },
+    {
+      "employeeId": "PTRJ.241000038",
+      "employeeName": "Dedi",
+      "ptrjId": "POM00046",
+      "chargeJob": "(PROSES 2) / (OC7120) STERILIZER OPERATION / STN-STR (STATION STERILIZER) / STR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 395715,
+          "millwareAmount": 5633461,
+          "diff": 395715,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 395715,
+          "shortfallAmount": 395715,
+          "originalVenusAmount": 6029176,
+          "originalMillwareAmount": 5633461,
+          "note": "Partial lembur adjustment (Venus - MW = 395715)"
+        }
+      ],
+      "recordKey": "POM00046:lembur:AL0019:395715"
+    },
+    {
+      "employeeId": "PTRJ.241000039",
+      "employeeName": "Dedy Burhansyah",
+      "ptrjId": "POM00040",
+      "chargeJob": "(OC7220) EFFLUENT TREATMENT PLANT / STN-ETP (STATION EFFLUENT TREATMENT PLANT) / ETP00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 919054,
+          "millwareAmount": 7547449,
+          "diff": 919054,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 919054,
+          "shortfallAmount": 919054,
+          "originalVenusAmount": 8466503,
+          "originalMillwareAmount": 7547449,
+          "note": "Partial lembur adjustment (Venus - MW = 919054)"
+        }
+      ],
+      "recordKey": "POM00040:lembur:AL0019:919054"
+    },
+    {
+      "employeeId": "PTRJ.241000040",
+      "employeeName": "Derry",
+      "ptrjId": "POM00028",
+      "chargeJob": "(PROSES 1) / (OC7160) PRESS OPERATION / STN-PRS (STATION PRESS) / PRS00000 (LABOUR COST ) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 583082,
+          "millwareAmount": 4367373,
+          "diff": 583082,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 583082,
+          "shortfallAmount": 583082,
+          "originalVenusAmount": 4950455,
+          "originalMillwareAmount": 4367373,
+          "note": "Partial lembur adjustment (Venus - MW = 583082)"
+        }
+      ],
+      "recordKey": "POM00028:lembur:AL0019:583082"
+    },
+    {
+      "employeeId": "PTRJ.241000041",
+      "employeeName": "Dick Havianto",
+      "ptrjId": "POM00065",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1352715,
+          "millwareAmount": 2950507,
+          "diff": 1352715,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1352715,
+          "shortfallAmount": 1352715,
+          "originalVenusAmount": 4303222,
+          "originalMillwareAmount": 2950507,
+          "note": "Partial lembur adjustment (Venus - MW = 1352715)"
+        }
+      ],
+      "recordKey": "POM00065:lembur:AL0019:1352715"
+    },
+    {
+      "employeeId": "PTRJ.241000042",
+      "employeeName": "Darma Stiyawan",
+      "ptrjId": "POM00104",
+      "chargeJob": "(PROSES 1) / (OC7120) STERILIZER OPERATION / STN-STR (STATION STERILIZER) / STR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 192024,
+          "millwareAmount": 3574753,
+          "diff": 192024,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 192024,
+          "shortfallAmount": 192024,
+          "originalVenusAmount": 3766777,
+          "originalMillwareAmount": 3574753,
+          "note": "Partial lembur adjustment (Venus - MW = 192024)"
+        }
+      ],
+      "recordKey": "POM00104:lembur:AL0019:192024"
+    },
+    {
+      "employeeId": "PTRJ.241000043",
+      "employeeName": "Defi Pantera",
+      "ptrjId": "POM00128",
+      "chargeJob": "(PROSES 2) / (GA9010) VEHICLE RUNNING / BE002 ((XGMA2) Whell Loader) / 11 (DRIVER WAGES)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 382000,
+          "millwareAmount": 4644257,
+          "diff": 382000,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 382000,
+          "shortfallAmount": 382000,
+          "originalVenusAmount": 5026257,
+          "originalMillwareAmount": 4644257,
+          "note": "Partial lembur adjustment (Venus - MW = 382000)"
+        }
+      ],
+      "recordKey": "POM00128:lembur:AL0019:382000"
+    },
+    {
+      "employeeId": "PTRJ.241000044",
+      "employeeName": "Danang Budhi Santoso",
+      "ptrjId": "POM00144",
+      "chargeJob": "(OC7220) EFFLUENT TREATMENT PLANT / STN-ETP (STATION EFFLUENT TREATMENT PLANT) / ETP00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 163261,
+          "millwareAmount": 1551031,
+          "diff": 163261,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 163261,
+          "shortfallAmount": 163261,
+          "originalVenusAmount": 1714292,
+          "originalMillwareAmount": 1551031,
+          "note": "Partial lembur adjustment (Venus - MW = 163261)"
+        }
+      ],
+      "recordKey": "POM00144:lembur:AL0019:163261"
+    },
+    {
+      "employeeId": "PTRJ.241000045",
+      "employeeName": "David Firdaus",
+      "ptrjId": "POM00168",
+      "chargeJob": "(GA9234) UPKEEP OF BUILDINGS / STN-OFF (STATION OFFICE) / OFFICE (OFFICE) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 377890,
+          "millwareAmount": 1371388,
+          "diff": 377890,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 377890,
+          "shortfallAmount": 377890,
+          "originalVenusAmount": 1749278,
+          "originalMillwareAmount": 1371388,
+          "note": "Partial lembur adjustment (Venus - MW = 377890)"
+        }
+      ],
+      "recordKey": "POM00168:lembur:AL0019:377890"
+    },
+    {
+      "employeeId": "PTRJ.241000047",
+      "employeeName": "Eko Juniansah",
+      "ptrjId": "POM00066",
+      "chargeJob": "(PROJECT) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 3801530,
+          "millwareAmount": 6839908,
+          "diff": 3801530,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 3801530,
+          "shortfallAmount": 3801530,
+          "originalVenusAmount": 10641438,
+          "originalMillwareAmount": 6839908,
+          "note": "Partial lembur adjustment (Venus - MW = 3801530)"
+        }
+      ],
+      "recordKey": "POM00066:lembur:AL0019:3801530"
+    },
+    {
+      "employeeId": "PTRJ.241000048",
+      "employeeName": "Erwin Susanto",
+      "ptrjId": "POM00239",
+      "chargeJob": "(ADMIN REKAP) / (OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1525418,
+          "millwareAmount": 5098513,
+          "diff": 1525418,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1525418,
+          "shortfallAmount": 1525418,
+          "originalVenusAmount": 6623930,
+          "originalMillwareAmount": 5098513,
+          "note": "Partial lembur adjustment (Venus - MW = 1525418)"
+        }
+      ],
+      "recordKey": "POM00239:lembur:AL0019:1525418"
+    },
+    {
+      "employeeId": "PTRJ.241000050",
+      "employeeName": "Eddo Prathama",
+      "ptrjId": "POM00120",
+      "chargeJob": "(PROSES 1) / (OC7180) KERNEL OPERATION / STN-KER (STATION KERNEL) / KER00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 256556,
+          "millwareAmount": 3428589,
+          "diff": 256556,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 256556,
+          "shortfallAmount": 256556,
+          "originalVenusAmount": 3685145,
+          "originalMillwareAmount": 3428589,
+          "note": "Partial lembur adjustment (Venus - MW = 256556)"
+        }
+      ],
+      "recordKey": "POM00120:lembur:AL0019:256556"
+    },
+    {
+      "employeeId": "PTRJ.241000051",
+      "employeeName": "Faizal",
+      "ptrjId": "POM00207",
+      "chargeJob": "(OC7220) EFFLUENT TREATMENT PLANT / STN-ETP (STATION EFFLUENT TREATMENT PLANT) / ETP00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 392329,
+          "millwareAmount": 7082917,
+          "diff": 392329,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 392329,
+          "shortfallAmount": 392329,
+          "originalVenusAmount": 7475246,
+          "originalMillwareAmount": 7082917,
+          "note": "Partial lembur adjustment (Venus - MW = 392329)"
+        }
+      ],
+      "recordKey": "POM00207:lembur:AL0019:392329"
+    },
+    {
+      "employeeId": "PTRJ.241000053",
+      "employeeName": "Febrian Saputra",
+      "ptrjId": "POM00246",
+      "chargeJob": "(STORE) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 583696,
+          "millwareAmount": 3323024,
+          "diff": 583696,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 583696,
+          "shortfallAmount": 583696,
+          "originalVenusAmount": 3906720,
+          "originalMillwareAmount": 3323024,
+          "note": "Partial lembur adjustment (Venus - MW = 583696)"
+        }
+      ],
+      "recordKey": "POM00246:lembur:AL0019:583696"
+    },
+    {
+      "employeeId": "PTRJ.241000054",
+      "employeeName": "Fedrico Diazta",
+      "ptrjId": "POM00177",
+      "chargeJob": "(LABORATORY) / (OC7240) LABORATORY ANALYSIS / STN-LAB (STATION LABORATORY) / LAB00000 (LABOUR COST ) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 497286,
+          "millwareAmount": 5543552,
+          "diff": 497286,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 497286,
+          "shortfallAmount": 497286,
+          "originalVenusAmount": 6040838,
+          "originalMillwareAmount": 5543552,
+          "note": "Partial lembur adjustment (Venus - MW = 497286)"
+        }
+      ],
+      "recordKey": "POM00177:lembur:AL0019:497286"
+    },
+    {
+      "employeeId": "PTRJ.241000055",
+      "employeeName": "Ferdi Prihanda",
+      "ptrjId": "POM00218",
+      "chargeJob": "(COMPOSTING) / (GA9010) VEHICLE RUNNING / LN002 ((POWERMAX) COMPOSTING 2 2024) / 11 (DRIVER WAGES) ",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 164594,
+          "millwareAmount": 2342704,
+          "diff": 164594,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 164594,
+          "shortfallAmount": 164594,
+          "originalVenusAmount": 2507298,
+          "originalMillwareAmount": 2342704,
+          "note": "Partial lembur adjustment (Venus - MW = 164594)"
+        }
+      ],
+      "recordKey": "POM00218:lembur:AL0019:164594"
+    },
+    {
+      "employeeId": "PTRJ.241000056",
+      "employeeName": "Fikriansyah",
+      "ptrjId": "POM00184",
+      "chargeJob": "(PLTU) / (OC7200) ENGINE ROOM OPERATION / STN-ENG (STATION ENGINE ROOM) / ENG00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 384834,
+          "millwareAmount": 5014603,
+          "diff": 384834,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 384834,
+          "shortfallAmount": 384834,
+          "originalVenusAmount": 5399437,
+          "originalMillwareAmount": 5014603,
+          "note": "Partial lembur adjustment (Venus - MW = 384834)"
+        }
+      ],
+      "recordKey": "POM00184:lembur:AL0019:384834"
+    },
+    {
+      "employeeId": "PTRJ.241000057",
+      "employeeName": "Galuh Ferdianjaya",
+      "ptrjId": "POM00124",
+      "chargeJob": "(PLTU) / (OC7190) BOILER OPERATION / STN-BLR (STATION BOILER) / BLR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 977420,
+          "millwareAmount": 5798115,
+          "diff": 977420,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 977420,
+          "shortfallAmount": 977420,
+          "originalVenusAmount": 6775535,
+          "originalMillwareAmount": 5798115,
+          "note": "Partial lembur adjustment (Venus - MW = 977420)"
+        }
+      ],
+      "recordKey": "POM00124:lembur:AL0019:977420"
+    },
+    {
+      "employeeId": "PTRJ.241000058",
+      "employeeName": "Guntur",
+      "ptrjId": "POM00208",
+      "chargeJob": "(OC7220) EFFLUENT TREATMENT PLANT / STN-ETP (STATION EFFLUENT TREATMENT PLANT) / ETP00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1170838,
+          "millwareAmount": 8135318,
+          "diff": 1170838,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1170838,
+          "shortfallAmount": 1170838,
+          "originalVenusAmount": 9306156,
+          "originalMillwareAmount": 8135318,
+          "note": "Partial lembur adjustment (Venus - MW = 1170838)"
+        }
+      ],
+      "recordKey": "POM00208:lembur:AL0019:1170838"
+    },
+    {
+      "employeeId": "PTRJ.241000059",
+      "employeeName": "Hanip",
+      "ptrjId": "POM00063",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1119534,
+          "millwareAmount": 2623920,
+          "diff": 1119534,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1119534,
+          "shortfallAmount": 1119534,
+          "originalVenusAmount": 3743454,
+          "originalMillwareAmount": 2623920,
+          "note": "Partial lembur adjustment (Venus - MW = 1119534)"
+        }
+      ],
+      "recordKey": "POM00063:lembur:AL0019:1119534"
+    },
+    {
+      "employeeId": "PTRJ.241000060",
+      "employeeName": "Harry Nugroho Prabowo",
+      "ptrjId": "POM00188",
+      "chargeJob": "(COMPOSTING) / (CA4814) CRoll Wages (Compos) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 164595,
+          "millwareAmount": 1864567,
+          "diff": 164595,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 164595,
+          "shortfallAmount": 164595,
+          "originalVenusAmount": 2029162,
+          "originalMillwareAmount": 1864567,
+          "note": "Partial lembur adjustment (Venus - MW = 164595)"
+        }
+      ],
+      "recordKey": "POM00188:lembur:AL0019:164595"
+    },
+    {
+      "employeeId": "PTRJ.241000061",
+      "employeeName": "Helmi",
+      "ptrjId": "POM00076",
+      "chargeJob": "(PLTU) / (OC7200) ENGINE ROOM OPERATION / STN-ENG (STATION ENGINE ROOM) / ENG00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 23316,
+          "millwareAmount": 3626843,
+          "diff": 23316,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 23316,
+          "shortfallAmount": 23316,
+          "originalVenusAmount": 3650159,
+          "originalMillwareAmount": 3626843,
+          "note": "Partial lembur adjustment (Venus - MW = 23316)"
+        }
+      ],
+      "recordKey": "POM00076:lembur:AL0019:23316"
+    },
+    {
+      "employeeId": "PTRJ.241000062",
+      "employeeName": "Hendra Winardi",
+      "ptrjId": "POM00048",
+      "chargeJob": "(GA9234) UPKEEP OF BUILDINGS / STN-OFF (STATION OFFICE) / OFFICE (OFFICE) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 34981,
+          "millwareAmount": 793011,
+          "diff": 34981,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 34981,
+          "shortfallAmount": 34981,
+          "originalVenusAmount": 827992,
+          "originalMillwareAmount": 793011,
+          "note": "Partial lembur adjustment (Venus - MW = 34981)"
+        }
+      ],
+      "recordKey": "POM00048:lembur:AL0019:34981"
+    },
+    {
+      "employeeId": "PTRJ.241000063",
+      "employeeName": "Heru Suradi",
+      "ptrjId": "POM00229",
+      "chargeJob": "(PROSES 2) / (OC7180) KERNEL OPERATION / STN-KER (STATION KERNEL) / KER00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 417042,
+          "millwareAmount": 6929923,
+          "diff": 417042,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 417042,
+          "shortfallAmount": 417042,
+          "originalVenusAmount": 7346965,
+          "originalMillwareAmount": 6929923,
+          "note": "Partial lembur adjustment (Venus - MW = 417042)"
+        }
+      ],
+      "recordKey": "POM00229:lembur:AL0019:417042"
+    },
+    {
+      "employeeId": "PTRJ.241000064",
+      "employeeName": "Hendra Jaya",
+      "ptrjId": "POM00240",
+      "chargeJob": "(ADMIN REKAP) / (OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1413015,
+          "millwareAmount": 5805670,
+          "diff": 1413015,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1413015,
+          "shortfallAmount": 1413015,
+          "originalVenusAmount": 7218685,
+          "originalMillwareAmount": 5805670,
+          "note": "Partial lembur adjustment (Venus - MW = 1413015)"
+        }
+      ],
+      "recordKey": "POM00240:lembur:AL0019:1413015"
+    },
+    {
+      "employeeId": "PTRJ.241000065",
+      "employeeName": "Husaini",
+      "ptrjId": "POM00024",
+      "chargeJob": "(PROSES 2) / (OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 497283,
+          "millwareAmount": 5870087,
+          "diff": 497283,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 497283,
+          "shortfallAmount": 497283,
+          "originalVenusAmount": 6367370,
+          "originalMillwareAmount": 5870087,
+          "note": "Partial lembur adjustment (Venus - MW = 497283)"
+        }
+      ],
+      "recordKey": "POM00024:lembur:AL0019:497283"
+    },
+    {
+      "employeeId": "PTRJ.241000066",
+      "employeeName": "Herly Hidayat",
+      "ptrjId": "POM00265",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 485590,
+          "millwareAmount": 2077852,
+          "diff": 485590,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 485590,
+          "shortfallAmount": 485590,
+          "originalVenusAmount": 2563442,
+          "originalMillwareAmount": 2077852,
+          "note": "Partial lembur adjustment (Venus - MW = 485590)"
+        }
+      ],
+      "recordKey": "POM00265:lembur:AL0019:485590"
+    },
+    {
+      "employeeId": "PTRJ.241000067",
+      "employeeName": "Heryandi",
+      "ptrjId": "POM00160",
+      "chargeJob": "(COMPOSTING) / (CA4814) CRoll Wages (Compos) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 164596,
+          "millwareAmount": 1712962,
+          "diff": 164596,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 164596,
+          "shortfallAmount": 164596,
+          "originalVenusAmount": 1877558,
+          "originalMillwareAmount": 1712962,
+          "note": "Partial lembur adjustment (Venus - MW = 164596)"
+        }
+      ],
+      "recordKey": "POM00160:lembur:AL0019:164596"
+    },
+    {
+      "employeeId": "PTRJ.241000068",
+      "employeeName": "Ichsanudin",
+      "ptrjId": "POM00036",
+      "chargeJob": "(LABORATORY) / (OC7240) LABORATORY ANALYSIS / STN-LAB (STATION LABORATORY) / LAB00000 (LABOUR COST ) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 164591,
+          "millwareAmount": 4733386,
+          "diff": 164591,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 164591,
+          "shortfallAmount": 164591,
+          "originalVenusAmount": 4897977,
+          "originalMillwareAmount": 4733386,
+          "note": "Partial lembur adjustment (Venus - MW = 164591)"
+        }
+      ],
+      "recordKey": "POM00036:lembur:AL0019:164591"
+    },
+    {
+      "employeeId": "PTRJ.241000069",
+      "employeeName": "Ibnu Wardana",
+      "ptrjId": "POM00093",
+      "chargeJob": "(ADMIN REKAP) / (OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1395801,
+          "millwareAmount": 5741251,
+          "diff": 1395801,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1395801,
+          "shortfallAmount": 1395801,
+          "originalVenusAmount": 7137052,
+          "originalMillwareAmount": 5741251,
+          "note": "Partial lembur adjustment (Venus - MW = 1395801)"
+        }
+      ],
+      "recordKey": "POM00093:lembur:AL0019:1395801"
+    },
+    {
+      "employeeId": "PTRJ.241000070",
+      "employeeName": "Ihsan Alfahry",
+      "ptrjId": "POM00260",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 804664,
+          "millwareAmount": 2880480,
+          "diff": 804664,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 804664,
+          "shortfallAmount": 804664,
+          "originalVenusAmount": 3685144,
+          "originalMillwareAmount": 2880480,
+          "note": "Partial lembur adjustment (Venus - MW = 804664)"
+        }
+      ],
+      "recordKey": "POM00260:lembur:AL0019:804664"
+    },
+    {
+      "employeeId": "PTRJ.241000072",
+      "employeeName": "Isbandi",
+      "ptrjId": "POM00176",
+      "chargeJob": "(PROSES 2) / (OC7120) STERILIZER OPERATION / STN-STR (STATION STERILIZER) / STR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 553542,
+          "millwareAmount": 3539767,
+          "diff": 553542,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 553542,
+          "shortfallAmount": 553542,
+          "originalVenusAmount": 4093309,
+          "originalMillwareAmount": 3539767,
+          "note": "Partial lembur adjustment (Venus - MW = 553542)"
+        }
+      ],
+      "recordKey": "POM00176:lembur:AL0019:553542"
+    },
+    {
+      "employeeId": "PTRJ.241000073",
+      "employeeName": "Jaya Saputra",
+      "ptrjId": "POM00087",
+      "chargeJob": "(LABORATORY) / (OC7240) LABORATORY ANALYSIS / STN-LAB (STATION LABORATORY) / LAB00000 (LABOUR COST ) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1192837,
+          "millwareAmount": 1057899,
+          "diff": 1192837,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1192837,
+          "shortfallAmount": 1192837,
+          "originalVenusAmount": 2250737,
+          "originalMillwareAmount": 1057899,
+          "note": "Partial lembur adjustment (Venus - MW = 1192837)"
+        }
+      ],
+      "recordKey": "POM00087:lembur:AL0019:1192837"
+    },
+    {
+      "employeeId": "PTRJ.241000075",
+      "employeeName": "Jumhadi",
+      "ptrjId": "POM00163",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 834033,
+          "millwareAmount": 6396314,
+          "diff": 834033,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 834033,
+          "shortfallAmount": 834033,
+          "originalVenusAmount": 7230347,
+          "originalMillwareAmount": 6396314,
+          "note": "Partial lembur adjustment (Venus - MW = 834033)"
+        }
+      ],
+      "recordKey": "POM00163:lembur:AL0019:834033"
+    },
+    {
+      "employeeId": "PTRJ.241000076",
+      "employeeName": "Joko Priono",
+      "ptrjId": "POM00209",
+      "chargeJob": "(PLTU) / (OC7200) ENGINE ROOM OPERATION / STN-ENG (STATION ENGINE ROOM) / ENG00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1204494,
+          "millwareAmount": 4113309,
+          "diff": 1204494,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1204494,
+          "shortfallAmount": 1204494,
+          "originalVenusAmount": 5317803,
+          "originalMillwareAmount": 4113309,
+          "note": "Partial lembur adjustment (Venus - MW = 1204494)"
+        }
+      ],
+      "recordKey": "POM00209:lembur:AL0019:1204494"
+    },
+    {
+      "employeeId": "PTRJ.241000077",
+      "employeeName": "Kiki Firmansyah",
+      "ptrjId": "POM00174",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1473440,
+          "millwareAmount": 3925997,
+          "diff": 1473440,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1473440,
+          "shortfallAmount": 1473440,
+          "originalVenusAmount": 5399436,
+          "originalMillwareAmount": 3925997,
+          "note": "Partial lembur adjustment (Venus - MW = 1473440)"
+        }
+      ],
+      "recordKey": "POM00174:lembur:AL0019:1473440"
+    },
+    {
+      "employeeId": "PTRJ.241000078",
+      "employeeName": "Liga Pirdana",
+      "ptrjId": "POM00109",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 788833,
+          "millwareAmount": 5800112,
+          "diff": 788833,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 788833,
+          "shortfallAmount": 788833,
+          "originalVenusAmount": 6588945,
+          "originalMillwareAmount": 5800112,
+          "note": "Partial lembur adjustment (Venus - MW = 788833)"
+        }
+      ],
+      "recordKey": "POM00109:lembur:AL0019:788833"
+    },
+    {
+      "employeeId": "PTRJ.241000079",
+      "employeeName": "Lio Pratama",
+      "ptrjId": "POM00238",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 984915,
+          "millwareAmount": 6945143,
+          "diff": 984915,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 984915,
+          "shortfallAmount": 984915,
+          "originalVenusAmount": 7930058,
+          "originalMillwareAmount": 6945143,
+          "note": "Partial lembur adjustment (Venus - MW = 984915)"
+        }
+      ],
+      "recordKey": "POM00238:lembur:AL0019:984915"
+    },
+    {
+      "employeeId": "PTRJ.241000080",
+      "employeeName": "Mahmudi",
+      "ptrjId": "pom00227",
+      "chargeJob": "(LABORATORY) / (GA9010) VEHICLE RUNNING / DT001 ((BN8011WQ) TRUK CPO) / 11 (DRIVER WAGES)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 715363,
+          "millwareAmount": 5185532,
+          "diff": 715363,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 715363,
+          "shortfallAmount": 715363,
+          "originalVenusAmount": 5900896,
+          "originalMillwareAmount": 5185532,
+          "note": "Partial lembur adjustment (Venus - MW = 715363)"
+        }
+      ],
+      "recordKey": "pom00227:lembur:AL0019:715363"
+    },
+    {
+      "employeeId": "PTRJ.241000081",
+      "employeeName": "Muhammad Ridho Akbar Papilaya",
+      "ptrjId": "POM00267",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 788834,
+          "millwareAmount": 6138305,
+          "diff": 788834,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 788834,
+          "shortfallAmount": 788834,
+          "originalVenusAmount": 6927139,
+          "originalMillwareAmount": 6138305,
+          "note": "Partial lembur adjustment (Venus - MW = 788834)"
+        }
+      ],
+      "recordKey": "POM00267:lembur:AL0019:788834"
+    },
+    {
+      "employeeId": "PTRJ.241000082",
+      "employeeName": "Maman Suryadi",
+      "ptrjId": "POM00221",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 794272,
+          "millwareAmount": 6785930,
+          "diff": 794272,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 794272,
+          "shortfallAmount": 794272,
+          "originalVenusAmount": 7580203,
+          "originalMillwareAmount": 6785930,
+          "note": "Partial lembur adjustment (Venus - MW = 794272)"
+        }
+      ],
+      "recordKey": "POM00221:lembur:AL0019:794272"
+    },
+    {
+      "employeeId": "PTRJ.241000083",
+      "employeeName": "Marja Isnata",
+      "ptrjId": "POM00101",
+      "chargeJob": "(PLTU) / (OC7190) BOILER OPERATION / STN-BLR (STATION BOILER) / BLR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 868412,
+          "millwareAmount": 4507701,
+          "diff": 868412,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 868412,
+          "shortfallAmount": 868412,
+          "originalVenusAmount": 5376113,
+          "originalMillwareAmount": 4507701,
+          "note": "Partial lembur adjustment (Venus - MW = 868412)"
+        }
+      ],
+      "recordKey": "POM00101:lembur:AL0019:868412"
+    },
+    {
+      "employeeId": "PTRJ.241000084",
+      "employeeName": "Mediarta",
+      "ptrjId": "POM00061",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 804663,
+          "millwareAmount": 3125380,
+          "diff": 804663,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 804663,
+          "shortfallAmount": 804663,
+          "originalVenusAmount": 3930043,
+          "originalMillwareAmount": 3125380,
+          "note": "Partial lembur adjustment (Venus - MW = 804663)"
+        }
+      ],
+      "recordKey": "POM00061:lembur:AL0019:804663"
+    },
+    {
+      "employeeId": "PTRJ.241000086",
+      "employeeName": "Muhamad Khaliq",
+      "ptrjId": "POM00127",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1014522,
+          "millwareAmount": 991315,
+          "diff": 1014522,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1014522,
+          "shortfallAmount": 1014522,
+          "originalVenusAmount": 2005838,
+          "originalMillwareAmount": 991315,
+          "note": "Partial lembur adjustment (Venus - MW = 1014522)"
+        }
+      ],
+      "recordKey": "POM00127:lembur:AL0019:1014522"
+    },
+    {
+      "employeeId": "PTRJ.241000088",
+      "employeeName": "Najmi",
+      "ptrjId": "POM00043",
+      "chargeJob": "(GA9234) UPKEEP OF BUILDINGS / STN-OFF (STATION OFFICE) / OFFICE (OFFICE) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 377890,
+          "millwareAmount": 1546316,
+          "diff": 377890,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 377890,
+          "shortfallAmount": 377890,
+          "originalVenusAmount": 1924206,
+          "originalMillwareAmount": 1546316,
+          "note": "Partial lembur adjustment (Venus - MW = 377890)"
+        }
+      ],
+      "recordKey": "POM00043:lembur:AL0019:377890"
+    },
+    {
+      "employeeId": "PTRJ.241000089",
+      "employeeName": "Nursamsih",
+      "ptrjId": "POM00026",
+      "chargeJob": "(PROSES 1) / (OC7120) STERILIZER OPERATION / STN-STR (STATION STERILIZER) / STR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 672210,
+          "millwareAmount": 4738888,
+          "diff": 672210,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 672210,
+          "shortfallAmount": 672210,
+          "originalVenusAmount": 5411098,
+          "originalMillwareAmount": 4738888,
+          "note": "Partial lembur adjustment (Venus - MW = 672210)"
+        }
+      ],
+      "recordKey": "POM00026:lembur:AL0019:672210"
+    },
+    {
+      "employeeId": "PTRJ.241000090",
+      "employeeName": "Oktorio Dwi Sakti",
+      "ptrjId": "POM00199",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1364376,
+          "millwareAmount": 4548181,
+          "diff": 1364376,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1364376,
+          "shortfallAmount": 1364376,
+          "originalVenusAmount": 5912558,
+          "originalMillwareAmount": 4548181,
+          "note": "Partial lembur adjustment (Venus - MW = 1364376)"
+        }
+      ],
+      "recordKey": "POM00199:lembur:AL0019:1364376"
+    },
+    {
+      "employeeId": "PTRJ.241000091",
+      "employeeName": "Panji Meka Buana",
+      "ptrjId": "POM00262",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 151597,
+          "millwareAmount": 2623923,
+          "diff": 151597,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 151597,
+          "shortfallAmount": 151597,
+          "originalVenusAmount": 2775520,
+          "originalMillwareAmount": 2623923,
+          "note": "Partial lembur adjustment (Venus - MW = 151597)"
+        }
+      ],
+      "recordKey": "POM00262:lembur:AL0019:151597"
+    },
+    {
+      "employeeId": "PTRJ.241000093",
+      "employeeName": "Pujiyono",
+      "ptrjId": "POM00062",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 788833,
+          "millwareAmount": 4354043,
+          "diff": 788833,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 788833,
+          "shortfallAmount": 788833,
+          "originalVenusAmount": 5142876,
+          "originalMillwareAmount": 4354043,
+          "note": "Partial lembur adjustment (Venus - MW = 788833)"
+        }
+      ],
+      "recordKey": "POM00062:lembur:AL0019:788833"
+    },
+    {
+      "employeeId": "PTRJ.241000094",
+      "employeeName": "Pandu Pratama Pursa",
+      "ptrjId": "POM00123",
+      "chargeJob": "(COMPOSTING) / (GA9010) VEHICLE RUNNING / FR001 ((FORKLIFT) TOYOTA) / 11 (DRIVER WAGES) ",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 164592,
+          "millwareAmount": 2715885,
+          "diff": 164592,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 164592,
+          "shortfallAmount": 164592,
+          "originalVenusAmount": 2880477,
+          "originalMillwareAmount": 2715885,
+          "note": "Partial lembur adjustment (Venus - MW = 164592)"
+        }
+      ],
+      "recordKey": "POM00123:lembur:AL0019:164592"
+    },
+    {
+      "employeeId": "PTRJ.241000096",
+      "employeeName": "Ramadani",
+      "ptrjId": "POM00022",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1045946,
+          "millwareAmount": 8155253,
+          "diff": 1045946,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1045946,
+          "shortfallAmount": 1045946,
+          "originalVenusAmount": 9201199,
+          "originalMillwareAmount": 8155253,
+          "note": "Partial lembur adjustment (Venus - MW = 1045946)"
+        }
+      ],
+      "recordKey": "POM00022:lembur:AL0019:1045946"
+    },
+    {
+      "employeeId": "PTRJ.241000098",
+      "employeeName": "Rastanto",
+      "ptrjId": "POM00068",
+      "chargeJob": "(PROSES 2) / (OC7120) STERILIZER OPERATION / STN-STR (STATION STERILIZER) / STR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 427314,
+          "millwareAmount": 4563958,
+          "diff": 427314,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 427314,
+          "shortfallAmount": 427314,
+          "originalVenusAmount": 4991272,
+          "originalMillwareAmount": 4563958,
+          "note": "Partial lembur adjustment (Venus - MW = 427314)"
+        }
+      ],
+      "recordKey": "POM00068:lembur:AL0019:427314"
+    },
+    {
+      "employeeId": "PTRJ.241000100",
+      "employeeName": "Riky Maryanto Susanto",
+      "ptrjId": "POM00092",
+      "chargeJob": "(PROSES 1) / (OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 164591,
+          "millwareAmount": 4581782,
+          "diff": 164591,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 164591,
+          "shortfallAmount": 164591,
+          "originalVenusAmount": 4746373,
+          "originalMillwareAmount": 4581782,
+          "note": "Partial lembur adjustment (Venus - MW = 164591)"
+        }
+      ],
+      "recordKey": "POM00092:lembur:AL0019:164591"
+    },
+    {
+      "employeeId": "PTRJ.241000101",
+      "employeeName": "Rendy Gustoyo",
+      "ptrjId": "POM00121",
+      "chargeJob": "(PLTU) / (OC7230) WATER PLANT OPERATION / STN-WTP (STATION WATER PLANT) / WTP00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 396494,
+          "millwareAmount": 6064171,
+          "diff": 396494,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 396494,
+          "shortfallAmount": 396494,
+          "originalVenusAmount": 6460665,
+          "originalMillwareAmount": 6064171,
+          "note": "Partial lembur adjustment (Venus - MW = 396494)"
+        }
+      ],
+      "recordKey": "POM00121:lembur:AL0019:396494"
+    },
+    {
+      "employeeId": "PTRJ.241000102",
+      "employeeName": "Rendy Nopriyandi",
+      "ptrjId": "POM00179",
+      "chargeJob": "(PLTU) / (OC7190) BOILER OPERATION / STN-BLR (STATION BOILER) / BLR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 466467,
+          "millwareAmount": 4699733,
+          "diff": 466467,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 466467,
+          "shortfallAmount": 466467,
+          "originalVenusAmount": 5166200,
+          "originalMillwareAmount": 4699733,
+          "note": "Partial lembur adjustment (Venus - MW = 466467)"
+        }
+      ],
+      "recordKey": "POM00179:lembur:AL0019:466467"
+    },
+    {
+      "employeeId": "PTRJ.241000103",
+      "employeeName": "Risky Sumantri",
+      "ptrjId": "POM00235",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 478129,
+          "millwareAmount": 2833836,
+          "diff": 478129,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 478129,
+          "shortfallAmount": 478129,
+          "originalVenusAmount": 3311965,
+          "originalMillwareAmount": 2833836,
+          "note": "Partial lembur adjustment (Venus - MW = 478129)"
+        }
+      ],
+      "recordKey": "POM00235:lembur:AL0019:478129"
+    },
+    {
+      "employeeId": "PTRJ.241000104",
+      "employeeName": "Rizky Suganda",
+      "ptrjId": "POM00237",
+      "chargeJob": "(PROSES 2) / (OC7150) EFB PREBREAKER STATION / STN-PBS (STATION PREBREAKER (EFB)) / PBS00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 556928,
+          "millwareAmount": 4411020,
+          "diff": 556928,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 556928,
+          "shortfallAmount": 556928,
+          "originalVenusAmount": 4967948,
+          "originalMillwareAmount": 4411020,
+          "note": "Partial lembur adjustment (Venus - MW = 556928)"
+        }
+      ],
+      "recordKey": "POM00237:lembur:AL0019:556928"
+    },
+    {
+      "employeeId": "PTRJ.241000105",
+      "employeeName": "Retno Sugiarto",
+      "ptrjId": "POM00220",
+      "chargeJob": "(PROSES 2) / (GA9010) VEHICLE RUNNING / BE004 (Backhoe Loader CASE) / 11 (DRIVER WAGES)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 648889,
+          "millwareAmount": 7234521,
+          "diff": 648889,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 648889,
+          "shortfallAmount": 648889,
+          "originalVenusAmount": 7883410,
+          "originalMillwareAmount": 7234521,
+          "note": "Partial lembur adjustment (Venus - MW = 648889)"
+        }
+      ],
+      "recordKey": "POM00220:lembur:AL0019:648889"
+    },
+    {
+      "employeeId": "PTRJ.241000106",
+      "employeeName": "Reza Wahyudi",
+      "ptrjId": "POM00143",
+      "chargeJob": "(PROSES 2) / (OC7160) PRESS OPERATION / STN-PRS (STATION PRESS) / PRS00000 (LABOUR COST ) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 322357,
+          "millwareAmount": 5975042,
+          "diff": 322357,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 322357,
+          "shortfallAmount": 322357,
+          "originalVenusAmount": 6297399,
+          "originalMillwareAmount": 5975042,
+          "note": "Partial lembur adjustment (Venus - MW = 322357)"
+        }
+      ],
+      "recordKey": "POM00143:lembur:AL0019:322357"
+    },
+    {
+      "employeeId": "PTRJ.241000107",
+      "employeeName": "Rizky Abdillah",
+      "ptrjId": "POM00247",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 699648,
+          "millwareAmount": 4606493,
+          "diff": 699648,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 699648,
+          "shortfallAmount": 699648,
+          "originalVenusAmount": 5306141,
+          "originalMillwareAmount": 4606493,
+          "note": "Partial lembur adjustment (Venus - MW = 699648)"
+        }
+      ],
+      "recordKey": "POM00247:lembur:AL0019:699648"
+    },
+    {
+      "employeeId": "PTRJ.241000108",
+      "employeeName": "Raju Aristo",
+      "ptrjId": "POM00175",
+      "chargeJob": "(LABORATORY) / (OC7240) LABORATORY ANALYSIS / STN-LAB (STATION LABORATORY) / LAB00000 (LABOUR COST ) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 444473,
+          "millwareAmount": 4832514,
+          "diff": 444473,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 444473,
+          "shortfallAmount": 444473,
+          "originalVenusAmount": 5276987,
+          "originalMillwareAmount": 4832514,
+          "note": "Partial lembur adjustment (Venus - MW = 444473)"
+        }
+      ],
+      "recordKey": "POM00175:lembur:AL0019:444473"
+    },
+    {
+      "employeeId": "PTRJ.241000109",
+      "employeeName": "Ridho Andythia",
+      "ptrjId": "POM00190",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 807989,
+          "millwareAmount": 7506910,
+          "diff": 807989,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 807989,
+          "shortfallAmount": 807989,
+          "originalVenusAmount": 8314899,
+          "originalMillwareAmount": 7506910,
+          "note": "Partial lembur adjustment (Venus - MW = 807989)"
+        }
+      ],
+      "recordKey": "POM00190:lembur:AL0019:807989"
+    },
+    {
+      "employeeId": "PTRJ.241000110",
+      "employeeName": "Rio",
+      "ptrjId": "POM00192",
+      "chargeJob": "(PROSES 1) / (OC7120) STERILIZER OPERATION / STN-STR (STATION STERILIZER) / STR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 813484,
+          "millwareAmount": 6218611,
+          "diff": 813484,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 813484,
+          "shortfallAmount": 813484,
+          "originalVenusAmount": 7032095,
+          "originalMillwareAmount": 6218611,
+          "note": "Partial lembur adjustment (Venus - MW = 813484)"
+        }
+      ],
+      "recordKey": "POM00192:lembur:AL0019:813484"
+    },
+    {
+      "employeeId": "PTRJ.241000111",
+      "employeeName": "Rivaldi Prasetyo",
+      "ptrjId": "POM00197",
+      "chargeJob": "(PROSES 2) / (OC7170) CLARIFICATION OPERATION / STN-CLR (STATION CLARIFICATION) / CLR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 444473,
+          "millwareAmount": 7893750,
+          "diff": 444473,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 444473,
+          "shortfallAmount": 444473,
+          "originalVenusAmount": 8338223,
+          "originalMillwareAmount": 7893750,
+          "note": "Partial lembur adjustment (Venus - MW = 444473)"
+        }
+      ],
+      "recordKey": "POM00197:lembur:AL0019:444473"
+    },
+    {
+      "employeeId": "PTRJ.241000112",
+      "employeeName": "Rizky",
+      "ptrjId": "POM00204",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 374447,
+          "millwareAmount": 4885047,
+          "diff": 374447,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 374447,
+          "shortfallAmount": 374447,
+          "originalVenusAmount": 5259495,
+          "originalMillwareAmount": 4885047,
+          "note": "Partial lembur adjustment (Venus - MW = 374447)"
+        }
+      ],
+      "recordKey": "POM00204:lembur:AL0019:374447"
+    },
+    {
+      "employeeId": "PTRJ.241000113",
+      "employeeName": "Rizal Sahroni",
+      "ptrjId": "POM00254",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 927329,
+          "millwareAmount": 7725764,
+          "diff": 927329,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 927329,
+          "shortfallAmount": 927329,
+          "originalVenusAmount": 8653093,
+          "originalMillwareAmount": 7725764,
+          "note": "Partial lembur adjustment (Venus - MW = 927329)"
+        }
+      ],
+      "recordKey": "POM00254:lembur:AL0019:927329"
+    },
+    {
+      "employeeId": "PTRJ.241000114",
+      "employeeName": "Ridho Purnama",
+      "ptrjId": "POM00258",
+      "chargeJob": "(PLTU) / (OC7230) WATER PLANT OPERATION / STN-WTP (STATION WATER PLANT) / WTP00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 840922,
+          "millwareAmount": 4092040,
+          "diff": 840922,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 840922,
+          "shortfallAmount": 840922,
+          "originalVenusAmount": 4932962,
+          "originalMillwareAmount": 4092040,
+          "note": "Partial lembur adjustment (Venus - MW = 840922)"
+        }
+      ],
+      "recordKey": "POM00258:lembur:AL0019:840922"
+    },
+    {
+      "employeeId": "PTRJ.241000115",
+      "employeeName": "Siaga Pratama",
+      "ptrjId": "POM00094",
+      "chargeJob": "(PROSES 2) / (OC7170) CLARIFICATION OPERATION / STN-CLR (STATION CLARIFICATION) / CLR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 444472,
+          "millwareAmount": 7415615,
+          "diff": 444472,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 444472,
+          "shortfallAmount": 444472,
+          "originalVenusAmount": 7860087,
+          "originalMillwareAmount": 7415615,
+          "note": "Partial lembur adjustment (Venus - MW = 444472)"
+        }
+      ],
+      "recordKey": "POM00094:lembur:AL0019:444472"
+    },
+    {
+      "employeeId": "PTRJ.241000116",
+      "employeeName": "Selamet Widodo",
+      "ptrjId": "POM00078",
+      "chargeJob": "(OC7220) EFFLUENT TREATMENT PLANT / STN-ETP (STATION EFFLUENT TREATMENT PLANT) / ETP00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1604381,
+          "millwareAmount": 7608480,
+          "diff": 1604381,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1604381,
+          "shortfallAmount": 1604381,
+          "originalVenusAmount": 9212862,
+          "originalMillwareAmount": 7608480,
+          "note": "Partial lembur adjustment (Venus - MW = 1604381)"
+        }
+      ],
+      "recordKey": "POM00078:lembur:AL0019:1604381"
+    },
+    {
+      "employeeId": "PTRJ.241000119",
+      "employeeName": "Suharjono",
+      "ptrjId": "POM00067",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1380142,
+          "millwareAmount": 4334164,
+          "diff": 1380142,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1380142,
+          "shortfallAmount": 1380142,
+          "originalVenusAmount": 5714306,
+          "originalMillwareAmount": 4334164,
+          "note": "Partial lembur adjustment (Venus - MW = 1380142)"
+        }
+      ],
+      "recordKey": "POM00067:lembur:AL0019:1380142"
+    },
+    {
+      "employeeId": "PTRJ.241000120",
+      "employeeName": "Suhartomo",
+      "ptrjId": "POM00051",
+      "chargeJob": "(PLTU) / (OC7200) ENGINE ROOM OPERATION / STN-ENG (STATION ENGINE ROOM) / ENG00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 949988,
+          "millwareAmount": 5405720,
+          "diff": 949988,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 949988,
+          "shortfallAmount": 949988,
+          "originalVenusAmount": 6355708,
+          "originalMillwareAmount": 5405720,
+          "note": "Partial lembur adjustment (Venus - MW = 949988)"
+        }
+      ],
+      "recordKey": "POM00051:lembur:AL0019:949988"
+    },
+    {
+      "employeeId": "PTRJ.241000121",
+      "employeeName": "Sabani Waruwu",
+      "ptrjId": "POM00244",
+      "chargeJob": "(GA9234) UPKEEP OF BUILDINGS / STN-OFF (STATION OFFICE) / OFFICE (OFFICE) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 163259,
+          "millwareAmount": 1877565,
+          "diff": 163259,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 163259,
+          "shortfallAmount": 163259,
+          "originalVenusAmount": 2040824,
+          "originalMillwareAmount": 1877565,
+          "note": "Partial lembur adjustment (Venus - MW = 163259)"
+        }
+      ],
+      "recordKey": "POM00244:lembur:AL0019:163259"
+    },
+    {
+      "employeeId": "PTRJ.241000122",
+      "employeeName": "Suherman Saputra",
+      "ptrjId": "POM00217",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 930833,
+          "millwareAmount": 3663935,
+          "diff": 930833,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 930833,
+          "shortfallAmount": 930833,
+          "originalVenusAmount": 4594769,
+          "originalMillwareAmount": 3663935,
+          "note": "Partial lembur adjustment (Venus - MW = 930833)"
+        }
+      ],
+      "recordKey": "POM00217:lembur:AL0019:930833"
+    },
+    {
+      "employeeId": "PTRJ.241000123",
+      "employeeName": "Sulthonik Pelubi",
+      "ptrjId": "POM00186",
+      "chargeJob": "(COMPOSTING) / (GA9010) VEHICLE RUNNING / FR003 ((FORKLIFT) KOMATSU 02) / 11 (DRIVER WAGES)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 59639,
+          "millwareAmount": 2261069,
+          "diff": 59639,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 59639,
+          "shortfallAmount": 59639,
+          "originalVenusAmount": 2320708,
+          "originalMillwareAmount": 2261069,
+          "note": "Partial lembur adjustment (Venus - MW = 59639)"
+        }
+      ],
+      "recordKey": "POM00186:lembur:AL0019:59639"
+    },
+    {
+      "employeeId": "PTRJ.241000124",
+      "employeeName": "Supandi",
+      "ptrjId": "POM00033",
+      "chargeJob": "(COMPOSTING) / (CA4814) CRoll Wages (Compos) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 609077,
+          "millwareAmount": 2201428,
+          "diff": 609077,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 609077,
+          "shortfallAmount": 609077,
+          "originalVenusAmount": 2810506,
+          "originalMillwareAmount": 2201428,
+          "note": "Partial lembur adjustment (Venus - MW = 609077)"
+        }
+      ],
+      "recordKey": "POM00033:lembur:AL0019:609077"
+    },
+    {
+      "employeeId": "PTRJ.241000125",
+      "employeeName": "Samsir",
+      "ptrjId": "POM00115",
+      "chargeJob": "(COMPOSTING) / (GA9010) VEHICLE RUNNING / LN002 ((POWERMAX) COMPOSTING 2 2024) / 11 (DRIVER WAGES) ",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 724363,
+          "millwareAmount": 2062819,
+          "diff": 724363,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 724363,
+          "shortfallAmount": 724363,
+          "originalVenusAmount": 2787182,
+          "originalMillwareAmount": 2062819,
+          "note": "Partial lembur adjustment (Venus - MW = 724363)"
+        }
+      ],
+      "recordKey": "POM00115:lembur:AL0019:724363"
+    },
+    {
+      "employeeId": "PTRJ.241000126",
+      "employeeName": "Septian Ade Pratama",
+      "ptrjId": "POM00132",
+      "chargeJob": "(COMPOSTING) / (GA9010) VEHICLE RUNNING / BE001 ((XGMA1) Whell Loader) / 11 (DRIVER WAGES)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 701040,
+          "millwareAmount": 4301894,
+          "diff": 701040,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 701040,
+          "shortfallAmount": 701040,
+          "originalVenusAmount": 5002934,
+          "originalMillwareAmount": 4301894,
+          "note": "Partial lembur adjustment (Venus - MW = 701040)"
+        }
+      ],
+      "recordKey": "POM00132:lembur:AL0019:701040"
+    },
+    {
+      "employeeId": "PTRJ.241000127",
+      "employeeName": "Syafrilliyansyah",
+      "ptrjId": "POM00130",
+      "chargeJob": "(K3) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1780028,
+          "millwareAmount": 5765189,
+          "diff": 1780028,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1780028,
+          "shortfallAmount": 1780028,
+          "originalVenusAmount": 7545217,
+          "originalMillwareAmount": 5765189,
+          "note": "Partial lembur adjustment (Venus - MW = 1780028)"
+        }
+      ],
+      "recordKey": "POM00130:lembur:AL0019:1780028"
+    },
+    {
+      "employeeId": "PTRJ.241000128",
+      "employeeName": "Suwari",
+      "ptrjId": "POM00255",
+      "chargeJob": "(PLTU) / (OC7190) BOILER OPERATION / STN-BLR (STATION BOILER) / BLR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 303202,
+          "millwareAmount": 4151625,
+          "diff": 303202,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 303202,
+          "shortfallAmount": 303202,
+          "originalVenusAmount": 4454827,
+          "originalMillwareAmount": 4151625,
+          "note": "Partial lembur adjustment (Venus - MW = 303202)"
+        }
+      ],
+      "recordKey": "POM00255:lembur:AL0019:303202"
+    },
+    {
+      "employeeId": "PTRJ.241000129",
+      "employeeName": "Syahril",
+      "ptrjId": "POM00149",
+      "chargeJob": "(PROSES 1) / (OC7170) CLARIFICATION OPERATION / STN-CLR (STATION CLARIFICATION) / CLR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 618071,
+          "millwareAmount": 2915469,
+          "diff": 618071,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 618071,
+          "shortfallAmount": 618071,
+          "originalVenusAmount": 3533540,
+          "originalMillwareAmount": 2915469,
+          "note": "Partial lembur adjustment (Venus - MW = 618071)"
+        }
+      ],
+      "recordKey": "POM00149:lembur:AL0019:618071"
+    },
+    {
+      "employeeId": "PTRJ.241000131",
+      "employeeName": "Tigo",
+      "ptrjId": "POM00020",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 261935,
+          "millwareAmount": 8496114,
+          "diff": 261935,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 261935,
+          "shortfallAmount": 261935,
+          "originalVenusAmount": 8758049,
+          "originalMillwareAmount": 8496114,
+          "note": "Partial lembur adjustment (Venus - MW = 261935)"
+        }
+      ],
+      "recordKey": "POM00020:lembur:AL0019:261935"
+    },
+    {
+      "employeeId": "PTRJ.241000132",
+      "employeeName": "Tiki Basista",
+      "ptrjId": "POM00219",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 1154461,
+          "millwareAmount": 3906781,
+          "diff": 1154461,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 1154461,
+          "shortfallAmount": 1154461,
+          "originalVenusAmount": 5061243,
+          "originalMillwareAmount": 3906781,
+          "note": "Partial lembur adjustment (Venus - MW = 1154461)"
+        }
+      ],
+      "recordKey": "POM00219:lembur:AL0019:1154461"
+    },
+    {
+      "employeeId": "PTRJ.241000133",
+      "employeeName": "Tribowono Yudo",
+      "ptrjId": "POM00103",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 163253,
+          "millwareAmount": 7416949,
+          "diff": 163253,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 163253,
+          "shortfallAmount": 163253,
+          "originalVenusAmount": 7580202,
+          "originalMillwareAmount": 7416949,
+          "note": "Partial lembur adjustment (Venus - MW = 163253)"
+        }
+      ],
+      "recordKey": "POM00103:lembur:AL0019:163253"
+    },
+    {
+      "employeeId": "PTRJ.241000135",
+      "employeeName": "Wahyu Yulianto",
+      "ptrjId": "POM00259",
+      "chargeJob": "(PLTU) / (OC7230) WATER PLANT OPERATION / STN-WTP (STATION WATER PLANT) / WTP00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 566891,
+          "millwareAmount": 4640788,
+          "diff": 566891,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 566891,
+          "shortfallAmount": 566891,
+          "originalVenusAmount": 5207680,
+          "originalMillwareAmount": 4640788,
+          "note": "Partial lembur adjustment (Venus - MW = 566891)"
+        }
+      ],
+      "recordKey": "POM00259:lembur:AL0019:566891"
+    },
+    {
+      "employeeId": "PTRJ.241000136",
+      "employeeName": "Wahyu Pratama",
+      "ptrjId": "POM00215",
+      "chargeJob": "(COMPOSTING) / (GA9010) VEHICLE RUNNING / FR001 ((FORKLIFT) TOYOTA) / 11 (DRIVER WAGES) ",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 444479,
+          "millwareAmount": 1841244,
+          "diff": 444479,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 444479,
+          "shortfallAmount": 444479,
+          "originalVenusAmount": 2285723,
+          "originalMillwareAmount": 1841244,
+          "note": "Partial lembur adjustment (Venus - MW = 444479)"
+        }
+      ],
+      "recordKey": "POM00215:lembur:AL0019:444479"
+    },
+    {
+      "employeeId": "PTRJ.241000137",
+      "employeeName": "Wanda Andika",
+      "ptrjId": "POM00210",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 524778,
+          "millwareAmount": 3125381,
+          "diff": 524778,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 524778,
+          "shortfallAmount": 524778,
+          "originalVenusAmount": 3650159,
+          "originalMillwareAmount": 3125381,
+          "note": "Partial lembur adjustment (Venus - MW = 524778)"
+        }
+      ],
+      "recordKey": "POM00210:lembur:AL0019:524778"
+    },
+    {
+      "employeeId": "PTRJ.241000156",
+      "employeeName": "Tino Poetra",
+      "ptrjId": "POM00191",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 984337,
+          "millwareAmount": 3191964,
+          "diff": 984337,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 984337,
+          "shortfallAmount": 984337,
+          "originalVenusAmount": 4176301,
+          "originalMillwareAmount": 3191964,
+          "note": "Partial lembur adjustment (Venus - MW = 984337)"
+        }
+      ],
+      "recordKey": "POM00191:lembur:AL0019:984337"
+    },
+    {
+      "employeeId": "PTRJ.241000172",
+      "employeeName": "Bintang Pujiyono",
+      "ptrjId": "POM00270",
+      "chargeJob": "(OFFICE) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 349849,
+          "millwareAmount": 3195353,
+          "diff": 349849,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 349849,
+          "shortfallAmount": 349849,
+          "originalVenusAmount": 3545202,
+          "originalMillwareAmount": 3195353,
+          "note": "Partial lembur adjustment (Venus - MW = 349849)"
+        }
+      ],
+      "recordKey": "POM00270:lembur:AL0019:349849"
+    },
+    {
+      "employeeId": "PTRJ.241000174",
+      "employeeName": "Handrean Wahyu Nugroho",
+      "ptrjId": "POM00269",
+      "chargeJob": "(STORE) / (GA9010) VEHICLE RUNNING / VN007 (TOYOTA FOTUNER BN 1328 RMJ) / 11 (DRIVER WAGES)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 3466224,
+          "millwareAmount": 5536723,
+          "diff": 3466224,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 3466224,
+          "shortfallAmount": 3466224,
+          "originalVenusAmount": 9002948,
+          "originalMillwareAmount": 5536723,
+          "note": "Partial lembur adjustment (Venus - MW = 3466224)"
+        }
+      ],
+      "recordKey": "POM00269:lembur:AL0019:3466224"
+    },
+    {
+      "employeeId": "PTRJ.241000175",
+      "employeeName": "Kelvin Agustianto",
+      "ptrjId": "POM00271",
+      "chargeJob": "(ADMIN REKAP) / (OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 997362,
+          "millwareAmount": 5066800,
+          "diff": 997362,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 997362,
+          "shortfallAmount": 997362,
+          "originalVenusAmount": 6064161,
+          "originalMillwareAmount": 5066800,
+          "note": "Partial lembur adjustment (Venus - MW = 997362)"
+        }
+      ],
+      "recordKey": "POM00271:lembur:AL0019:997362"
+    },
+    {
+      "employeeId": "PTRJ.241000176",
+      "employeeName": "Karno Putra",
+      "ptrjId": "POM00274",
+      "chargeJob": "(COMPOSTING) / (CA4814) CRoll Wages (Compos) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 609071,
+          "millwareAmount": 2294729,
+          "diff": 609071,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 609071,
+          "shortfallAmount": 609071,
+          "originalVenusAmount": 2903801,
+          "originalMillwareAmount": 2294729,
+          "note": "Partial lembur adjustment (Venus - MW = 609071)"
+        }
+      ],
+      "recordKey": "POM00274:lembur:AL0019:609071"
+    },
+    {
+      "employeeId": "PTRJ.241000177",
+      "employeeName": "Maxima Cahyani",
+      "ptrjId": "POM00268",
+      "chargeJob": "(K3) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 344023,
+          "millwareAmount": 256563,
+          "diff": 344023,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 344023,
+          "shortfallAmount": 344023,
+          "originalVenusAmount": 600586,
+          "originalMillwareAmount": 256563,
+          "note": "Partial lembur adjustment (Venus - MW = 344023)"
+        }
+      ],
+      "recordKey": "POM00268:lembur:AL0019:344023"
+    },
+    {
+      "employeeId": "PTRJ.241000178",
+      "employeeName": "Maukar",
+      "ptrjId": "POM00277",
+      "chargeJob": "(PLTU) / (OC7190) BOILER OPERATION / STN-BLR (STATION BOILER) / BLR00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 443145,
+          "millwareAmount": 4081653,
+          "diff": 443145,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 443145,
+          "shortfallAmount": 443145,
+          "originalVenusAmount": 4524798,
+          "originalMillwareAmount": 4081653,
+          "note": "Partial lembur adjustment (Venus - MW = 443145)"
+        }
+      ],
+      "recordKey": "POM00277:lembur:AL0019:443145"
+    },
+    {
+      "employeeId": "PTRJ.241000181",
+      "employeeName": "Viranda",
+      "ptrjId": "POM00273",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 676322,
+          "millwareAmount": 4816409,
+          "diff": 676322,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 676322,
+          "shortfallAmount": 676322,
+          "originalVenusAmount": 5492731,
+          "originalMillwareAmount": 4816409,
+          "note": "Partial lembur adjustment (Venus - MW = 676322)"
+        }
+      ],
+      "recordKey": "POM00273:lembur:AL0019:676322"
+    },
+    {
+      "employeeId": "PTRJ.250300201",
+      "employeeName": "Aan Kris Wanda",
+      "ptrjId": "POM00287",
+      "chargeJob": "(ADMIN REKAP) / (OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 46644,
+          "millwareAmount": 3224504,
+          "diff": 46644,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 46644,
+          "shortfallAmount": 46644,
+          "originalVenusAmount": 3271148,
+          "originalMillwareAmount": 3224504,
+          "note": "Partial lembur adjustment (Venus - MW = 46644)"
+        }
+      ],
+      "recordKey": "POM00287:lembur:AL0019:46644"
+    },
+    {
+      "employeeId": "PTRJ.250300202",
+      "employeeName": "Yossi Pranata",
+      "ptrjId": "POM00288",
+      "chargeJob": "(ADMIN REKAP) / (OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 713364,
+          "millwareAmount": 6050509,
+          "diff": 713364,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 713364,
+          "shortfallAmount": 713364,
+          "originalVenusAmount": 6763873,
+          "originalMillwareAmount": 6050509,
+          "note": "Partial lembur adjustment (Venus - MW = 713364)"
+        }
+      ],
+      "recordKey": "POM00288:lembur:AL0019:713364"
+    },
+    {
+      "employeeId": "PTRJ.250300203",
+      "employeeName": "Lio Herwanto",
+      "ptrjId": "POM00292",
+      "chargeJob": "(PLTU) / (OC7230) WATER PLANT OPERATION / STN-WTP (STATION WATER PLANT) / WTP00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 316861,
+          "millwareAmount": 6225437,
+          "diff": 316861,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 316861,
+          "shortfallAmount": 316861,
+          "originalVenusAmount": 6542298,
+          "originalMillwareAmount": 6225437,
+          "note": "Partial lembur adjustment (Venus - MW = 316861)"
+        }
+      ],
+      "recordKey": "POM00292:lembur:AL0019:316861"
+    },
+    {
+      "employeeId": "PTRJ.250300204",
+      "employeeName": "Fuji Prastama",
+      "ptrjId": "POM00289",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 699706,
+          "millwareAmount": 4186609,
+          "diff": 699706,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 699706,
+          "shortfallAmount": 699706,
+          "originalVenusAmount": 4886315,
+          "originalMillwareAmount": 4186609,
+          "note": "Partial lembur adjustment (Venus - MW = 699706)"
+        }
+      ],
+      "recordKey": "POM00289:lembur:AL0019:699706"
+    },
+    {
+      "employeeId": "PTRJ.250300206",
+      "employeeName": "Anugrah Pratama Putra",
+      "ptrjId": "POM00286",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 163256,
+          "millwareAmount": 6483998,
+          "diff": 163256,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 163256,
+          "shortfallAmount": 163256,
+          "originalVenusAmount": 6647254,
+          "originalMillwareAmount": 6483998,
+          "note": "Partial lembur adjustment (Venus - MW = 163256)"
+        }
+      ],
+      "recordKey": "POM00286:lembur:AL0019:163256"
+    },
+    {
+      "employeeId": "PTRJ.250300209",
+      "employeeName": "Volioka Aurora",
+      "ptrjId": "POM00284",
+      "chargeJob": "(LABORATORY) / (OC7240) LABORATORY ANALYSIS / STN-LAB (STATION LABORATORY) / LAB00000 (LABOUR COST ) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 316870,
+          "millwareAmount": 1502379,
+          "diff": 316870,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 316870,
+          "shortfallAmount": 316870,
+          "originalVenusAmount": 1819249,
+          "originalMillwareAmount": 1502379,
+          "note": "Partial lembur adjustment (Venus - MW = 316870)"
+        }
+      ],
+      "recordKey": "POM00284:lembur:AL0019:316870"
+    },
+    {
+      "employeeId": "PTRJ.250300210",
+      "employeeName": "Jeki Ristiandi",
+      "ptrjId": "POM00285",
+      "chargeJob": "(LABORATORY) / (OC7240) LABORATORY ANALYSIS / STN-LAB (STATION LABORATORY) / LAB00000 (LABOUR COST ) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 329197,
+          "millwareAmount": 720369,
+          "diff": 329197,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 329197,
+          "shortfallAmount": 329197,
+          "originalVenusAmount": 1049566,
+          "originalMillwareAmount": 720369,
+          "note": "Partial lembur adjustment (Venus - MW = 329197)"
+        }
+      ],
+      "recordKey": "POM00285:lembur:AL0019:329197"
+    },
+    {
+      "employeeId": "PTRJ.250500217",
+      "employeeName": "HANDY MUKHLIS",
+      "ptrjId": "POM00296",
+      "chargeJob": "(COMPOSTING) / (CA4814) CRoll Wages (Compos) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 609071,
+          "millwareAmount": 2411348,
+          "diff": 609071,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 609071,
+          "shortfallAmount": 609071,
+          "originalVenusAmount": 3020419,
+          "originalMillwareAmount": 2411348,
+          "note": "Partial lembur adjustment (Venus - MW = 609071)"
+        }
+      ],
+      "recordKey": "POM00296:lembur:AL0019:609071"
+    },
+    {
+      "employeeId": "PTRJ.250500218",
+      "employeeName": "FIK RANGGA",
+      "ptrjId": "POM00297",
+      "chargeJob": "(COMPOSTING) / (GA9010) VEHICLE RUNNING / BE001 ((XGMA1) Whell Loader) / 11 (DRIVER WAGES)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 279880,
+          "millwareAmount": 3463574,
+          "diff": 279880,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 279880,
+          "shortfallAmount": 279880,
+          "originalVenusAmount": 3743454,
+          "originalMillwareAmount": 3463574,
+          "note": "Partial lembur adjustment (Venus - MW = 279880)"
+        }
+      ],
+      "recordKey": "POM00297:lembur:AL0019:279880"
+    },
+    {
+      "employeeId": "PTRJ.250500220",
+      "employeeName": "NOVALDI",
+      "ptrjId": "POM00299",
+      "chargeJob": "(COMPOSTING) / (CA4814) CRoll Wages (Compos) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 164594,
+          "millwareAmount": 1992848,
+          "diff": 164594,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 164594,
+          "shortfallAmount": 164594,
+          "originalVenusAmount": 2157442,
+          "originalMillwareAmount": 1992848,
+          "note": "Partial lembur adjustment (Venus - MW = 164594)"
+        }
+      ],
+      "recordKey": "POM00299:lembur:AL0019:164594"
+    },
+    {
+      "employeeId": "PTRJ.250900224",
+      "employeeName": "ADRINUR ARIF",
+      "ptrjId": "POM00301",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 536440,
+          "millwareAmount": 2227418,
+          "diff": 536440,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 536440,
+          "shortfallAmount": 536440,
+          "originalVenusAmount": 2763858,
+          "originalMillwareAmount": 2227418,
+          "note": "Partial lembur adjustment (Venus - MW = 536440)"
+        }
+      ],
+      "recordKey": "POM00301:lembur:AL0019:536440"
+    },
+    {
+      "employeeId": "PTRJ.250900225",
+      "employeeName": "DAVIN MEIGIYAWAN PUTRA",
+      "ptrjId": "POM00302",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 345681,
+          "millwareAmount": 5625186,
+          "diff": 345681,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 345681,
+          "shortfallAmount": 345681,
+          "originalVenusAmount": 5970867,
+          "originalMillwareAmount": 5625186,
+          "note": "Partial lembur adjustment (Venus - MW = 345681)"
+        }
+      ],
+      "recordKey": "POM00302:lembur:AL0019:345681"
+    },
+    {
+      "employeeId": "PTRJ.260200228",
+      "employeeName": "Reza Sanjaya",
+      "ptrjId": "POM00304",
+      "chargeJob": "(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 958260,
+          "millwareAmount": 6866842,
+          "diff": 958260,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 958260,
+          "shortfallAmount": 958260,
+          "originalVenusAmount": 7825102,
+          "originalMillwareAmount": 6866842,
+          "note": "Partial lembur adjustment (Venus - MW = 958260)"
+        }
+      ],
+      "recordKey": "POM00304:lembur:AL0019:958260"
+    },
+    {
+      "employeeId": "PTRJ.260200229",
+      "employeeName": "Diah Aprilia",
+      "ptrjId": "POM00305",
+      "chargeJob": "(OFFICE) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 536556,
+          "millwareAmount": 682107,
+          "diff": 536556,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 536556,
+          "shortfallAmount": 536556,
+          "originalVenusAmount": 1218663,
+          "originalMillwareAmount": 682107,
+          "note": "Partial lembur adjustment (Venus - MW = 536556)"
+        }
+      ],
+      "recordKey": "POM00305:lembur:AL0019:536556"
+    },
+    {
+      "employeeId": "PTRJ.260400231",
+      "employeeName": "ALDI 306",
+      "ptrjId": "POM00306",
+      "chargeJob": "(PROJECT) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 724156,
+          "millwareAmount": 1946407,
+          "diff": 724156,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 724156,
+          "shortfallAmount": 724156,
+          "originalVenusAmount": 2670564,
+          "originalMillwareAmount": 1946407,
+          "note": "Partial lembur adjustment (Venus - MW = 724156)"
+        }
+      ],
+      "recordKey": "POM00306:lembur:AL0019:724156"
+    },
+    {
+      "employeeId": "PTRJ.260500232",
+      "employeeName": "FADILL HERNANDA",
+      "ptrjId": "POM00307",
+      "chargeJob": "(GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 2758216,
+          "millwareAmount": 1865707,
+          "diff": 2758216,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 2758216,
+          "shortfallAmount": 2758216,
+          "originalVenusAmount": 4623923,
+          "originalMillwareAmount": 1865707,
+          "note": "Partial lembur adjustment (Venus - MW = 2758216)"
+        }
+      ],
+      "recordKey": "POM00307:lembur:AL0019:2758216"
+    },
+    {
+      "employeeId": "PTRJ.260500233",
+      "employeeName": "FERIANSYAH",
+      "ptrjId": "POM00308",
+      "chargeJob": "(K3) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 896885,
+          "millwareAmount": 2764936,
+          "diff": 896885,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 896885,
+          "shortfallAmount": 896885,
+          "originalVenusAmount": 3661821,
+          "originalMillwareAmount": 2764936,
+          "note": "Partial lembur adjustment (Venus - MW = 896885)"
+        }
+      ],
+      "recordKey": "POM00308:lembur:AL0019:896885"
+    },
+    {
+      "employeeId": "PTRJ.260500234",
+      "employeeName": "SUPRIADI KUSUMA",
+      "ptrjId": "POM00309",
+      "chargeJob": "(PROJECT) / (GA9050) WORKSHOP CONTROL ACCOUNT / L (LABOUR)",
+      "components": [
+        {
+          "status": "MISS",
+          "componentKey": "lembur",
+          "componentName": "TUNJANGAN LEMBUR",
+          "sourceNames": [
+            "TUNJANGAN LEMBUR"
+          ],
+          "venusCompCode": "LEMBUR",
+          "venusAmount": 950685,
+          "millwareAmount": 1702386,
+          "diff": 950685,
+          "adCode": "AL0019",
+          "adCodeDesc": "(AL) TUNJANGAN LEMBUR",
+          "adCodeSource": "fixed-adjustment",
+          "adSearchKeyword": "LEMBUR",
+          "type": "Addition",
+          "inputAmount": 950685,
+          "shortfallAmount": 950685,
+          "originalVenusAmount": 2653071,
+          "originalMillwareAmount": 1702386,
+          "note": "Partial lembur adjustment (Venus - MW = 950685)"
+        }
+      ],
+      "recordKey": "POM00309:lembur:AL0019:950685"
+    }
+  ],
+  "diagnostics": [
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000024",
+      "employeeName": "Andri Juliandri",
+      "ptrjId": "POM00139",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 1224494,
+      "millwareAmount": 1224498,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000030",
+      "employeeName": "Bambang Supriyono",
+      "ptrjId": "POM00095",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 6180780,
+      "millwareAmount": 6180788,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000037",
+      "employeeName": "Dafid Iwan Saputra",
+      "ptrjId": "POM00088",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 2915462,
+      "millwareAmount": 2915469,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000052",
+      "employeeName": "Ferdy Arliansyah",
+      "ptrjId": "POM00182",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 1714292,
+      "millwareAmount": 1714294,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000071",
+      "employeeName": "Irwan",
+      "ptrjId": "POM00135",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 7253671,
+      "millwareAmount": 8190793,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000074",
+      "employeeName": "Januarzy",
+      "ptrjId": "POM00146",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 2518960,
+      "millwareAmount": 2518966,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000085",
+      "employeeName": "Mochamad Febry",
+      "ptrjId": "POM00194",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 81633,
+      "millwareAmount": 81633,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000092",
+      "employeeName": "Pordiman Samosir",
+      "ptrjId": "POM00038",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 3790101,
+      "millwareAmount": 3790108,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000095",
+      "employeeName": "Perly Febrianto",
+      "ptrjId": "POM00162",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 3393598,
+      "millwareAmount": 3393606,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000097",
+      "employeeName": "Rasat",
+      "ptrjId": "POM00226",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 5341127,
+      "millwareAmount": 5562713,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000099",
+      "employeeName": "Rendy",
+      "ptrjId": "POM00245",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 2670564,
+      "millwareAmount": 2670569,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000118",
+      "employeeName": "Sudiar",
+      "ptrjId": "POM00042",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 4828006,
+      "millwareAmount": 4909645,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000130",
+      "employeeName": "Taupik Hidayat",
+      "ptrjId": "POM00211",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 5207016,
+      "millwareAmount": 5329475,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000134",
+      "employeeName": "Taufik Hidayat",
+      "ptrjId": "POM00137",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 4373194,
+      "millwareAmount": 4688072,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000138",
+      "employeeName": "Yulizar",
+      "ptrjId": "POM00029",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 1562688,
+      "millwareAmount": 1889225,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000139",
+      "employeeName": "Zurianto",
+      "ptrjId": "POM00030",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 2530621,
+      "millwareAmount": 2587603,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000169",
+      "employeeName": "M.Dhiffario Kusuma",
+      "ptrjId": "POM00251",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 4944624,
+      "millwareAmount": 4944636,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000171",
+      "employeeName": "Anggy",
+      "ptrjId": "POM00272",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 804668,
+      "millwareAmount": 839660,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000173",
+      "employeeName": "Eko Ramadhan",
+      "ptrjId": "POM00275",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 2635578,
+      "millwareAmount": 2857159,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000179",
+      "employeeName": "Reza Agustian",
+      "ptrjId": "POM00276",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 3043743,
+      "millwareAmount": 3265322,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.241000180",
+      "employeeName": "Selamat Alamsyah",
+      "ptrjId": "POM00278",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 5014595,
+      "millwareAmount": 5014601,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.250300200",
+      "employeeName": "NOVI",
+      "ptrjId": "POM00291",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 4338208,
+      "millwareAmount": 4384866,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.250300207",
+      "employeeName": "Septian Pratama",
+      "ptrjId": "POM00290",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 5282818,
+      "millwareAmount": 5282824,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.250300208",
+      "employeeName": "Puteri Dieka Afriani",
+      "ptrjId": "POM00281",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 2414003,
+      "millwareAmount": 2431503,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.250300212",
+      "employeeName": "ALDI",
+      "ptrjId": "POM00283",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 2093302,
+      "millwareAmount": 2093305,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.250500219",
+      "employeeName": "FERZI ARIS SETIAWAN",
+      "ptrjId": "POM00298",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 2682225,
+      "millwareAmount": 2682235,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    },
+    {
+      "status": "MATCH_OR_NOT_SHORTFALL",
+      "employeeId": "PTRJ.250500221",
+      "employeeName": "MUHAMMAD SALMAN ALFARIZI",
+      "ptrjId": "POM00294",
+      "componentKey": "lembur",
+      "componentName": "TUNJANGAN LEMBUR",
+      "venusAmount": 1026243,
+      "millwareAmount": 1026251,
+      "shortfallAmount": 0,
+      "tolerance": 50
+    }
+  ]
+}

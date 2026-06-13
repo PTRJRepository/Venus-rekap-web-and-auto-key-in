@@ -14,7 +14,9 @@ const { updateEmployee, getAllEmployees, upsertEmployee } = require('./services/
 const { saveAutomationData, startAutomationProcess, stopAutomationProcess } = require('./services/automationService');
 const { queryTaskRegData, compareWithTaskReg, getMissData, getSyncSummaryByEmployee } = require('./services/comparisonService');
 const validationService = require('./services/validationService');
-const { fetchPayrollData } = require('./services/payrollService');
+const { fetchPayrollData, fetchLivePayrollData } = require('./services/payrollService');
+const payrollExportService = require('./services/payrollExportService');
+const payrollSnapshotService = require('./services/payrollSnapshotService');
 const { parseDocIdsInput } = require('./services/docIdUtils');
 require('dotenv').config();
 
@@ -52,6 +54,23 @@ const getHolidayName = (dateStr) => {
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Allow large payloads
+
+const buildPayrollSourceOptions = (payload = {}) => {
+    const source = String(payload.source || payload.payrollSource || '').toLowerCase();
+    const snapshotId = payload.snapshotId || payload.payrollSnapshotId || null;
+    const useActiveSnapshot = payload.useActiveSnapshot === true
+        || String(payload.useActiveSnapshot || '').toLowerCase() === 'true';
+
+    if (source === 'snapshot' || snapshotId || useActiveSnapshot) {
+        return {
+            source: 'snapshot',
+            snapshotId,
+            useActiveSnapshot
+        };
+    }
+
+    return { source: 'live' };
+};
 
 // --- Attendance Routes ---
 
@@ -145,18 +164,20 @@ app.get('/api/attendance', async (req, res) => {
 
 app.get('/api/payroll', async (req, res) => {
     const { month, year } = req.query;
-    console.log(`Received request for payroll data: ${month}/${year}`);
+    const payrollSource = buildPayrollSourceOptions(req.query);
+    console.log(`Received request for payroll data: ${month}/${year} (${payrollSource.source})`);
 
     if (!month || !year) return res.status(400).json({ error: 'Month and Year required' });
 
     try {
-        const result = await fetchPayrollData(parseInt(month), parseInt(year));
+        const result = await fetchPayrollData(parseInt(month), parseInt(year), payrollSource);
 
         if (result.success) {
             res.json({
                 success: true,
                 data: result.data,
                 analysis: result.analysis,
+                sourceInfo: result.sourceInfo,
                 month: parseInt(month),
                 year: parseInt(year)
             });
@@ -165,6 +186,136 @@ app.get('/api/payroll', async (req, res) => {
         }
     } catch (error) {
         console.error("Payroll API Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/payroll/snapshots', async (req, res) => {
+    const { month, year } = req.query;
+    if (!month || !year) return res.status(400).json({ error: 'Month and Year required' });
+
+    try {
+        const snapshots = await payrollSnapshotService.listPayrollSnapshots(month, year);
+        res.json({ success: true, data: snapshots });
+    } catch (error) {
+        console.error('[PayrollSnapshot API] List error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/payroll/snapshots', async (req, res) => {
+    const { month, year, label, notes, setActive } = req.body || {};
+    if (!month || !year) return res.status(400).json({ error: 'month and year are required' });
+
+    try {
+        console.log(`[PayrollSnapshot API] Capturing live snapshot for ${month}/${year}`);
+        const payrollResult = await fetchLivePayrollData(parseInt(month, 10), parseInt(year, 10));
+        if (!payrollResult.success) {
+            return res.status(500).json({ success: false, error: payrollResult.error });
+        }
+
+        const snapshot = await payrollSnapshotService.createPayrollSnapshot({
+            month,
+            year,
+            label,
+            notes,
+            payrollResult,
+            setActive: setActive !== false,
+            capturedBy: req.body?.capturedBy || 'app'
+        });
+
+        res.status(201).json({ success: true, data: snapshot });
+    } catch (error) {
+        console.error('[PayrollSnapshot API] Capture error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/payroll/snapshots/:snapshotId', async (req, res) => {
+    try {
+        const snapshot = await payrollSnapshotService.getPayrollSnapshot(req.params.snapshotId);
+        if (!snapshot) return res.status(404).json({ success: false, error: 'Snapshot not found' });
+        res.json({ success: true, data: snapshot });
+    } catch (error) {
+        console.error('[PayrollSnapshot API] Detail error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.patch('/api/payroll/snapshots/:snapshotId', async (req, res) => {
+    try {
+        const snapshot = await payrollSnapshotService.updatePayrollSnapshot(req.params.snapshotId, req.body || {});
+        if (!snapshot) return res.status(404).json({ success: false, error: 'Snapshot not found' });
+        res.json({ success: true, data: snapshot });
+    } catch (error) {
+        console.error('[PayrollSnapshot API] Update error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/payroll/snapshots/:snapshotId/activate', async (req, res) => {
+    try {
+        const snapshot = await payrollSnapshotService.activatePayrollSnapshot(req.params.snapshotId, req.body?.actor || 'app');
+        res.json({ success: true, data: snapshot });
+    } catch (error) {
+        console.error('[PayrollSnapshot API] Activate error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.delete('/api/payroll/snapshots/:snapshotId', async (req, res) => {
+    try {
+        const result = await payrollSnapshotService.softDeletePayrollSnapshot(req.params.snapshotId, req.body?.actor || 'app');
+        res.json({ success: true, data: result });
+    } catch (error) {
+        console.error('[PayrollSnapshot API] Delete error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- Payroll Export Routes ---
+
+// Export payroll comparison to CSV or Excel
+app.get('/api/payroll/export', async (req, res) => {
+    const { month, year, format, filter } = req.query;
+    const payrollSource = buildPayrollSourceOptions(req.query);
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'Month and Year required' });
+    }
+
+    const exportFormat = format === 'xlsx' || format === 'excel' ? 'xlsx' : 'csv';
+    const exportFilter = ['all', 'matched', 'mismatched', 'no_millware'].includes(filter) ? filter : 'all';
+
+    try {
+        console.log(`[PayrollExport API] Export request: ${month}/${year}, format=${exportFormat}, filter=${exportFilter}, source=${payrollSource.source}`);
+
+        const result = await payrollExportService.exportPayroll(
+            parseInt(month, 10),
+            parseInt(year, 10),
+            exportFormat,
+            exportFilter,
+            payrollSource
+        );
+
+        if (result.count === 0) {
+            return res.json({
+                success: true,
+                message: result.message,
+                count: 0
+            });
+        }
+
+        // Return download info - frontend will handle the actual download
+        res.json({
+            success: true,
+            filename: result.filename,
+            period: result.period,
+            count: result.count,
+            downloadUrl: `/api/export/download/${result.filename}`
+        });
+    } catch (error) {
+        console.error('[PayrollExport API] Error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -838,6 +989,39 @@ app.get('/api/comparison/summary', async (req, res) => {
     }
 });
 
+// Debug: Check raw Millware data for specific employee and date
+app.get('/api/debug/millware-check', async (req, res) => {
+    try {
+        const { emp_code, date } = req.query;
+        if (!emp_code || !date) {
+            return res.status(400).json({ success: false, error: 'emp_code and date required' });
+        }
+
+        const sql = `
+            SELECT L.ID, L.MasterID, H.DocID, H.Status AS HeaderStatus, CAST(NULL AS VARCHAR(100)) AS TaskCode, L.EmpCode, CAST(NULL AS VARCHAR(200)) AS EmpName, L.OT, L.Hours, L.Amount, L.TrxDate, CAST(NULL AS INT) AS NormalDay, CAST(NULL AS VARCHAR(100)) AS ChargeTo, CAST(NULL AS DATETIME) AS CreatedDate
+            FROM [db_ptrj_mill].[dbo].[PR_TASKREG] H
+            INNER JOIN [db_ptrj_mill].[dbo].[PR_TASKREGLN] L ON H.ID = L.MasterID
+            WHERE RTRIM(L.EmpCode) = '${emp_code}' AND CAST(L.TrxDate AS DATE) = '${date}'
+            ORDER BY L.OT, L.Hours
+        `;
+
+        console.log(`[Debug] Checking Millware for ${emp_code} on ${date}`);
+        const result = await executeQuery(sql);
+        console.log(`[Debug] Found ${result.length} records`);
+
+        res.json({
+            success: true,
+            empCode: emp_code,
+            date: date,
+            recordCount: result.length,
+            records: result
+        });
+    } catch (error) {
+        console.error('Error in debug endpoint:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // --- Automation Routes ---
 
 app.post('/api/automation/run', async (req, res) => {
@@ -868,7 +1052,7 @@ app.post('/api/automation/run', async (req, res) => {
         if (!savedData.employeeCount || !savedData.attendanceRecords) {
             return res.status(409).json({
                 error: onlyOvertime
-                    ? 'Tidak ada data overtime yang perlu diproses setelah filter. Pastikan absensi regular sudah ada di Millware dan record OT belum ada.'
+                    ? 'Tidak ada data overtime yang perlu diproses setelah filter. Pastikan record OT belum ada dan Venus memiliki jam OT.'
                     : 'Tidak ada data yang perlu diproses setelah filter sync/mode.'
             });
         }
@@ -1013,20 +1197,83 @@ app.post('/api/automation/stop', (req, res) => {
 // --- Payroll Automation Routes ---
 
 // Prepare and run payroll automation
-const { triggerPayrollAutomation } = require('./services/payrollAutomationService');
+const {
+    triggerPayrollAutomation,
+    prepareBerasAutomationData,
+    prepareLemburAdjustmentData
+} = require('./services/payrollAutomationService');
 const { startPayrollAutomationProcess, stopPayrollAutomationProcess } = require('./services/automationService');
+const { spawn, exec } = require('child_process');
+const { runPayrollDryRun } = require('../browser-automation-engine/payroll-dry-runner');
 const {
     fetchPayrollADDocIdsFromDB,
     fetchDuplicatePayrollADDocIdsFromDB,
+    fetchDifferenceADDocIdsFromDB,
+    fetchAmountDifferenceADDocIdsFromDB,
     triggerPayrollADResetAutomation,
+    triggerPayrollADResetByDCOIDAutomation,
+    triggerPayrollADResetByDifferenceAutomation,
+    triggerPayrollADResetByAmountDifferenceAutomation,
+    preparePayrollADResetData,
     startPayrollADResetProcess,
     stopPayrollADResetProcess
 } = require('./services/payrollADResetService');
 const wagesService = require('./services/wagesService');
 const playwrightAutomationService = require('./services/playwrightAutomationService');
 
+const PAYROLL_BERAS_TEMPLATE = 'payroll-beras-input-with-chargejob';
+const PAYROLL_BERAS_RUNNER_PATH = path.resolve(__dirname, '..', 'browser-automation-engine', 'payroll-runner.js');
+const PAYROLL_PARALLEL_RUNNER_PATH = path.resolve(__dirname, '..', 'browser-automation-engine', 'payroll-parallel-runner.js');
+const PAYROLL_BERAS_ENGINE_DIR = path.resolve(__dirname, '..', 'browser-automation-engine');
+const PAYROLL_BERAS_DATA_FILE = path.resolve(PAYROLL_BERAS_ENGINE_DIR, 'testing_data', 'current_payroll_beras_data.json');
+const PAYROLL_LEMBUR_ADJUSTMENT_TEMPLATE = 'payroll-lembur-adjustment-input-with-chargejob';
+const PAYROLL_LEMBUR_ADJUSTMENT_DATA_FILE = path.resolve(PAYROLL_BERAS_ENGINE_DIR, 'testing_data', 'current_payroll_lembur_adjustment_data.json');
+let currentBerasPayrollProcess = null;
+let currentLemburAdjustmentProcess = null;
+
+const stopBerasPayrollProcess = () => {
+    if (!currentBerasPayrollProcess) return false;
+
+    const processToStop = currentBerasPayrollProcess;
+    currentBerasPayrollProcess = null;
+
+    if (process.platform === 'win32') {
+        exec(`taskkill /pid ${processToStop.pid} /T /F`, (error) => {
+            if (error) {
+                console.error(`[PayrollBeras] Failed to stop process ${processToStop.pid}:`, error.message);
+            }
+        });
+    } else {
+        processToStop.kill('SIGINT');
+    }
+
+    console.log(`[PayrollBeras] Stop requested for process ${processToStop.pid}`);
+    return true;
+};
+
+const stopLemburAdjustmentProcess = () => {
+    if (!currentLemburAdjustmentProcess) return false;
+
+    const processToStop = currentLemburAdjustmentProcess;
+    currentLemburAdjustmentProcess = null;
+
+    if (process.platform === 'win32') {
+        exec(`taskkill /pid ${processToStop.pid} /T /F`, (error) => {
+            if (error) {
+                console.error(`[PayrollLemburAdjustment] Failed to stop process ${processToStop.pid}:`, error.message);
+            }
+        });
+    } else {
+        processToStop.kill('SIGINT');
+    }
+
+    console.log(`[PayrollLemburAdjustment] Stop requested for process ${processToStop.pid}`);
+    return true;
+};
+
 app.post('/api/payroll/automation/run', async (req, res) => {
     const { month, year, componentKeys, componentKey } = req.body;
+    const payrollSource = buildPayrollSourceOptions(req.body);
 
     if (!month || !year) {
         return res.status(400).json({ error: 'month and year are required' });
@@ -1034,10 +1281,13 @@ app.post('/api/payroll/automation/run', async (req, res) => {
 
     try {
         const requestedComponentKeys = componentKeys || componentKey || [];
-        console.log(`[PayrollAutomation API] Request to run for ${month}/${year}`, requestedComponentKeys);
+        console.log(`[PayrollAutomation API] Request to run for ${month}/${year} (${payrollSource.source})`, requestedComponentKeys);
 
         // First, prepare the data (find MISS components)
-        const prepResult = await triggerPayrollAutomation(month, year, { componentKeys: requestedComponentKeys });
+        const prepResult = await triggerPayrollAutomation(month, year, {
+            componentKeys: requestedComponentKeys,
+            payrollSource
+        });
         if (!prepResult.success) {
             throw new Error(prepResult.error);
         }
@@ -1116,10 +1366,421 @@ app.post('/api/payroll/automation/run', async (req, res) => {
 // Stop payroll automation
 app.post('/api/payroll/automation/stop', (req, res) => {
     try {
-        const stopped = stopPayrollAutomationProcess();
-        res.json({ success: true, stopped });
+        const stoppedPayroll = stopPayrollAutomationProcess();
+        const stoppedBeras = stopBerasPayrollProcess();
+        const stoppedLemburAdjustment = stopLemburAdjustmentProcess();
+        res.json({
+            success: true,
+            stopped: stoppedPayroll || stoppedBeras || stoppedLemburAdjustment,
+            stoppedPayroll,
+            stoppedBeras,
+            stoppedLemburAdjustment
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Prepare beras automation data (inputs only the DIFFERENCE/selisih amount)
+app.post('/api/payroll/beras/prepare', async (req, res) => {
+    const { month, year } = req.body;
+    const payrollSource = buildPayrollSourceOptions(req.body);
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        console.log(`[PayrollBeras API] Preparing beras data for ${month}/${year}`);
+
+        const result = await prepareBerasAutomationData(month, year, { payrollSource });
+
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+
+        const data = result.data;
+        const summary = {
+            totalEmployees: data.employees.length,
+            totalComponents: data.metadata.totalComponents,
+            skippedDuplicates: data.metadata.skippedDuplicates,
+            skippedAlreadyExists: data.metadata.skippedAlreadyExists,
+            isBerasOnly: data.metadata.isBerasOnly,
+            inputType: data.metadata.inputType
+        };
+
+        console.log(`[PayrollBeras API] Prepared ${summary.totalEmployees} employees with ${summary.totalComponents} beras components`);
+
+        res.json({
+            success: true,
+            message: `Data beras siap untuk ${summary.totalEmployees} karyawan (input: SELISIH amount)`,
+            employees: data.employees.map(e => ({
+                name: e.employeeName,
+                ptrjId: e.ptrjId,
+                component: e.components?.[0] ? {
+                    key: e.components[0].componentKey,
+                    venusAmount: e.components[0].venusAmount,
+                    millwareAmount: e.components[0].millwareAmount,
+                    inputAmount: e.components[0].inputAmount,
+                    note: e.components[0].note
+                } : null
+            })),
+            summary
+        });
+
+    } catch (error) {
+        console.error('[PayrollBeras API] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Run beras automation via browser
+app.post('/api/payroll/beras/run', async (req, res) => {
+    const { month, year } = req.body;
+    const payrollSource = buildPayrollSourceOptions(req.body);
+    const dryRun = req.body.dryRun === true
+        || String(req.body.dryRun || '').toLowerCase() === 'true'
+        || String(req.body.runMode || '').toLowerCase() === 'dry-run';
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        console.log(`[PayrollBeras API] Running beras automation for ${month}/${year}`);
+
+        // First prepare the data (generates current_payroll_beras_data.json with SELISIH amount)
+        const prepResult = await prepareBerasAutomationData(month, year, { payrollSource });
+        if (!prepResult.success) {
+            throw new Error(prepResult.error);
+        }
+
+        if (prepResult.data.employees.length === 0) {
+            return res.json({
+                success: true,
+                message: 'Tidak ada data beras yang perlu diinputkan',
+                employeesProcessed: 0
+            });
+        }
+
+        const totalComponents = prepResult.data.employees.reduce((sum, emp) => sum + (emp.components?.length || 0), 0);
+        const headless = req.body.headless === true || req.body.browserMode === 'headless';
+
+        if (dryRun) {
+            const dryRunResult = runPayrollDryRun(PAYROLL_BERAS_DATA_FILE, {
+                quiet: true,
+                payload: prepResult.data
+            });
+
+            if (!dryRunResult.success) {
+                return res.status(422).json({
+                    success: false,
+                    error: 'Dry-run validation failed',
+                    errors: dryRunResult.errors,
+                    warnings: dryRunResult.warnings,
+                    employeesProcessed: dryRunResult.employeeCount,
+                    componentsProcessed: dryRunResult.rowCount
+                });
+            }
+
+            return res.json({
+                success: true,
+                message: `Dry-run OK: ${dryRunResult.employeeCount} karyawan, ${dryRunResult.rowCount} baris BERAS siap diinput (SELISIH amount)`,
+                employeesProcessed: dryRunResult.employeeCount,
+                componentsProcessed: dryRunResult.rowCount,
+                warnings: dryRunResult.warnings,
+                rows: dryRunResult.rows
+            });
+        }
+
+        // Setup Streaming Response
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const sendChunk = (type, data) => {
+            try {
+                res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+            } catch (e) {
+                // Response closed
+            }
+        };
+        const endStream = () => {
+            try {
+                res.end();
+            } catch (e) {
+                // Response closed
+            }
+        };
+
+        sendChunk('info', `Memproses ${prepResult.data.employees.length} karyawan dengan ${totalComponents} baris BERAS (SELISIH amount)`);
+        sendChunk('log', `Template: ${PAYROLL_BERAS_TEMPLATE}`);
+        sendChunk('log', `Data file: ${PAYROLL_BERAS_DATA_FILE}`);
+
+        // Build command: payroll-runner.js <template> <dataFile> [--headless]
+        const args = [PAYROLL_BERAS_TEMPLATE, PAYROLL_BERAS_DATA_FILE];
+        if (headless) args.push('--headless');
+
+        console.log(`[PayrollBeras API] Spawning: node ${PAYROLL_BERAS_RUNNER_PATH} ${args.join(' ')}`);
+
+        const child = spawn('node', [PAYROLL_BERAS_RUNNER_PATH, ...args], {
+            cwd: PAYROLL_BERAS_ENGINE_DIR,
+            env: { ...process.env },
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        currentBerasPayrollProcess = child;
+        let childClosed = false;
+
+        res.on('close', () => {
+            if (!childClosed && currentBerasPayrollProcess === child) {
+                stopBerasPayrollProcess();
+            }
+        });
+
+        // Handle spawn errors
+        child.on('error', (err) => {
+            childClosed = true;
+            if (currentBerasPayrollProcess === child) currentBerasPayrollProcess = null;
+            console.error('[PayrollBeras] Spawn error:', err);
+            sendChunk('error', `Failed to start beras runner: ${err.message}`);
+            sendChunk('complete', { code: 1, error: err.message, employees: prepResult.data.employees.length, components: totalComponents });
+            endStream();
+        });
+
+        child.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n').filter(line => line.trim());
+            lines.forEach(line => sendChunk('log', line));
+        });
+
+        child.stderr.on('data', (data) => {
+            sendChunk('error', data.toString());
+        });
+
+        child.on('close', (code) => {
+            childClosed = true;
+            if (currentBerasPayrollProcess === child) currentBerasPayrollProcess = null;
+            if (code !== 0) {
+                sendChunk('error', `Beras runner exited with code ${code}`);
+            }
+            sendChunk('complete', { code, employees: prepResult.data.employees.length, components: totalComponents });
+            endStream();
+        });
+
+    } catch (error) {
+        console.error('[PayrollBeras API] Error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
+// Prepare lembur adjustment data (snapshot-only; inputs only Venus - Millware shortfall)
+app.post('/api/payroll/lembur-adjustment/prepare', async (req, res) => {
+    const { month, year } = req.body;
+    const payrollSource = buildPayrollSourceOptions(req.body);
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+    if (payrollSource.source !== 'snapshot') {
+        return res.status(400).json({ error: 'Adjustment lembur hanya tersedia saat sumber payroll menggunakan snapshot.' });
+    }
+
+    try {
+        console.log(`[PayrollLemburAdjustment API] Preparing data for ${month}/${year}`);
+
+        const result = await prepareLemburAdjustmentData(month, year, { payrollSource });
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+
+        const data = result.data;
+        const summary = {
+            totalEmployees: data.employees.length,
+            totalComponents: data.metadata.totalComponents,
+            skippedDuplicates: data.metadata.skippedDuplicates,
+            skippedAlreadyExists: data.metadata.skippedAlreadyExists,
+            isLemburAdjustmentOnly: data.metadata.isLemburAdjustmentOnly,
+            inputType: data.metadata.inputType,
+            payrollSource: data.metadata.payrollSource,
+            snapshotId: data.metadata.snapshotId
+        };
+
+        console.log(`[PayrollLemburAdjustment API] Prepared ${summary.totalEmployees} employees with ${summary.totalComponents} lembur adjustment components`);
+
+        res.json({
+            success: true,
+            message: `Data adjustment lembur siap untuk ${summary.totalEmployees} karyawan (input: SELISIH amount)`,
+            employees: data.employees.map(e => ({
+                name: e.employeeName,
+                ptrjId: e.ptrjId,
+                component: e.components?.[0] ? {
+                    key: e.components[0].componentKey,
+                    venusAmount: e.components[0].originalVenusAmount,
+                    millwareAmount: e.components[0].originalMillwareAmount,
+                    inputAmount: e.components[0].inputAmount,
+                    note: e.components[0].note
+                } : null
+            })),
+            summary
+        });
+    } catch (error) {
+        console.error('[PayrollLemburAdjustment API] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Run lembur adjustment automation via browser
+app.post('/api/payroll/lembur-adjustment/run', async (req, res) => {
+    const { month, year } = req.body;
+    const payrollSource = buildPayrollSourceOptions(req.body);
+    const dryRun = req.body.dryRun === true
+        || String(req.body.dryRun || '').toLowerCase() === 'true'
+        || String(req.body.runMode || '').toLowerCase() === 'dry-run';
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+    if (payrollSource.source !== 'snapshot') {
+        return res.status(400).json({ error: 'Adjustment lembur hanya tersedia saat sumber payroll menggunakan snapshot.' });
+    }
+
+    try {
+        console.log(`[PayrollLemburAdjustment API] Running automation for ${month}/${year}`);
+
+        const prepResult = await prepareLemburAdjustmentData(month, year, { payrollSource });
+        if (!prepResult.success) {
+            throw new Error(prepResult.error);
+        }
+
+        if (prepResult.data.employees.length === 0) {
+            return res.json({
+                success: true,
+                message: 'Tidak ada adjustment lembur yang perlu diinputkan',
+                employeesProcessed: 0
+            });
+        }
+
+        const totalComponents = prepResult.data.employees.reduce((sum, emp) => sum + (emp.components?.length || 0), 0);
+        const headless = req.body.headless === true || req.body.browserMode === 'headless';
+        const workerCount = Math.max(4, Math.min(10, parseInt(req.body.workerCount || req.body.workers || req.body.tabs || 4, 10) || 4));
+
+        if (dryRun) {
+            const dryRunResult = runPayrollDryRun(PAYROLL_LEMBUR_ADJUSTMENT_DATA_FILE, {
+                quiet: true,
+                payload: prepResult.data
+            });
+
+            if (!dryRunResult.success) {
+                return res.status(422).json({
+                    success: false,
+                    error: 'Dry-run validation failed',
+                    errors: dryRunResult.errors,
+                    warnings: dryRunResult.warnings,
+                    employeesProcessed: dryRunResult.employeeCount,
+                    componentsProcessed: dryRunResult.rowCount
+                });
+            }
+
+            return res.json({
+                success: true,
+                message: `Dry-run OK: ${dryRunResult.employeeCount} karyawan, ${dryRunResult.rowCount} baris adjustment lembur siap diinput (SELISIH amount)`,
+                employeesProcessed: dryRunResult.employeeCount,
+                componentsProcessed: dryRunResult.rowCount,
+                warnings: dryRunResult.warnings,
+                rows: dryRunResult.rows
+            });
+        }
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const sendChunk = (type, data) => {
+            try {
+                res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+            } catch (e) {
+                // Response closed
+            }
+        };
+        const endStream = () => {
+            try {
+                res.end();
+            } catch (e) {
+                // Response closed
+            }
+        };
+
+        sendChunk('info', `Memproses ${prepResult.data.employees.length} karyawan dengan ${totalComponents} baris adjustment lembur (SELISIH amount)`);
+        sendChunk('log', `Template: ${PAYROLL_LEMBUR_ADJUSTMENT_TEMPLATE}`);
+        sendChunk('log', `Data file: ${PAYROLL_LEMBUR_ADJUSTMENT_DATA_FILE}`);
+        sendChunk('log', `Parallel workers/tabs: ${workerCount} (isolated 1 row per worker)`);
+
+        const args = [
+            '--tabs',
+            String(workerCount),
+            '--isolate-rows',
+            PAYROLL_LEMBUR_ADJUSTMENT_TEMPLATE,
+            PAYROLL_LEMBUR_ADJUSTMENT_DATA_FILE
+        ];
+        args.push(headless ? '--headless' : '--no-headless');
+
+        console.log(`[PayrollLemburAdjustment API] Spawning: node ${PAYROLL_PARALLEL_RUNNER_PATH} ${args.join(' ')}`);
+
+        const child = spawn('node', [PAYROLL_PARALLEL_RUNNER_PATH, ...args], {
+            cwd: PAYROLL_BERAS_ENGINE_DIR,
+            env: {
+                ...process.env,
+                PAYROLL_TABS: String(workerCount),
+                AUTOMATION_INSTANCES: String(workerCount),
+                HEADLESS: headless ? 'true' : 'false',
+                AUTO_CLOSE: 'true'
+            },
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        currentLemburAdjustmentProcess = child;
+        let childClosed = false;
+
+        res.on('close', () => {
+            if (!childClosed && currentLemburAdjustmentProcess === child) {
+                stopLemburAdjustmentProcess();
+            }
+        });
+
+        child.on('error', (err) => {
+            childClosed = true;
+            if (currentLemburAdjustmentProcess === child) currentLemburAdjustmentProcess = null;
+            console.error('[PayrollLemburAdjustment] Spawn error:', err);
+            sendChunk('error', `Failed to start lembur adjustment runner: ${err.message}`);
+            sendChunk('complete', { code: 1, error: err.message, employees: prepResult.data.employees.length, components: totalComponents });
+            endStream();
+        });
+
+        child.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n').filter(line => line.trim());
+            lines.forEach(line => sendChunk('log', line));
+        });
+
+        child.stderr.on('data', (data) => {
+            sendChunk('error', data.toString());
+        });
+
+        child.on('close', (code) => {
+            childClosed = true;
+            if (currentLemburAdjustmentProcess === child) currentLemburAdjustmentProcess = null;
+            if (code !== 0) {
+                sendChunk('error', `Lembur adjustment runner exited with code ${code}`);
+            }
+            sendChunk('complete', { code, employees: prepResult.data.employees.length, components: totalComponents, workers: workerCount });
+            endStream();
+        });
+    } catch (error) {
+        console.error('[PayrollLemburAdjustment API] Error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message });
+        }
     }
 });
 
@@ -1336,6 +1997,432 @@ app.get('/api/payroll/ad-reset/duplicate-doc-ids', async (req, res) => {
         });
     } catch (error) {
         console.error('[PayrollADReset Duplicate DocIds API] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Reset Monthly Allowance/Deduction by DCOID (Direct DocID input)
+app.post('/api/payroll/ad-reset/by-dcoid/run', async (req, res) => {
+    const { dcoids } = req.body;
+    const dryRun = req.body.dryRun === true;
+    const headless = req.body.headless === true;
+    const windowCount = Math.max(1, Math.min(10, parseInt(req.body.windowCount || req.body.windows || 5, 10) || 5));
+
+    if (!dcoids || !Array.isArray(dcoids) || dcoids.length === 0) {
+        return res.status(400).json({ error: 'dcoids array is required' });
+    }
+
+    try {
+        console.log(`[PayrollADReset ByDCOID API] Run request: dcoids=${dcoids.length}, dryRun=${dryRun}, headless=${headless}, windowCount=${windowCount}`);
+
+        const result = await triggerPayrollADResetByDCOIDAutomation({
+            dcoids,
+            dryRun,
+            headless,
+            windowCount
+        });
+
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+
+        // If dryRun, return without starting process
+        if (dryRun) {
+            return res.json({
+                success: true,
+                dryRun: true,
+                foundCount: result.foundCount,
+                notFoundDcoids: result.notFoundDcoids,
+                totalInput: result.totalInput,
+                docTargets: result.data.docTargets,
+                message: `Dry run: ${result.foundCount} DocID(s) found for deletion`
+            });
+        }
+
+        // Start the automation process
+        const child = startPayrollADResetProcess({ dryRun, headless, windowCount });
+
+        // Handle process output streaming
+        child.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n').filter(Boolean);
+            lines.forEach(line => {
+                try {
+                    const parsed = JSON.parse(line);
+                    res.write(`data: ${JSON.stringify(parsed)}\n\n`);
+                } catch (_) {
+                    res.write(`data: ${JSON.stringify({ type: 'log', message: line })}\n\n`);
+                }
+            });
+        });
+
+        child.stderr.on('data', (data) => {
+            res.write(`data: ${JSON.stringify({ type: 'error', message: data.toString() })}\n\n`);
+        });
+
+        child.on('exit', (code) => {
+            res.write(`data: ${JSON.stringify({ type: 'exit', code })}\n\n`);
+            res.end();
+        });
+
+        child.on('error', (error) => {
+            res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
+            res.end();
+        });
+
+        // Initial response with SSE headers
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+
+        res.write(`data: ${JSON.stringify({
+            type: 'start',
+            success: true,
+            foundCount: result.foundCount,
+            notFoundDcoids: result.notFoundDcoids,
+            totalInput: result.totalInput,
+            message: `Starting automation for ${result.foundCount} DocID(s)`
+        })}\n\n`);
+
+    } catch (error) {
+        console.error('[PayrollADReset ByDCOID API] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Trigger ADTRANS duplicate deletion (keeps latest, deletes older duplicates by EmpCode + DocDesc)
+ * POST /api/payroll/ad-reset/duplicates/run
+ */
+app.post('/api/payroll/ad-reset/duplicates/run', async (req, res) => {
+    const { month, year, empCodes } = req.body;
+    const dryRun = req.body.dryRun === true;
+    const headless = req.body.headless === true;
+    const windowCount = Math.max(1, Math.min(10, parseInt(req.body.windowCount || req.body.windows || 5, 10) || 5));
+    const limit = Math.max(0, parseInt(req.body.limit || 0, 10) || 0);
+    const keepStrategy = String(req.body.keepStrategy || 'latest').toLowerCase(); // 'latest' or 'oldest'
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        console.log(`[PayrollADReset Duplicates API] Run request: month=${month}, year=${year}, empCodes=${empCodes?.length || 0}, keepStrategy=${keepStrategy}, dryRun=${dryRun}`);
+
+        // Fetch duplicate DocIDs from database
+        const codes = Array.isArray(empCodes) ? empCodes : (empCodes ? empCodes.split(',').map(c => c.trim()).filter(Boolean) : []);
+        const dbResult = await fetchDuplicatePayrollADDocIdsFromDB(month, year, codes, {
+            limit,
+            keepStrategy
+        });
+
+        if (dbResult.details.length === 0) {
+            return res.json({
+                success: true,
+                dryRun,
+                foundCount: 0,
+                message: 'Tidak ada duplicate ADTRANS ditemukan untuk periode ini'
+            });
+        }
+
+        console.log(`[PayrollADReset Duplicates API] Found ${dbResult.details.length} duplicate records to delete`);
+
+        // Prepare data for runner
+        const data = preparePayrollADResetData({
+            docTargets: dbResult.details,
+            docIds: dbResult.docIds,
+            month,
+            year,
+            dryRun,
+            headless,
+            windowCount,
+            source: 'payroll_ad_reset_duplicates'
+        });
+
+        // If dryRun, return without starting process
+        if (dryRun) {
+            return res.json({
+                success: true,
+                dryRun: true,
+                foundCount: dbResult.details.length,
+                duplicateGroups: dbResult.duplicateGroups,
+                docTargets: dbResult.details,
+                message: `Dry run: ${dbResult.details.length} duplicate ADTRANS(s) found (keep ${keepStrategy})`
+            });
+        }
+
+        // Start the automation process
+        const child = startPayrollADResetProcess({ dryRun, headless, windowCount });
+
+        // Handle process output streaming
+        child.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n').filter(Boolean);
+            lines.forEach(line => {
+                try {
+                    const parsed = JSON.parse(line);
+                    res.write(`data: ${JSON.stringify(parsed)}\n\n`);
+                } catch (_) {
+                    res.write(`data: ${JSON.stringify({ type: 'log', message: line })}\n\n`);
+                }
+            });
+        });
+
+        child.stderr.on('data', (data) => {
+            res.write(`data: ${JSON.stringify({ type: 'error', message: data.toString() })}\n\n`);
+        });
+
+        child.on('exit', (code) => {
+            res.write(`data: ${JSON.stringify({ type: 'exit', code })}\n\n`);
+            res.end();
+        });
+
+        child.on('error', (error) => {
+            res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
+            res.end();
+        });
+
+        // Initial response with SSE headers
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+
+        res.write(`data: ${JSON.stringify({
+            type: 'start',
+            success: true,
+            foundCount: dbResult.details.length,
+            duplicateGroups: dbResult.duplicateGroups,
+            message: `Starting duplicate deletion: ${dbResult.details.length} records (keep ${keepStrategy})`
+        })}\n\n`);
+
+    } catch (error) {
+        console.error('[PayrollADReset Duplicates API] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Reset ADTRANS where there are differences (multiple DocDesc per employee)
+ * POST /api/payroll/ad-reset/differences/run
+ */
+app.post('/api/payroll/ad-reset/differences/run', async (req, res) => {
+    const { month, year, empCodes } = req.body;
+    const dryRun = req.body.dryRun === true;
+    const headless = req.body.headless === true;
+    const windowCount = Math.max(1, Math.min(10, parseInt(req.body.windowCount || req.body.windows || 5, 10) || 5));
+    const limit = Math.max(0, parseInt(req.body.limit || 0, 10) || 0);
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        console.log(`[PayrollADReset Differences API] Run request: month=${month}, year=${year}, empCodes=${empCodes?.length || 0}, dryRun=${dryRun}`);
+
+        const result = await triggerPayrollADResetByDifferenceAutomation({
+            month, year, empCodes,
+            dryRun, headless, windowCount, limit
+        });
+
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+
+        if (dryRun) {
+            return res.json({
+                success: true,
+                dryRun: true,
+                foundCount: result.foundCount,
+                employeeGroups: result.employeeGroups,
+                employeeCount: result.employeeCount,
+                docTargets: result.data?.docTargets,
+                message: result.message
+            });
+        }
+
+        // Start automation process
+        const child = startPayrollADResetProcess({ dryRun, headless, windowCount });
+
+        child.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n').filter(Boolean);
+            lines.forEach(line => {
+                try {
+                    const parsed = JSON.parse(line);
+                    res.write(`data: ${JSON.stringify(parsed)}\n\n`);
+                } catch (_) {
+                    res.write(`data: ${JSON.stringify({ type: 'log', message: line })}\n\n`);
+                }
+            });
+        });
+
+        child.stderr.on('data', (data) => {
+            res.write(`data: ${JSON.stringify({ type: 'error', message: data.toString() })}\n\n`);
+        });
+
+        child.on('exit', (code) => {
+            res.write(`data: ${JSON.stringify({ type: 'exit', code })}\n\n`);
+            res.end();
+        });
+
+        child.on('error', (error) => {
+            res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
+            res.end();
+        });
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+
+        res.write(`data: ${JSON.stringify({
+            type: 'start',
+            success: true,
+            foundCount: result.foundCount,
+            employeeCount: result.employeeCount,
+            message: result.message
+        })}\n\n`);
+
+    } catch (error) {
+        console.error('[PayrollADReset Differences API] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Get preview of AD records with amount differences (Venus vs Millware)
+ * GET /api/payroll/ad-reset/amount-differences?month=6&year=2026&empCodes=POM00017,POM00018&tolerance=50
+ */
+app.get('/api/payroll/ad-reset/amount-differences', async (req, res) => {
+    const month = parseInt(req.query.month, 10);
+    const year = parseInt(req.query.year, 10);
+    const payrollSource = buildPayrollSourceOptions(req.query);
+    const empCodes = req.query.empCodes
+        ? String(req.query.empCodes).split(',').map(c => c.trim()).filter(Boolean)
+        : [];
+    const limit = Math.max(0, parseInt(req.query.limit || 0, 10) || 0);
+    // Default tolerance 50 rupiah (matches payrollService.js PAYROLL_TOLERANCE)
+    const tolerance = Math.max(1, parseInt(req.query.tolerance || 50, 10) || 50);
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        console.log(`[PayrollADReset AmountDiff API] Fetch: month=${month}, year=${year}, empCodes=${empCodes.length}, tolerance=${tolerance}`);
+
+        const result = await fetchAmountDifferenceADDocIdsFromDB(month, year, empCodes, {
+            limit,
+            tolerance,
+            payrollSource
+        });
+
+        res.json({
+            success: true,
+            docIds: result.docIds,
+            employeeCount: result.employeeCount,
+            totalRecords: result.totalRecords,
+            tolerance: result.tolerance,
+            venusEmployeeCount: result.venusEmployeeCount,
+            millwareEmployeeCount: result.millwareEmployeeCount,
+            employees: result.employees,
+            preview: result.details.slice(0, 10)
+        });
+
+    } catch (error) {
+        console.error('[PayrollADReset AmountDiff API] Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Reset ADTRANS where there are amount differences (Venus vs Millware)
+ * POST /api/payroll/ad-reset/amount-differences/run
+ */
+app.post('/api/payroll/ad-reset/amount-differences/run', async (req, res) => {
+    const { month, year, empCodes } = req.body;
+    const payrollSource = buildPayrollSourceOptions(req.body);
+    const dryRun = req.body.dryRun === true;
+    const headless = req.body.headless === true;
+    const windowCount = Math.max(1, Math.min(10, parseInt(req.body.windowCount || req.body.windows || 5, 10) || 5));
+    const limit = Math.max(0, parseInt(req.body.limit || 0, 10) || 0);
+    // Default tolerance 50 rupiah (matches payrollService.js PAYROLL_TOLERANCE)
+    const tolerance = Math.max(1, parseInt(req.body.tolerance || 50, 10) || 50);
+
+    if (!month || !year) {
+        return res.status(400).json({ error: 'month and year are required' });
+    }
+
+    try {
+        console.log(`[PayrollADReset AmountDiff API] Run: month=${month}, year=${year}, empCodes=${empCodes?.length || 0}, dryRun=${dryRun}, tolerance=${tolerance}`);
+
+        const result = await triggerPayrollADResetByAmountDifferenceAutomation({
+            month, year, empCodes,
+            dryRun, headless, windowCount, limit, tolerance,
+            payrollSource
+        });
+
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+
+        if (dryRun) {
+            return res.json({
+                success: true,
+                dryRun: true,
+                foundCount: result.foundCount,
+                employees: result.employees,
+                employeeCount: result.employeeCount,
+                tolerance: result.tolerance,
+                docTargets: result.data?.docTargets,
+                message: result.message
+            });
+        }
+
+        // Start automation process
+        const child = startPayrollADResetProcess({ dryRun, headless, windowCount });
+
+        child.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n').filter(Boolean);
+            lines.forEach(line => {
+                try {
+                    const parsed = JSON.parse(line);
+                    res.write(`data: ${JSON.stringify(parsed)}\n\n`);
+                } catch (_) {
+                    res.write(`data: ${JSON.stringify({ type: 'log', message: line })}\n\n`);
+                }
+            });
+        });
+
+        child.stderr.on('data', (data) => {
+            res.write(`data: ${JSON.stringify({ type: 'error', message: data.toString() })}\n\n`);
+        });
+
+        child.on('exit', (code) => {
+            res.write(`data: ${JSON.stringify({ type: 'exit', code })}\n\n`);
+            res.end();
+        });
+
+        child.on('error', (error) => {
+            res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
+            res.end();
+        });
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+
+        res.write(`data: ${JSON.stringify({
+            type: 'start',
+            success: true,
+            foundCount: result.foundCount,
+            employeeCount: result.employeeCount,
+            tolerance: result.tolerance,
+            message: result.message
+        })}\n\n`);
+
+    } catch (error) {
+        console.error('[PayrollADReset AmountDiff API] Error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1855,8 +2942,11 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
-// Initialize Staging DB
-stagingService.initStagingDB().then(() => {
+// Initialize local application databases
+Promise.all([
+    stagingService.initStagingDB(),
+    payrollSnapshotService.initPayrollSnapshotDB()
+]).then(() => {
     // --- Start Server on Network (0.0.0.0) ---
     const PORT = process.env.PORT || 3002;
     const HOST = '0.0.0.0'; // Listen on all network interfaces
@@ -1872,4 +2962,7 @@ stagingService.initStagingDB().then(() => {
         console.log(`  Network URL: http://<YOUR-IP>:${PORT}`);
         console.log(`${'='.repeat(50)}\n`);
     });
+}).catch((error) => {
+    console.error('Failed to initialize local databases:', error);
+    process.exit(1);
 });

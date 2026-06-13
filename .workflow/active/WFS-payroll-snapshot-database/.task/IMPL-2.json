@@ -1,0 +1,25 @@
+﻿{
+    "id":  "IMPL-2",
+    "title":  "Refactor payroll source selection",
+    "description":  "Update payrollService so fetchPayrollData can return either live Venus/Millware data or stored snapshot data while preserving the current response shape.",
+    "files":  [
+                  "backend/services/payrollService.js",
+                  "backend/services/payrollSnapshotService.js"
+              ],
+    "depends_on":  [
+                       "IMPL-1"
+                   ],
+    "convergence":  [
+                        "fetchPayrollData remains backward compatible when called with month and year only.",
+                        "snapshot source reads from payrollSnapshotService only.",
+                        "Response includes sourceInfo without breaking existing consumers.",
+                        "buildNetpayAnalysis works for live and snapshot rows."
+                    ],
+    "meta":  {
+                 "type":  "backend-service",
+                 "agent":  "code_developer",
+                 "risk":  "high"
+             },
+    "status":  "completed",
+    "completed_at":  "2026-06-12T15:38:42.8654669+07:00"
+}

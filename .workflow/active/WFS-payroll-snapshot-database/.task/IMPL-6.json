@@ -1,0 +1,32 @@
+﻿{
+    "id":  "IMPL-6",
+    "title":  "Add tests and verification",
+    "description":  "Add focused backend tests for snapshot service and payroll source selection, then run focused tests and build verification.",
+    "files":  [
+                  "backend/services/payrollSnapshotService.test.js",
+                  "backend/services/payrollService.test.js",
+                  "backend/services/payrollAutomationService.test.js",
+                  "backend/services/payrollADResetService.test.js"
+              ],
+    "depends_on":  [
+                       "IMPL-1",
+                       "IMPL-2",
+                       "IMPL-3",
+                       "IMPL-4",
+                       "IMPL-5"
+                   ],
+    "convergence":  [
+                        "Snapshot create/list/get/activate/delete tests pass.",
+                        "Snapshot source selection test proves live query mocks are not called.",
+                        "Live source backward compatibility test passes.",
+                        "Existing payroll automation tests still pass.",
+                        "Backend route smoke test and frontend build pass where available."
+                    ],
+    "meta":  {
+                 "type":  "testing",
+                 "agent":  "code_developer",
+                 "risk":  "medium"
+             },
+    "status":  "completed",
+    "completed_at":  "2026-06-12T15:38:42.8654669+07:00"
+}

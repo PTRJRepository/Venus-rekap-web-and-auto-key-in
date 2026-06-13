@@ -18,8 +18,44 @@ const getPayrollDocDate = (month, year) => {
     };
 };
 
+const toRoundedAmount = (value) => Math.round(Number(value) || 0);
+
+const ROUNDABLE_AMOUNT_FIELDS = [
+    'venusAmount',
+    'millwareAmount',
+    'diff',
+    'inputAmount',
+    'shortfallAmount',
+    'originalVenusAmount',
+    'originalMillwareAmount'
+];
+
+const normalizeAutomationComponentAmounts = (component = {}) => {
+    const rounded = { ...component };
+
+    for (const field of ROUNDABLE_AMOUNT_FIELDS) {
+        if (rounded[field] !== undefined && rounded[field] !== null && rounded[field] !== '') {
+            rounded[field] = toRoundedAmount(rounded[field]);
+        }
+    }
+
+    return rounded;
+};
+
 const normalizeComponentKeys = (componentKeys = []) => {
-    const allowed = new Set(['jabatan', 'masaKerja', 'pph21', 'spsi']);
+    // Daftar komponen yang SEHARUSNYA di-otomasi
+    // NOTE: BPJS Kesehatan dan BPJS Pensiun TIDAK termasuk karena beda sistem Venus vs Millware
+    // NOTE: Salary/Bonus TIDAK termasuk karena BUKAN bagian dari Premi
+    const allowed = new Set([
+        'jabatan',      // Tunjangan Jabatan
+        'masaKerja',    // Tunjangan Masa Kerja
+        'beras',        // Tunjangan Beras
+        'lembur',       // Tunjangan Lembur
+        'pph21',        // Potongan PPH21
+        'spsi'          // Potongan SPSI
+        // Premi components (premiPanen, premiKinerja, dll) tidak punya ADCode fixed
+        // sehingga tidak bisa di-automasi dengan cara yang sama
+    ]);
     const keys = Array.isArray(componentKeys) ? componentKeys : [componentKeys];
     return keys
         .map(key => String(key || '').trim())
@@ -44,15 +80,16 @@ const splitAutomationDataToSingleComponentRecords = (automationData = []) => {
 
     for (const employee of automationData) {
         for (const component of employee.components || []) {
+            const normalizedComponent = normalizeAutomationComponentAmounts(component);
             records.push({
                 ...employee,
                 recordKey: [
                     employee.ptrjId || employee.employeeId || employee.employeeName || '',
-                    component.componentKey || '',
-                    component.adCode || '',
-                    component.venusAmount || ''
+                    normalizedComponent.componentKey || '',
+                    normalizedComponent.adCode || '',
+                    normalizedComponent.venusAmount || ''
                 ].join(':'),
-                components: [component]
+                components: [normalizedComponent]
             });
         }
     }
@@ -65,7 +102,7 @@ const quoteSql = (value) => `'${String(value).replace(/'/g, "''")}'`;
 const payrollRecordSignature = (ptrjId, taskCode, amount) => [
     String(ptrjId || '').trim().toUpperCase(),
     String(taskCode || '').trim().toUpperCase(),
-    String(Math.round(Number(amount) || 0))
+    String(toRoundedAmount(amount))
 ].join(':');
 
 const fetchExistingADRecordSignatures = async (records = [], month, year) => {
@@ -210,6 +247,8 @@ const findMatchingADCode = (venusComponentName, taskCodes) => {
     const searchTerm = venusComponentName.toUpperCase();
 
     // Define priority keywords for each component type
+    // NOTE: BONUS dan SALARY BONUS TIDAK termasuk dalam PREMI search
+    // NOTE: BPJS KESEHATAN TIDAK diikutsertakan karena beda sistem
     const keywordMap = {
         'LEMBUR': ['LEMBUR', 'OT'],
         'JABATAN': ['JABATAN'],
@@ -217,12 +256,14 @@ const findMatchingADCode = (venusComponentName, taskCodes) => {
         'TRANSPORT': ['TRANSPORT'],
         'PPH21': ['PPH21'],
         'SPSI': ['SPSI'],
-        'BPJS KESEHATAN': ['KESEHATAN'],
-        'BPJS TK': ['TENAGA KERJA', 'JAMINAN', 'JHT'],
-        'PREMI': ['PREMI', 'INSENTIF', 'BONUS', 'KINERJA', 'PANEN', 'BRONDOL'],
-        'POTONGAN': ['POTONGAN'],
-        'BERAS': ['BERAS']
-    };
+        'BERAS': ['BERAS'],
+        // PREMI - DIPISAH dari BONUS (BONUS adalah Salary Bonus, BUKAN Premi)
+        'PREMI PANEN': ['PREMI PANEN', 'PREMI AL'],
+        'PREMI KINERJA': ['PREMI KINERJA'],
+        'PREMI BRONDOL': ['PREMI BRONDOL'],
+        'PREMI INSENTIF': ['PREMI INSENTIF'],
+        'PREMI': ['PREMI'] // Fallback untuk premi lain
+ };
 
     // Try to find matching keyword category
     let keywords = null;
@@ -263,6 +304,8 @@ const findMatchingADCode = (venusComponentName, taskCodes) => {
 
 /**
  * Get Venus component mapping to search keywords
+ * NOTE: BONUS/SALARY BONUS TIDAK diikutsertakan karena BUKAN bagian dari Premi
+ * NOTE: BPJS KESEHATAN TIDAK diikutsertakan karena beda sistem Venus vs Millware
  */
 const getVenusComponentKeywords = () => {
     return {
@@ -286,36 +329,25 @@ const getVenusComponentKeywords = () => {
         '#TPRF#': ['PREMI', 'RIT'],
         'TUNJANGAN PREMI RIT': ['PREMI', 'RIT'],
 
-        // Deductions - Potongan
+        // Deductions - Potongan (BPJS TIDAK termasuk)
         '#PPH21_DIPTG#': ['PPH21'],
         'POTONGAN PPH21': ['PPH21'],
         'PPH 21': ['PPH21'],
         '#POT_SPSI#': ['SPSI'],
         'POTONGAN SPSI': ['SPSI'],
-        '#KES_TK#': ['KESEHATAN'],
-        'BPJS KESEHATAN DITANGGUNG KARYAWAN': ['KESEHATAN'],
-        '#TK_TK#': ['TENAGA KERJA', 'JAMINAN', 'JHT'],
-        'BPJS TK DITANGGUNG KARYAWAN': ['TENAGA KERJA', 'JAMINAN', 'JHT'],
-        '#JP_TK#': ['PENSIUN', 'JAMINAN'],
-        'JAMINAN PENSIUN DITANGGUNG KARYAWAN': ['PENSIUN', 'JAMINAN'],
-        '#POT_BPJS#': ['BPJS'],
-        'POTONGAN BPJS TAMBAHAN': ['BPJS'],
-        '#POT_ABSEN#': ['ABSEN'],
-        'POTONGAN ABSEN': ['ABSEN'],
-        '#POT_TELAT1#': ['TERLAMBAT', 'TELAT'],
-        'POTONGAN TERLAMBAT': ['TERLAMBAT', 'TELAT'],
-        '#POT_LAIN#': ['POTONGAN'],
-        'POTONGAN LAIN-LAIN': ['POTONGAN'],
-        '#LOAN1#': ['PINJAMAN', 'LOAN'],
 
-        // Premium/Bonus
-        '#BNS#': ['PREMI', 'INSENTIF', 'BONUS'],
-        'BONUS': ['PREMI', 'INSENTIF', 'BONUS']
+        // PREMI components (DIPISAH dari BONUS)
+        'PREMI PANEN': ['PREMI PANEN', 'PREMI AL'],
+        'PREMI KINERJA': ['PREMI KINERJA'],
+        'PREMI BRONDOL': ['PREMI BRONDOL'],
+        'PREMI INSENTIF': ['PREMI INSENTIF'],
+        // NOTE: BONUS GAJI/SALARY BONUS TIDAK ada di sini karena BUKAN Premi
     };
 };
 
 /**
  * Find ADCode using Venus component keywords
+ * NOTE: BPJS mappings REMOVED karena tidak masuk dalam komparasi
  */
 const findADCodeByVenusComponent = (venusCompName, taskCodes) => {
     const keywordsMap = getVenusComponentKeywords();
@@ -325,14 +357,10 @@ const findADCodeByVenusComponent = (venusCompName, taskCodes) => {
         { match: (name) => name.includes('JABATAN'), taskCode: 'GA9128' },
         { match: (name) => name.includes('MASA KERJA'), taskCode: 'GA9129' },
         { match: (name) => name.includes('LEMBUR') || name.includes('OVERTIME'), taskCode: 'AL0019' },
-        { match: (name) => name.includes('BERAS') || name.includes('RICE'), taskCode: 'AL0012' },
+        { match: (name) => name.includes('BERAS') || name.includes('RICE'), taskCode: 'AL0011' }, // AL0011 = TUNJANGAN TRANSPORT (digunakan untuk BERAS)
         { match: (name) => name.includes('PPH'), taskCode: 'DEPH21' },
-        { match: (name) => name.includes('SPSI'), taskCode: 'DE0003' },
-        { match: (name) => name.includes('BPJS') && name.includes('KESEHATAN'), taskCode: 'DEBPJS' },
-        { match: (name) => name.includes('PENSIUN') || name.includes('JP'), taskCode: 'DEJP' },
-        { match: (name) => name.includes('JHT'), taskCode: 'DEJHT' },
-        { match: (name) => name.includes('JKK'), taskCode: 'DEJKK' },
-        { match: (name) => name.includes('JK'), taskCode: 'DEJK' }
+        { match: (name) => name.includes('SPSI'), taskCode: 'DE0003' }
+        // NOTE: BPJS KESEHATAN, PENSIUN, JHT, JKK, JK REMOVED - tidak masuk komparasi
     ];
 
     const explicit = explicitMap.find(item => item.match(upperName));
@@ -391,7 +419,7 @@ const preparePayrollAutomationData = async (month, year, options = {}) => {
         console.log(`[PayrollAutomation] Preparing automation data for ${month}/${year}`);
 
         // 1. Fetch Venus payroll data
-        const payrollResult = await fetchPayrollData(month, year);
+        const payrollResult = await fetchPayrollData(month, year, options.payrollSource || {});
         if (!payrollResult.success) {
             throw new Error(payrollResult.error);
         }
@@ -465,6 +493,8 @@ const preparePayrollAutomationData = async (month, year, options = {}) => {
             metadata: {
                 month,
                 year,
+                payrollSource: payrollResult.sourceInfo?.source || options.payrollSource?.source || 'live',
+                snapshotId: payrollResult.sourceInfo?.snapshotId || options.payrollSource?.snapshotId || null,
                 payrollDocDateIso: payrollDocDate.iso,
                 payrollDocDate: payrollDocDate.formatted,
                 generatedAt: new Date().toISOString(),
@@ -534,6 +564,319 @@ const triggerPayrollAutomation = async (month, year, options = {}) => {
     }
 };
 
+/**
+ * Prepare beras automation data - input only the DIFFERENCE (selisih) amount
+ * If Venus = 69,750 and Millware = 0 → input 69,750 (the shortfall)
+ * If Venus = 100,000 and Millware = 50,000 → input 50,000 (the difference)
+ *
+ * @param {number} month
+ * @param {number} year
+ */
+const prepareBerasAutomationData = async (month, year, options = {}) => {
+    try {
+        console.log(`[PayrollAutomation] Preparing BERAS automation data for ${month}/${year}`);
+
+        // 1. Fetch Venus payroll data
+        const payrollResult = await fetchPayrollData(month, year, options.payrollSource || {});
+        if (!payrollResult.success) {
+            throw new Error(payrollResult.error);
+        }
+
+        // 2. Fetch Millware task codes for mapping
+        const taskCodes = await fetchMillwareTaskCodes();
+        console.log(`[PayrollAutomation] Found ${taskCodes.length} task codes in Millware`);
+
+        // 3. Build automation data - BERAS ONLY with SELISIH amount
+        const automationData = [];
+        const diagnostics = [];
+        const tolerance = 10; // 10 rupiah tolerance
+
+        for (const emp of payrollResult.data) {
+            if (!emp.ptrjId || emp.ptrjId === '-') {
+                continue;
+            }
+
+            const { components: missingComponents, diagnostics: empDiagnostics } = buildPayrollAutomationComponents(emp, taskCodes, tolerance);
+            empDiagnostics.forEach(item => diagnostics.push({
+                ...item,
+                employeeId: emp.id,
+                employeeName: emp.name,
+                ptrjId: emp.ptrjId
+            }));
+
+            // Filter only beras components
+            const berasComponents = missingComponents.filter(c => c.componentKey === 'beras');
+
+            if (berasComponents.length > 0) {
+                // Calculate shortfall amount for each beras component
+                const berasWithShortfall = berasComponents.map(component => {
+                    const rawVenusAmount = Number(component.venusAmount) || 0;
+                    const rawMillwareAmount = Number(component.millwareAmount) || 0;
+                    const venusAmount = toRoundedAmount(rawVenusAmount);
+                    const millwareAmount = toRoundedAmount(rawMillwareAmount);
+                    // Shortfall = Venus - Millware (always positive, the amount to add)
+                    const shortfallAmount = toRoundedAmount(Math.max(0, rawVenusAmount - rawMillwareAmount));
+
+                    return {
+                        ...component,
+                        venusAmount: shortfallAmount, // OVERRIDE: template uses venusAmount to input
+                        millwareAmount,
+                        diff: shortfallAmount,
+                        adSearchKeyword: 'TRANSPORT', // OVERRIDE: Millware TaskDesc is TUNJANGAN TRANSPORT
+                        inputAmount: shortfallAmount,
+                        shortfallAmount,
+                        originalVenusAmount: venusAmount, // Keep original for display
+                        originalMillwareAmount: millwareAmount, // Keep original for display
+                        note: millwareAmount === 0
+                            ? `Full amount (Millware=0)`
+                            : `Partial (Venus - MW = ${shortfallAmount})`
+                    };
+                }).filter(c => c.venusAmount > 0); // Only include if there's something to input
+
+                if (berasWithShortfall.length > 0) {
+                    automationData.push({
+                        employeeId: emp.id,
+                        employeeName: emp.name,
+                        ptrjId: emp.ptrjId,
+                        chargeJob: emp.chargeJob,
+                        components: berasWithShortfall
+                    });
+
+                    console.log(`[PayrollBeras] ${emp.name} (${emp.ptrjId}): Venus=${berasWithShortfall[0].venusAmount}, MW=${berasWithShortfall[0].millwareAmount}, Input=${berasWithShortfall[0].inputAmount}`);
+                }
+            }
+        }
+
+        // 4. Prepare single-record format (one DocID per component)
+        const singleRecordAutomationData = splitAutomationDataToSingleComponentRecords(automationData);
+
+        // 5. Filter duplicates in payload
+        const duplicateFilter = filterDuplicatePayloadRecords(singleRecordAutomationData);
+        duplicateFilter.skipped.forEach(item => {
+            item.status = 'SKIPPED_DUPLICATE_BERAS';
+            diagnostics.push(item);
+        });
+
+        // 6. Check existing AD records in Millware
+        const existingFilter = await filterAlreadyExistingADRecords(duplicateFilter.records, month, year);
+        existingFilter.skipped.forEach(item => diagnostics.push(item));
+
+        const finalAutomationData = existingFilter.records;
+        const totalComponents = finalAutomationData.reduce((sum, emp) => sum + emp.components.length, 0);
+
+        console.log(`[PayrollAutomation] Skipped duplicate beras records: ${duplicateFilter.skipped.length}`);
+        console.log(`[PayrollAutomation] Skipped already existing AD records: ${existingFilter.skippedAlreadyExists}`);
+        console.log(`[PayrollAutomation] Found ${finalAutomationData.length} beras record(s) with ${totalComponents} shortfall components`);
+
+        // 7. Save to file
+        const outputDir = path.resolve(__dirname, '..', '..', 'browser-automation-engine', 'testing_data');
+        const outputFile = path.join(outputDir, 'current_payroll_beras_data.json');
+
+        // Ensure directory exists
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+
+        const payrollDocDate = getPayrollDocDate(month, year);
+        const fileData = {
+            metadata: {
+                month,
+                year,
+                payrollSource: payrollResult.sourceInfo?.source || options.payrollSource?.source || 'live',
+                snapshotId: payrollResult.sourceInfo?.snapshotId || options.payrollSource?.snapshotId || null,
+                payrollDocDateIso: payrollDocDate.iso,
+                payrollDocDate: payrollDocDate.formatted,
+                generatedAt: new Date().toISOString(),
+                totalEmployees: finalAutomationData.length,
+                totalRecords: finalAutomationData.length,
+                totalComponents,
+                skippedDuplicates: duplicateFilter.skipped.length,
+                skippedAlreadyExists: existingFilter.skippedAlreadyExists,
+                tolerance,
+                oneDocPerComponent: true,
+                isBerasOnly: true,
+                inputType: 'SELISIH' // IMPORTANT: This runner inputs the DIFFERENCE amount, not full Venus amount
+            },
+            employees: finalAutomationData,
+            diagnostics
+        };
+
+        fs.writeFileSync(outputFile, JSON.stringify(fileData, null, 2), 'utf8');
+        console.log(`[PayrollAutomation] BERAS data saved to ${outputFile}`);
+
+        return {
+            success: true,
+            data: fileData
+        };
+
+    } catch (error) {
+        console.error("[PayrollAutomation] Error preparing beras automation data:", error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+};
+
+/**
+ * Prepare lembur adjustment data - input only the DIFFERENCE (selisih) amount.
+ * Only employees where Venus overtime allowance is greater than Millware are included.
+ *
+ * @param {number} month
+ * @param {number} year
+ */
+const prepareLemburAdjustmentData = async (month, year, options = {}) => {
+    try {
+        console.log(`[PayrollAutomation] Preparing LEMBUR adjustment data for ${month}/${year}`);
+
+        const payrollResult = await fetchPayrollData(month, year, options.payrollSource || {});
+        if (!payrollResult.success) {
+            throw new Error(payrollResult.error);
+        }
+
+        const automationData = [];
+        const diagnostics = [];
+        const tolerance = Math.max(0, parseInt(options.tolerance || 50, 10) || 50);
+
+        for (const emp of payrollResult.data) {
+            if (!emp.ptrjId || emp.ptrjId === '-') {
+                diagnostics.push({
+                    status: 'SKIPPED_NO_PTRJ_ID',
+                    employeeId: emp.id,
+                    employeeName: emp.name
+                });
+                continue;
+            }
+
+            if (!String(emp.chargeJob || '').trim()) {
+                diagnostics.push({
+                    status: 'SKIPPED_NO_CHARGE_JOB',
+                    employeeId: emp.id,
+                    employeeName: emp.name,
+                    ptrjId: emp.ptrjId
+                });
+                continue;
+            }
+
+            const rawVenusAmount = Math.abs(Number(emp.sync?.lembur?.venus) || 0);
+            const rawMillwareAmount = Math.abs(Number(emp.sync?.lembur?.millware) || 0);
+            const venusAmount = toRoundedAmount(rawVenusAmount);
+            const millwareAmount = toRoundedAmount(rawMillwareAmount);
+            const shortfallAmount = toRoundedAmount(Math.max(0, rawVenusAmount - rawMillwareAmount));
+
+            if (shortfallAmount <= tolerance) {
+                diagnostics.push({
+                    status: 'MATCH_OR_NOT_SHORTFALL',
+                    employeeId: emp.id,
+                    employeeName: emp.name,
+                    ptrjId: emp.ptrjId,
+                    componentKey: 'lembur',
+                    componentName: 'TUNJANGAN LEMBUR',
+                    venusAmount,
+                    millwareAmount,
+                    shortfallAmount,
+                    tolerance
+                });
+                continue;
+            }
+
+            automationData.push({
+                employeeId: emp.id,
+                employeeName: emp.name,
+                ptrjId: emp.ptrjId,
+                chargeJob: emp.chargeJob,
+                components: [{
+                    status: 'MISS',
+                    componentKey: 'lembur',
+                    componentName: 'TUNJANGAN LEMBUR',
+                    sourceNames: ['TUNJANGAN LEMBUR'],
+                    venusCompCode: 'LEMBUR',
+                    venusAmount: shortfallAmount,
+                    millwareAmount,
+                    diff: shortfallAmount,
+                    adCode: 'AL0019',
+                    adCodeDesc: '(AL) TUNJANGAN LEMBUR',
+                    adCodeSource: 'fixed-adjustment',
+                    adSearchKeyword: 'LEMBUR',
+                    type: 'Addition',
+                    inputAmount: shortfallAmount,
+                    shortfallAmount,
+                    originalVenusAmount: venusAmount,
+                    originalMillwareAmount: millwareAmount,
+                    note: millwareAmount === 0
+                        ? 'Full lembur adjustment (Millware=0)'
+                        : `Partial lembur adjustment (Venus - MW = ${shortfallAmount})`
+                }]
+            });
+
+            console.log(`[PayrollLemburAdjustment] ${emp.name} (${emp.ptrjId}): Venus=${venusAmount}, MW=${millwareAmount}, Input=${shortfallAmount}`);
+        }
+
+        const singleRecordAutomationData = splitAutomationDataToSingleComponentRecords(automationData);
+        const duplicateFilter = filterDuplicatePayloadRecords(singleRecordAutomationData);
+        duplicateFilter.skipped.forEach(item => {
+            item.status = 'SKIPPED_DUPLICATE_LEMBUR_ADJUSTMENT';
+            diagnostics.push(item);
+        });
+
+        const existingFilter = await filterAlreadyExistingADRecords(duplicateFilter.records, month, year);
+        existingFilter.skipped.forEach(item => diagnostics.push(item));
+
+        const finalAutomationData = existingFilter.records;
+        const totalComponents = finalAutomationData.reduce((sum, emp) => sum + emp.components.length, 0);
+
+        console.log(`[PayrollAutomation] Skipped duplicate lembur adjustment records: ${duplicateFilter.skipped.length}`);
+        console.log(`[PayrollAutomation] Skipped already existing AD records: ${existingFilter.skipped.length}`);
+        console.log(`[PayrollAutomation] Found ${finalAutomationData.length} lembur adjustment record(s) with ${totalComponents} shortfall components`);
+
+        const outputDir = path.resolve(__dirname, '..', '..', 'browser-automation-engine', 'testing_data');
+        const outputFile = path.join(outputDir, 'current_payroll_lembur_adjustment_data.json');
+
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+
+        const payrollDocDate = getPayrollDocDate(month, year);
+        const fileData = {
+            metadata: {
+                month,
+                year,
+                payrollSource: payrollResult.sourceInfo?.source || options.payrollSource?.source || 'live',
+                snapshotId: payrollResult.sourceInfo?.snapshotId || options.payrollSource?.snapshotId || null,
+                payrollDocDateIso: payrollDocDate.iso,
+                payrollDocDate: payrollDocDate.formatted,
+                generatedAt: new Date().toISOString(),
+                totalEmployees: finalAutomationData.length,
+                totalRecords: finalAutomationData.length,
+                totalComponents,
+                skippedDuplicates: duplicateFilter.skipped.length,
+                skippedAlreadyExists: existingFilter.skipped.length,
+                tolerance,
+                oneDocPerComponent: true,
+                isLemburAdjustmentOnly: true,
+                inputType: 'SELISIH',
+                requiresChargeJob: true
+            },
+            employees: finalAutomationData,
+            diagnostics
+        };
+
+        fs.writeFileSync(outputFile, JSON.stringify(fileData, null, 2), 'utf8');
+        console.log(`[PayrollAutomation] LEMBUR adjustment data saved to ${outputFile}`);
+
+        return {
+            success: true,
+            data: fileData
+        };
+    } catch (error) {
+        console.error("[PayrollAutomation] Error preparing lembur adjustment data:", error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+};
+
 module.exports = {
     fetchMillwareTaskCodes,
     findMatchingADCode,
@@ -548,5 +891,7 @@ module.exports = {
     filterDuplicatePayloadRecords,
     filterDuplicateAndExistingADRecords,
     preparePayrollAutomationData,
+    prepareBerasAutomationData,
+    prepareLemburAdjustmentData,
     triggerPayrollAutomation
 };

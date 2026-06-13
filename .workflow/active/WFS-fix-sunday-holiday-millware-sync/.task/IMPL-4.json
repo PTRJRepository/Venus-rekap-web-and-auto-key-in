@@ -1,0 +1,16 @@
+﻿{
+  "id": "IMPL-4",
+  "title": "Verification",
+  "objective": "Run focused checks after implementation.",
+  "files": [],
+  "steps": [
+    "Run backend comparison regression tests, likely node --test backend/services/comparisonService.test.js.",
+    "Run frontend npm run build.",
+    "If feasible, verify POM00214 Sunday comparison result shape from API or controlled fixture.",
+    "Document any commands that cannot run because scripts/dependencies are missing."
+  ],
+  "acceptance": [
+    "Tests/build pass or known blockers are documented.",
+    "POM00214 missing Millware Sunday case cannot appear synced."
+  ]
+}

@@ -9,6 +9,42 @@ const toDeductionAmount = (value) => Math.abs(toNumber(value));
 
 const quoteSql = (value) => `'${String(value).replace(/'/g, "''")}'`;
 
+const calculateMillwareRiceAllowance = ({
+    paidHk = 0,
+    riceRation = 0,
+    existingAdTransAmount = 0,
+    topupAdTransAmount = 0
+} = {}) => {
+    const calculatedAmount = toNumber(paidHk) * toNumber(riceRation);
+    const existingAmount = toNumber(existingAdTransAmount);
+    const topupAmount = toNumber(topupAdTransAmount);
+    const hasExistingAdTrans = existingAmount > 0;
+    const baseAmount = hasExistingAdTrans ? existingAmount : calculatedAmount;
+
+    return {
+        calculatedAmount,
+        existingAmount,
+        baseAmount,
+        topupAmount,
+        totalAmount: baseAmount + topupAmount,
+        source: hasExistingAdTrans ? 'adtrans-plus-topup' : (topupAmount > 0 ? 'calculated-plus-topup' : 'calculated')
+    };
+};
+
+const calculateMillwareOvertimeAllowance = ({
+    taskRegisterAmount = 0,
+    adTransAmount = 0
+} = {}) => {
+    const taskRegister = toNumber(taskRegisterAmount);
+    const adTrans = toNumber(adTransAmount);
+
+    return {
+        taskRegisterAmount: taskRegister,
+        adTransAmount: adTrans,
+        totalAmount: taskRegister + adTrans
+    };
+};
+
 const getPhyPeriodFromStartDate = (startDate) => {
     const [yearPart, monthPart] = String(startDate || '').split('-');
     const phyMonth = parseInt(monthPart, 10);
@@ -93,12 +129,40 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
 
         // 3. Get Other Components (Allowances & Deductions) from PR_ADTRANS
         const adTransSql = `
-            WITH Components AS (
+            WITH RawAdTrans AS (
+                SELECT
+                    t.EmpCode,
+                    ln.Amount,
+                    UPPER(ISNULL(t.DocDesc, '')) AS doc_desc_text,
+                    UPPER(CONCAT(ISNULL(t.DocDesc, ''), ' ', ISNULL(mt.TaskDesc, ''), ' ', ISNULL(ln.TaskCode, ''))) AS match_text
+                FROM [db_ptrj_mill].[dbo].PR_ADTRANS t
+                JOIN [db_ptrj_mill].[dbo].PR_ADTRANSLN ln ON t.ID = ln.MasterID
+                LEFT JOIN [db_ptrj_mill].[dbo].PR_TASKCODE mt ON ln.TaskCode = mt.TaskCode
+                WHERE RTRIM(t.EmpCode) IN (${empList})
+                  AND t.PhyMonth = ${phyMonth}
+                  AND t.PhyYear = ${phyYear}
+
+                UNION ALL
+
+                SELECT
+                    t.EmpCode,
+                    ln.Amount,
+                    UPPER(ISNULL(t.DocDesc, '')) AS doc_desc_text,
+                    UPPER(CONCAT(ISNULL(t.DocDesc, ''), ' ', ISNULL(mt.TaskDesc, ''), ' ', ISNULL(ln.TaskCode, ''))) AS match_text
+                FROM [db_ptrj_mill].[dbo].PR_ADTRANS_ARC t
+                JOIN [db_ptrj_mill].[dbo].PR_ADTRANSLN_ARC ln ON t.ID = ln.MasterID
+                LEFT JOIN [db_ptrj_mill].[dbo].PR_TASKCODE mt ON ln.TaskCode = mt.TaskCode
+                WHERE RTRIM(t.EmpCode) IN (${empList})
+                  AND t.PhyMonth = ${phyMonth}
+                  AND t.PhyYear = ${phyYear}
+            ),
+            Components AS (
                 SELECT 
                     RTRIM(EmpCode) AS emp_code,
                     CASE 
                         WHEN match_text LIKE '%JABATAN%' OR match_text LIKE '%GA9128%' THEN 'tunjangan_jabatan'
-                        WHEN match_text LIKE '%BERAS%' OR match_text LIKE '%RICE%' OR match_text LIKE '%AL0012%' THEN 'tunjangan_beras'
+                        WHEN match_text LIKE '%LEMBUR%' OR match_text LIKE '%OVERTIME%' OR match_text LIKE '%AL0019%' THEN 'tunjangan_lembur'
+                        WHEN match_text LIKE '%BERAS%' OR match_text LIKE '%RICE%' OR match_text LIKE '%AL0011%' OR match_text LIKE '%AL0012%' THEN 'tunjangan_beras'
                         WHEN match_text LIKE '%MASA%KERJA%' OR match_text LIKE '%MASAKERJA%' OR match_text LIKE '%GA9129%' THEN 'tunjangan_masa_kerja'
                         WHEN match_text LIKE '%PREMI%PANEN%' OR match_text LIKE '%PREMI%AL%' THEN 'premi_panen'
                         WHEN match_text LIKE '%PREMI%KINERJA%' THEN 'premi_kinerja'
@@ -111,35 +175,22 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
                         WHEN match_text LIKE '%SPSI%' THEN 'potongan_spsi'
                         ELSE 'lainnya'
                     END AS type,
-                    Amount
-                FROM (
-                    SELECT
-                        t.EmpCode,
-                        ln.Amount,
-                        UPPER(CONCAT(ISNULL(t.DocDesc, ''), ' ', ISNULL(mt.TaskDesc, ''), ' ', ISNULL(ln.TaskCode, ''))) AS match_text
-                    FROM (
-                        SELECT EmpCode, ID, DocDesc, DocDate FROM [db_ptrj_mill].[dbo].PR_ADTRANS
-                        WHERE RTRIM(EmpCode) IN (${empList})
-                          AND PhyMonth = ${phyMonth}
-                          AND PhyYear = ${phyYear}
-                        UNION ALL
-                        SELECT EmpCode, ID, DocDesc, DocDate FROM [db_ptrj_mill].[dbo].PR_ADTRANS_ARC
-                        WHERE RTRIM(EmpCode) IN (${empList})
-                          AND PhyMonth = ${phyMonth}
-                          AND PhyYear = ${phyYear}
-                    ) t
-                    JOIN (
-                        SELECT MasterID, TaskCode, Amount FROM [db_ptrj_mill].[dbo].PR_ADTRANSLN
-                        UNION ALL
-                        SELECT MasterID, TaskCode, Amount FROM [db_ptrj_mill].[dbo].PR_ADTRANSLN_ARC
-                    ) ln ON t.ID = ln.MasterID
-                    LEFT JOIN [db_ptrj_mill].[dbo].PR_TASKCODE mt ON ln.TaskCode = mt.TaskCode
-                ) mapped
+                    Amount,
+                    CASE
+                        WHEN (match_text LIKE '%BERAS%' OR match_text LIKE '%RICE%' OR match_text LIKE '%AL0011%' OR match_text LIKE '%AL0012%')
+                         AND (doc_desc_text LIKE '%BERAS%' OR doc_desc_text LIKE '%RICE%')
+                        THEN 1
+                        ELSE 0
+                    END AS is_beras_topup
+                FROM RawAdTrans
             )
             SELECT 
                 emp_code,
                 SUM(CASE WHEN type = 'tunjangan_jabatan' THEN Amount ELSE 0 END) as tunjangan_jabatan,
+                SUM(CASE WHEN type = 'tunjangan_lembur' THEN Amount ELSE 0 END) as tunjangan_lembur_adtrans,
                 SUM(CASE WHEN type = 'tunjangan_beras' THEN Amount ELSE 0 END) as tunjangan_beras_manual,
+                SUM(CASE WHEN type = 'tunjangan_beras' AND is_beras_topup = 0 THEN Amount ELSE 0 END) as tunjangan_beras_existing,
+                SUM(CASE WHEN type = 'tunjangan_beras' AND is_beras_topup = 1 THEN Amount ELSE 0 END) as tunjangan_beras_topup,
                 SUM(CASE WHEN type = 'tunjangan_masa_kerja' THEN Amount ELSE 0 END) as tunjangan_masa_kerja,
                 SUM(CASE WHEN type = 'premi_panen' THEN Amount ELSE 0 END) as premi_panen,
                 SUM(CASE WHEN type = 'premi_kinerja' THEN Amount ELSE 0 END) as premi_kinerja,
@@ -165,7 +216,7 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
             const rate = rateMap[empCode] || { PayRate: 0, RiceRation: 0 };
             const work = workMap[empCode] || { total_hk: 0, total_lembur_amount: 0, total_lembur_hours: 0 };
             const ad = adMap[empCode] || {
-                tunjangan_jabatan: 0, tunjangan_beras_manual: 0, tunjangan_masa_kerja: 0,
+                tunjangan_jabatan: 0, tunjangan_lembur_adtrans: 0, tunjangan_beras_manual: 0, tunjangan_beras_existing: 0, tunjangan_beras_topup: 0, tunjangan_masa_kerja: 0,
                 premi_panen: 0, premi_kinerja: 0, premi_brondol: 0, premi_insentif: 0, premi_lain: 0,
                 potongan_pph21: 0, potongan_bpjs_kes: 0, potongan_bpjs_pen: 0, potongan_spsi: 0, lainnya: 0
             };
@@ -173,10 +224,18 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
             const paidHk = toNumber(work.total_hk);
             const payRate = toNumber(rate.PayRate);
             const riceRation = toNumber(rate.RiceRation);
-            const totalLemburAmount = toNumber(work.total_lembur_amount);
+            const taskRegisterLemburAmount = toNumber(work.total_lembur_amount);
+            const tunjanganLemburAdtrans = toNumber(ad.tunjangan_lembur_adtrans);
+            const tunjanganLembur = calculateMillwareOvertimeAllowance({
+                taskRegisterAmount: taskRegisterLemburAmount,
+                adTransAmount: tunjanganLemburAdtrans
+            });
+            const totalLemburAmount = tunjanganLembur.totalAmount;
             const totalLemburHours = toNumber(work.total_lembur_hours);
             const tunjanganJabatan = toNumber(ad.tunjangan_jabatan);
-            const tunjanganBerasManual = toNumber(ad.tunjangan_beras_manual);
+            const tunjanganBerasAdtrans = toNumber(ad.tunjangan_beras_manual);
+            const tunjanganBerasExistingAdtrans = toNumber(ad.tunjangan_beras_existing);
+            const tunjanganBerasTopupAdtrans = toNumber(ad.tunjangan_beras_topup);
             const tunjanganMasaKerja = toNumber(ad.tunjangan_masa_kerja);
             const premiPanen = toNumber(ad.premi_panen);
             const premiKinerja = toNumber(ad.premi_kinerja);
@@ -190,7 +249,13 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
             const potonganLain = toDeductionAmount(ad.lainnya);
 
             const gajiPokokCalc = paidHk * payRate;
-            const tunjanganBerasCalc = tunjanganBerasManual > 0 ? tunjanganBerasManual : (paidHk * riceRation);
+            const tunjanganBeras = calculateMillwareRiceAllowance({
+                paidHk,
+                riceRation,
+                existingAdTransAmount: tunjanganBerasExistingAdtrans,
+                topupAdTransAmount: tunjanganBerasTopupAdtrans
+            });
+            const tunjanganBerasCalc = tunjanganBeras.totalAmount;
             const totalPremi = premiPanen + premiKinerja + premiBrondol + premiInsentif + premiLain;
             const totalTunjangan = tunjanganJabatan + tunjanganBerasCalc + tunjanganMasaKerja + totalLemburAmount;
             const totalPotongan = potonganPph21 + potonganBpjsKes + potonganBpjsPen + potonganSpsi + potonganLain;
@@ -205,8 +270,17 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
                 upj: (payRate * 30) / 173,
                 tunjangan_jabatan: tunjanganJabatan,
                 tunjangan_beras: tunjanganBerasCalc,
+                tunjangan_beras_base: tunjanganBeras.baseAmount,
+                tunjangan_beras_adtrans: tunjanganBeras.topupAmount,
+                tunjangan_beras_existing_adtrans: tunjanganBeras.existingAmount,
+                tunjangan_beras_topup_adtrans: tunjanganBeras.topupAmount,
+                tunjangan_beras_manual: tunjanganBerasAdtrans,
+                tunjangan_beras_calc: tunjanganBeras.calculatedAmount,
+                tunjangan_beras_source: tunjanganBeras.source,
                 tunjangan_masa_kerja: tunjanganMasaKerja,
                 tunjangan_lembur: totalLemburAmount,
+                tunjangan_lembur_taskreg: tunjanganLembur.taskRegisterAmount,
+                tunjangan_lembur_adtrans: tunjanganLembur.adTransAmount,
                 jam_lembur: totalLemburHours,
                 premi_panen: premiPanen,
                 premi_kinerja: premiKinerja,
@@ -233,5 +307,7 @@ const fetchMillwarePayroll = async (ptrjIds, startDate, endDate) => {
 };
 
 module.exports = {
-    fetchMillwarePayroll
+    fetchMillwarePayroll,
+    calculateMillwareRiceAllowance,
+    calculateMillwareOvertimeAllowance
 };

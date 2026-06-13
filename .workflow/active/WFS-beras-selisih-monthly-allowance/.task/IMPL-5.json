@@ -1,0 +1,24 @@
+{
+  "id": "IMPL-5",
+  "status": "completed",
+  "summary_path": ".summaries/IMPL-5-summary.md",
+  "title": "Add operational guardrails and logs",
+  "description": "Add logs/diagnostics for beras account dimensions, mapping source, selisih amount, and missing chargeJob fallback so live automation issues are visible before Add/Save.",
+  "depends_on": [
+    "IMPL-4"
+  ],
+  "convergence": "Dry-run and live logs clearly show AD code, amount, Station, Machine, Expense, and fallback warnings per beras row.",
+  "meta": {
+    "type": "observability",
+    "agent": "implementation",
+    "files": [
+      "backend/services/payrollAutomationService.js",
+      "browser-automation-engine/templates/payroll-ad-input.json",
+      "browser-automation-engine/actions/index.js",
+      "frontend/src/components/BerasAutomationDialog.jsx"
+    ],
+    "tests": [
+      "manual dry-run log review"
+    ]
+  }
+}

@@ -2,6 +2,10 @@ const { executeQuery } = require('./gateway');
 const { getAllEmployees } = require('./employeeMillService');
 const { fetchMillwarePayroll } = require('./payrollComparisonService');
 const { getPayrollComponentKey } = require('./payrollComponentMapping');
+const {
+    buildPayrollResultFromSnapshot,
+    buildPayrollResultFromActiveSnapshot
+} = require('./payrollSnapshotService');
 
 const PAYROLL_TOLERANCE = 50;
 
@@ -146,7 +150,7 @@ const buildNetpayAnalysis = (rows) => {
  * @param {number} month - 1-12
  * @param {number} year - YYYY
  */
-const fetchPayrollData = async (month, year) => {
+const fetchLivePayrollData = async (month, year) => {
     try {
         console.log(`[PayrollService] Fetching payroll for ${month}/${year}`);
         const period = `${year}${String(month).padStart(2, '0')}`;
@@ -312,6 +316,32 @@ const fetchPayrollData = async (month, year) => {
                 upah_bersih: effectiveMillwareNetpay
             } : null;
 
+            // Helper to determine component status
+            // Special handling for beras: if one side has value and other is zero, it's a MISS
+            const getComponentStatus = (key, venusVal, millwareVal) => {
+                const venus = Math.abs(venusVal);
+                const millware = Math.abs(millwareVal);
+                const diff = Math.abs(venus - millware);
+
+                // Special case for beras: missing in one system is always a difference
+                if (key === 'beras') {
+                    const oneSideHasValue = (venus > 0) !== (millware > 0);
+                    if (oneSideHasValue) {
+                        return {
+                            status: 'MISS',
+                            missingIn: venus === 0 ? 'Venus' : 'Millware',
+                            isMissingComponent: true
+                        };
+                    }
+                }
+
+                // Standard tolerance check
+                if (diff <= PAYROLL_TOLERANCE) {
+                    return { status: 'MATCH', diff };
+                }
+                return { status: 'MISS', diff };
+            };
+
             const sync = {
                 isSynced: false,
                 gajiPokok: { venus: py.gajiPokok, millware: mw ? mw.gaji_pokok || 0 : 0 },
@@ -330,6 +360,9 @@ const fetchPayrollData = async (month, year) => {
                 upahBersih: { venus: py.upahBersih, millware: effectiveMillwareNetpay }
             };
 
+            // Get status for each component (especially beras)
+            sync.berasStatus = getComponentStatus('beras', sync.beras.venus, sync.beras.millware);
+
             if (mw) {
                 const isMatch = (a, b) => Math.abs(a - b) <= PAYROLL_TOLERANCE;
                 sync.isSynced = isMatch(sync.gajiPokok.venus, sync.gajiPokok.millware) &&
@@ -339,7 +372,8 @@ const fetchPayrollData = async (month, year) => {
                     isMatch(sync.premi.venus, sync.premi.millware) &&
                     isMatch(sync.pph21.venus, sync.pph21.millware) &&
                     isMatch(sync.spsi.venus, sync.spsi.millware) &&
-                    isMatch(sync.upahBersih.venus, sync.upahBersih.millware);
+                    isMatch(sync.upahBersih.venus, sync.upahBersih.millware) &&
+                    sync.berasStatus.status === 'MATCH'; // Include beras in sync check
             }
 
             return {
@@ -352,7 +386,13 @@ const fetchPayrollData = async (month, year) => {
         return {
             success: true,
             data: finalData,
-            analysis: buildNetpayAnalysis(finalData)
+            analysis: buildNetpayAnalysis(finalData),
+            sourceInfo: {
+                source: 'live',
+                month: Number(month),
+                year: Number(year),
+                fetchedAt: new Date().toISOString()
+            }
         };
 
     } catch (e) {
@@ -364,7 +404,21 @@ const fetchPayrollData = async (month, year) => {
     }
 };
 
+const fetchPayrollData = async (month, year, options = {}) => {
+    const source = String(options.source || (options.snapshotId || options.useActiveSnapshot ? 'snapshot' : 'live')).toLowerCase();
+
+    if (source === 'snapshot') {
+        if (options.snapshotId) {
+            return buildPayrollResultFromSnapshot(options.snapshotId);
+        }
+        return buildPayrollResultFromActiveSnapshot(month, year);
+    }
+
+    return fetchLivePayrollData(month, year);
+};
+
 module.exports = {
     fetchPayrollData,
+    fetchLivePayrollData,
     buildNetpayAnalysis
 };

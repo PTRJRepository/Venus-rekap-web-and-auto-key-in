@@ -1,0 +1,26 @@
+﻿{
+    "id":  "IMPL-3",
+    "title":  "Add backend API routes and startup initialization",
+    "description":  "Initialize payroll snapshot DB during backend startup and expose routes for snapshot capture, list, detail, metadata update, activate, delete, and payroll source query parameters.",
+    "files":  [
+                  "backend/server.js",
+                  "backend/services/payrollSnapshotService.js"
+              ],
+    "depends_on":  [
+                       "IMPL-1",
+                       "IMPL-2"
+                   ],
+    "convergence":  [
+                        "Backend startup initializes staging DB and payroll snapshot DB before listening.",
+                        "GET /api/payroll supports source=snapshot and snapshotId.",
+                        "POST /api/payroll/snapshots captures a live snapshot for month/year.",
+                        "Snapshot routes validate month/year/snapshotId and return clear errors."
+                    ],
+    "meta":  {
+                 "type":  "backend-api",
+                 "agent":  "code_developer",
+                 "risk":  "high"
+             },
+    "status":  "completed",
+    "completed_at":  "2026-06-12T15:38:42.8654669+07:00"
+}

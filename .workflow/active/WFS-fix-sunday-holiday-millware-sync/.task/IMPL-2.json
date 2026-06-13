@@ -1,0 +1,17 @@
+﻿{
+  "id": "IMPL-2",
+  "title": "Add backend regression coverage",
+  "objective": "Prove missing Millware records for Sunday/holiday auto-attendance produce MISS/not synced.",
+  "files": ["backend/services/comparisonService.test.js"],
+  "steps": [
+    "Mock gateway.executeQuery so PR_TASKREGLN query can return controlled rows.",
+    "Test OFF with no Millware rows returns MISS/not synced and hasRegularRecord false.",
+    "Test LBR/LIBUR with no Millware rows returns MISS/not synced.",
+    "Test OFF with OT=0 row is allowed to sync for presence.",
+    "Keep tests aligned with existing node:test style."
+  ],
+  "acceptance": [
+    "Regression fails on old auto-sync behavior.",
+    "Regression passes after rule normalization."
+  ]
+}

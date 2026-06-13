@@ -3,10 +3,11 @@ import {
     Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
     Typography, CircularProgress, Alert, Collapse, IconButton, Chip,
     Divider, Tabs, Tab, Grid, Card, CardContent, Fade, List, ListItem, ListItemText, ListItemIcon,
-    Button, TextField, MenuItem
+    Button, TextField, MenuItem, Menu, Tooltip
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/Delete';
+import RiceBowlIcon from '@mui/icons-material/RiceBowl';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
@@ -14,11 +15,17 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import AccessTimeFilledIcon from '@mui/icons-material/AccessTimeFilled';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import InsightsIcon from '@mui/icons-material/Insights';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import StorageIcon from '@mui/icons-material/Storage';
 
 const formatCurrency = (amount) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -29,9 +36,10 @@ const formatNumber = (amount) => {
 };
 
 const PAYROLL_SYNC_COMPONENTS = [
-    { key: 'all', label: 'Semua', componentKeys: ['jabatan', 'masaKerja', 'pph21', 'spsi'] },
+    { key: 'all', label: 'Semua', componentKeys: ['jabatan', 'masaKerja', 'beras', 'pph21', 'spsi'] },
     { key: 'jabatan', label: 'Tj. Jabatan' },
     { key: 'masaKerja', label: 'Masa Kerja' },
+    { key: 'beras', label: 'Tj. Beras' },
     { key: 'pph21', label: 'PPh 21' },
     { key: 'spsi', label: 'SPSI' }
 ];
@@ -39,22 +47,39 @@ const PAYROLL_SYNC_COMPONENTS = [
 const PAYROLL_MATRIX_COMPONENTS = [
     { key: 'jabatan', label: 'Tj. Jabatan', type: 'Tunjangan', syncable: true },
     { key: 'masaKerja', label: 'Tj. Masa Kerja', type: 'Tunjangan', syncable: true },
+    { key: 'beras', label: 'Tj. Beras', type: 'Tunjangan', syncable: true },
     { key: 'pph21', label: 'PPh 21', type: 'Potongan', syncable: true },
     { key: 'spsi', label: 'SPSI', type: 'Potongan', syncable: true },
-    { key: 'beras', label: 'Tj. Beras', type: 'Info', syncable: false },
     { key: 'lembur', label: 'Lembur', type: 'Info', syncable: false },
     { key: 'premi', label: 'Premi', type: 'Info', syncable: false },
     { key: 'bpjsKes', label: 'BPJS Kes.', type: 'Info', syncable: false },
     { key: 'bpjsPen', label: 'BPJS Pens.', type: 'Info', syncable: false }
 ];
 
-const getComponentStatus = (pair, hasMillware, tolerance = 50) => {
+const getComponentStatus = (pair, hasMillware, tolerance = 50, componentKey = null) => {
     const venus = Number(pair?.venus || 0);
     const millware = Number(pair?.millware || 0);
     const diff = venus - millware;
 
     if (!hasMillware && venus !== 0) return { code: 'NO_DATA', label: 'NO MW', color: '#92400e', bg: '#fef3c7', diff };
     if (Math.abs(venus) <= tolerance && Math.abs(millware) <= tolerance) return { code: 'EMPTY', label: '-', color: '#64748b', bg: '#f8fafc', diff };
+
+    // Special handling for beras: if one side has value and other is zero, it's always MISS
+    if (componentKey === 'beras') {
+        const oneSideHasValue = (venus > 0) !== (millware > 0);
+        if (oneSideHasValue) {
+            return {
+                code: 'MISS',
+                label: 'MISS',
+                color: '#991b1b',
+                bg: '#fee2e2',
+                diff,
+                isMissingComponent: true,
+                missingIn: venus === 0 ? 'Venus' : 'Millware'
+            };
+        }
+    }
+
     if (Math.abs(diff) <= tolerance) return { code: 'MATCH', label: 'SYNC', color: '#166534', bg: '#dcfce7', diff };
     if (venus !== 0 && Math.abs(millware) <= tolerance) return { code: 'MISS', label: 'MISS', color: '#991b1b', bg: '#fee2e2', diff };
     return { code: 'DIFF', label: 'SELISIH', color: '#9a3412', bg: '#ffedd5', diff };
@@ -295,9 +320,12 @@ const NetpayAnalysisPanel = ({ data, analysis }) => {
     );
 };
 
-const PayrollComponentMatrix = ({ data, onPayrollAutomation, isPayrollAutomationRunning }) => {
+const PayrollComponentMatrix = ({ data, onPayrollAutomation, onBerasAutomation, onLemburAdjustment, isPayrollAutomationRunning, isSnapshotSource, hasSnapshot, month, year, onExport }) => {
     const [statusFilter, setStatusFilter] = useState('problem');
     const [search, setSearch] = useState('');
+    const [exportAnchor, setExportAnchor] = useState(null);
+    const [exportFilter, setExportFilter] = useState('all');
+    const [exporting, setExporting] = useState(false);
 
     const matrixRows = useMemo(() => {
         return (data || []).map((row) => {
@@ -306,7 +334,7 @@ const PayrollComponentMatrix = ({ data, onPayrollAutomation, isPayrollAutomation
                 return {
                     ...component,
                     ...pair,
-                    status: getComponentStatus(pair, Boolean(row.millware))
+                    status: getComponentStatus(pair, Boolean(row.millware), 50, component.key)
                 };
             });
 
@@ -360,15 +388,35 @@ const PayrollComponentMatrix = ({ data, onPayrollAutomation, isPayrollAutomation
                     <Chip label="BPJS diabaikan dari MISS/SYNC" sx={{ bgcolor: '#e0f2fe', color: '#075985', fontWeight: 800 }} size="small" />
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {isSnapshotSource && (
+                        <Button
+                            size="small"
+                            variant="contained"
+                            color="warning"
+                            disabled={isPayrollAutomationRunning || !hasSnapshot}
+                            startIcon={<AccessTimeIcon sx={{ fontSize: 14 }} />}
+                            onClick={() => onLemburAdjustment?.()}
+                            sx={{ height: 32, fontSize: '0.68rem', fontWeight: 800 }}
+                        >
+                            Adjustment Lembur
+                        </Button>
+                    )}
                     {PAYROLL_SYNC_COMPONENTS.map((component) => (
                         <Button
                             key={component.key}
                             size="small"
                             variant={component.key === 'all' ? 'contained' : 'outlined'}
-                            color="primary"
+                            color={component.key === 'beras' ? 'warning' : 'primary'}
                             disabled={isPayrollAutomationRunning}
-                            startIcon={isPayrollAutomationRunning ? <CircularProgress size={14} color="inherit" /> : <PlayArrowIcon />}
-                            onClick={() => onPayrollAutomation?.({ componentKeys: component.componentKeys || [component.key] })}
+                            startIcon={isPayrollAutomationRunning ? <CircularProgress size={14} color="inherit" /> : component.key === 'beras' ? <RiceBowlIcon sx={{ fontSize: 14 }} /> : <PlayArrowIcon />}
+                            onClick={() => {
+                                if (component.key === 'beras') {
+                                    // Beras uses separate automation that inputs SELISIH amount
+                                    onBerasAutomation?.();
+                                } else {
+                                    onPayrollAutomation?.({ componentKeys: component.componentKeys || [component.key] });
+                                }
+                            }}
                             sx={{ height: 32, fontSize: '0.68rem', fontWeight: 800 }}
                         >
                             Sync {component.label}
@@ -395,6 +443,47 @@ const PayrollComponentMatrix = ({ data, onPayrollAutomation, isPayrollAutomation
                         <MenuItem value="NO_DATA">No Millware</MenuItem>
                         <MenuItem value="MATCH">Sync</MenuItem>
                     </TextField>
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={exporting ? <CircularProgress size={14} color="inherit" /> : <FileDownloadIcon />}
+                        onClick={(e) => setExportAnchor(e.currentTarget)}
+                        disabled={exporting}
+                        sx={{ fontWeight: 700, fontSize: '0.68rem', px: 1.5, borderColor: '#6366f1', color: '#6366f1', height: 32 }}
+                    >
+                        Export
+                    </Button>
+                    <Menu
+                        anchorEl={exportAnchor}
+                        open={Boolean(exportAnchor)}
+                        onClose={() => setExportAnchor(null)}
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    >
+                        <Box sx={{ px: 2, py: 1, minWidth: 180 }}>
+                            <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, mb: 1 }}>Filter Export:</Typography>
+                            <TextField
+                                select
+                                size="small"
+                                fullWidth
+                                value={exportFilter}
+                                onChange={(e) => setExportFilter(e.target.value)}
+                                sx={{ mb: 1, '& .MuiInputBase-input': { fontSize: '0.8rem' } }}
+                            >
+                                <MenuItem value="all">Semua Karyawan</MenuItem>
+                                <MenuItem value="matched">Matched (Sesuai)</MenuItem>
+                                <MenuItem value="mismatched">Mismatched (Selisih)</MenuItem>
+                                <MenuItem value="no_millware">No Millware</MenuItem>
+                            </TextField>
+                        </Box>
+                        <Divider />
+                        <MenuItem onClick={() => { setExporting(true); onExport?.('csv', exportFilter); setExportAnchor(null); }} sx={{ fontSize: '0.8rem' }}>
+                            <TableChartIcon sx={{ mr: 1, fontSize: 18 }} /> Export CSV
+                        </MenuItem>
+                        <MenuItem onClick={() => { setExporting(true); onExport?.('xlsx', exportFilter); setExportAnchor(null); }} sx={{ fontSize: '0.8rem' }}>
+                            <TableChartIcon sx={{ mr: 1, fontSize: 18 }} /> Export Excel
+                        </MenuItem>
+                    </Menu>
                 </Box>
             </Box>
 
@@ -425,7 +514,7 @@ const PayrollComponentMatrix = ({ data, onPayrollAutomation, isPayrollAutomation
                                         <Typography sx={{ fontSize: '0.58rem', color: '#64748b' }}>MW {formatCurrency(cell.millware)}</Typography>
                                         {cell.key === 'beras' && (
                                             <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: '#475569' }}>
-                                                Rasio MW {formatNumber(row.millware?.rice_ration)}
+                                                Base {formatCurrency(row.millware?.tunjangan_beras_base || 0)} + Tambalan {formatCurrency(row.millware?.tunjangan_beras_adtrans || 0)}
                                             </Typography>
                                         )}
                                         {cell.syncable && ['MISS', 'DIFF', 'NO_DATA'].includes(cell.status.code) && (
@@ -557,9 +646,12 @@ const EmployeePayrollRow = ({ row, index, perspective }) => {
                                                                 <TableCell align="right" sx={{ fontSize: '0.7rem' }}>{formatCurrency(mw?.tunjangan_jabatan || 0)}</TableCell>
                                                             </TableRow>
                                                             <TableRow>
-                                                                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 700 }}>Tj. Beras (Manual/Calc)</TableCell>
+                                                                <TableCell sx={{ fontSize: '0.7rem', fontWeight: 700 }}>Tj. Beras (Calc + ADTRANS)</TableCell>
                                                                 <TableCell align="right" sx={{ fontSize: '0.7rem' }}>
                                                                     {formatCurrency(mw?.tunjangan_beras || 0)}
+                                                                    <Typography component="div" sx={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700 }}>
+                                                                        Base {formatCurrency(mw?.tunjangan_beras_base || 0)} + Tambalan {formatCurrency(mw?.tunjangan_beras_adtrans || 0)}
+                                                                    </Typography>
                                                                     <Typography component="div" sx={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700 }}>
                                                                         Rasio MW {formatNumber(mw?.rice_ration)}/HK
                                                                     </Typography>
@@ -679,7 +771,14 @@ const EmployeePayrollRow = ({ row, index, perspective }) => {
                                                                 <TableRow key={cat.key} sx={{ bgcolor: cat.bold ? '#f0f9ff' : 'transparent' }}>
                                                                     <TableCell sx={{ fontSize: '0.75rem', fontWeight: cat.bold ? 800 : 400 }}>{cat.label}</TableCell>
                                                                     <TableCell align="right" sx={{ fontSize: '0.75rem' }}>{formatCurrency(v)}</TableCell>
-                                                                    <TableCell align="right" sx={{ fontSize: '0.75rem' }}>{formatCurrency(m)}</TableCell>
+                                                                    <TableCell align="right" sx={{ fontSize: '0.75rem' }}>
+                                                                        {formatCurrency(m)}
+                                                                        {cat.key === 'beras' && (
+                                                                            <Typography component="div" sx={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700 }}>
+                                                                                Base {formatCurrency(mw?.tunjangan_beras_base || 0)} + Tambalan {formatCurrency(mw?.tunjangan_beras_adtrans || 0)}
+                                                                            </Typography>
+                                                                        )}
+                                                                    </TableCell>
                                                                     <TableCell align="right" sx={{ fontSize: '0.75rem', fontWeight: 800, color: Math.abs(diff) > 50 ? '#dc2626' : '#16a34a' }}>
                                                                         {formatCurrency(diff)}
                                                                     </TableCell>
@@ -701,44 +800,166 @@ const EmployeePayrollRow = ({ row, index, perspective }) => {
     );
 };
 
-const PayrollReport = ({ month, year, onPayrollAutomation, isPayrollAutomationRunning, onPayrollADReset, isPayrollADResetRunning }) => {
+const PayrollReport = ({ month, year, onPayrollAutomation, isPayrollAutomationRunning, onPayrollADReset, isPayrollADResetRunning, onBerasAutomation, onLemburAdjustment }) => {
     const [data, setData] = useState([]);
     const [analysis, setAnalysis] = useState(null);
+    const [sourceInfo, setSourceInfo] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [mainPerspective, setMainPerspective] = useState('comparison');
+    const [exportAnchor, setExportAnchor] = useState(null);
+    const [exportFilter, setExportFilter] = useState('all');
+    const [exporting, setExporting] = useState(false);
+    const [payrollSource, setPayrollSource] = useState('live');
+    const [snapshots, setSnapshots] = useState([]);
+    const [selectedSnapshotId, setSelectedSnapshotId] = useState('');
+    const [snapshotLoading, setSnapshotLoading] = useState(false);
+    const [snapshotError, setSnapshotError] = useState(null);
+
+    const payrollSourceParams = useMemo(() => ({
+        source: payrollSource,
+        snapshotId: payrollSource === 'snapshot' ? selectedSnapshotId : null
+    }), [payrollSource, selectedSnapshotId]);
+
+    const buildSourceQuery = () => {
+        const params = new URLSearchParams({
+            month,
+            year,
+            source: payrollSource
+        });
+        if (payrollSource === 'snapshot' && selectedSnapshotId) {
+            params.set('snapshotId', selectedSnapshotId);
+        }
+        return params;
+    };
+
+    const loadSnapshots = async () => {
+        if (!month || !year) return;
+        setSnapshotLoading(true);
+        setSnapshotError(null);
+        try {
+            const response = await fetch(`/api/payroll/snapshots?month=${month}&year=${year}`);
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error || 'Gagal memuat snapshot');
+            const nextSnapshots = result.data || [];
+            setSnapshots(nextSnapshots);
+            setSelectedSnapshotId(prev => {
+                if (prev && nextSnapshots.some(snapshot => snapshot.id === prev)) return prev;
+                return nextSnapshots.find(snapshot => snapshot.isActive)?.id || nextSnapshots[0]?.id || '';
+            });
+        } catch (err) {
+            setSnapshotError(err.message);
+            setSnapshots([]);
+            setSelectedSnapshotId('');
+        } finally {
+            setSnapshotLoading(false);
+        }
+    };
+
+    const handleExportClick = (event) => {
+        setExportAnchor(event.currentTarget);
+    };
+
+    const handleExportClose = () => {
+        setExportAnchor(null);
+    };
+
+    const handleExport = async (format, filterOverride) => {
+        setExporting(true);
+        const activeFilter = filterOverride !== undefined ? filterOverride : exportFilter;
+        try {
+            const params = buildSourceQuery();
+            params.set('format', format);
+            params.set('filter', activeFilter);
+            const response = await fetch(`/api/payroll/export?${params}`);
+            const result = await response.json();
+            if (result.success && result.downloadUrl) {
+                // Trigger file download
+                window.open(result.downloadUrl, '_blank');
+            } else if (result.count === 0) {
+                alert('Tidak ada data untuk export dengan filter ini');
+            } else {
+                alert('Export gagal: ' + (result.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Export error: ' + err.message);
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const handleCaptureSnapshot = async () => {
+        if (!month || !year || snapshotLoading) return;
+        setSnapshotLoading(true);
+        setSnapshotError(null);
+        try {
+            const label = `Payroll ${String(month).padStart(2, '0')}/${year} - ${new Date().toLocaleString('id-ID')}`;
+            const response = await fetch('/api/payroll/snapshots', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ month, year, label, setActive: true })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || 'Gagal membuat snapshot');
+            await loadSnapshots();
+            setSelectedSnapshotId(result.data.id);
+            setPayrollSource('snapshot');
+        } catch (err) {
+            setSnapshotError(err.message);
+        } finally {
+            setSnapshotLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadSnapshots();
+    }, [month, year]);
 
     useEffect(() => {
         const fetchPayroll = async () => {
             if (!month || !year) return;
+            if (payrollSource === 'snapshot' && !selectedSnapshotId) {
+                setData([]);
+                setAnalysis(null);
+                setSourceInfo(null);
+                setError(null);
+                return;
+            }
             setLoading(true);
             setError(null);
             try {
-                const response = await fetch(`/api/payroll?month=${month}&year=${year}`);
+                const response = await fetch(`/api/payroll?${buildSourceQuery()}`);
                 const result = await response.json();
                 if (result.success) {
                     setData(result.data);
                     setAnalysis(result.analysis || null);
+                    setSourceInfo(result.sourceInfo || null);
                 } else {
                     setError(result.error);
                     setAnalysis(null);
+                    setSourceInfo(null);
                 }
             } catch (err) { setError(err.message); }
             finally { setLoading(false); }
         };
         fetchPayroll();
-    }, [month, year]);
+    }, [month, year, payrollSource, selectedSnapshotId]);
+
+    const selectedSnapshot = snapshots.find(snapshot => snapshot.id === selectedSnapshotId);
 
     if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 10 }}><CircularProgress /></Box>;
     if (error) return <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>;
 
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, py: 1, bgcolor: '#f8fafc', borderRadius: '8px 8px 0 0' }}>
+            {snapshotError && (
+                <Alert severity="warning" sx={{ mx: 2, mt: 1 }}>{snapshotError}</Alert>
+            )}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, flexWrap: 'wrap', px: 2, py: 1, bgcolor: '#f8fafc', borderRadius: '8px 8px 0 0' }}>
                 <Tabs
                     value={mainPerspective}
                     onChange={(e, v) => setMainPerspective(v)}
-                    sx={{ flexGrow: 1 }}
+                    sx={{ flexGrow: 1, minWidth: 320 }}
                 >
                     <Tab
                         icon={<CompareArrowsIcon sx={{ fontSize: 18 }} />}
@@ -776,36 +997,149 @@ const PayrollReport = ({ month, year, onPayrollAutomation, isPayrollAutomationRu
                         sx={{ fontWeight: 800, fontSize: '0.75rem' }} 
                     />
                 </Tabs>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <TextField
+                        select
+                        size="small"
+                        value={payrollSource}
+                        onChange={(event) => setPayrollSource(event.target.value)}
+                        sx={{ width: 118, '& .MuiInputBase-input': { fontSize: '0.72rem', fontWeight: 800 } }}
+                    >
+                        <MenuItem value="live">Live</MenuItem>
+                        <MenuItem value="snapshot" disabled={snapshots.length === 0}>Snapshot</MenuItem>
+                    </TextField>
+                    {payrollSource === 'snapshot' && (
+                        <TextField
+                            select
+                            size="small"
+                            value={selectedSnapshotId}
+                            onChange={(event) => setSelectedSnapshotId(event.target.value)}
+                            disabled={snapshotLoading || snapshots.length === 0}
+                            sx={{ width: 220, '& .MuiInputBase-input': { fontSize: '0.72rem', fontWeight: 700 } }}
+                        >
+                            {snapshots.map(snapshot => (
+                                <MenuItem key={snapshot.id} value={snapshot.id}>
+                                    {snapshot.isActive ? '* ' : ''}{snapshot.label}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                    )}
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={snapshotLoading ? <CircularProgress size={14} color="inherit" /> : <CameraAltIcon />}
+                        onClick={handleCaptureSnapshot}
+                        disabled={snapshotLoading || !month || !year}
+                        sx={{ fontWeight: 800, fontSize: '0.68rem', px: 1.2 }}
+                    >
+                        Snapshot
+                    </Button>
+                    <Chip
+                        size="small"
+                        icon={<StorageIcon sx={{ fontSize: 14 }} />}
+                        label={payrollSource === 'snapshot' ? (selectedSnapshot?.label || sourceInfo?.label || 'Snapshot') : 'Live'}
+                        sx={{
+                            maxWidth: 220,
+                            fontWeight: 900,
+                            fontSize: '0.65rem',
+                            bgcolor: payrollSource === 'snapshot' ? '#ede9fe' : '#dcfce7',
+                            color: payrollSource === 'snapshot' ? '#5b21b6' : '#166534',
+                            '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' }
+                        }}
+                    />
+                </Box>
                 <Box sx={{ pr: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Button
                         variant="outlined"
-                        color="error"
+                        color="warning"
                         size="small"
                         startIcon={isPayrollADResetRunning ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
-                        onClick={() => onPayrollADReset?.({ targetMode: 'all', windowCount: 5 })}
+                        onClick={() => onPayrollADReset?.({ targetMode: 'all', windowCount: 5, ...payrollSourceParams })}
                         disabled={isPayrollADResetRunning || isPayrollAutomationRunning}
-                        sx={{ fontWeight: 700, fontSize: '0.7rem', px: 1.5 }}
+                        sx={{ fontWeight: 700, fontSize: '0.7rem', px: 1.5, borderColor: '#F59E0B', color: '#F59E0B' }}
                     >
                         {isPayrollADResetRunning ? 'Resetting...' : 'Reset AD'}
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<RiceBowlIcon sx={{ fontSize: 16 }} />}
+                        onClick={() => onBerasAutomation?.(payrollSourceParams)}
+                        disabled={isPayrollAutomationRunning || isPayrollADResetRunning}
+                        sx={{ fontWeight: 700, fontSize: '0.7rem', px: 1.5, borderColor: '#F59E0B', color: '#F59E0B' }}
+                    >
+                        Input Beras
                     </Button>
                     <Button
                         variant="contained"
                         color="primary"
                         size="small"
                         startIcon={isPayrollAutomationRunning ? <CircularProgress size={16} color="inherit" /> : <PlayArrowIcon />}
-                        onClick={() => onPayrollAutomation({ componentKeys: ['jabatan', 'masaKerja', 'pph21', 'spsi'] })}
+                        onClick={() => onPayrollAutomation({ componentKeys: ['jabatan', 'masaKerja', 'pph21', 'spsi'], ...payrollSourceParams })}
                         disabled={isPayrollAutomationRunning}
                         sx={{ fontWeight: 700, fontSize: '0.7rem', px: 1.5 }}
                     >
                         {isPayrollAutomationRunning ? 'Running...' : 'Input ke Millware'}
                     </Button>
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <FileDownloadIcon />}
+                        onClick={handleExportClick}
+                        disabled={loading || exporting}
+                        sx={{ fontWeight: 700, fontSize: '0.7rem', px: 1.5, borderColor: '#6366f1', color: '#6366f1' }}
+                    >
+                        Export
+                    </Button>
+                    <Menu
+                        anchorEl={exportAnchor}
+                        open={Boolean(exportAnchor)}
+                        onClose={handleExportClose}
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    >
+                        <Box sx={{ px: 2, py: 1, minWidth: 200 }}>
+                            <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, mb: 1 }}>Filter Data:</Typography>
+                            <TextField
+                                select
+                                size="small"
+                                fullWidth
+                                value={exportFilter}
+                                onChange={(e) => setExportFilter(e.target.value)}
+                                sx={{ mb: 1, '& .MuiInputBase-input': { fontSize: '0.8rem' } }}
+                            >
+                                <MenuItem value="all">Semua Karyawan</MenuItem>
+                                <MenuItem value="matched">Matched (Sesuai)</MenuItem>
+                                <MenuItem value="mismatched">Mismatched (Selisih)</MenuItem>
+                                <MenuItem value="no_millware">No Millware</MenuItem>
+                            </TextField>
+                        </Box>
+                        <Divider />
+                        <MenuItem onClick={() => handleExport('csv')} sx={{ fontSize: '0.8rem' }}>
+                            <TableChartIcon sx={{ mr: 1, fontSize: 18 }} /> Export CSV
+                        </MenuItem>
+                        <MenuItem onClick={() => handleExport('xlsx')} sx={{ fontSize: '0.8rem' }}>
+                            <TableChartIcon sx={{ mr: 1, fontSize: 18 }} /> Export Excel
+                        </MenuItem>
+                    </Menu>
                 </Box>
             </Box>
 
             {mainPerspective === 'netpay' ? (
                 <NetpayAnalysisPanel data={data} analysis={analysis} />
             ) : mainPerspective === 'matrix' ? (
-                <PayrollComponentMatrix data={data} onPayrollAutomation={onPayrollAutomation} isPayrollAutomationRunning={isPayrollAutomationRunning} />
+                <PayrollComponentMatrix
+                    data={data}
+                    onPayrollAutomation={(options) => onPayrollAutomation?.({ ...options, ...payrollSourceParams })}
+                    onBerasAutomation={() => onBerasAutomation?.(payrollSourceParams)}
+                    onLemburAdjustment={() => onLemburAdjustment?.(payrollSourceParams)}
+                    isPayrollAutomationRunning={isPayrollAutomationRunning}
+                    isSnapshotSource={payrollSource === 'snapshot'}
+                    hasSnapshot={Boolean(selectedSnapshotId)}
+                    month={month}
+                    year={year}
+                    onExport={handleExport}
+                />
             ) : (
                 <TableContainer component={Paper} elevation={0} sx={{ flexGrow: 1, border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'auto' }}>
                     <Table stickyHeader size="small">

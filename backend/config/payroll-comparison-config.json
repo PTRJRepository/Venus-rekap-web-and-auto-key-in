@@ -1,0 +1,153 @@
+{
+  "comparison": {
+    "description": "Konfigurasi komponen payroll yang di-komparasi antara Venus dan Millware",
+    "version": "1.0.0"
+  },
+  "includedComponents": {
+    "description": "Komponen yang SEHARUSNYA di-komparasi",
+    "addition": [
+      {
+        "key": "jabatan",
+        "name": "Tunjangan Jabatan",
+        "adCode": "GA9128",
+        "keywords": ["JABATAN"],
+        "enabled": true
+      },
+      {
+        "key": "masaKerja",
+        "name": "Tunjangan Masa Kerja",
+        "adCode": "GA9129",
+        "keywords": ["MASA KERJA", "MASAKERJA", "MASAKE"],
+        "enabled": true
+      },
+      {
+        "key": "beras",
+        "name": "Tunjangan Beras",
+        "adCode": "AL0012",
+        "keywords": ["BERAS", "RICE"],
+        "enabled": true
+      },
+      {
+        "key": "lembur",
+        "name": "Tunjangan Lembur",
+        "adCode": "AL0019",
+        "keywords": ["LEMBUR", "OVERTIME", "OT"],
+        "enabled": true
+      },
+      {
+        "key": "premiPanen",
+        "name": "Premi Panen",
+        "adCode": null,
+        "keywords": ["PREMI PANEN", "PREMI AL"],
+        "enabled": true
+      },
+      {
+        "key": "premiKinerja",
+        "name": "Premi Kinerja",
+        "adCode": null,
+        "keywords": ["PREMI KINERJA"],
+        "enabled": true
+      },
+      {
+        "key": "premiBrondol",
+        "name": "Premi Brondol",
+        "adCode": null,
+        "keywords": ["PREMI BRONDOL"],
+        "enabled": true
+      },
+      {
+        "key": "premiInsentif",
+        "name": "Premi Insentif",
+        "adCode": null,
+        "keywords": ["PREMI INSENTIF"],
+        "enabled": true
+      },
+      {
+        "key": "premiLain",
+        "name": "Premi Lain",
+        "adCode": null,
+        "keywords": ["PREMI"],
+        "enabled": true
+      }
+    ],
+    "deduction": [
+      {
+        "key": "pph21",
+        "name": "Potongan PPH21",
+        "adCode": "DEPH21",
+        "keywords": ["PPH21", "PPH 21", "PPH"],
+        "enabled": true
+      },
+      {
+        "key": "spsi",
+        "name": "Potongan SPSI",
+        "adCode": "DE0003",
+        "keywords": ["SPSI"],
+        "enabled": true
+      }
+    ]
+  },
+  "excludedComponents": {
+    "description": "Komponen yang TIDAK di-komparasi (exclude dari comparison)",
+    "addition": [
+      {
+        "key": "salaryBonus",
+        "name": "Salary/Bonus",
+        "reason": "Salary bonus BUKAN bagian dari Premi - behand different component",
+        "keywords": ["SALARY BONUS", "BONUS GAJI", "GAJI BONUS", "REMUNERASI"]
+      },
+      {
+        "key": "gajiPokok",
+        "name": "Gaji Pokok",
+        "reason": "Gaji pokok dihitung dari HK x PayRate, tidak perlu dikomparasi",
+        "keywords": ["GAJI POKOK", "#GP#"]
+      }
+    ],
+    "deduction": [
+      {
+        "key": "bpjsKes",
+        "name": "BPJS Kesehatan",
+        "reason": "BPJS Kesehatan dari Venus tidak masuk dalam komparasi - beda sistem",
+        "keywords": ["BPJS KESEHATAN", "BPJS KES"]
+      },
+      {
+        "key": "bpjsPen",
+        "name": "BPJS Pensiun/TK",
+        "reason": "BPJS Pensiun/Tenaga Kerja dari Venus tidak masuk dalam komparasi - beda sistem",
+        "keywords": ["BPJS TK", "BPJS PENSIUN", "JHT", "JP TK", "JAMINAN PENSIUN"]
+      }
+    ]
+  },
+  "componentMapping": {
+    "description": "Mapping Venus component keys ke Millware ADCode",
+    "notes": "Key di bawah ini harus SAMA PERSIS dengan key di includedComponents",
+    "mappings": {
+      "jabatan": { "adCode": "GA9128", "type": "Addition" },
+      "masaKerja": { "adCode": "GA9129", "type": "Addition" },
+      "beras": { "adCode": "AL0012", "type": "Addition" },
+      "lembur": { "adCode": "AL0019", "type": "Addition" },
+      "pph21": { "adCode": "DEPH21", "type": "Deduction" },
+      "spsi": { "adCode": "DE0003", "type": "Deduction" }
+    },
+    "premiMappings": {
+      "description": "Premi components tidak memiliki fixed ADCode - harus cari berdasarkan TaskDesc",
+      "components": ["premiPanen", "premiKinerja", "premiBrondol", "premiInsentif", "premiLain"]
+    }
+  },
+  "millwareFieldMapping": {
+    "description": "Mapping dari Venus key ke field di Millware (payrollComparisonService)",
+    "mapping": {
+      "jabatan": "tunjangan_jabatan",
+      "masaKerja": "tunjangan_masa_kerja",
+      "beras": "tunjangan_beras",
+      "lembur": "tunjangan_lembur",
+      "premiPanen": "premi_panen",
+      "premiKinerja": "premi_kinerja",
+      "premiBrondol": "premi_brondol",
+      "premiInsentif": "premi_insentif",
+      "premiLain": "premi_lain",
+      "pph21": "potongan_pph21",
+      "spsi": "potongan_spsi"
+    }
+  }
+}

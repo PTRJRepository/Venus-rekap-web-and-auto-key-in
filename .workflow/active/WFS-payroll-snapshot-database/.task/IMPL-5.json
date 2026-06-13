@@ -1,0 +1,28 @@
+﻿{
+    "id":  "IMPL-5",
+    "title":  "Add frontend snapshot controls",
+    "description":  "Add payroll UI controls for live vs snapshot mode, snapshot list/selection, capture current data, and active snapshot indicator. Propagate selected source to payroll actions.",
+    "files":  [
+                  "frontend/src/components/PayrollReport.jsx",
+                  "frontend/src/App.jsx",
+                  "frontend/src/services/api.js"
+              ],
+    "depends_on":  [
+                       "IMPL-3",
+                       "IMPL-4"
+                   ],
+    "convergence":  [
+                        "User can switch between Live and Snapshot data in Payroll tab.",
+                        "User can capture current live payroll into a named snapshot.",
+                        "User can select an existing snapshot for the period.",
+                        "PayrollReport visibly indicates selected source.",
+                        "Automation/export/reset actions receive source and snapshotId."
+                    ],
+    "meta":  {
+                 "type":  "frontend",
+                 "agent":  "code_developer",
+                 "risk":  "high"
+             },
+    "status":  "completed",
+    "completed_at":  "2026-06-12T15:38:42.8654669+07:00"
+}

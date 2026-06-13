@@ -73,6 +73,32 @@ const duplicate = validatePayrollPayload(duplicatePayload);
 assert.equal(duplicate.success, false);
 assert.equal(duplicate.errors.some(error => error.includes('duplicate component')), true);
 
+const berasPayload = structuredClone(validPayload);
+berasPayload.employees[0].chargeJob = '(OC7110) FRUIT RECEPTION AND STORAGE / STN-FRC (STATION FRUIT RECEPTION) / FRC00000 (LABOUR COST) / L (LABOUR)';
+berasPayload.employees[0].components[0] = {
+    componentKey: 'beras',
+    componentName: 'TUNJANGAN BERAS',
+    venusCompCode: '#TJ_BERAS#',
+    venusAmount: 57050,
+    millwareAmount: 115000,
+    diff: 57050,
+    inputAmount: 57050,
+    originalVenusAmount: 172050,
+    originalMillwareAmount: 115000,
+    adCode: 'AL0011',
+    adCodeDesc: '(AL0011) TUNJANGAN TRANSPORT',
+    adSearchKeyword: 'TRANSPORT',
+    type: 'Addition'
+};
+const berasResult = validatePayrollPayload(berasPayload);
+assert.equal(berasResult.success, true);
+
+const missingBerasChargeJobPayload = structuredClone(berasPayload);
+missingBerasChargeJobPayload.employees[0].chargeJob = '';
+const missingBerasChargeJob = validatePayrollPayload(missingBerasChargeJobPayload);
+assert.equal(missingBerasChargeJob.success, false);
+assert.equal(missingBerasChargeJob.errors.some(error => error.includes('chargeJob is required for beras account dimensions')), true);
+
 const wrongDocMonthPayload = structuredClone(validPayload);
 wrongDocMonthPayload.metadata.payrollDocDate = '30/04/2026';
 const wrongDocMonth = validatePayrollPayload(wrongDocMonthPayload);

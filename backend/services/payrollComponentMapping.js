@@ -3,6 +3,7 @@ const path = require('path');
 
 const TOLERANCE_RUPIAH = 10;
 const DISCOVERED_MAPPING_PATH = path.resolve(__dirname, '..', '..', 'browser-automation-engine', 'testing_data', 'payroll_taskcode_mapping.json');
+const COMPARISON_CONFIG_PATH = path.resolve(__dirname, '..', 'config', 'payroll-comparison-config.json');
 
 const normalizeText = (value) => String(value || '')
     .toUpperCase()
@@ -11,12 +12,108 @@ const normalizeText = (value) => String(value || '')
 
 const compactText = (value) => normalizeText(value).replace(/[^A-Z0-9]/g, '');
 
+/**
+ * Load payroll comparison config
+ * Berisi daftar komponen yang di-include dan di-exclude dari komparasi
+ */
+const loadComparisonConfig = () => {
+    try {
+        if (fs.existsSync(COMPARISON_CONFIG_PATH)) {
+            return JSON.parse(fs.readFileSync(COMPARISON_CONFIG_PATH, 'utf8'));
+        }
+    } catch (error) {
+        console.warn(`[PayrollMapping] Failed to load comparison config: ${error.message}`);
+    }
+    return null;
+};
+
+/**
+ * Get excluded component keywords from config
+ * Ini adalah komponen yang TIDAK boleh masuk dalam komparasi
+ */
+const getExcludedKeywords = () => {
+    const config = loadComparisonConfig();
+    if (!config) {
+        // Default fallback jika config tidak ada
+        return {
+            addition: ['SALARY BONUS', 'BONUS GAJI', 'GAJI BONUS', 'REMUNERASI', 'GAJI POKOK', '#GP#'],
+            deduction: ['BPJS KESEHATAN', 'BPJS KES', 'BPJS TK', 'BPJS PENSIUN', 'JHT', 'JP TK', 'JAMINAN PENSIUN']
+        };
+    }
+
+    const excludedAddition = (config.excludedComponents?.addition || [])
+        .flatMap(c => c.keywords || []);
+    const excludedDeduction = (config.excludedComponents?.deduction || [])
+        .flatMap(c => c.keywords || []);
+
+    return {
+        addition: excludedAddition,
+        deduction: excludedDeduction
+    };
+};
+
+/**
+ * Check if component should be excluded from comparison
+ * @param {string} text - Normalized text dari component name/code
+ * @param {string} type - 'Addition' atau 'Deduction'
+ * @returns {boolean} - true jika component harus di-exclude
+ */
+const isExcludedComponent = (text, type) => {
+    const excluded = getExcludedKeywords();
+    const keywords = type === 'Deduction' ? excluded.deduction : excluded.addition;
+
+    for (const keyword of keywords) {
+        if (text.includes(keyword.toUpperCase())) {
+            return true;
+        }
+    }
+    return false;
+};
+
 const getPayrollComponentKey = (component = {}) => {
     const name = normalizeText(component.name || component.PYCompName || component.docDesc || component.DocDesc);
     const code = normalizeText(component.code || component.PYCompCode || component.taskCode || component.TaskCode);
     const taskDesc = normalizeText(component.taskDesc || component.TaskDesc);
     const text = normalizeText([name, taskDesc, code].filter(Boolean).join(' '));
     const compact = compactText(text);
+
+    // ============================================================
+    // CHECK UNTUK EXCLUDED COMPONENTS (TIDAK DIKOMPARASI)
+    // ============================================================
+
+    // Salary/Bonus - BUKAN bagian dari Premi, exclude dari komparasi
+    if (text.includes('SALARY BONUS') || text.includes('BONUS GAJI') ||
+        text.includes('GAJI BONUS') || text.includes('REMUNERASI')) {
+        return 'salaryBonus_excluded'; // Mark sebagai excluded
+    }
+
+    // Gaji Pokok - exclude dari komparasi (dihitung dari HK x PayRate)
+    if (text.includes('GAJI POKOK') || code.includes('#GP#')) {
+        return 'gajiPokok_excluded';
+    }
+
+    // BPJS Kesehatan - TIDAK masuk komparasi (beda sistem Venus vs Millware)
+    if (text.includes('BPJS') && (text.includes('KESEHATAN') || text.includes('KES'))) {
+        return 'bpjsKes_excluded';
+    }
+
+    // BPJS Pensiun/TK - TIDAK masuk komparasi (beda sistem)
+    if (
+        text.includes('BPJS TK') ||
+        (text.includes('BPJS') && text.includes('TK')) ||
+        compact.includes('BPJSTK') ||
+        text.includes('JHT') ||
+        text.includes('PENSIUN') ||
+        text.includes('JP TK') ||
+        compact.includes('JPTK') ||
+        code.includes('JP_TK')
+    ) {
+        return 'bpjsPen_excluded';
+    }
+
+    // ============================================================
+    // KOMPONEN YANG DIKOMPARASI
+    // ============================================================
 
     if (text.includes('JABATAN') || code.includes('TJ_JABATAN') || code.includes('GA9128')) return 'jabatan';
     if (
@@ -29,19 +126,14 @@ const getPayrollComponentKey = (component = {}) => {
     if (text.includes('BERAS') || text.includes('RICE') || code.includes('TJ_BERAS') || code.includes('AL0012')) return 'beras';
     if (text.includes('OT JAM') || text.includes('LEMBUR') || text.includes('OVERTIME')) return 'lembur';
     if (compact.includes('PPH21') || text.includes('PPH')) return 'pph21';
-    if (text.includes('BPJS') && (text.includes('KESEHATAN') || text.includes('KES'))) return 'bpjsKes';
-    if (
-        text.includes('BPJS TK') ||
-        (text.includes('BPJS') && text.includes('TK')) ||
-        compact.includes('BPJSTK') ||
-        text.includes('JHT') ||
-        text.includes('PENSIUN') ||
-        text.includes('JP TK') ||
-        compact.includes('JPTK') ||
-        code.includes('JP_TK')
-    ) return 'bpjsPen';
     if (text.includes('SPSI') || code.includes('POT_SPSI')) return 'spsi';
-    if (['PREMI', 'PANEN', 'KINERJA', 'BRONDOL', 'INSENTIF', 'BONUS'].some(token => text.includes(token))) return 'premi';
+
+    // PREMI components - DIPISAH dari BONUS (karena BONUS sudah di-exclude di atas)
+    if (text.includes('PREMI PANEN') || text.includes('PREMI AL')) return 'premiPanen';
+    if (text.includes('PREMI KINERJA')) return 'premiKinerja';
+    if (text.includes('PREMI BRONDOL')) return 'premiBrondol';
+    if (text.includes('PREMI INSENTIF')) return 'premiInsentif';
+    if (text.includes('PREMI') && !text.includes('SALARY')) return 'premiLain';
 
     return null;
 };
@@ -72,17 +164,63 @@ const COMPONENT_RULES = [
         key: 'beras',
         type: 'Addition',
         componentName: 'TUNJANGAN BERAS',
-        adCode: 'AL0012',
+        adCode: 'AL0011', // AL0011 = TUNJANGAN TRANSPORT (digunakan untuk BERAS)
         adKeywords: ['BERAS', 'RICE'],
         matches: ({ name, code }) => name.includes('BERAS') || code.includes('TJ_BERAS')
     },
     {
-        key: 'premi',
+        key: 'lembur',
         type: 'Addition',
-        componentName: 'PREMI/INSENTIF',
+        componentName: 'TUNJANGAN LEMBUR',
+        adCode: 'AL0019',
+        adKeywords: ['LEMBUR', 'OVERTIME', 'OT'],
+        matches: ({ name, code }) => name.includes('LEMBUR') || name.includes('OVERTIME') || code.includes('OT')
+    },
+    // PREMI components - DIPISAH untuk komparasi individual
+    {
+        key: 'premiPanen',
+        type: 'Addition',
+        componentName: 'PREMI PANEN',
         adCode: null,
-        adKeywords: ['PREMI', 'INSENTIF', 'BONUS', 'KINERJA', 'PANEN', 'BRONDOL'],
-        matches: ({ name }) => ['PREMI', 'PANEN', 'KINERJA', 'BRONDOL', 'INSENTIF', 'BONUS'].some(token => name.includes(token))
+        adKeywords: ['PREMI PANEN', 'PREMI AL'],
+        matches: ({ name }) => name.includes('PREMI PANEN') || name.includes('PREMI AL'),
+        notAutomatable: true
+    },
+    {
+        key: 'premiKinerja',
+        type: 'Addition',
+        componentName: 'PREMI KINERJA',
+        adCode: null,
+        adKeywords: ['PREMI KINERJA'],
+        matches: ({ name }) => name.includes('PREMI KINERJA'),
+        notAutomatable: true
+    },
+    {
+        key: 'premiBrondol',
+        type: 'Addition',
+        componentName: 'PREMI BRONDOL',
+        adCode: null,
+        adKeywords: ['PREMI BRONDOL'],
+        matches: ({ name }) => name.includes('PREMI BRONDOL'),
+        notAutomatable: true
+    },
+    {
+        key: 'premiInsentif',
+        type: 'Addition',
+        componentName: 'PREMI INSENTIF',
+        adCode: null,
+        adKeywords: ['PREMI INSENTIF'],
+        matches: ({ name }) => name.includes('PREMI INSENTIF'),
+        notAutomatable: true
+    },
+    {
+        key: 'premiLain',
+        type: 'Addition',
+        componentName: 'PREMI LAIN',
+        adCode: null,
+        adKeywords: ['PREMI'],
+        matches: ({ name }) => name.includes('PREMI') && !name.includes('PANEN') && !name.includes('KINERJA') && !name.includes('BRONDOL') && !name.includes('INSENTIF'),
+        notAutomatable: true
     },
     {
         key: 'pph21',
@@ -107,6 +245,12 @@ const findRuleForComponent = (component) => {
     const compactName = compactText(name);
     const code = normalizeText(component.code || component.PYCompCode);
     const key = getPayrollComponentKey({ name, code });
+
+    // Skip excluded components (BpjsKes, BpjsPen, SalaryBonus, GajiPokok)
+    if (key && key.endsWith('_excluded')) {
+        return null;
+    }
+
     return COMPONENT_RULES.find(rule => rule.key === key || rule.matches({ name, compactName, code })) || null;
 };
 
@@ -180,11 +324,15 @@ const getAutocompleteKeyword = (rule) => {
         jabatan: 'JABATAN',
         masaKerja: 'MASA',
         pph21: 'PPH',
-        bpjsKes: 'KESEHATAN',
-        bpjsPen: 'PENSIUN',
         spsi: 'SPSI',
         beras: 'BERAS',
-        premi: 'PREMI'
+        lembur: 'LEMBUR',
+        // PREMI components
+        premiPanen: 'PREMI',
+        premiKinerja: 'KINERJA',
+        premiBrondol: 'BRONDOL',
+        premiInsentif: 'INSENTIF',
+        premiLain: 'PREMI'
     };
 
     return preferred[rule.key] || rule.adKeywords?.[0] || rule.componentName || '';
@@ -344,5 +492,9 @@ module.exports = {
     findDiscoveredTaskCode,
     getAutocompleteKeyword,
     collectPayrollComponentGroups,
-    buildPayrollAutomationComponents
+    buildPayrollAutomationComponents,
+    // New exports untuk config-based comparison
+    loadComparisonConfig,
+    getExcludedKeywords,
+    isExcludedComponent
 };

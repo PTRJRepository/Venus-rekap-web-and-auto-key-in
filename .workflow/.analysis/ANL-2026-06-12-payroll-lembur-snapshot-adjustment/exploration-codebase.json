@@ -1,0 +1,74 @@
+{
+  "project_type": "nodejs-react",
+  "relevant_files": [
+    {
+      "path": "frontend/src/components/PayrollReport.jsx",
+      "relevance": "high",
+      "summary": "Payroll UI owns snapshot selection, matrix tab, component status display, and existing Input Beras action."
+    },
+    {
+      "path": "frontend/src/components/BerasAutomationDialog.jsx",
+      "relevance": "high",
+      "summary": "Reusable dialog pattern for preview, dry-run/execute, headful/headless, SSE log streaming."
+    },
+    {
+      "path": "backend/services/payrollAutomationService.js",
+      "relevance": "high",
+      "summary": "Builds payroll automation payloads, contains beras shortfall logic and duplicate/existing ADTRANS filtering."
+    },
+    {
+      "path": "backend/server.js",
+      "relevance": "high",
+      "summary": "Owns payroll automation routes and beras prepare/run endpoints using payroll-runner and payroll-dry-runner."
+    },
+    {
+      "path": "browser-automation-engine/templates/payroll-beras-input-with-chargejob.json",
+      "relevance": "high",
+      "summary": "Template for AD Lists input with charge job dimensions parsed from employee.chargeJob."
+    },
+    {
+      "path": "browser-automation-engine/payroll-dry-runner.js",
+      "relevance": "medium",
+      "summary": "Validates one DocID per component payload; currently requires chargeJob only for beras."
+    },
+    {
+      "path": "backend/services/payrollComponentMapping.js",
+      "relevance": "high",
+      "summary": "Maps lembur to AL0019 and builds component diff payloads, but generic automation uses full Venus amount."
+    },
+    {
+      "path": "backend/services/payrollService.js",
+      "relevance": "high",
+      "summary": "Produces sync.lembur Venus vs Millware amounts and snapshot-compatible payroll result shape."
+    }
+  ],
+  "patterns": [
+    {
+      "pattern": "Shortfall automation",
+      "files": ["backend/services/payrollAutomationService.js", "frontend/src/components/BerasAutomationDialog.jsx"],
+      "description": "Beras computes inputAmount = max(0, Venus - Millware), overrides component.venusAmount to the shortfall, previews rows, supports dry-run and execute."
+    },
+    {
+      "pattern": "Snapshot source propagation",
+      "files": ["frontend/src/components/PayrollReport.jsx", "backend/server.js", "backend/services/payrollAutomationService.js"],
+      "description": "UI passes { source, snapshotId }; backend builds payrollSource and fetchPayrollData uses snapshot/live accordingly."
+    },
+    {
+      "pattern": "AD Lists with charge job",
+      "files": ["browser-automation-engine/templates/payroll-beras-input-with-chargejob.json", "browser-automation-engine/actions/index.js"],
+      "description": "Template navigates to AD Lists, selects employee and task code, parses chargeJob, fills CBOBox indexes 2, 3, 4, then amount/add/save."
+    }
+  ],
+  "constraints": [
+    "Adjustment must be available only when payrollSource is snapshot and matrix view is active.",
+    "Only Venus > Millware lembur should be included; Millware >= Venus is not an allowance top-up.",
+    "AL0019 must be used as the ADCode for TUNJANGAN LEMBUR.",
+    "Charge job is required because AD Lists dimension input depends on employee.chargeJob.",
+    "Generic payroll automation already supports lembur but inputs full Venus amount, so it is not safe for adjustment shortfall."
+  ],
+  "key_findings": [
+    "Matrix currently marks lembur as Info/syncable false, so a new adjustment button should not simply reuse matrix sync buttons without changing intent.",
+    "Beras implementation is the closest pattern, including prepare endpoint, run endpoint, preview dialog, dry-run validation, data file, template, and duplicate/existing filters.",
+    "Snapshot payroll payload preserves employee.chargeJob and sync.lembur, making shortfall calculation possible from snapshot without calling Venus again."
+  ]
+}

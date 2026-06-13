@@ -25,6 +25,9 @@ import OvertimeReport from './components/OvertimeReport';
 import OvertimeRangeReport from './components/OvertimeRangeReport';
 import AutomationDialog from './components/AutomationDialog';
 import OTResetDialog from './components/OTResetDialog';
+import ADResetDialog from './components/ADResetDialog';
+import BerasAutomationDialog from './components/BerasAutomationDialog';
+import LemburAdjustmentDialog from './components/LemburAdjustmentDialog';
 import ComparisonDialog from './components/ComparisonDialog';
 import AttendanceSummaryBar from './components/AttendanceSummaryBar';
 import AttendanceFilterBar from './components/AttendanceFilterBar';
@@ -62,6 +65,10 @@ const App = () => {
     const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
     const [isAutomationOpen, setIsAutomationOpen] = useState(false);
     const [isOTResetOpen, setIsOTResetOpen] = useState(false);
+    const [isADResetOpen, setIsADResetOpen] = useState(false);
+    const [isBerasAutomationOpen, setIsBerasAutomationOpen] = useState(false);
+    const [isLemburAdjustmentOpen, setIsLemburAdjustmentOpen] = useState(false);
+    const [payrollActionSource, setPayrollActionSource] = useState({ source: 'live', snapshotId: null });
     const [taskRegisterDocIds, setTaskRegisterDocIds] = useState([]);
     const [isComparisonOpen, setIsComparisonOpen] = useState(false);
     const [comparisonData, setComparisonData] = useState(null);
@@ -170,17 +177,28 @@ const App = () => {
             data.results.forEach(r => {
                 const key = `${r.ptrjId}_${r.date}`;
                 if (r.details) {
+                    const venusStatus = String(r.venusStatus || '').trim().toUpperCase();
+                    const needsRegular = r.details.needsRegularRecord ?? !['ALFA', 'N/A'].includes(venusStatus);
+                    const millwareNormal = Number(r.details.millwareNormal) || 0;
+                    const hasRegularRecord = r.details.hasRegularRecord === true && millwareNormal > 0;
+                    const hasOTRecord = r.details.hasOTRecord === true;
+                    const venusOT = Number(r.venusOvertimeHours) || 0;
+                    const forcedMiss = (needsRegular && !hasRegularRecord) || (venusOT > 0 && !hasOTRecord);
+
                     map[key] = {
                         hours: r.details.millwareHours,
                         normal: r.details.millwareNormal,
                         ot: r.details.millwareOT,
                         TaskCode: r.details.millwareTaskCode || r.millwareTaskCode,
-                        status: r.status,
-                        syncStatus: r.syncStatus,
-                        regularMatched: r.details.regularMatched === true,
-                        otMatched: r.details.otMatched === true,
-                        hasRegularRecord: r.details.hasRegularRecord === true,
-                        hasOTRecord: r.details.hasOTRecord === true
+                        status: forcedMiss ? 'MISS' : r.status,
+                        syncStatus: forcedMiss ? 'not_synced' : r.syncStatus,
+                        regularMatched: hasRegularRecord,
+                        otMatched: !forcedMiss && r.details.otMatched === true,
+                        hasRegularRecord,
+                        hasOTRecord,
+                        regularRecordCount: r.details.regularRecordCount || 0,
+                        overtimeRecordCount: r.details.overtimeRecordCount || 0,
+                        needsRegularRecord: needsRegular
                     };
                 }
             });
@@ -272,7 +290,13 @@ const App = () => {
             const response = await fetch('/api/payroll/automation/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ month: selectedMonth, year: selectedYear, componentKeys })
+                body: JSON.stringify({
+                    month: selectedMonth,
+                    year: selectedYear,
+                    componentKeys,
+                    source: options.source || 'live',
+                    snapshotId: options.snapshotId || null
+                })
             });
             const result = await response.json();
             if (result.success) showSnackbar(result.message || 'Auto Key-In Payroll dimulai', 'success');
@@ -285,57 +309,20 @@ const App = () => {
     };
 
     const handlePayrollADReset = async (options = {}) => {
-        const confirmed = window.confirm(`Hapus Monthly Allowance/Deduction Millware untuk ${monthNames[(selectedMonth || 1) - 1]} ${selectedYear}?`);
-        if (!confirmed) return;
+        // Open the AD Reset dialog - the dialog handles the automation
+        setPayrollActionSource({ source: options.source || 'live', snapshotId: options.snapshotId || null });
+        setIsADResetOpen(true);
+    };
 
-        setIsPayrollADResetRunning(true);
-        showSnackbar('Memulai reset Monthly Allowance/Deduction...', 'info');
+    const handleBerasAutomation = async (options = {}) => {
+        // Open the Beras Automation dialog
+        setPayrollActionSource({ source: options.source || 'live', snapshotId: options.snapshotId || null });
+        setIsBerasAutomationOpen(true);
+    };
 
-        try {
-            const response = await fetch('/api/payroll/ad-reset/automation/run', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    month: selectedMonth,
-                    year: selectedYear,
-                    targetMode: options.targetMode || 'all',
-                    dryRun: Boolean(options.dryRun),
-                    windowCount: options.windowCount || 5
-                })
-            });
-
-            if (!response.ok) {
-                const result = await response.json().catch(() => ({}));
-                throw new Error(result.error || 'Gagal memulai reset Monthly AD');
-            }
-
-            const reader = response.body?.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-            let finalStatus = 'completed';
-
-            while (reader) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const chunks = buffer.split('\n\n');
-                buffer = chunks.pop() || '';
-
-                chunks.forEach((chunk) => {
-                    const line = chunk.split('\n').find(item => item.startsWith('data: '));
-                    if (!line) return;
-                    const event = JSON.parse(line.slice(6));
-                    if (event.type === 'error') finalStatus = 'failed';
-                    if (event.type === 'status' && event.data === 'failed') finalStatus = 'failed';
-                });
-            }
-
-            showSnackbar(finalStatus === 'failed' ? 'Reset Monthly AD selesai dengan error' : 'Reset Monthly AD selesai', finalStatus === 'failed' ? 'error' : 'success');
-        } catch (e) {
-            showSnackbar('Error: ' + e.message, 'error');
-        } finally {
-            setIsPayrollADResetRunning(false);
-        }
+    const handleLemburAdjustment = async (options = {}) => {
+        setPayrollActionSource({ source: options.source || 'live', snapshotId: options.snapshotId || null });
+        setIsLemburAdjustmentOpen(true);
     };
 
     const showSnackbar = (message, severity = 'info') => setSnackbar({ open: true, message, severity });
@@ -746,7 +733,7 @@ const App = () => {
                                 )}
                             </Box>
                         )}
-                        {activeTab === 'payroll' && <PayrollReport month={selectedMonth} year={selectedYear} onPayrollAutomation={handlePayrollAutomation} isPayrollAutomationRunning={isPayrollAutomationRunning} onPayrollADReset={handlePayrollADReset} isPayrollADResetRunning={isPayrollADResetRunning} />}
+                        {activeTab === 'payroll' && <PayrollReport month={selectedMonth} year={selectedYear} onPayrollAutomation={handlePayrollAutomation} isPayrollAutomationRunning={isPayrollAutomationRunning} onPayrollADReset={handlePayrollADReset} isPayrollADResetRunning={isPayrollADResetRunning} onBerasAutomation={handleBerasAutomation} onLemburAdjustment={handleLemburAdjustment} />}
                     </Box>
                 </Box>
 
@@ -801,6 +788,27 @@ const App = () => {
                 month={selectedMonth}
                 year={selectedYear}
                 onRefresh={performComparison}
+            />
+            <ADResetDialog
+                open={isADResetOpen}
+                onClose={() => setIsADResetOpen(false)}
+                month={selectedMonth}
+                year={selectedYear}
+                payrollSource={payrollActionSource}
+            />
+            <BerasAutomationDialog
+                open={isBerasAutomationOpen}
+                onClose={() => setIsBerasAutomationOpen(false)}
+                month={selectedMonth}
+                year={selectedYear}
+                payrollSource={payrollActionSource}
+            />
+            <LemburAdjustmentDialog
+                open={isLemburAdjustmentOpen}
+                onClose={() => setIsLemburAdjustmentOpen(false)}
+                month={selectedMonth}
+                year={selectedYear}
+                payrollSource={payrollActionSource}
             />
         </Box>
     );

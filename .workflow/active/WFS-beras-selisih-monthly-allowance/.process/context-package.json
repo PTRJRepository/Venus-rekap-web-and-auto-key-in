@@ -1,0 +1,100 @@
+{
+  "critical_files": [
+    "backend/services/payrollAutomationService.js",
+    "backend/services/payrollComponentMapping.js",
+    "backend/config/payroll-comparison-config.json",
+    "backend/server.js",
+    "backend/services/automationService.js",
+    "browser-automation-engine/payroll-runner.js",
+    "browser-automation-engine/payroll-parallel-runner.js",
+    "browser-automation-engine/payroll-dry-runner.js",
+    "browser-automation-engine/templates/payroll-ad-input.json",
+    "browser-automation-engine/templates/_charge_job_input.json",
+    "browser-automation-engine/actions/index.js",
+    "frontend/src/components/BerasAutomationDialog.jsx",
+    "frontend/src/components/PayrollReport.jsx"
+  ],
+  "patterns": [
+    {
+      "name": "Payroll AD Lists automation",
+      "files": [
+        "browser-automation-engine/payroll-runner.js",
+        "browser-automation-engine/templates/payroll-ad-input.json"
+      ],
+      "finding": "One DocID per payroll component. Inputs employee, task code, amount, Add, Save. Currently does not explicitly fill Station/Machine/Expense dimension fields."
+    },
+    {
+      "name": "Beras selisih preparation",
+      "files": [
+        "backend/services/payrollAutomationService.js"
+      ],
+      "finding": "prepareBerasAutomationData filters only componentKey=beras and overrides venusAmount/inputAmount to shortfall amount."
+    },
+    {
+      "name": "Charge job dimension parsing",
+      "files": [
+        "browser-automation-engine/actions/index.js",
+        "browser-automation-engine/templates/_charge_job_input.json",
+        "browser-automation-engine/charge-job-parser.test.js"
+      ],
+      "finding": "parseChargeJob extracts task/station/machine/expense. Expense code supports C/L/M/O/V mapping and LABOUR fallback."
+    },
+    {
+      "name": "Payroll run endpoint",
+      "files": [
+        "backend/server.js"
+      ],
+      "finding": "/api/payroll/beras/run prepares beras data then spawns payroll-runner.js with current_payroll_beras_data.json and component-key=beras."
+    }
+  ],
+  "dependencies": [
+    "Node.js/Express backend",
+    "React frontend",
+    "Puppeteer browser automation engine",
+    "Millware AD Lists page: /en/PR/trx/frmPrTrxADLists.aspx",
+    "Millware AD detail page: frmPrTrxADDets.aspx",
+    "Millware PR_ADTRANS and PR_ADTRANSLN comparison data",
+    "Employee charge_job data from employee_mill"
+  ],
+  "integration_points": [
+    {
+      "module": "backend-payroll",
+      "files": [
+        "backend/services/payrollAutomationService.js",
+        "backend/services/payrollComponentMapping.js"
+      ],
+      "role": "Prepare beras selisih payload with charge job and correct component mapping."
+    },
+    {
+      "module": "browser-automation",
+      "files": [
+        "browser-automation-engine/templates/payroll-ad-input.json",
+        "browser-automation-engine/actions/index.js"
+      ],
+      "role": "Fill Monthly Allowance/Deduction account dimensions and validate before Add."
+    },
+    {
+      "module": "api-ui",
+      "files": [
+        "backend/server.js",
+        "frontend/src/components/BerasAutomationDialog.jsx",
+        "frontend/src/components/PayrollReport.jsx"
+      ],
+      "role": "Expose and preview beras selisih automation using the monthly allowance runner."
+    }
+  ],
+  "conflict_risk": "high",
+  "conflict_areas": [
+    "Relevant backend, frontend, and automation files already have uncommitted changes.",
+    "Beras AD code is inconsistent between config AL0012 and discovered/current automation AL0011.",
+    "Payroll templates may be generated/temporary in parallel worker files; avoid editing generated _temp_engine_* or testing_data worker output.",
+    "Existing /api/payroll/automation/run response path appears to mix SSE setup and res.json; avoid broad refactor unless required for beras."
+  ],
+  "constraints": [
+    "Planning-only for this workflow-plan turn.",
+    "Do not overwrite pre-existing WIP changes.",
+    "Prefer existing payroll-runner and account-dimension helper patterns.",
+    "Add tests for payload transformation and charge job/dimension handling before running live automation.",
+    "Use dry-run/smoke validation before any real Millware input."
+  ]
+}

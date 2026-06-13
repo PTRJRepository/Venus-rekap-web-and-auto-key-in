@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-05-13T00:43:32.172Z",
+  "updatedAt": "2026-06-09T00:43:32.172Z",
   "mappings": {
     "jabatan": {
       "componentKey": "jabatan",
@@ -39,6 +39,26 @@
       "inputValue": "(GA9129) (AL) PERSONNEL TUNJANGAN MASA KERJA",
       "optionCount": 1,
       "discoveredAt": "2026-05-13T00:42:24.386Z"
+    },
+    "beras": {
+      "componentKey": "beras",
+      "componentName": "TUNJANGAN BERAS",
+      "type": "Addition",
+      "keyword": "TRANSPORT",
+      "keywordsTried": [
+        "BERAS",
+        "RICE",
+        "TUNJANGAN BERAS",
+        "TRANSPORT"
+      ],
+      "taskCode": "AL0011",
+      "taskDesc": "(AL0011) TUNJANGAN TRANSPORT",
+      "selectedValue": "AL0011",
+      "selectedText": "(AL0011) TUNJANGAN TRANSPORT",
+      "optionText": "(AL0011) TUNJANGAN TRANSPORT",
+      "inputValue": "(AL0011) TUNJANGAN TRANSPORT",
+      "optionCount": 1,
+      "discoveredAt": "2026-06-09T00:00:00.000Z"
     },
     "pph21": {
       "componentKey": "pph21",

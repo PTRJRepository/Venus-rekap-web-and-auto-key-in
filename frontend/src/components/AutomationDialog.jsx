@@ -40,6 +40,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
     const [targetMode, setTargetMode] = useState('all');
     const [windowCount, setWindowCount] = useState('');
     const logEndRef = useRef(null);
+    const refreshedAfterCompletionRef = useRef(false);
 
     useEffect(() => {
         if (open) {
@@ -79,17 +80,19 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
     };
 
     useEffect(() => {
-        if (status === 'completed' && onRefresh) {
+        if (status === 'completed' && onRefresh && !refreshedAfterCompletionRef.current) {
+            refreshedAfterCompletionRef.current = true;
             addLog('info', 'Auto-Refreshing Comparison Data...');
-            onRefresh();
+            onRefresh(targetMode === 'regular' ? 'presence' : targetMode === 'overtime' ? 'overtime' : 'all');
         }
-    }, [status, onRefresh]);
+    }, [status]);
 
     // Cleanup logs when dialog closes to free memory
     useEffect(() => {
         if (!open) {
             setLogs([]);
             setStatus('idle');
+            refreshedAfterCompletionRef.current = false;
         }
     }, [open]);
 
@@ -118,37 +121,40 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                 let reason = '';
                 const statusUpper = (day.status || '').toUpperCase();
 
-                if (!millwareRecord) {
+                const isSunday = new Date(`${dateStr}T00:00:00`).getDay() === 0;
+                const needsRegular = isSunday || day.isHoliday === true || Boolean(day.holidayName) || !['ALFA', 'N/A'].includes(statusUpper);
+                const millwareNormal = Number(millwareRecord?.normal) || 0;
+                const regularMissing = needsRegular && (
+                    !millwareRecord ||
+                    millwareRecord.hasRegularRecord !== true ||
+                    millwareNormal <= 0
+                );
+                const overtimeMissing = (Number(day.overtimeHours) || 0) > 0 && (
+                    !millwareRecord ||
+                    millwareRecord.hasOTRecord !== true
+                );
+
+                if (targetMode === 'regular') {
+                    shouldInclude = regularMissing;
+                    reason = shouldInclude
+                        ? `Regular Missing (Venus: ${day.regularHours || 0}h, Millware: ${millwareNormal}h)`
+                        : `Regular already synced`;
+                } else if (targetMode === 'overtime') {
+                    shouldInclude = overtimeMissing;
+                    reason = shouldInclude
+                        ? `Overtime Missing (Venus:${day.overtimeHours || 0})`
+                        : `Overtime already synced`;
+                } else if (!millwareRecord) {
                     shouldInclude = true; reason = `Missing in Millware`;
-                } else if (millwareRecord.status === 'MISS') {
+                } else if (millwareRecord.status === 'MISS' || regularMissing || overtimeMissing) {
                     shouldInclude = true; reason = `Mismatch detected`;
                 }
 
                 if (!isExport && shouldInclude && millwareRecord) {
                     addLog('debug', `   [${dateStr}] ${ptrjId}:`);
-                    addLog('debug', `      Millware OT=0: ${millwareRecord.regularMatched ? 'EXISTS' : 'MISSING'} (${millwareRecord.normal || 0}h)`);
-                    addLog('debug', `      Millware OT=1: ${millwareRecord.otMatched ? 'EXISTS' : 'MISSING'} (${millwareRecord.ot || 0}h)`);
+                    addLog('debug', `      Millware OT=0: ${millwareRecord.hasRegularRecord ? 'EXISTS' : 'MISSING'} (${millwareRecord.normal || 0}h, rows=${millwareRecord.regularRecordCount || 0})`);
+                    addLog('debug', `      Millware OT=1: ${millwareRecord.hasOTRecord ? 'EXISTS' : 'MISSING'} (${millwareRecord.ot || 0}h, rows=${millwareRecord.overtimeRecordCount || 0})`);
                     addLog('debug', `      Venus: Reg=${day.regularHours || 0}h, OT=${day.overtimeHours || 0}h`);
-                }
-
-                if (shouldInclude) {
-                    if (millwareRecord && millwareRecord.status !== 'MISS') {
-                        shouldInclude = false; reason = `Backend status is not MISS (${millwareRecord.status})`;
-                    } else {
-                        if (targetMode === 'regular') {
-                            if (millwareRecord && millwareRecord.details?.hasRegularRecord === true) {
-                                shouldInclude = false; reason = `Regular record actually exists`;
-                            } else if (!millwareRecord && (day.regularHours || 0) === 0 && !(['HADIR', 'PARTIAL IN', 'S', 'SAKIT', 'C', 'CUTI', 'I', 'IZIN', 'SD', 'SICK', 'CT'].some(s => statusUpper.startsWith(s)))) {
-                                shouldInclude = false;
-                            } else { reason = `Regular Missing (Venus: ${day.regularHours}h)`; }
-                        } else if (targetMode === 'overtime') {
-                            if (millwareRecord && millwareRecord.details?.hasOTRecord === true) {
-                                shouldInclude = false; reason = `OT record actually exists`;
-                            } else if ((day.overtimeHours || 0) === 0) {
-                                shouldInclude = false;
-                            } else { reason = `Overtime Missing (Venus:${day.overtimeHours})`; }
-                        }
-                    }
                 }
 
                 if (compareMode === 'overtime' && targetMode !== 'overtime') { /* legacy compat */ }
@@ -156,13 +162,12 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                 if (shouldInclude) {
                     let finalRegularHours = day.regularHours || 0;
                     const isAnnualLeave = ['CT', 'CUTI', 'I', 'IZIN', 'S', 'SAKIT', 'SD', 'SICK'].some(s => statusUpper.startsWith(s));
-                    if (finalRegularHours === 0 && (statusUpper === 'HADIR' || statusUpper === 'PARTIAL IN' || isAnnualLeave)) {
+                    const isAutoRegular = ['HADIR', 'PARTIAL IN', 'OFF', 'LBR', 'LIBUR'].some(s => statusUpper.startsWith(s)) || isAnnualLeave;
+                    if (finalRegularHours === 0 && isAutoRegular) {
                         const dateObj = new Date(dateStr);
                         const dayNum = dateObj.getDay();
-                        if (dayNum !== 0) {
-                            finalRegularHours = (dayNum === 6) ? 5 : 7;
-                            reason += ` (Auto-fixed 0h -> ${finalRegularHours}h)`;
-                        }
+                        finalRegularHours = (dayNum === 6) ? 5 : 7;
+                        reason += ` (Auto-fixed 0h -> ${finalRegularHours}h)`;
                     }
                     const fixedDay = { ...day, regularHours: finalRegularHours };
                     if (!isExport) addLog('info', `   [${dateStr}] ${reason} -> Reg:${finalRegularHours}h, OT:${day.overtimeHours}h`);
@@ -213,6 +218,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
             return;
         }
 
+        refreshedAfterCompletionRef.current = false;
         setStatus('running');
         const { filtered: employeesToProcess, modeLog } = filterEmployees(false);
         if (employeesToProcess.length === 0 && filterSynced) {

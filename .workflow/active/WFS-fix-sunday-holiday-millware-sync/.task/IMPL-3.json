@@ -1,0 +1,19 @@
+﻿{
+  "id": "IMPL-3",
+  "title": "Align UI comparison rendering",
+  "objective": "Ensure matrix cell, tooltip, and row summary show not synced when Millware regular data is missing for Sunday/holiday.",
+  "files": [
+    "frontend/src/components/AttendanceMatrix.jsx",
+    "frontend/src/App.jsx"
+  ],
+  "steps": [
+    "Update tooltip/comparison render path so OFF is not treated as no-regular-required.",
+    "Confirm getSyncStatus uses the same rule for presence, overtime, and all modes.",
+    "Remove or gate temporary POM00214 debug logs after behavior is covered.",
+    "Preserve existing UI colors and density."
+  ],
+  "acceptance": [
+    "UI red/not_synced when comparisonData has no record or hasRegularRecord false for OFF/LBR.",
+    "Summary miss counts include missing Sunday/holiday regular data."
+  ]
+}

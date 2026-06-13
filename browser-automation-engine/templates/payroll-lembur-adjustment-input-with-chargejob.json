@@ -1,0 +1,446 @@
+{
+    "name": "Payroll AD Lists - LEMBUR ADJUSTMENT INPUT (with ChargeJob)",
+    "description": "Input selisih tunjangan LEMBUR ke AD Lists dengan Machine Code dan Expense Code dari chargeJob",
+    "steps": [
+        {
+            "action": "log",
+            "params": {
+                "message": "═══════════════════════════════════════════════════════════════"
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "  PAYROLL LEMBUR ADJUSTMENT - INPUT DENGAN CHARGE JOB"
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "═══════════════════════════════════════════════════════════════"
+            }
+        },
+        {
+            "comment": "═══ LOGIN ═══",
+            "action": "navigate",
+            "params": {
+                "url": "http://millwarep3.rebinmas.com:8003/"
+            }
+        },
+        {
+            "action": "typeInput",
+            "params": {
+                "selector": "#txtUsername",
+                "value": "adm075",
+                "requiredBeforeAdd": false
+            }
+        },
+        {
+            "action": "typeInput",
+            "params": {
+                "selector": "#txtPassword",
+                "value": "adm075",
+                "requiredBeforeAdd": false
+            }
+        },
+        {
+            "action": "click",
+            "params": {
+                "selector": "#btnLogin"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 1000
+            }
+        },
+        {
+            "action": "waitForElement",
+            "params": {
+                "selector": ".PopupBoxLogin",
+                "timeout": 15000
+            }
+        },
+        {
+            "action": "click",
+            "params": {
+                "selector": "#MainContent_btnOkay"
+            }
+        },
+        {
+            "comment": "═══ NAVIGATE TO AD LISTS PAGE ═══",
+            "action": "navigate",
+            "params": {
+                "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 2000
+            }
+        },
+        {
+            "comment": "═══ CLICK NEW BUTTON ═══",
+            "action": "click",
+            "params": {
+                "selector": "#MainContent_btnNew"
+            }
+        },
+        {
+            "action": "wait",
+            "params": {
+                "duration": 1500
+            }
+        },
+        {
+            "comment": "═══ VERIFY WE'RE ON ADDET PAGE ═══",
+            "action": "waitForElement",
+            "params": {
+                "selector": "#MainContent_ddlEmployee + input.ui-autocomplete-input",
+                "timeout": 10000
+            }
+        },
+        {
+            "comment": "═══ LOOP THROUGH EMPLOYEES ═══",
+            "action": "forEachProperty",
+            "params": {
+                "object": "employees",
+                "keyName": "empKey",
+                "valueName": "employee",
+                "failOnError": true,
+                "recoveryListUrl": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx",
+                "recoveryDetailUrl": "frmPrTrxADDets.aspx",
+                "recoveryReadySelector": "#MainContent_ddlEmployee + input.ui-autocomplete-input",
+                "steps": [
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  👤 Employee: ${employee.employeeName} (${employee.ptrjId})"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  📋 Component: TUNJANGAN LEMBUR"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  💰 Input Amount: Rp ${employee.components.0.venusAmount}"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  📦 ChargeJob: ${employee.chargeJob}"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                        }
+                    },
+                    {
+                        "comment": "═══ FORCE PAYROLL DOC DATE ═══",
+                        "action": "executeJavascript",
+                        "params": {
+                            "script": "const docDate = \"${metadata.payrollDocDate}\"; const month = String(\"${metadata.month}\").padStart(2, '0'); const candidates = ['#MainContent_txtDocDate', 'input[id*=txtDocDate]', 'input[id*=DocDate]']; const fields = candidates.flatMap(selector => Array.from(document.querySelectorAll(selector))).filter((el, index, arr) => el && arr.indexOf(el) === index); if (!docDate || !/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(docDate)) { throw new Error('Payroll DocDate metadata invalid: ' + docDate); } if (docDate.slice(3, 5) !== month) { throw new Error('Payroll DocDate month mismatch: ' + docDate + ' expected month ' + month); } if (!fields.length) { throw new Error('Payroll DocDate field not found'); } for (const el of fields) { el.value = docDate; el.setAttribute('value', docDate); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); } const bad = fields.find(el => String(el.value || '').slice(3, 5) !== month); if (bad) { throw new Error('Payroll DocDate field month mismatch: ' + bad.value + ' expected month ' + month); } console.log('Payroll DocDate set:', docDate);"
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT EMPLOYEE NAME ═══",
+                        "action": "typeInput",
+                        "params": {
+                            "selector": "#MainContent_ddlEmployee + input.ui-autocomplete-input",
+                            "value": "${employee.ptrjId}",
+                            "confirmKey": "Enter",
+                            "smartSelect": true,
+                            "slowUntilSingle": true,
+                            "slowValue": "${employee.ptrjId}",
+                            "fallbackValues": [
+                                "${employee.employeeName}"
+                            ]
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 1000
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT DESCRIPTION ═══",
+                        "action": "executeJavascript",
+                        "params": {
+                            "script": "const value = \"TUNJANGAN LEMBUR\"; const selectors = ['#MainContent_txtDocDesc', '#MainContent_txtDescription', '#MainContent_txtDesc', '#MainContent_txtRemarks', 'input[id*=DocDesc]', 'input[id*=Description]', 'textarea[id*=Description]', 'textarea[id*=Remarks]']; const el = selectors.map(s => document.querySelector(s)).find(Boolean); if (el) { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); console.log('Payroll description set:', value); } else { console.log('Payroll description field not found'); }"
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT TASK CODE (LEMBUR/AL0019) ═══",
+                        "action": "typeInput",
+                        "params": {
+                            "selector": "#MainContent_ddlTaskCode + input.ui-autocomplete-input",
+                            "value": "LEMBUR",
+                            "confirmKey": "Enter",
+                            "smartSelect": true,
+                            "selectFirstOption": true,
+                            "slowUntilSingle": true,
+                            "slowValue": "LEMBUR",
+                            "fallbackValues": [
+                                "AL0019",
+                                "TUNJANGAN LEMBUR",
+                                "OVERTIME"
+                            ]
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 800
+                        }
+                    },
+                    {
+                        "comment": "═══ PARSE CHARGE JOB FOR STATION, MACHINE & EXPENSE CODE ═══",
+                        "action": "parseChargeJob",
+                        "params": {
+                            "chargeJob": "${employee.chargeJob}",
+                            "value": "${employee.chargeJob}"
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  Parsed dimensions: Station=${chargeJobPart2}, Machine=${chargeJobPart3}, Expense=${chargeJobPart4}"
+                        }
+                    },
+                    {
+                        "action": "waitForReady",
+                        "params": {
+                            "selector": ".ui-autocomplete-input.CBOBox",
+                            "timeout": 15000
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT STATION CODE (Part 2 dari ChargeJob) - AD Lists index 2 ═══",
+                        "action": "if",
+                        "params": {
+                            "condition": "hasChargeJobPart2",
+                            "thenSteps": [
+                                {
+                                    "action": "retryInputWithValidation",
+                                    "params": {
+                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                        "index": 2,
+                                        "value": "${chargeJobPart2}",
+                                        "validationSelector": "#MainContent_MultiDimAcc_reqValBlock",
+                                        "maxRetries": 2,
+                                        "expectedFieldCount": "${expectedFieldCount}",
+                                        "forceInput": true,
+                                        "checkIfAlreadyFilled": false
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 300
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT MACHINE CODE (Part 3 dari ChargeJob) - AD Lists index 3 ═══",
+                        "action": "if",
+                        "params": {
+                            "condition": "hasChargeJobPart3",
+                            "thenSteps": [
+                                {
+                                    "action": "retryInputWithValidation",
+                                    "params": {
+                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                        "index": 3,
+                                        "value": "${chargeJobPart3}",
+                                        "validationSelector": "#MainContent_MultiDimAcc_reqValSubBlk",
+                                        "maxRetries": 2,
+                                        "expectedFieldCount": "${expectedFieldCount}",
+                                        "fallbackValue": "LABOUR COST",
+                                        "fallbackSearchValue": "LABOUR",
+                                        "forceInput": true,
+                                        "checkIfAlreadyFilled": false
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 300
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT EXPENSE CODE (Part 4 dari ChargeJob) - AD Lists index 4 ═══",
+                        "action": "if",
+                        "params": {
+                            "condition": "hasChargeJobPart4",
+                            "thenSteps": [
+                                {
+                                    "action": "retryInputWithValidation",
+                                    "params": {
+                                        "selector": ".ui-autocomplete-input.CBOBox",
+                                        "index": 4,
+                                        "value": "${chargeJobPart4}",
+                                        "validationSelector": "#MainContent_MultiDimAcc_reqValExpCode",
+                                        "maxRetries": 2,
+                                        "expectedFieldCount": "${expectedFieldCount}",
+                                        "fallbackValue": "LABOUR",
+                                        "forceInput": true,
+                                        "checkIfAlreadyFilled": false
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 300
+                        }
+                    },
+                    {
+                        "comment": "═══ INPUT AMOUNT ═══",
+                        "action": "typeInput",
+                        "params": {
+                            "selector": "#MainContent_txtAmount",
+                            "value": "${employee.components.0.venusAmount}"
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 300
+                        }
+                    },
+                    {
+                        "comment": "═══ VERIFY PAYROLL DOC DATE BEFORE ADD ═══",
+                        "action": "executeJavascript",
+                        "params": {
+                            "script": "const docDate = \"${metadata.payrollDocDate}\"; const month = String(\"${metadata.month}\").padStart(2, '0'); const candidates = ['#MainContent_txtDocDate', 'input[id*=txtDocDate]', 'input[id*=DocDate]']; const fields = candidates.flatMap(selector => Array.from(document.querySelectorAll(selector))).filter((el, index, arr) => el && arr.indexOf(el) === index); if (!fields.length) { throw new Error('Payroll DocDate field not found before Add'); } for (const el of fields) { if (String(el.value || '').slice(3, 5) !== month) { el.value = docDate; el.setAttribute('value', docDate); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); } } const bad = fields.find(el => String(el.value || '').slice(3, 5) !== month); if (bad) { throw new Error('Payroll DocDate month mismatch before Add: ' + bad.value + ' expected month ' + month); } console.log('Payroll DocDate verified before Add:', docDate);"
+                        }
+                    },
+                    {
+                        "comment": "═══ CLICK ADD BUTTON ═══",
+                        "action": "clickAndWaitForReload",
+                        "params": {
+                            "selector": "#MainContent_btnAdd",
+                            "timeout": 15000,
+                            "maxAttempts": 3,
+                            "throwOnValidation": true,
+                            "throwOnFail": true
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 1000
+                        }
+                    },
+                    {
+                        "comment": "═══ VERIFY PAYROLL DOC DATE BEFORE SAVE ═══",
+                        "action": "executeJavascript",
+                        "params": {
+                            "script": "const docDate = \"${metadata.payrollDocDate}\"; const month = String(\"${metadata.month}\").padStart(2, '0'); const candidates = ['#MainContent_txtDocDate', 'input[id*=txtDocDate]', 'input[id*=DocDate]']; const fields = candidates.flatMap(selector => Array.from(document.querySelectorAll(selector))).filter((el, index, arr) => el && arr.indexOf(el) === index); if (!fields.length) { throw new Error('Payroll DocDate field not found before Save'); } for (const el of fields) { if (String(el.value || '').slice(3, 5) !== month) { el.value = docDate; el.setAttribute('value', docDate); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); } } const bad = fields.find(el => String(el.value || '').slice(3, 5) !== month); if (bad) { throw new Error('Payroll DocDate month mismatch before Save: ' + bad.value + ' expected month ' + month); } console.log('Payroll DocDate verified before Save:', docDate);"
+                        }
+                    },
+                    {
+                        "comment": "═══ CLICK SAVE BUTTON ═══",
+                        "action": "click",
+                        "params": {
+                            "selector": "#MainContent_btnSave"
+                        }
+                    },
+                    {
+                        "action": "wait",
+                        "params": {
+                            "duration": 2000
+                        }
+                    },
+                    {
+                        "action": "log",
+                        "params": {
+                            "message": "  ✅ Saved: ${employee.employeeName} - Rp ${employee.components.0.venusAmount}"
+                        }
+                    },
+                    {
+                        "comment": "═══ PREPARE NEXT EMPLOYEE FORM ═══",
+                        "action": "if",
+                        "params": {
+                            "condition": "!isLast",
+                            "thenSteps": [
+                                {
+                                    "action": "navigate",
+                                    "params": {
+                                        "url": "http://millwarep3.rebinmas.com:8003/en/PR/trx/frmPrTrxADLists.aspx"
+                                    }
+                                },
+                                {
+                                    "action": "wait",
+                                    "params": {
+                                        "duration": 1500
+                                    }
+                                },
+                                {
+                                    "action": "click",
+                                    "params": {
+                                        "selector": "#MainContent_btnNew"
+                                    }
+                                },
+                                {
+                                    "action": "wait",
+                                    "params": {
+                                        "duration": 1500
+                                    }
+                                },
+                                {
+                                    "action": "waitForElement",
+                                    "params": {
+                                        "selector": "#MainContent_ddlEmployee + input.ui-autocomplete-input",
+                                        "timeout": 10000
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "═══════════════════════════════════════════════════════════════"
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "  ✅ PAYROLL LEMBUR ADJUSTMENT INPUT COMPLETED"
+            }
+        },
+        {
+            "action": "log",
+            "params": {
+                "message": "═══════════════════════════════════════════════════════════════"
+            }
+        }
+    ]
+}

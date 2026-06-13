@@ -1,0 +1,26 @@
+{
+  "id": "IMPL-3",
+  "status": "completed",
+  "summary_path": ".summaries/IMPL-3-summary.md",
+  "title": "Wire beras run to generic payroll monthly allowance path",
+  "description": "Ensure /api/payroll/beras/run and the BerasAutomationDialog use the generic payroll-runner path with component-key=beras, preserve preview data, and stop the correct automation process.",
+  "depends_on": [
+    "IMPL-1",
+    "IMPL-2"
+  ],
+  "convergence": "Beras prepare/run works through the same monthly allowance runner as other tunjangan/potongan components.",
+  "meta": {
+    "type": "api-ui",
+    "agent": "implementation",
+    "files": [
+      "backend/server.js",
+      "backend/services/automationService.js",
+      "frontend/src/components/BerasAutomationDialog.jsx",
+      "frontend/src/components/PayrollReport.jsx"
+    ],
+    "tests": [
+      "manual API dry-run",
+      "frontend build"
+    ]
+  }
+}

@@ -80,7 +80,24 @@
       "Bash(npm test *)",
       "Bash(git merge-base *)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('success:', d.get\\('success'\\)\\); print\\('data count:', len\\(d.get\\('data',[]\\)\\)\\); print\\('first emp keys:', list\\(d['data'][0].keys\\(\\)\\) if d.get\\('data'\\) else []\\)\")",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('docIds:', len\\(d.get\\('docIds',[]\\)\\), 'count:', d.get\\('count',0\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('docIds:', len\\(d.get\\('docIds',[]\\)\\), 'count:', d.get\\('count',0\\)\\)\")",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(Stop-Process *)",
+      "PowerShell(while \\(Get-NetTCPConnection -LocalPort 8002 -ErrorAction SilentlyContinue\\) { $p = \\(Get-NetTCPConnection -LocalPort 8002\\)[0].OwningProcess; Stop-Process -Id $p -Force -ErrorAction SilentlyContinue; Write-Host \"Killed PID $p\"; Start-Sleep -Milliseconds 200 }; Write-Host \"Port 8002 sekarang bebas\")",
+      "Bash(npm -v)",
+      "Bash(git *)",
+      "Bash(hermes --version)",
+      "Bash(npm search *)",
+      "Bash(npm config *)",
+      "Bash(mkdir -p ~/.hermes)",
+      "Bash(chmod 700 ~/.hermes)",
+      "Read(//c/Users/ITDPC/.hermes/**)",
+      "Bash(chmod 600 ~/.hermes/.env)",
+      "Bash(hermes --help)",
+      "Bash(hermes model *)",
+      "Bash(hermes doctor *)",
+      "Bash(hermes config *)"
     ]
   }
 }

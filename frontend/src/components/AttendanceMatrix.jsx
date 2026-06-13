@@ -286,11 +286,11 @@ const AttendanceMatrix = ({
             if (d.status === 'HADIR' && regHours > 0) {
                 presentDays++;
                 realHours += regHours;
-                // Standard presence: 7 hours for weekdays, 5 for Saturday
+                // Standard presence: 7 hours for weekdays/Sunday, 5 for Saturday
                 const date = new Date(d.date);
                 const isSunday = date.getDay() === 0;
                 const isSaturday = date.getDay() === 6;
-                const stdHours = isSunday ? 0 : (isSaturday ? 5 : 7);
+                const stdHours = isSaturday ? 5 : 7;  // Sunday = 7, Saturday = 5, Weekday = 7
                 standardHours += stdHours;
             }
         });
@@ -306,7 +306,7 @@ const AttendanceMatrix = ({
         const otHours = Number(d.overtimeHours) || 0;
         const isSunday = new Date(d.date).getDay() === 0;
         const isSaturday = new Date(d.date).getDay() === 6;
-        const stdPresence = isSunday ? 0 : (isSaturday ? 5 : 7);
+        const stdPresence = isSaturday ? 5 : 7;  // Sunday = 7, Saturday = 5, Weekday = 7
         
         switch (filter.condition) {
             case 'ot_gt':
@@ -348,7 +348,7 @@ const AttendanceMatrix = ({
         
         const isSunday = new Date(d.date).getDay() === 0;
         const isSaturday = new Date(d.date).getDay() === 6;
-        const stdPresence = isSunday ? 0 : (isSaturday ? 5 : 7);
+        const stdPresence = isSaturday ? 5 : 7;  // Sunday = 7, Saturday = 5, Weekday = 7
         const regHours = Number(d.regularHours) || 0;
         const otHours = Number(d.overtimeHours) || 0;
         const totalHours = regHours + otHours;
@@ -425,11 +425,13 @@ const AttendanceMatrix = ({
             const statusUpper = (d.status || '').toUpperCase();
             const millwareNormal = comparisonLoaded ? (Number(comparisonRecord?.normal) || 0) : null;
             const millwareOT = comparisonLoaded ? (Number(comparisonRecord?.ot) || 0) : null;
+            const regularRecordCount = comparisonLoaded ? (Number(comparisonRecord?.regularRecordCount) || 0) : 0;
+            const overtimeRecordCount = comparisonLoaded ? (Number(comparisonRecord?.overtimeRecordCount) || 0) : 0;
             const venusNormal = regHours;
             const venusOT = otHours;
-            const needsRegular = !['ALFA', 'N/A', 'OFF'].includes(statusUpper);
+            const needsRegular = comparisonRecord?.needsRegularRecord ?? (d.isSunday === true || d.isHoliday === true || Boolean(d.holidayName) || !['ALFA', 'N/A'].includes(statusUpper));
             const needsOT = venusOT > 0;
-            const normalOk = comparisonLoaded && (!needsRegular || comparisonRecord?.hasRegularRecord === true);
+            const normalOk = comparisonLoaded && (!needsRegular || (comparisonRecord?.hasRegularRecord === true && (Number(comparisonRecord?.normal) || 0) > 0));
             const otOk = comparisonLoaded && (!needsOT || comparisonRecord?.hasOTRecord === true);
             const allOk = normalOk && otOk;
             const normalColor = !comparisonLoaded ? '#64748B' : (normalOk ? '#059669' : '#DC2626');
@@ -465,6 +467,13 @@ const AttendanceMatrix = ({
                                         isSuccess={normalOk}
                                         highlight={needsRegular && !normalOk}
                                     />
+                                    <TooltipRow
+                                        label="MW OT=0 Rows"
+                                        value={`${regularRecordCount}`}
+                                        valueColor={normalColor}
+                                        isWarning={needsRegular && regularRecordCount <= 0}
+                                        isSuccess={regularRecordCount > 0}
+                                    />
                                     <TooltipRow label="Venus OT" value={`${formatHour(venusOT)}h`} valueColor="#7C3AED" />
                                     <TooltipRow
                                         label="Millware OT"
@@ -473,6 +482,13 @@ const AttendanceMatrix = ({
                                         isWarning={needsOT && !otOk}
                                         isSuccess={otOk}
                                         highlight={needsOT && !otOk}
+                                    />
+                                    <TooltipRow
+                                        label="MW OT=1 Rows"
+                                        value={`${overtimeRecordCount}`}
+                                        valueColor={otColor}
+                                        isWarning={needsOT && overtimeRecordCount <= 0}
+                                        isSuccess={overtimeRecordCount > 0}
                                     />
                                     <Box sx={{ px: 1.5, py: 0.5, bgcolor: allOk ? '#F0FDF4' : '#FEF2F2', borderTop: '1px solid', borderColor: 'divider' }}>
                                         <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: allOk ? '#059669' : '#DC2626' }}>
@@ -687,7 +703,7 @@ const AttendanceMatrix = ({
             </ProTooltip>
         );
     };
-    const getSyncStatus = (ptrjId, dateStr, venusStatus, venusRegularHours = 0, venusOtHours = 0) => {
+    const getSyncStatus = (ptrjId, dateStr, venusStatus, venusRegularHours = 0, venusOtHours = 0, venusIsHoliday = false) => {
         if (!compareMode || compareMode === 'off') return null;
         const hasValidPtrjId = ptrjId && ptrjId !== 'N/A' && String(ptrjId).trim() !== '';
         if (!hasValidPtrjId) return { status: 'not_synced', displayOverride: 'N/A', displayColor: '#DE350B', borderWidth: 2, isUnmapped: true, millwareHours: 0 };
@@ -695,26 +711,32 @@ const AttendanceMatrix = ({
         const cleanDate = String(dateStr).includes('T') ? dateStr.split('T')[0] : dateStr;
         const key = `${String(ptrjId).trim()}_${cleanDate}`;
         const millwareRecord = comparisonData[key];
-        if (['ALFA', 'N/A', 'OFF'].includes(venusStatus?.toUpperCase())) return null;
+
         const date = new Date(cleanDate);
         const isSunday = date.getDay() === 0;
         const isSaturday = date.getDay() === 6;
-        const expectedHours = isSunday ? 0 : (isSaturday ? 5 : 7);
+        const needsRegular = isSunday || venusIsHoliday === true || !['ALFA', 'N/A'].includes(venusStatus?.toUpperCase());
+        if (!needsRegular && (Number(venusOtHours) || 0) <= 0) return null;
+        // Sunday and Holiday with Hadir status still need Millware record - NOT auto-sync
+        const expectedHours = isSaturday ? 5 : 7;  // Sunday = 7, Saturday = 5, Weekday = 7
         const millwareNormalHours = millwareRecord ? (millwareRecord.normal || 0) : 0;
         const isBelowThreshold = !isSunday && millwareNormalHours > 0 && millwareNormalHours < expectedHours;
         
-        if (compareMode === 'presence') {
+        if (compareMode === 'presence' || compareMode === 'regular') {
             const millwareHours = millwareNormalHours;
-            if (!millwareRecord || !millwareRecord.hasRegularRecord) return { status: 'not_synced', displayOverride: `${venusRegularHours}h`, displayColor: '#DE350B', borderWidth: 2, millwareHours: 0 };
-            if (!millwareRecord.regularMatched) return { status: 'mismatch', displayOverride: `${venusRegularHours}h|${millwareRecord.normal}h`, displayColor: '#FF991F', borderWidth: 2, millwareHours, isBelowThreshold };
+            if (!millwareRecord || !millwareRecord.hasRegularRecord || millwareNormalHours <= 0) return { status: 'not_synced', displayOverride: `${venusRegularHours}h`, displayColor: '#DE350B', borderWidth: 2, millwareHours: 0 };
             return { status: 'synced', millwareHours, isBelowThreshold, borderWidth: 1 };
         }
         if (compareMode === 'overtime') {
             const vOT = Number(venusOtHours) || 0;
             const millwareHours = millwareRecord ? (millwareRecord.ot || 0) : 0;
-            if (vOT <= 0 && millwareHours <= 0) return null;
+            // For overtime mode: still show regular sync status as background info
+            if (vOT <= 0 && millwareHours <= 0) {
+                // No OT in both systems - show regular sync status
+                if (!millwareRecord || !millwareRecord.hasRegularRecord || millwareNormalHours <= 0) return { status: 'not_synced', displayOverride: `${venusRegularHours}h`, displayColor: '#DE350B', borderWidth: 2, millwareHours: 0 };
+                return { status: 'synced', millwareHours, borderWidth: 1 };
+            }
             if (!millwareRecord || !millwareRecord.hasOTRecord) return { status: 'not_synced', displayOverride: `${vOT}h`, displayColor: '#DE350B', borderWidth: 2, millwareHours: 0 };
-            if (!millwareRecord.otMatched) return { status: 'mismatch', displayOverride: `${vOT}h|${millwareRecord.ot}h`, displayColor: '#FF991F', borderWidth: 2, millwareHours };
             return { status: 'synced', millwareHours, borderWidth: 1 };
         }
         if (compareMode === 'all') {
@@ -722,7 +744,7 @@ const AttendanceMatrix = ({
             const millwareNormal = millwareRecord ? (millwareRecord.normal || 0) : 0;
             const millwareOT = millwareRecord ? (millwareRecord.ot || 0) : 0;
             const millwareHours = millwareNormal + millwareOT;
-            const regularOk = millwareRecord?.hasRegularRecord === true;
+            const regularOk = !needsRegular || (millwareRecord?.hasRegularRecord === true && millwareNormal > 0);
             const otOk = vOT <= 0 || millwareRecord?.hasOTRecord === true;
 
             if (!millwareRecord || !regularOk || !otOk) {
@@ -730,15 +752,6 @@ const AttendanceMatrix = ({
                     status: 'not_synced',
                     displayOverride: `${venusRegularHours || 0}h|${vOT}h`,
                     displayColor: '#DE350B',
-                    borderWidth: 2,
-                    millwareHours
-                };
-            }
-            if (!millwareRecord.regularMatched || (vOT > 0 && !millwareRecord.otMatched)) {
-                return {
-                    status: 'mismatch',
-                    displayOverride: `${venusRegularHours || 0}+${vOT}|${millwareNormal}+${millwareOT}`,
-                    displayColor: '#FF991F',
                     borderWidth: 2,
                     millwareHours
                 };
@@ -754,7 +767,7 @@ const AttendanceMatrix = ({
         const color = colors[sync.status] || '#ccc';
         const shadow = `inset 0 0 0 ${sync.borderWidth || 1}px ${color}${isToday ? ', inset 0 0 0 2px #2196F3' : ''}`;
         if (sync.isUnmapped) return { boxShadow: shadow, bgcolor: 'rgba(222, 53, 11, 0.08)', backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(222, 53, 11, 0.05) 2px, rgba(222, 53, 11, 0.05) 4px)' };
-        return { boxShadow: shadow, bgcolor: sync.status === 'not_synced' ? 'rgba(222, 53, 11, 0.03)' : (sync.status === 'mismatch' ? 'rgba(255, 153, 31, 0.03)' : 'inherit'), ...(sync.isBelowThreshold ? { bgcolor: 'rgba(255, 153, 31, 0.08)' } : {}) };
+        return { boxShadow: shadow, bgcolor: sync.status === 'not_synced' ? '#FEE2E2' : (sync.status === 'mismatch' ? '#FFF7ED' : 'inherit') };
     };
 
     return (
@@ -829,8 +842,8 @@ const AttendanceMatrix = ({
 
                                         // Calculate MISS counts when comparison mode is active
                                         if (compareMode && compareMode !== 'off') {
-                                            const syncPres = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.regularHours, 0);
-                                            const syncOT = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, 0, d.overtimeHours);
+                                            const syncPres = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.regularHours, 0, d.isHoliday === true || Boolean(d.holidayName));
+                                            const syncOT = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, 0, d.overtimeHours, d.isHoliday === true || Boolean(d.holidayName));
 
                                             // Presence MISS: status not_synced or mismatch
                                             if (syncPres && (syncPres.status === 'not_synced' || syncPres.status === 'mismatch')) {
@@ -1032,7 +1045,7 @@ const AttendanceMatrix = ({
                                             }
                                             
                                             const ui = getStatusUI(d.status);
-                                            const sync = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.regularHours, d.overtimeHours);
+                                            const sync = getSyncStatus(emp.ptrjEmployeeID, d.date, d.status, d.regularHours, d.overtimeHours, d.isHoliday === true || Boolean(d.holidayName));
                                             const syncStyle = getSyncStyle(sync, Number(day) === todayNum);
                                             const comparisonRecord = getComparisonRecord(emp.ptrjEmployeeID, d.date);
                                             
@@ -1076,6 +1089,11 @@ const AttendanceMatrix = ({
                                                     {viewMode !== 'comparison' && sync && (
                                                         <Typography sx={{ position: 'absolute', top: 0.5, right: 1, fontSize: '0.45rem', fontWeight: 900, color: sync.status === 'synced' ? '#00875A' : '#DE350B', lineHeight: 1, zIndex: 1 }}>
                                                             {sync.millwareHours}h
+                                                        </Typography>
+                                                    )}
+                                                    {sync?.status === 'not_synced' && (
+                                                        <Typography sx={{ position: 'absolute', top: 0, left: 0, right: 0, fontSize: '0.48rem', fontWeight: 900, color: '#991B1B', lineHeight: 1.15, zIndex: 3, bgcolor: '#FECACA', borderBottom: '1px solid #DC2626' }}>
+                                                            MISS
                                                         </Typography>
                                                     )}
                                                     {getCellContent(d, viewMode, emp.name, day, comparisonRecord, Boolean(comparisonData))}

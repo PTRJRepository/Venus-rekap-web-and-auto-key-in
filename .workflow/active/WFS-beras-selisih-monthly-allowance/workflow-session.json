@@ -1,0 +1,9 @@
+{
+  "session_id": "WFS-beras-selisih-monthly-allowance",
+  "status": "completed",
+  "created_at": "2026-06-09T16:27:27+07:00",
+  "completed_at": "2026-06-09T16:55:00+07:00",
+  "task_description": "Tambahkan input beras selisih ke Monthly Allowance/Deduction dengan expense code dan machine code seperti penginputan Task Register.",
+  "mode": "execute",
+  "skill": "workflow-execute"
+}

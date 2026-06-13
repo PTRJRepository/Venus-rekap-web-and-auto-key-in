@@ -1,0 +1,25 @@
+﻿{
+    "id":  "IMPL-1",
+    "title":  "Add payroll snapshot database service",
+    "description":  "Create an app-owned SQLite payroll snapshot service with schema initialization, snapshot CRUD, active snapshot selection, capture from current payroll result, and reconstruction back to the existing payroll response shape.",
+    "files":  [
+                  "backend/services/payrollSnapshotService.js",
+                  "data/payroll_snapshot.db"
+              ],
+    "depends_on":  [
+
+                   ],
+    "convergence":  [
+                        "Schema creates payroll_snapshots, payroll_snapshot_employees, payroll_snapshot_components, payroll_snapshot_raw_sources, and payroll_snapshot_events.",
+                        "Service exposes init, create, list, get, activate, soft delete, and buildPayrollResultFromSnapshot functions.",
+                        "Snapshot create uses a transaction and rolls back on partial insert failure.",
+                        "Only one active snapshot per period is allowed."
+                    ],
+    "meta":  {
+                 "type":  "backend-database",
+                 "agent":  "code_developer",
+                 "risk":  "medium"
+             },
+    "status":  "completed",
+    "completed_at":  "2026-06-12T15:38:42.8654669+07:00"
+}
