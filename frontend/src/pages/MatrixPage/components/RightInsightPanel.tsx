@@ -64,9 +64,12 @@ import CloseRounded from '@mui/icons-material/CloseRounded';
 
 import DonutSummary from './DonutSummary';
 import { AnalysisTabs } from './AnalysisTabs';
+import { CellDetailPanel } from './CellDetailPanel';
+import { EmployeeSummaryPanel } from './EmployeeSummaryPanel';
 import { attendanceStatusToLabel } from '../domain/statusMapping';
 import { tokens } from '../tokens';
 import type {
+  AttendanceRecord,
   AttendanceStatus,
   Employee,
   MonthlySummary,
@@ -127,6 +130,20 @@ export interface RightInsightPanelProps {
   onClose?: () => void;
   employeeSummaries?: Map<string, EmployeeSummaryRow>;
   employees?: Employee[];
+  /** Contextual panel mode */
+  panelMode?: 'global_summary' | 'employee_summary' | 'cell_detail';
+  /** Selected employee for employee_summary mode */
+  selectedEmployee?: Employee | null;
+  /** Selected employee summary row */
+  selectedEmployeeSummary?: EmployeeSummaryRow | null;
+  /** Selected date for cell_detail mode */
+  selectedDate?: string | null;
+  /** Selected attendance record for cell_detail mode */
+  selectedRecord?: AttendanceRecord | null;
+  /** Called when user closes contextual panel (returns to global_summary) */
+  onClearSelection?: () => void;
+  /** Called when user clicks "Bandingkan dengan Millware" on an employee */
+  onCompareMillware?: (employee: Employee) => void;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
@@ -149,7 +166,57 @@ export function RightInsightPanel(
     onClose,
     employeeSummaries,
     employees = [],
+    panelMode = 'global_summary',
+    selectedEmployee,
+    selectedEmployeeSummary,
+    selectedDate,
+    selectedRecord,
+    onClearSelection,
+    onCompareMillware,
   } = props;
+
+  // ─── Contextual mode: employee_summary ─────────────────────────────────────
+  if (panelMode === 'employee_summary' && selectedEmployee && selectedEmployeeSummary) {
+    const inner = (
+      <EmployeeSummaryPanel
+        employee={selectedEmployee}
+        summary={selectedEmployeeSummary}
+        monthLabel={monthLabel}
+        onClose={onClearSelection ?? (() => {})}
+        onCompareMillware={onCompareMillware}
+      />
+    );
+    if (isNarrow) {
+      return (
+        <Drawer anchor="right" open={drawerOpen} onClose={onDrawerClose}
+          PaperProps={{ sx: { width: 320, backgroundColor: tokens.bg.surface, backgroundImage: 'none', borderLeft: `1px solid ${tokens.border.subtle}` } }}>
+          {inner}
+        </Drawer>
+      );
+    }
+    return inner;
+  }
+
+  // ─── Contextual mode: cell_detail ──────────────────────────────────────────
+  if (panelMode === 'cell_detail' && selectedEmployee && selectedDate) {
+    const inner = (
+      <CellDetailPanel
+        employee={selectedEmployee}
+        date={selectedDate}
+        record={selectedRecord ?? null}
+        onClose={onClearSelection ?? (() => {})}
+      />
+    );
+    if (isNarrow) {
+      return (
+        <Drawer anchor="right" open={drawerOpen} onClose={onDrawerClose}
+          PaperProps={{ sx: { width: 320, backgroundColor: tokens.bg.surface, backgroundImage: 'none', borderLeft: `1px solid ${tokens.border.subtle}` } }}>
+          {inner}
+        </Drawer>
+      );
+    }
+    return inner;
+  }
 
   // ─── Filter change handlers ─────────────────────────────────────────────
 

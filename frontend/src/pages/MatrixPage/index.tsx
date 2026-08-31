@@ -51,14 +51,12 @@ import {
 } from './domain/layout';
 
 import { LeftSidebar } from './components/LeftSidebar';
-import { TopHeader } from './components/TopHeader';
 import { KPIRow } from './components/KPIRow';
 import { MatrixTable } from './components/MatrixTable';
 import { FooterLegend } from './components/FooterLegend';
 import { RightInsightPanel } from './components/RightInsightPanel';
 import { CellDetailPopover } from './components/CellDetailPopover';
 import { ErrorState } from './components/ErrorState';
-import { MatrixModeSelector } from './components/MatrixModeSelector';
 
 import type { AttendanceStatus, QuickFilterState } from './types';
 import type { MatrixMode, HeatmapMetric } from './domain/heatmap';
@@ -66,21 +64,44 @@ import type { MatrixMode, HeatmapMetric } from './domain/heatmap';
 // ─── Public props ──────────────────────────────────────────────────────────
 
 export interface MatrixPageProps {
-  /** Visible month, 1..12. Defaults to the current local month. */
   month?: number;
-  /** Visible year (4-digit). Defaults to the current local year. */
   year?: number;
-  /** Fired when the user picks a new month inside the page. */
   onMonthChange?: (newMonth: number) => void;
-  /** Fired when the user picks a new year inside the page. */
   onYearChange?: (newYear: number) => void;
-  /** Fired when the user clicks a non-Matrix item in the left sidebar. */
   onNavigate?: (tabKey: string) => void;
-  /**
-   * Currently unused at this layer; reserved for a future "include staff"
-   * toggle that the App.jsx parent already owns.
-   */
   showStaff?: boolean;
+  /** App-level view mode passed down from App.jsx */
+  viewMode?: string;
+  onViewModeChange?: (mode: string) => void;
+  /** Called when user clicks "Bandingkan dengan Millware" on an employee */
+  onCompareMillwareEmployee?: (employeeId: string, ptrjEmployeeId: string, employeeName: string) => void;
+
+  // ── Toolbar state lifted to App.jsx ──────────────────────────────────
+  /** Called once on mount / whenever toolbar state changes, so App.jsx can render the toolbar */
+  onToolbarStateChange?: (state: MatrixToolbarState) => void;
+  /** Handlers called from App.jsx toolbar controls */
+  toolbarHandlers?: MatrixToolbarHandlers;
+}
+
+export interface MatrixToolbarState {
+  matrixMode: 'status' | 'work_hours' | 'short_hours' | 'overtime' | 'heatmap' | 'recap';
+  heatmapMetric: 'work_hours' | 'short_hours' | 'overtime';
+  sidebarMode: 'expanded' | 'collapsed' | 'hidden';
+  kpiVisible: boolean;
+  rightPanelVisible: boolean;
+  isFocusMode: boolean;
+  departmentOptions: string[];
+  selectedDepartment: string;
+}
+
+export interface MatrixToolbarHandlers {
+  onModeChange: (mode: 'status' | 'work_hours' | 'short_hours' | 'overtime' | 'heatmap' | 'recap') => void;
+  onHeatmapMetricChange: (metric: 'work_hours' | 'short_hours' | 'overtime') => void;
+  onSetSidebarMode: (mode: 'expanded' | 'collapsed' | 'hidden') => void;
+  onToggleKpi: () => void;
+  onToggleRightPanel: () => void;
+  onFocusMode: () => void;
+  onDepartmentChange: (dept: string) => void;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -123,6 +144,7 @@ function useViewportWidth(): number {
 export function MatrixPage(props: MatrixPageProps): ReactElement {
   const initialMonth = props.month ?? getDefaultMonth();
   const initialYear = props.year ?? getDefaultYear();
+  const { onToolbarStateChange, toolbarHandlers } = props;
 
   // ── State / refs ─────────────────────────────────────────────────────
   const [state, dispatch] = useMatrixState(
@@ -262,6 +284,43 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
     [state.employees],
   );
 
+  // ── Emit toolbar state to App.jsx whenever it changes ───────────────
+  useEffect(() => {
+    onToolbarStateChange?.({
+      matrixMode: state.matrixMode,
+      heatmapMetric: state.heatmapMetric,
+      sidebarMode: state.sidebarMode,
+      kpiVisible: state.kpiVisible,
+      rightPanelVisible: state.rightPanelVisible,
+      isFocusMode: state.viewMode === 'focus',
+      departmentOptions,
+      selectedDepartment: state.departmentFilter,
+    });
+  }, [
+    state.matrixMode,
+    state.heatmapMetric,
+    state.sidebarMode,
+    state.kpiVisible,
+    state.rightPanelVisible,
+    state.viewMode,
+    state.departmentFilter,
+    departmentOptions,
+    onToolbarStateChange,
+  ]);
+
+  // ── Wire external toolbar handlers (from App.jsx) to internal dispatch ─
+  useEffect(() => {
+    if (!toolbarHandlers) return;
+    // Expose handlers by mutating the ref object passed from App.jsx
+    toolbarHandlers.onModeChange = handleMatrixModeChange;
+    toolbarHandlers.onHeatmapMetricChange = handleHeatmapMetricChange;
+    toolbarHandlers.onSetSidebarMode = handleSetSidebarMode;
+    toolbarHandlers.onToggleKpi = handleToggleKpi;
+    toolbarHandlers.onToggleRightPanel = handleToggleRightPanel;
+    toolbarHandlers.onFocusMode = handleFocusMode;
+    toolbarHandlers.onDepartmentChange = handleDeptChange;
+  });
+
   // ── Derived: month label + workday count ────────────────────────────
   const monthLabel = useMemo(
     () =>
@@ -294,6 +353,28 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
       note: record?.note ?? null,
     };
   }, [state.selectedCell, state.employees, state.attendance]);
+
+  // ── Derived: right panel contextual data ────────────────────────────
+  const rightPanelEmployee = useMemo(
+    () => state.rightPanelEmployeeId
+      ? state.employees.find((e) => e.employeeId === state.rightPanelEmployeeId) ?? null
+      : null,
+    [state.rightPanelEmployeeId, state.employees],
+  );
+
+  const rightPanelEmployeeSummary = useMemo(
+    () => state.rightPanelEmployeeId
+      ? employeeSummaries.get(state.rightPanelEmployeeId) ?? null
+      : null,
+    [state.rightPanelEmployeeId, employeeSummaries],
+  );
+
+  const rightPanelRecord = useMemo(
+    () => state.rightPanelEmployeeId && state.rightPanelDate
+      ? state.attendance.get(`${state.rightPanelEmployeeId}|${state.rightPanelDate}`) ?? null
+      : null,
+    [state.rightPanelEmployeeId, state.rightPanelDate, state.attendance],
+  );
 
   // ── Effect: dismiss popover if its employee is filtered out ────────
   useEffect(() => {
@@ -329,36 +410,6 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
   }, [state.fetchStatus, state.viewMode, dispatch]);
 
   // ── Handlers ─────────────────────────────────────────────────────────
-  const handleMonthChange = useCallback(
-    (newMonth: number) => {
-      dispatch({ type: 'SET_PERIOD', month: newMonth, year: state.year });
-      props.onMonthChange?.(newMonth);
-    },
-    [dispatch, state.year, props],
-  );
-
-  const handleYearChange = useCallback(
-    (newYear: number) => {
-      dispatch({ type: 'SET_PERIOD', month: state.month, year: newYear });
-      props.onYearChange?.(newYear);
-    },
-    [dispatch, state.month, props],
-  );
-
-  const handleTodayClick = useCallback(() => {
-    const now = new Date();
-    const m = now.getMonth() + 1;
-    const y = now.getFullYear();
-    dispatch({ type: 'SET_PERIOD', month: m, year: y });
-    props.onMonthChange?.(m);
-    props.onYearChange?.(y);
-  }, [dispatch, props]);
-
-  const handleSearchChange = useCallback(
-    (value: string) => dispatch({ type: 'SET_SEARCH', search: value }),
-    [dispatch],
-  );
-
   const handleDeptChange = useCallback(
     (value: string) =>
       dispatch({ type: 'SET_DEPT_FILTER', departmentFilter: value }),
@@ -380,6 +431,8 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
         date,
         anchorRect: anchorEl.getBoundingClientRect(),
       });
+      // Also update right panel to cell_detail mode
+      dispatch({ type: 'SELECT_CELL_DETAIL', employeeId, date });
     },
     [dispatch],
   );
@@ -388,6 +441,29 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
     dispatch({ type: 'CLEAR_SELECTION' });
     setPopoverAnchor(null);
   }, [dispatch]);
+
+  const handleRowClick = useCallback(
+    (employeeId: string) => {
+      dispatch({ type: 'SELECT_EMPLOYEE_ROW', employeeId });
+    },
+    [dispatch],
+  );
+
+  const handleClearRightPanelSelection = useCallback(() => {
+    dispatch({ type: 'CLEAR_RIGHT_PANEL_SELECTION' });
+  }, [dispatch]);
+
+  const handleCompareMillware = useCallback(
+    (employee: import('./types').Employee) => {
+      if (!employee.ptrjEmployeeId || employee.ptrjEmployeeId === 'N/A') return;
+      props.onCompareMillwareEmployee?.(
+        employee.employeeId,
+        employee.ptrjEmployeeId,
+        employee.name,
+      );
+    },
+    [props],
+  );
 
   const handleToggleSidebar = useCallback(
     () => dispatch({ type: 'TOGGLE_SIDEBAR' }),
@@ -488,10 +564,12 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
 
   // ── Layout: column template ──────────────────────────────────────────
   const gridTemplateColumns = (() => {
-    if (sidebarWidthPx === 0 && insightWidthPx === 0) return '1fr';
-    if (sidebarWidthPx === 0) return `1fr ${insightWidthPx}px`;
-    if (insightWidthPx === 0 || isNarrow) return `${sidebarWidthPx}px 1fr`;
-    return `${sidebarWidthPx}px 1fr ${insightWidthPx}px`;
+    const sb = sidebarWidthPx > 0 ? `${sidebarWidthPx}px` : null;
+    const ins = insightWidthPx > 0 && !isNarrow ? `${insightWidthPx}px` : null;
+    if (!sb && !ins) return '1fr';
+    if (!sb) return `1fr ${ins}`;
+    if (!ins) return `${sb} 1fr`;
+    return `${sb} minmax(0,1fr) ${ins}`;
   })();
 
   // ── Render ───────────────────────────────────────────────────────────
@@ -543,86 +621,56 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
-            gap: state.viewMode === 'focus' ? '4px' : '12px',
+            gap: 0,
             height: '100%',
             overflow: 'hidden',
           }}
         >
-          <TopHeader
-            month={state.month}
-            year={state.year}
-            searchValue={state.search}
-            onMonthChange={handleMonthChange}
-            onYearChange={handleYearChange}
-            onTodayClick={handleTodayClick}
-            onSearchChange={handleSearchChange}
-            onToggleInsightDrawer={handleToggleInsightDrawer}
-            showInsightDrawerToggle={isNarrow}
-            searchInputRef={searchInputRef}
-            onToggleKpi={handleToggleKpi}
-            kpiVisible={state.kpiVisible}
-            onToggleRightPanel={handleToggleRightPanel}
-            rightPanelVisible={state.rightPanelVisible}
-            onFocusMode={handleFocusMode}
-            isFocusMode={state.viewMode === 'focus'}
-            sidebarMode={state.sidebarMode}
-            onSetSidebarMode={handleSetSidebarMode}
-          />
-
           {state.kpiVisible && (
-          <KPIRow
-            summary={summary}
-            exportEnabled={exportEnabled}
-            onExportClick={handleExportClick}
-          />
-          )}
-
-          <MatrixModeSelector
-            mode={state.matrixMode}
-            heatmapMetric={state.heatmapMetric}
-            onModeChange={handleMatrixModeChange}
-            onHeatmapMetricChange={handleHeatmapMetricChange}
-          />
-
-          {/*
-            Matrix region: error → ErrorState; otherwise the table itself
-            handles loading skeleton + empty-state internally so
-            Top_Header / KPI_Row / Left_Sidebar stay interactive while
-            data loads (req 13.3).
-          */}
-          {isError ? (
-            <ErrorState
-              message={state.fetchError ?? undefined}
-              onRetry={grid.retry}
-            />
-          ) : (
-            <MatrixTable
-              employees={filtered.employees}
-              days={state.days}
-              attendance={visibleAttendance}
-              selectedCell={
-                state.selectedCell
-                  ? {
-                      employeeId: state.selectedCell.employeeId,
-                      date: state.selectedCell.date,
-                    }
-                  : null
-              }
-              onCellClick={handleCellClick}
-              empColWidth={empColWidthPx}
-              cellWidth={cellWidth}
-              departmentOptions={departmentOptions}
-              selectedDepartment={state.departmentFilter}
-              onDepartmentChange={handleDeptChange}
-              isLoading={isLoading}
-              isNarrow={isNarrow}
-              employeeSummaries={employeeSummaries}
-              matrixMode={state.matrixMode}
-              heatmapMetric={state.heatmapMetric}
+            <KPIRow
+              summary={summary}
+              exportEnabled={exportEnabled}
+              onExportClick={handleExportClick}
             />
           )}
 
-          <FooterLegend lastUpdated={state.lastUpdated} />
+          {/* Matrix region — flex-grows to fill all remaining vertical space */}
+          <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {isError ? (
+              <ErrorState
+                message={state.fetchError ?? undefined}
+                onRetry={grid.retry}
+              />
+            ) : (
+              <MatrixTable
+                employees={filtered.employees}
+                days={state.days}
+                attendance={visibleAttendance}
+                selectedCell={
+                  state.selectedCell
+                    ? {
+                        employeeId: state.selectedCell.employeeId,
+                        date: state.selectedCell.date,
+                      }
+                    : null
+                }
+                onCellClick={handleCellClick}
+                onRowClick={handleRowClick}
+                empColWidth={empColWidthPx}
+                cellWidth={cellWidth}
+                departmentOptions={departmentOptions}
+                selectedDepartment={state.departmentFilter}
+                onDepartmentChange={handleDeptChange}
+                isLoading={isLoading}
+                isNarrow={isNarrow}
+                employeeSummaries={employeeSummaries}
+                matrixMode={state.matrixMode}
+                heatmapMetric={state.heatmapMetric}
+              />
+            )}
+
+            <FooterLegend lastUpdated={state.lastUpdated} />
+          </Box>
         </Box>
 
         {/* ── Column 3: Right insight panel (or drawer on narrow) ──── */}
@@ -640,6 +688,13 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
             onDrawerClose={handleToggleInsightDrawer}
             employeeSummaries={employeeSummaries}
             employees={filtered.employees}
+            panelMode={state.rightPanelMode}
+            selectedEmployee={rightPanelEmployee}
+            selectedEmployeeSummary={rightPanelEmployeeSummary}
+            selectedDate={state.rightPanelDate}
+            selectedRecord={rightPanelRecord}
+            onClearSelection={handleClearRightPanelSelection}
+            onCompareMillware={handleCompareMillware}
           />
         ) : state.rightPanelVisible ? (
           <Box
@@ -661,6 +716,13 @@ export function MatrixPage(props: MatrixPageProps): ReactElement {
               onClose={handleToggleRightPanel}
               employeeSummaries={employeeSummaries}
               employees={filtered.employees}
+              panelMode={state.rightPanelMode}
+              selectedEmployee={rightPanelEmployee}
+              selectedEmployeeSummary={rightPanelEmployeeSummary}
+              selectedDate={state.rightPanelDate}
+              selectedRecord={rightPanelRecord}
+              onClearSelection={handleClearRightPanelSelection}
+              onCompareMillware={handleCompareMillware}
             />
           </Box>
         ) : null}

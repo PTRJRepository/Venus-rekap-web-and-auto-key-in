@@ -46,6 +46,7 @@ export interface Employee {
   name: string;
   ptrjEmployeeId?: string | null;
   department?: string | null;
+  chargeJob?: string | null;
   unit?: string | null;
   avatarUrl?: string | null;
 }
@@ -165,6 +166,7 @@ export interface BackendMonthlyGridResponse {
     EmployeeID: string;
     EmployeeName: string;
     PTRJEmployeeID: string;
+    ChargeJob?: string;
     days: Record<string, BackendDayCell>;
   }>;
 }

@@ -71,6 +71,18 @@ const App = () => {
     const [isPayrollADResetRunning, setIsPayrollADResetRunning] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+    // Matrix toolbar state (lifted from MatrixPage via onToolbarStateChange)
+    const [matrixToolbarState, setMatrixToolbarState] = React.useState(null);
+    const matrixToolbarHandlers = React.useRef({
+        onModeChange: () => {},
+        onHeatmapMetricChange: () => {},
+        onSetSidebarMode: () => {},
+        onToggleKpi: () => {},
+        onToggleRightPanel: () => {},
+        onFocusMode: () => {},
+        onDepartmentChange: () => {},
+    });
+
     const DRAWER_WIDTH = 340;
     const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
     const years = useMemo(() => getYearOptions(selectedYear), [selectedYear]);
@@ -252,6 +264,15 @@ const App = () => {
         } else {
             setCompareMode('off');
         }
+    };
+
+    // Triggered from EmployeeSummaryPanel "Bandingkan dengan Millware"
+    const handleCompareMillwareEmployee = (employeeId, ptrjEmployeeId, employeeName) => {
+        // Set employee as selected for comparison
+        setSelectedEmployeeIds([employeeId]);
+        // Trigger comparison dialog
+        setIsComparisonOpen(true);
+        showSnackbar(`Membandingkan data ${employeeName} dengan Millware...`, 'info');
     };
 
     const openSyncDialog = (mode) => {
@@ -500,99 +521,153 @@ const App = () => {
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: 'background.default', overflow: 'hidden' }}>
             <AppBar position="static" elevation={0} sx={{ zIndex: 1201, background: 'linear-gradient(135deg, #0F2040 0%, #17366b 100%)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                <Toolbar sx={{ minHeight: 64, px: 3 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 4 }}>
-                        <Box sx={{ width: 32, height: 32, bgcolor: 'secondary.main', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 1.5 }}>
-                            <Typography sx={{ color: '#fff', fontWeight: 900 }}>V</Typography>
+                {/* Row 1: Brand + Tabs + Period + User */}
+                <Toolbar sx={{ minHeight: 52, px: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
+                        <Box sx={{ width: 28, height: 28, bgcolor: 'secondary.main', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 1 }}>
+                            <Typography sx={{ color: '#fff', fontWeight: 900, fontSize: '0.85rem' }}>V</Typography>
                         </Box>
                         <Box>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1, color: '#fff' }}>VENUS HR</Typography>
-                            <Typography variant="caption" sx={{ color: 'secondary.light', fontWeight: 700, fontSize: '0.6rem' }}>REBINMAS JAYA</Typography>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1, color: '#fff', fontSize: '0.85rem' }}>VENUS HR</Typography>
+                            <Typography variant="caption" sx={{ color: 'secondary.light', fontWeight: 700, fontSize: '0.55rem' }}>REBINMAS JAYA</Typography>
                         </Box>
                     </Box>
-                    <Tabs value={activeTab} onChange={(e, v) => { setActiveTab(v); if (v !== 'report') setReportType(null); }} textColor="inherit" sx={{ flexGrow: 1 }}>
-                        <Tab label="Matrix" value="matrix" icon={<TableViewIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-                        <Tab label="Reports" value="report" icon={<AssessmentIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-                        <Tab label="Payroll" value="payroll" icon={<ReceiptIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+                    <Tabs value={activeTab} onChange={(e, v) => { setActiveTab(v); if (v !== 'report') setReportType(null); }} textColor="inherit" sx={{ flexGrow: 1, minHeight: 52, '& .MuiTab-root': { minHeight: 52, py: 0 } }}>
+                        <Tab label="Matrix" value="matrix" icon={<TableViewIcon sx={{ fontSize: 16 }} />} iconPosition="start" sx={{ fontSize: '0.8rem' }} />
+                        <Tab label="Reports" value="report" icon={<AssessmentIcon sx={{ fontSize: 16 }} />} iconPosition="start" sx={{ fontSize: '0.8rem' }} />
+                        <Tab label="Payroll" value="payroll" icon={<ReceiptIcon sx={{ fontSize: 16 }} />} iconPosition="start" sx={{ fontSize: '0.8rem' }} />
                     </Tabs>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {/* Period Selector */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'rgba(255,255,255,0.08)', px: 1.5, py: 0.5, borderRadius: 2 }}>
-                            <CalendarIcon sx={{ fontSize: 16, color: 'secondary.light' }} />
-                            <Select value={selectedMonth || ''} onChange={(e) => setSelectedMonth(Number(e.target.value))} variant="standard" disableUnderline disabled={periodLoading} sx={{ color: '#fff', fontSize: '0.85rem', fontWeight: 700 }}>
-                                {monthNames.map((name, idx) => <MenuItem key={idx} value={idx + 1}>{name}</MenuItem>)}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: 'rgba(255,255,255,0.08)', px: 1, py: 0.25, borderRadius: 1.5 }}>
+                            <CalendarIcon sx={{ fontSize: 14, color: 'secondary.light' }} />
+                            <Select value={selectedMonth || ''} onChange={(e) => setSelectedMonth(Number(e.target.value))} variant="standard" disableUnderline disabled={periodLoading} sx={{ color: '#fff', fontSize: '0.78rem', fontWeight: 700 }}>
+                                {monthNames.map((name, idx) => <MenuItem key={idx} value={idx + 1} sx={{ fontSize: '0.8rem' }}>{name}</MenuItem>)}
                             </Select>
-                            <Select value={selectedYear || ''} onChange={(e) => setSelectedYear(Number(e.target.value))} variant="standard" disableUnderline disabled={periodLoading} sx={{ color: '#fff', fontSize: '0.85rem', fontWeight: 700 }}>
-                                {years.map(year => <MenuItem key={year} value={year}>{year}</MenuItem>)}
+                            <Select value={selectedYear || ''} onChange={(e) => setSelectedYear(Number(e.target.value))} variant="standard" disableUnderline disabled={periodLoading} sx={{ color: '#fff', fontSize: '0.78rem', fontWeight: 700 }}>
+                                {years.map(year => <MenuItem key={year} value={year} sx={{ fontSize: '0.8rem' }}>{year}</MenuItem>)}
                             </Select>
                             <FormControlLabel
                                 control={<Switch checked={showStaff} onChange={(e) => setShowStaff(e.target.checked)} color="info" size="small" />}
-                                label={<Typography sx={{ fontWeight: 700, fontSize: '0.75rem', color: '#fff', whiteSpace: 'nowrap' }}>Tampilkan Staff</Typography>}
-                                sx={{ ml: 1, mr: 0 }}
+                                label={<Typography sx={{ fontWeight: 700, fontSize: '0.7rem', color: '#fff', whiteSpace: 'nowrap' }}>Staff</Typography>}
+                                sx={{ ml: 0.5, mr: 0 }}
                             />
                         </Box>
-                        <IconButton onClick={handleFetchData} size="small" disabled={periodLoading} sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)' }}>
-                            {loading ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : <RefreshIcon sx={{ fontSize: 18 }} />}
+                        <IconButton onClick={handleFetchData} size="small" disabled={periodLoading} sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)', p: '4px' }}>
+                            {loading ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <RefreshIcon sx={{ fontSize: 16 }} />}
                         </IconButton>
-                        
-                        <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.1)', mx: 1 }} />
-                        
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.1)', mx: 0.5 }} />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Tooltip title="Admin Mill">
-                                <AccountCircleIcon sx={{ color: 'secondary.light' }} />
+                                <AccountCircleIcon sx={{ color: 'secondary.light', fontSize: 20 }} />
                             </Tooltip>
-                            <IconButton onClick={handleLogout} size="small" sx={{ color: '#fff', bgcolor: 'rgba(255,0,0,0.1)', '&:hover': { bgcolor: 'rgba(255,0,0,0.2)' } }}>
-                                <LogoutIcon sx={{ fontSize: 18 }} />
+                            <IconButton onClick={handleLogout} size="small" sx={{ color: '#fff', bgcolor: 'rgba(255,0,0,0.1)', p: '4px', '&:hover': { bgcolor: 'rgba(255,0,0,0.2)' } }}>
+                                <LogoutIcon sx={{ fontSize: 16 }} />
                             </IconButton>
                         </Box>
                     </Box>
                 </Toolbar>
+                {/* Row 2: Matrix toolbar — all controls in one compact row */}
+                {activeTab === 'matrix' && (
+                    <Box sx={{ px: 1.5, borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 0.75, minHeight: 40, maxHeight: 40, overflowX: 'auto', overflowY: 'hidden', '&::-webkit-scrollbar': { height: 2 } }}>
+                        {/* View mode */}
+                        <ToggleButtonGroup value={viewMode} exclusive onChange={(e, v) => handleViewModeChange(v)} size="small" sx={{ height: 26, flexShrink: 0, '& .MuiToggleButton-root': { px: 1, py: 0, fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.6)', borderColor: 'rgba(255,255,255,0.18)', textTransform: 'none', '&.Mui-selected': { color: '#fff', bgcolor: 'rgba(255,255,255,0.18)' } } }}>
+                            <ToggleButton value="attendance">Presence</ToggleButton>
+                            <ToggleButton value="overtime">Overtime</ToggleButton>
+                            <ToggleButton value="comparison">Komparasi</ToggleButton>
+                        </ToggleButtonGroup>
+
+                        <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.12)', mx: 0.25 }} />
+
+                        {/* Matrix display mode */}
+                        {matrixToolbarState && (
+                            <ToggleButtonGroup value={matrixToolbarState.matrixMode} exclusive onChange={(e, v) => { if (v) matrixToolbarHandlers.current.onModeChange(v); }} size="small" sx={{ height: 26, flexShrink: 0, '& .MuiToggleButton-root': { px: 0.875, py: 0, fontSize: '0.68rem', fontWeight: 600, color: 'rgba(255,255,255,0.6)', borderColor: 'rgba(255,255,255,0.18)', textTransform: 'none', '&.Mui-selected': { color: '#fff', bgcolor: 'rgba(20,118,255,0.35)', borderColor: '#1476FF' } } }}>
+                                <ToggleButton value="status">Status</ToggleButton>
+                                <ToggleButton value="work_hours">Jam Kerja</ToggleButton>
+                                <ToggleButton value="short_hours">Jam Kurang</ToggleButton>
+                                <ToggleButton value="overtime">Lembur</ToggleButton>
+                                <ToggleButton value="heatmap">Heatmap</ToggleButton>
+                                <ToggleButton value="recap">Rekap</ToggleButton>
+                            </ToggleButtonGroup>
+                        )}
+
+                        {/* Heatmap metric dropdown */}
+                        {matrixToolbarState?.matrixMode === 'heatmap' && (
+                            <Select size="small" value={matrixToolbarState.heatmapMetric} onChange={(e) => matrixToolbarHandlers.current.onHeatmapMetricChange(e.target.value)} sx={{ height: 26, fontSize: '0.68rem', color: '#fff', flexShrink: 0, minWidth: 100, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' }, '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.5)' }, '& .MuiSelect-select': { py: '2px', pr: '24px !important' } }}>
+                                <MenuItem value="work_hours" sx={{ fontSize: '0.72rem' }}>Jam Kerja</MenuItem>
+                                <MenuItem value="short_hours" sx={{ fontSize: '0.72rem' }}>Jam Kurang</MenuItem>
+                                <MenuItem value="overtime" sx={{ fontSize: '0.72rem' }}>Lembur</MenuItem>
+                            </Select>
+                        )}
+
+                        {/* Dept filter */}
+                        {matrixToolbarState && matrixToolbarState.departmentOptions.length > 0 && (
+                            <Select size="small" value={matrixToolbarState.selectedDepartment || 'all'} onChange={(e) => matrixToolbarHandlers.current.onDepartmentChange(e.target.value)} displayEmpty sx={{ height: 26, fontSize: '0.68rem', color: '#fff', flexShrink: 0, minWidth: 110, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' }, '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.5)' }, '& .MuiSelect-select': { py: '2px', pr: '24px !important' } }}>
+                                <MenuItem value="all" sx={{ fontSize: '0.72rem' }}>Semua Dept</MenuItem>
+                                {matrixToolbarState.departmentOptions.map((d) => (
+                                    <MenuItem key={d} value={d} sx={{ fontSize: '0.72rem' }}>{d}</MenuItem>
+                                ))}
+                            </Select>
+                        )}
+
+                        <Box sx={{ flexGrow: 1 }} />
+
+                        {/* Layout toggles */}
+                        {matrixToolbarState && (
+                            <>
+                                <Tooltip title={matrixToolbarState.sidebarMode !== 'hidden' ? 'Sembunyikan sidebar' : 'Tampilkan sidebar'}>
+                                    <IconButton size="small" onClick={() => matrixToolbarHandlers.current.onSetSidebarMode(matrixToolbarState.sidebarMode !== 'hidden' ? 'hidden' : 'expanded')} sx={{ color: matrixToolbarState.sidebarMode !== 'hidden' ? '#60a5fa' : 'rgba(255,255,255,0.4)', bgcolor: matrixToolbarState.sidebarMode !== 'hidden' ? 'rgba(96,165,250,0.12)' : 'transparent', borderRadius: '5px', p: '3px' }}>
+                                        <TableViewIcon sx={{ fontSize: 15 }} />
+                                    </IconButton>
+                                </Tooltip>
+                                <Tooltip title={matrixToolbarState.kpiVisible ? 'Sembunyikan KPI' : 'Tampilkan KPI'}>
+                                    <IconButton size="small" onClick={() => matrixToolbarHandlers.current.onToggleKpi()} sx={{ color: matrixToolbarState.kpiVisible ? '#60a5fa' : 'rgba(255,255,255,0.4)', bgcolor: matrixToolbarState.kpiVisible ? 'rgba(96,165,250,0.12)' : 'transparent', borderRadius: '5px', p: '3px' }}>
+                                        <AssessmentIcon sx={{ fontSize: 15 }} />
+                                    </IconButton>
+                                </Tooltip>
+                                <Tooltip title={matrixToolbarState.rightPanelVisible ? 'Sembunyikan panel' : 'Tampilkan panel'}>
+                                    <IconButton size="small" onClick={() => matrixToolbarHandlers.current.onToggleRightPanel()} sx={{ color: matrixToolbarState.rightPanelVisible ? '#60a5fa' : 'rgba(255,255,255,0.4)', bgcolor: matrixToolbarState.rightPanelVisible ? 'rgba(96,165,250,0.12)' : 'transparent', borderRadius: '5px', p: '3px' }}>
+                                        <FilterListIcon sx={{ fontSize: 15 }} />
+                                    </IconButton>
+                                </Tooltip>
+                                <Tooltip title={matrixToolbarState.isFocusMode ? 'Keluar Fokus' : 'Fokus Matrix'}>
+                                    <IconButton size="small" onClick={() => matrixToolbarHandlers.current.onFocusMode()} sx={{ color: matrixToolbarState.isFocusMode ? '#22d3ee' : 'rgba(255,255,255,0.4)', bgcolor: matrixToolbarState.isFocusMode ? 'rgba(34,211,238,0.12)' : 'transparent', borderRadius: '5px', p: '3px' }}>
+                                        {matrixToolbarState.isFocusMode ? <CloseIcon sx={{ fontSize: 15 }} /> : <TableViewIcon sx={{ fontSize: 15 }} />}
+                                    </IconButton>
+                                </Tooltip>
+                            </>
+                        )}
+
+                        <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.12)', mx: 0.25 }} />
+
+                        {/* Edit toggle */}
+                        <FormControlLabel
+                            control={<Switch checked={isEditMode} onChange={(e) => setIsEditMode(e.target.checked)} color="warning" size="small" />}
+                            label={<Typography sx={{ fontWeight: 700, fontSize: '0.68rem', color: isEditMode ? '#D97706' : 'rgba(255,255,255,0.6)' }}>EDIT</Typography>}
+                            sx={{ mr: 0, flexShrink: 0 }}
+                        />
+
+                        <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.12)', mx: 0.25 }} />
+
+                        {/* Action buttons */}
+                        <Button variant={compareMode !== 'off' ? "contained" : "outlined"} size="small" color={compareMode !== 'off' ? "secondary" : "inherit"} startIcon={isComparing ? <CircularProgress size={11} sx={{ color: '#fff' }} /> : <CompareIcon sx={{ fontSize: 13 }} />} onClick={handleCompareToggle} disabled={isComparing} sx={{ height: 26, fontWeight: 700, fontSize: '0.68rem', color: compareMode !== 'off' ? '#fff' : 'rgba(255,255,255,0.75)', borderColor: 'rgba(255,255,255,0.25)', px: 0.875, flexShrink: 0, textTransform: 'none' }}>
+                            {isComparing ? 'Syncing...' : 'Compare'}
+                        </Button>
+                        <Button variant="contained" size="small" color="success" startIcon={<SyncIcon sx={{ fontSize: 13 }} />} onClick={() => openSyncDialog('all')} disabled={!data || data.length === 0} sx={{ height: 26, fontWeight: 700, fontSize: '0.68rem', px: 0.875, flexShrink: 0, textTransform: 'none' }}>
+                            Sinkron ({selectedEmployeeIds.length > 0 ? selectedEmployeeIds.length : (data ? data.length : 0)})
+                        </Button>
+                        <Button variant="outlined" size="small" color="error" startIcon={<DeleteIcon sx={{ fontSize: 13 }} />} onClick={openOTResetDialog} sx={{ height: 26, fontWeight: 700, fontSize: '0.68rem', borderColor: 'rgba(255,100,100,0.4)', color: '#f87171', px: 0.875, flexShrink: 0, textTransform: 'none' }}>
+                            Hapus OT
+                        </Button>
+                        <Button variant="outlined" size="small" startIcon={<FilterListIcon sx={{ fontSize: 13 }} />} onClick={() => setIsSidebarOpen(true)} sx={{ height: 26, fontWeight: 700, fontSize: '0.68rem', borderColor: 'rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.75)', px: 0.875, flexShrink: 0, textTransform: 'none' }}>
+                            Parameter
+                        </Button>
+                    </Box>
+                )}
             </AppBar>
 
             <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
                 <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    {activeTab === 'matrix' && (
-                    <Paper elevation={0} sx={{ zIndex: 11, borderBottom: '1px solid #DFE1E6', px: 2.5, py: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 800 }}>MATRIX</Typography>
-                            <ToggleButtonGroup value={viewMode} exclusive onChange={(e, v) => handleViewModeChange(v)} size="small" sx={{ height: 32 }}>
-                                <ToggleButton value="attendance" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Presence</ToggleButton>
-                                <ToggleButton value="overtime" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Overtime</ToggleButton>
-                                <ToggleButton value="comparison" sx={{ px: 2, fontSize: '0.8rem', fontWeight: 600 }}>Komparasi</ToggleButton>
-                            </ToggleButtonGroup>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <FormControlLabel
-                                control={<Switch checked={isEditMode} onChange={(e) => setIsEditMode(e.target.checked)} color="warning" size="small" />}
-                                label={<Typography sx={{ fontWeight: 700, fontSize: '0.72rem', color: isEditMode ? '#D97706' : 'text.secondary' }}>EDIT</Typography>}
-                            />
-                            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-                            <Button variant={compareMode !== 'off' ? "contained" : "outlined"} size="small" color={compareMode !== 'off' ? "secondary" : "inherit"} startIcon={isComparing ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <CompareIcon />} onClick={handleCompareToggle} disabled={isComparing} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
-                                {isComparing ? 'Syncing...' : 'COMPARE'}
-                            </Button>
-                            <Button variant="contained" size="small" color="success" startIcon={<SyncIcon />} onClick={() => openSyncDialog('all')} disabled={!data || data.length === 0} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
-                                Sinkron ({selectedEmployeeIds.length > 0 ? selectedEmployeeIds.length : (data ? data.length : 0)})
-                            </Button>
-                            <Button variant="outlined" size="small" color="error" startIcon={<DeleteIcon />} onClick={openOTResetDialog} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
-                                Hapus OT
-                            </Button>
-                            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-                            <Button variant="outlined" size="small" startIcon={<FilterListIcon />} onClick={() => setIsSidebarOpen(true)} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
-                                PARAMETER
-                            </Button>
-                        </Box>
-                    </Paper>
-                    )}
-                    {activeTab !== 'matrix' && (
-                    <Paper elevation={0} sx={{ zIndex: 11, borderBottom: '1px solid #DFE1E6', px: 2.5, py: 1.2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 800 }}>{activeTab.toUpperCase()}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        </Box>
-                    </Paper>
-                    )}
-
                     <Box sx={{ flexGrow: 1, p: activeTab === 'matrix' ? 0 : 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         {activeTab === 'matrix' && (
                             <MatrixPage
@@ -602,6 +677,11 @@ const App = () => {
                                 onYearChange={(y) => setSelectedYear(y)}
                                 onNavigate={(tab) => setActiveTab(tab)}
                                 showStaff={showStaff}
+                                viewMode={viewMode}
+                                onViewModeChange={(v) => setViewMode(v)}
+                                onToolbarStateChange={setMatrixToolbarState}
+                                toolbarHandlers={matrixToolbarHandlers.current}
+                                onCompareMillwareEmployee={handleCompareMillwareEmployee}
                             />
                         )}
                         {activeTab === 'report' && (

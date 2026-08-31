@@ -94,6 +94,13 @@ export interface MatrixState {
 
   insightDrawerOpenOnNarrow: boolean;
   breakpoint: Breakpoint;
+
+  /** Right panel contextual mode. */
+  rightPanelMode: 'global_summary' | 'employee_summary' | 'cell_detail';
+  /** Employee selected for right panel (row click). */
+  rightPanelEmployeeId: string | null;
+  /** Date selected for right panel (cell click). */
+  rightPanelDate: string | null;
 }
 
 // ─── Actions ───────────────────────────────────────────────────────────────
@@ -129,7 +136,10 @@ export type MatrixAction =
   | { type: 'SET_HEATMAP_METRIC'; metric: MatrixState['heatmapMetric'] }
   | { type: 'SET_BREAKPOINT'; breakpoint: Breakpoint }
   | { type: 'OPEN_INSIGHT_DRAWER' }
-  | { type: 'CLOSE_INSIGHT_DRAWER' };
+  | { type: 'CLOSE_INSIGHT_DRAWER' }
+  | { type: 'SELECT_EMPLOYEE_ROW'; employeeId: string }
+  | { type: 'SELECT_CELL_DETAIL'; employeeId: string; date: string }
+  | { type: 'CLEAR_RIGHT_PANEL_SELECTION' };
 
 // ─── Initial state ─────────────────────────────────────────────────────────
 
@@ -192,6 +202,10 @@ export function initialMatrixState(month: number, year: number): MatrixState {
     heatmapMetric: 'work_hours',
     insightDrawerOpenOnNarrow: false,
     breakpoint: 'wide',
+
+    rightPanelMode: 'global_summary',
+    rightPanelEmployeeId: null,
+    rightPanelDate: null,
   };
 }
 
@@ -345,6 +359,32 @@ export function matrixReducer(
 
     case 'CLOSE_INSIGHT_DRAWER':
       return { ...state, insightDrawerOpenOnNarrow: false };
+
+    case 'SELECT_EMPLOYEE_ROW':
+      return {
+        ...state,
+        rightPanelMode: 'employee_summary',
+        rightPanelEmployeeId: action.employeeId,
+        rightPanelDate: null,
+        rightPanelVisible: true,
+      };
+
+    case 'SELECT_CELL_DETAIL':
+      return {
+        ...state,
+        rightPanelMode: 'cell_detail',
+        rightPanelEmployeeId: action.employeeId,
+        rightPanelDate: action.date,
+        rightPanelVisible: true,
+      };
+
+    case 'CLEAR_RIGHT_PANEL_SELECTION':
+      return {
+        ...state,
+        rightPanelMode: 'global_summary',
+        rightPanelEmployeeId: null,
+        rightPanelDate: null,
+      };
   }
 }
 

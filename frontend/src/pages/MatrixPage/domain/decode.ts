@@ -150,13 +150,15 @@ export function decodeBackendResponse(
 
     const name = toNonEmptyString(row.EmployeeName) ?? employeeId;
     const ptrjEmployeeId = toNonEmptyString(row.PTRJEmployeeID);
-    const department = deriveDepartment(row.days);
+    const chargeJob = toNonEmptyString(row.ChargeJob);
+    const department = chargeJob ?? deriveDepartment(row.days);
 
     employees.push({
       employeeId,
       name,
       ptrjEmployeeId,
       department,
+      chargeJob,
     });
 
     // 2. Walk this employee's day cells, building attendance records and
