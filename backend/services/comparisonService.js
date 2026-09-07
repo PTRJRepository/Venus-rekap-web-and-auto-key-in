@@ -64,8 +64,8 @@ const queryTaskRegData = async (startDate, endDate, empCodes = null, otFilter = 
                 H.ID AS HeaderID,
                 H.DocID,
                 H.Status AS HeaderStatus
-            FROM [db_ptrj_mill].[dbo].[PR_TASKREG] H
-            INNER JOIN [db_ptrj_mill].[dbo].[PR_TASKREGLN] L ON H.ID = L.MasterID
+            FROM [db_ptrj_mill].[dbo].[PR_TASKREG_ALL_VIEW] H
+            INNER JOIN [db_ptrj_mill].[dbo].[PR_TASKREGLN_ALL_VIEW] L ON H.ID = L.MasterID
             WHERE CAST(L.TrxDate AS DATE) BETWEEN '${startDate}' AND '${endDate}'
             ${empFilter}
             ${otLineFilter}
@@ -446,7 +446,7 @@ const getSyncSummaryByEmployee = async (startDate, endDate, empCodes = null) => 
             SUM(CASE WHEN OT = 1 THEN Amount ELSE 0 END) as OvertimeAmount,
             MIN(TrxDate) as FirstDate,
             MAX(TrxDate) as LastDate
-        FROM [db_ptrj_mill].[dbo].[PR_TASKREGLN]
+        FROM [db_ptrj_mill].[dbo].[PR_TASKREGLN_ALL_VIEW]
         WHERE TrxDate BETWEEN '${startDate}' AND '${endDate}'
         ${empCodes && empCodes.length > 0 ? `AND EmpCode IN (${empCodes.map(e => `'${e}'`).join(',')})` : ''}
         GROUP BY EmpCode
