@@ -28,7 +28,10 @@ const DARK = {
 
 const MIN_WINDOW_COUNT = 1;
 const MAX_WINDOW_COUNT = 6;
-const TABS_PER_WINDOW = 8;
+// Tab per window — HARUS sama dengan TABS_PER_ATTENDANCE_WINDOW di
+// backend/services/automationService.js (4). Kalau backend diubah, ubah di sini juga,
+// kalau tidak angka "max tab" di dialog jadi bohong.
+const TABS_PER_WINDOW = 4;
 
 const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compareMode, syncTargetMode, comparisonData, onRefresh }) => {
     const [logs, setLogs] = useState([]);
@@ -38,7 +41,10 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
     const [onlyOvertime, setOnlyOvertime] = useState(false);
     const [filterSynced, setFilterSynced] = useState(true);
     const [targetMode, setTargetMode] = useState('all');
-    const [windowCount, setWindowCount] = useState('');
+    // Default '1' supaya tombol Run langsung aktif saat dialog dibuka. Sebelumnya
+    // field ini kosong & wajib diisi, jadi Run selalu abu-abu dan user mengira
+    // fitur sync-nya rusak ("ga bisa jalankan proses auto sync").
+    const [windowCount, setWindowCount] = useState(String(MIN_WINDOW_COUNT));
     const logEndRef = useRef(null);
     const refreshedAfterCompletionRef = useRef(false);
 
@@ -129,7 +135,11 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                     millwareRecord.hasRegularRecord !== true ||
                     millwareNormal <= 0
                 );
-                const overtimeMissing = (Number(day.overtimeHours) || 0) > 0 && (
+                const venusOT = Number(day.overtimeHours) || 0;
+                // OT existence-based (user 2026-09-11): "kalo beda jam gpp, yang penting datanya ada".
+                // Re-input hanya bila record OT=1 TIDAK ADA. Selisih jam TIDAK memicu re-input
+                // (konsisten dgn skip logic automation — jam MW memang dipotong istirahat).
+                const overtimeMissing = venusOT > 0 && (
                     !millwareRecord ||
                     millwareRecord.hasOTRecord !== true
                 );
@@ -142,8 +152,8 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                 } else if (targetMode === 'overtime') {
                     shouldInclude = overtimeMissing;
                     reason = shouldInclude
-                        ? `Overtime Missing (Venus:${day.overtimeHours || 0})`
-                        : `Overtime already synced`;
+                        ? `Overtime Missing/Selisih Jam (Venus:${venusOT}h, MW:${(Number(millwareRecord?.ot) || 0)}h)`
+                        : `Overtime already synced (Venus:${venusOT}h = MW:${(Number(millwareRecord?.ot) || 0)}h)`;
                 } else if (!millwareRecord) {
                     shouldInclude = true; reason = `Missing in Millware`;
                 } else if (millwareRecord.status === 'MISS' || regularMissing || overtimeMissing) {
@@ -153,7 +163,7 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                 if (!isExport && shouldInclude && millwareRecord) {
                     addLog('debug', `   [${dateStr}] ${ptrjId}:`);
                     addLog('debug', `      Millware OT=0: ${millwareRecord.hasRegularRecord ? 'EXISTS' : 'MISSING'} (${millwareRecord.normal || 0}h, rows=${millwareRecord.regularRecordCount || 0})`);
-                    addLog('debug', `      Millware OT=1: ${millwareRecord.hasOTRecord ? 'EXISTS' : 'MISSING'} (${millwareRecord.ot || 0}h, rows=${millwareRecord.overtimeRecordCount || 0})`);
+                    addLog('debug', `      Millware OT=1: ${millwareRecord.hasOTRecord ? 'EXISTS' : 'MISSING'} (${millwareRecord.ot || 0}h, rows=${millwareRecord.overtimeRecordCount || 0})${millwareRecord.otHoursMatch === false ? ' (info: jam beda dgn SPL, tak perlu re-input)' : ''}`);
                     addLog('debug', `      Venus: Reg=${day.regularHours || 0}h, OT=${day.overtimeHours || 0}h`);
                 }
 
@@ -220,11 +230,20 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
 
         refreshedAfterCompletionRef.current = false;
         setStatus('running');
-        const { filtered: employeesToProcess, modeLog } = filterEmployees(false);
-        if (employeesToProcess.length === 0 && filterSynced) {
-            addLog('info', 'All selected records are already synced! Nothing to do.'); setStatus('completed'); return;
+        const { filtered: previewEmployees, modeLog } = filterEmployees(false);
+        const employeesToProcess = selectedEmployees || [];
+        if (employeesToProcess.length === 0) {
+            addLog('error', 'Tidak ada karyawan untuk diproses.');
+            setStatus('failed');
+            return;
         }
-        addLog('info', `Starting automation for ${employeesToProcess.length} employees (${month}/${year})${modeLog}`);
+        if (filterSynced) {
+            addLog('info', `Frontend preview: ${previewEmployees.length} employee(s) punya mismatch. Server akan re-check semua ${employeesToProcess.length} employee supaya tanggal MISS tidak terlewat.`);
+        }
+        const runModeLog = filterSynced
+            ? ` (Server-side MISS filter; frontend preview: ${previewEmployees.length} employee(s))`
+            : modeLog;
+        addLog('info', `Starting automation for ${employeesToProcess.length} employees (${month}/${year})${runModeLog}`);
         const normalizedWindowCount = windowValidation.value;
         addLog('info', `Windows: ${normalizedWindowCount} (${normalizedWindowCount * TABS_PER_WINDOW} max tabs, ${TABS_PER_WINDOW} tabs/window)`);
         if (startDate && endDate) addLog('info', `Date Filter: ${startDate} to ${endDate}`);
@@ -431,7 +450,9 @@ const AutomationDialog = ({ open, onClose, selectedEmployees, month, year, compa
                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 200, gap: 1 }}>
                             <RobotIcon sx={{ fontSize: 40, color: alpha(DARK.muted, 0.5) }} />
                             <Typography sx={{ color: DARK.muted, textAlign: 'center', fontSize: '0.875rem' }}>
-                                Click "Run" to start automation
+                                {windowValidation.error
+                                    ? `Isi jumlah window dulu (${MIN_WINDOW_COUNT}-${MAX_WINDOW_COUNT}) untuk mengaktifkan "Run"`
+                                    : 'Click "Run" to start automation'}
                             </Typography>
                         </Box>
                     )}

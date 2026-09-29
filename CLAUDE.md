@@ -111,6 +111,10 @@ AUTOMATION_INSTANCES=2           # Number of parallel automation engines
 ENGINE_START_DELAY=2000          # Delay between engine starts (ms)
 BROWSER_KEEPALIVE_INTERVAL=2000  # Keepalive ping interval (ms)
 CHROME_MEMORY_LIMIT=512          # Memory limit per instance (MB)
+PUPPETEER_PROTOCOL_TIMEOUT=60000 # CDP protocol timeout (ms) - lower so a blocked tab fails fast
+MULTI_TAB_TIMEOUT=900000         # Hard deadline per tab (ms) - stuck tabs fail instead of hanging the window
+MULTI_WINDOW_TIMEOUT=2700000     # Global deadline for the whole multi-window run (ms)
+PAYROLL_WORKER_TIMEOUT=1800000   # Hard deadline per payroll worker process (ms)
 ```
 
 ## Key Services (`/backend/services/`)

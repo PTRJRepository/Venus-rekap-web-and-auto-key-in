@@ -254,6 +254,7 @@ const AttendancePage = () => {
                 } else if (compareMode === 'overtime') {
                     const vOT = Number(day.overtimeHours) || 0;
                     if (vOT > 0) {
+                        // Existence-based: jam boleh beda, yang penting record OT=1 ada
                         if (!millwareRecord || !millwareRecord.hasOTRecord) {
                             otMissCount += vOT;
                         }
@@ -301,12 +302,18 @@ const AttendancePage = () => {
                     const hasRegularRecord = r.details.hasRegularRecord === true && millwareNormal > 0;
                     const hasOTRecord = r.details.hasOTRecord === true;
                     const venusOT = Number(r.venusOvertimeHours) || 0;
+                    const otHoursMatch = r.details.otHoursMatch === true;
+                    // RULE (user 2026-09-11): "kalo beda jam gpp, yang penting datanya ada".
+                    // forcedMiss = existence-based SAJA. Selisih jam OT (MINUS_OVT istirahat)
+                    // TIDAK membuat merah — otHoursMatch/otHoursDiff tetap dikirim sbg info.
                     const forcedMiss = (needsRegular && !hasRegularRecord) || (venusOT > 0 && !hasOTRecord);
 
                     map[key] = {
                         hours: r.details.millwareHours,
                         normal: r.details.millwareNormal,
                         ot: r.details.millwareOT,
+                        otHoursMatch: r.details.otHoursMatch,
+                        otHoursDiff: r.details.otHoursDiff,
                         TaskCode: r.details.millwareTaskCode || r.millwareTaskCode,
                         status: forcedMiss ? 'MISS' : r.status, // MATCH or MISS
                         syncStatus: forcedMiss ? 'not_synced' : r.syncStatus, // synced, mismatch, or not_synced

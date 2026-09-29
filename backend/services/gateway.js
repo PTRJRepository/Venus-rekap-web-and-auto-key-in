@@ -12,14 +12,25 @@ const normalizeGateway = (url) => {
   const normalized = String(url || '').replace(/\/+$/, '');
   const hasV1QueryPath = /\/v1\/query$/i.test(normalized);
   const hasQueryPath = /\/query$/i.test(normalized);
-  return {
-    baseURL: hasV1QueryPath
-      ? normalized.replace(/\/v1\/query$/i, '')
-      : hasQueryPath
-        ? normalized.replace(/\/query$/i, '')
-        : normalized,
-    queryPath: hasV1QueryPath ? '/v1/query' : hasQueryPath ? '/query' : '/v1/query'
-  };
+  // /query endpoint exists in two forms:
+  //   - sql-gateway direct  (:8001)  exposes /v1/query       → POST <host>/v1/query
+  //   - unified gateway     (:3001)  exposes route /query    → POST <host>/query/v1/query
+  // Strip the trailing /query from the gateway URL so the baseURL still ends
+  // with the /query route prefix (required for the gateway), then append
+  // /v1/query. For sql-gateway, strip /v1/query and use /v1/query.
+  if (hasV1QueryPath) {
+    return {
+      baseURL: normalized.replace(/\/v1\/query$/i, ''),
+      queryPath: '/v1/query'
+    };
+  }
+  if (hasQueryPath) {
+    return {
+      baseURL: normalized, // keep /query as route prefix on unified gateway
+      queryPath: '/v1/query'
+    };
+  }
+  return { baseURL: normalized, queryPath: '/v1/query' };
 };
 
 const primaryGateway = normalizeGateway(process.env.GATEWAY_URL || 'http://localhost:8001');
@@ -87,15 +98,26 @@ const executeQuery = async (sql) => {
   let lastError;
   const activeGateways = await getActiveGateways();
 
+  // Database-aware routing:
+  // - extend_db_ptrj (employee mappings) ada di SERVER_PROFILE_1
+  // - db_ptrj_mill (OT/attendance/payroll). DIISI data ada di SERVER_PROFILE_3 (verify: PR_TASKREG 1434 rows)
+  // - VenusHR14 ikut SERVER_PROFILE default
+  const s = String(sql || '');
+  const isExtendDb = /\[extend_db_ptrj\]/i.test(s);
+  const isMillwareDb = /\[db_ptrj_mill\]/i.test(s);
+  const targetProfile = isExtendDb ? 'SERVER_PROFILE_1' : (isMillwareDb ? SERVER_PROFILE : SERVER_PROFILE);
+  const targetDatabase = isExtendDb ? 'extend_db_ptrj' : (isMillwareDb ? 'db_ptrj_mill' : undefined);
+
   for (let i = 0; i < activeGateways.length; i += 1) {
     const gateway = activeGateways[i];
     const label = isSameGateway(gateway, primaryGateway) ? 'primary' : 'fallback';
 
     try {
-      console.log(`Executing SQL on ${SERVER_PROFILE} via ${label} gateway ${gateway.baseURL}${gateway.queryPath}: ${sql.substring(0, 50)}...`);
+      console.log(`Executing SQL on ${targetProfile} via ${label} gateway ${gateway.baseURL}${gateway.queryPath}: ${sql.substring(0, 50)}...`);
       const response = await axios.post(`${gateway.baseURL}${gateway.queryPath}`, {
         sql,
-        server_profile: SERVER_PROFILE
+        server: targetProfile,
+        ...(targetDatabase ? { database: targetDatabase } : {})
       }, {
         headers: {
           'x-api-key': API_TOKEN,

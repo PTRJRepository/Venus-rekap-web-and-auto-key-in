@@ -126,21 +126,34 @@ const setFieldIfExists = async (page, selectors, value) => {
     return false;
 };
 
+/**
+ * ACCPERIOD FISCAL CALENDAR (PENTING — baca sebelum ubah!):
+ * Field `txtSrchAccMonth`/`txtSrchAccYear` di AD Lists BUKAN bulan aktual.
+ * Millware memakai tahun fiskal yang MULAI MEI: Mei = AccMonth 1, Juni = 2, ...
+ *   Sep=5, Okt=6, Nov=7, Des=8, Jan=9, Feb=10, Mar=11, Apr=12.
+ * AccYear = tahun fiskal BERAKHIR (fiscal year ending): Sep 2026 → AccMonth=5, AccYear=2027.
+ * Default halaman (5/2027) = periode berjalan saat Sep 2026 — JANGAN diganti dgn bulan aktual,
+ * kalau tidak pencarian selalu "No Records". (User 2026-09-11)
+ */
 const setAccountingPeriod = async (page, target = {}) => {
     const month = target.accountingMonth || target.accMonth;
     const year = target.accountingYear || target.accYear;
 
     const monthSet = await setFieldIfExists(page, [
+        '#MainContent_txtSrchAccMonth',
         '#MainContent_txtAccMonth',
         '#MainContent_txtAccountingMonth',
         '#MainContent_txtMonth',
+        'input[id*="SrchAccMonth"]',
         'input[id*="AccMonth"]',
         'input[id*="AccountingMonth"]'
     ], month);
     const yearSet = await setFieldIfExists(page, [
+        '#MainContent_txtSrchAccYear',
         '#MainContent_txtAccYear',
         '#MainContent_txtAccountingYear',
         '#MainContent_txtYear',
+        'input[id*="SrchAccYear"]',
         'input[id*="AccYear"]',
         'input[id*="AccountingYear"]'
     ], year);

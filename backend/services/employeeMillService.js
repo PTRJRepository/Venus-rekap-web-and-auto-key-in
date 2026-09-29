@@ -83,14 +83,26 @@ const normalizeGateway = (url) => {
     const normalized = String(url || '').replace(/\/+$/, '');
     const hasV1QueryPath = /\/v1\/query$/i.test(normalized);
     const hasQueryPath = /\/query$/i.test(normalized);
-    return {
-        baseURL: hasV1QueryPath
-            ? normalized.replace(/\/v1\/query$/i, '')
-            : hasQueryPath
-                ? normalized.replace(/\/query$/i, '')
-                : normalized,
-        queryPath: hasV1QueryPath ? '/v1/query' : hasQueryPath ? '/query' : '/v1/query'
-    };
+    // /query endpoint exists in two forms:
+    //   - sql-gateway direct  (:8001)  exposes /v1/query       → POST <host>/v1/query
+    //   - unified gateway     (:3001)  exposes route /query    → POST <host>/query/v1/query
+    // Strip the trailing /v1/query from the gateway URL (use it as queryPath),
+    // or KEEP /query as the route prefix for the unified gateway then append
+    // /v1/query. Sending to the bare /query (no /v1/query) 404s on the unified
+    // gateway — must match services/gateway.js exactly.
+    if (hasV1QueryPath) {
+        return {
+            baseURL: normalized.replace(/\/v1\/query$/i, ''),
+            queryPath: '/v1/query'
+        };
+    }
+    if (hasQueryPath) {
+        return {
+            baseURL: normalized, // keep /query as route prefix on unified gateway
+            queryPath: '/v1/query'
+        };
+    }
+    return { baseURL: normalized, queryPath: '/v1/query' };
 };
 
 const getGatewayTargets = () => {
@@ -243,6 +255,9 @@ const queryExtendDB = async (sql, database = DB_PTRJ, options = {}) => {
  */
 const getAllEmployees = async () => {
     // Get ptrj_employee_id and charge_job from extend_db_ptrj.employee_mill (SERVER_PROFILE_1)
+    // PENTING (2026-09-11): auto name-sync pernah meng-INSERT baris duplikat dengan
+    // ptrj_employee_id kosong. Ranking harus MEMILIH baris yang punya mapping dulu,
+    // bukan sekadar baris terbaru — kalau tidak, baris kosong menimpa mapping POM.
     const sql = `
         SELECT nik, venus_employee_id, ptrj_employee_id, employee_name, charge_job, is_karyawan
         FROM (
@@ -255,7 +270,10 @@ const getAllEmployees = async () => {
                 ISNULL(is_karyawan, 1) as is_karyawan,
                 ROW_NUMBER() OVER (
                     PARTITION BY venus_employee_id
-                    ORDER BY updated_at DESC, created_at DESC, nik DESC
+                    ORDER BY
+                        CASE WHEN ptrj_employee_id IS NOT NULL AND LTRIM(RTRIM(ptrj_employee_id)) <> '' THEN 0 ELSE 1 END,
+                        CASE WHEN charge_job IS NOT NULL AND LTRIM(RTRIM(charge_job)) <> '' THEN 0 ELSE 1 END,
+                        updated_at DESC, created_at DESC, nik DESC
                 ) as rn
             FROM employee_mill
             WHERE is_active = 1
@@ -459,7 +477,17 @@ const employeeExists = async (venusEmployeeId) => {
  * @param {object} data - { employee_name, ptrj_employee_id, charge_job }
  */
 const upsertEmployee = async (venusEmployeeId, data) => {
+    // GUARD (2026-09-11): Jangan pernah INSERT baris baru dengan ptrj_employee_id kosong.
+    // Baris kosong akan menimpa mapping POM pada ranking getAllEmployees (terbaru menang)
+    // dan mengacaukan seluruh compare/payroll (semua "no PTRJ ID" → MISS semua).
+    // Jika employee belum ada di tabel, insert hanya boleh membawa mapping yang valid.
+    const hasPtrjId = data && data.ptrj_employee_id && String(data.ptrj_employee_id).trim();
     const exists = await employeeExists(venusEmployeeId);
+
+    if (!exists && !hasPtrjId) {
+        console.log(`[EmployeeMill] Skip insert for ${venusEmployeeId}: no ptrj_employee_id in payload (prevent blank shadow row)`);
+        return { success: false, message: 'Insert skipped: ptrj_employee_id is required for new employees' };
+    }
 
     if (exists) {
         return await updateEmployee(venusEmployeeId, data);

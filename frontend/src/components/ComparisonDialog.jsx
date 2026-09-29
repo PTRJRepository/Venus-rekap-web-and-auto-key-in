@@ -225,9 +225,13 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
                                     {compareMode === 'overtime' ? (
                                         <>
                                             <TableCell sx={{ color: DARK.text, fontWeight: 700, py: 1 }}>{row.venusOvertimeHours}h</TableCell>
-                                            <TableCell sx={{ color: row.details?.otMatched ? DARK.green : DARK.amber, py: 1 }}>
+                                            <TableCell sx={{ color: row.details?.hasOTRecord ? DARK.green : DARK.amber, py: 1, fontWeight: row.details?.hasOTRecord ? 400 : 700 }}>
                                                 {row.details ? `${row.details.millwareOT}h` : '-'}
-                                                {row.details?.otMatched ? '' : ` (${row.details?.millwareOT - row.venusOvertimeHours}h)`}
+                                                {row.details && row.details.otHoursMatch === false && (
+                                                    <Typography component="span" sx={{ fontSize: '0.7em', ml: 0.5, color: DARK.muted }}>
+                                                        (Δ{row.details.otHoursDiff}h info)
+                                                    </Typography>
+                                                )}
                                             </TableCell>
                                         </>
                                     ) : (
@@ -283,11 +287,11 @@ const ComparisonDialog = ({ open, onClose, selectedEmployees = [], month, year, 
                                         ]}
                                         {(compareMode === 'all' || compareMode === 'overtime') && [
                                             <TableCell key="vo" sx={{ color: DARK.text, py: 1 }}>{row.venusOvertimeHours}h</TableCell>,
-                                            <TableCell key="mo" sx={{ color: row.venusOvertimeHours === row.millwareOvertimeHours ? DARK.green : DARK.amber, py: 1 }}>
+                                            <TableCell key="mo" sx={{ color: row.venusOvertimeHours === row.millwareOvertimeHours ? DARK.green : DARK.red, py: 1, fontWeight: row.venusOvertimeHours === row.millwareOvertimeHours ? 400 : 700 }}>
                                                 {row.millwareOvertimeHours}h
                                                 {row.venusOvertimeHours !== row.millwareOvertimeHours && (
-                                                    <Typography component="span" sx={{ fontSize: '0.7em', ml: 0.5, color: DARK.amber }}>
-                                                        ({(row.millwareOvertimeHours - row.venusOvertimeHours).toFixed(2)}h)
+                                                    <Typography component="span" sx={{ fontSize: '0.7em', ml: 0.5, color: DARK.red }}>
+                                                        (Δ{(row.millwareOvertimeHours - row.venusOvertimeHours).toFixed(2)}h)
                                                     </Typography>
                                                 )}
                                             </TableCell>,

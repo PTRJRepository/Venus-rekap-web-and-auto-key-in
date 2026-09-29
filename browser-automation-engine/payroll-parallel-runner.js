@@ -1,7 +1,16 @@
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const { validatePayrollPayload } = require('./payroll-dry-runner');
+
+const parsePositiveInt = (value, fallback) => {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+// Hard deadline per worker. Tanpa ini satu worker yang menggantung (dialog JS,
+// postback tidak selesai) membuat Promise.all di runPartitionFiles menunggu
+// selamanya dan proses induk tidak pernah selesai.
+const WORKER_TIMEOUT_MS = parsePositiveInt(process.env.PAYROLL_WORKER_TIMEOUT, 30 * 60 * 1000);
 
 const DEFAULT_TEMPLATE = 'payroll-ad-input';
 const DEFAULT_DATA_FILE = path.join(__dirname, 'testing_data', 'current_payroll_data.json');
@@ -222,7 +231,23 @@ const runWorker = (partition, args) => new Promise((resolve) => {
             console.error(`[PayrollTab${partition.workerIndex} ERR] ${line}`);
         });
     });
-    child.on('close', code => resolve({ ...partition, code, success: code === 0 }));
+    child.on('close', code => {
+        clearTimeout(timeoutHandle);
+        resolve({ ...partition, code, success: code === 0 });
+    });
+
+    // Kill worker yang melewati deadline (exit code 124 = timeout, konvensi GNU timeout)
+    const timeoutHandle = setTimeout(() => {
+        console.error(`⏰ [PayrollTab${partition.workerIndex}] Worker exceeded ${WORKER_TIMEOUT_MS / 1000}s deadline — killing`);
+        if (process.platform === 'win32') {
+            execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], (error) => {
+                if (error) child.kill('SIGKILL');
+            });
+        } else {
+            child.kill('SIGKILL');
+        }
+        resolve({ ...partition, code: 124, success: false, timedOut: true });
+    }, WORKER_TIMEOUT_MS);
 });
 
 const buildIsolatedRowBatches = (employees, workers) => {

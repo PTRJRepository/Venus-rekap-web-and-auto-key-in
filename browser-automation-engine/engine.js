@@ -7,6 +7,11 @@ const RecoveryManager = require('./utils/recovery');
 const { MILLWARE_CONFIG } = require('./browser-session');
 const { applyBrowserWindow, getChromeWindowArgs, getDefaultViewport } = require('./browser-window');
 
+const parsePositiveInt = (value, fallback) => {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 class AutomationEngine {
     constructor(options = {}) {
         this.browser = null;
@@ -284,6 +289,9 @@ class AutomationEngine {
             headless: this.headless,
             slowMo: this.slowMo,
             defaultViewport: getDefaultViewport(this.headless),
+            // Batasi protocol timeout (default Puppeteer 180s) supaya satu CDP call
+            // yang diblokir (mis. dialog JS tak terjawab) tidak menggantung tab 3 menit.
+            protocolTimeout: parsePositiveInt(process.env.PUPPETEER_PROTOCOL_TIMEOUT, 60000),
             args: [
                 ...getChromeWindowArgs(),
                 '--no-sandbox',
@@ -365,6 +373,20 @@ class AutomationEngine {
                 return id;
             };
             window.cancelAnimationFrame = function (id) { clearTimeout(id); };
+        });
+
+        // ═══ DIALOG AUTO-DISMISS ═══
+        // Dialog JS (alert/confirm/beforeunload) yang tidak dibalas MEMBLOK seluruh
+        // eksekusi JS di page tersebut — semua CDP call berikutnya (evaluate,
+        // waitForSelector) menggantung hingga protocolTimeout. Ini penyebab utama
+        // tab "stuck idle". Auto-dismiss semua dialog dan catat ke log.
+        this.page.on('dialog', async (dialog) => {
+            console.log(`🪟 [E${this.engineId}] Auto-dismiss ${dialog.type()} dialog: "${dialog.message().slice(0, 120)}"`);
+            try {
+                await dialog.dismiss();
+            } catch (e) {
+                // Dialog mungkin sudah tertutup oleh navigasi
+            }
         });
 
         // ═══ CONNECTION MONITORING ═══

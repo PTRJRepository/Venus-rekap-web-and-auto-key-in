@@ -50,6 +50,10 @@ const App = () => {
     const [periodLoading, setPeriodLoading] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
     const [isComparing, setIsComparing] = useState(false);
+    // Elapsed seconds for the running comparison. Full-month compare over ~187
+    // employees takes 45-60s, and the button just said "Syncing..." the whole
+    // time, so it looked hung. We can't know real progress, so show elapsed time.
+    const [compareElapsed, setCompareElapsed] = useState(0);
     const [syncTargetMode, setSyncTargetMode] = useState('all');
     const [isEditMode, setIsEditMode] = useState(false);
     const [showStaff, setShowStaff] = useState(false);
@@ -90,6 +94,16 @@ const App = () => {
         setIsAuthenticated(false);
         localStorage.removeItem('venus_auth');
     };
+
+    useEffect(() => {
+        if (!isComparing) {
+            setCompareElapsed(0);
+            return;
+        }
+        setCompareElapsed(0);
+        const timer = setInterval(() => setCompareElapsed(s => s + 1), 1000);
+        return () => clearInterval(timer);
+    }, [isComparing]);
 
     useEffect(() => {
         if (!isAuthenticated) return;
@@ -558,7 +572,7 @@ const App = () => {
                                     />
                                     <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
                                     <Button variant={compareMode !== 'off' ? "contained" : "outlined"} size="small" color={compareMode !== 'off' ? "secondary" : "inherit"} startIcon={isComparing ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <CompareIcon />} onClick={handleCompareToggle} disabled={isComparing} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
-                                        {isComparing ? 'Syncing...' : 'COMPARE'}
+                                        {isComparing ? `Syncing... ${compareElapsed}s` : 'COMPARE'}
                                     </Button>
                                     <Button variant="contained" size="small" color="success" startIcon={<SyncIcon />} onClick={() => openSyncDialog('all')} disabled={!data || data.length === 0} sx={{ height: 32, fontWeight: 700, fontSize: '0.8rem' }}>
                                         Sinkron ({selectedEmployeeIds.length > 0 ? selectedEmployeeIds.length : (data ? data.length : 0)})

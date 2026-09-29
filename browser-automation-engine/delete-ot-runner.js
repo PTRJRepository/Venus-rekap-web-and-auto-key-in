@@ -94,7 +94,10 @@ const normalizeTarget = (target) => {
         return {
             internalId: target.internalId || target.id || target.docId || target.doc_id || '',
             docNumber: target.docNumber || target.doc_number || '',
-            label: target.label || target.docNumber || target.doc_number || target.docId || target.doc_id || target.id || ''
+            label: target.label || target.docNumber || target.doc_number || target.docId || target.doc_id || target.id || '',
+            // Preserve per-target employeeFilter supaya runner hapus per-record (per EmpCode),
+            // bukan seluruh baris OT di DocID multi-employee.
+            employees: Array.isArray(target.employees) ? target.employees : undefined
         };
     }
     return {
@@ -102,6 +105,15 @@ const normalizeTarget = (target) => {
         docNumber: '',
         label: String(target || '')
     };
+};
+
+const normalizeDateKey = (value) => {
+    const t = String(value || '').trim();
+    let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    return '';
 };
 
 const normalizeEmployeeFilter = (employees) => {
@@ -114,7 +126,11 @@ const normalizeEmployeeFilter = (employees) => {
                 employee.ptrjId ||
                 employee.id
             ),
-            empName: employee.empName || employee.name || employee.EmployeeName || employee.employeeName || ''
+            empName: employee.empName || employee.name || employee.EmployeeName || employee.employeeName || '',
+            // Per-date scope (opsional): hapus hanya baris pada tanggal-tanggal ini.
+            // Kosong = tanpa batasan tanggal (perilaku lama per-employee).
+            dates: (Array.isArray(employee.dates) ? employee.dates : [])
+                .map(normalizeDateKey).filter(Boolean)
         }))
         .filter((employee) => employee.empCode);
 };
@@ -733,9 +749,29 @@ const parseCurrentDetailRows = async (page, options = {}) => {
     const { category = 'ot', employeeFilter = [] } = options;
     const normalizedCategory = String(category || 'ot').toLowerCase();
     const filterSet = new Set((employeeFilter || []).map((employee) => normalizeKey(employee.empCode)).filter(Boolean));
+    // Per-date scope: empCode -> array of dates (YYYY-MM-DD). Array kosong = semua
+    // tanggal. (Array, bukan Set — Set tidak bisa diserialisasi lewat page.evaluate.)
+    const dateScope = {};
+    (employeeFilter || []).forEach((employee) => {
+        if (employee && employee.empCode && Array.isArray(employee.dates) && employee.dates.length > 0) {
+            dateScope[employee.empCode] = employee.dates;
+        }
+    });
 
-    return page.evaluate((targetCategory, empCodes) => {
+    return page.evaluate((targetCategory, empCodes, dateScopeMap) => {
         const wantedEmployees = new Set(empCodes);
+        const dateScopes = dateScopeMap || {};
+
+        // Normalize "MM/DD/YYYY" or "MM/DD/YYYY hh:mm" cell text to YYYY-MM-DD
+        const normDate = (raw) => {
+            const t = String(raw || '').trim();
+            let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+            if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+            m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+            return '';
+        };
+
         const rows = Array.from(document.querySelectorAll('#MainContent_gvLine tr.mr-l, #MainContent_gvLine tr.mr-r, table[id*="gvLine"] tr.mr-l, table[id*="gvLine"] tr.mr-r'));
 
         return rows.map((row, idx) => {
@@ -751,6 +787,8 @@ const parseCurrentDetailRows = async (page, options = {}) => {
             const normalOT = (cells[9]?.textContent || '').trim();
             const empCode = (cells[2]?.textContent || '').trim();
             const empKey = empCode.trim().toUpperCase();
+            const trxDate = (cells[1]?.textContent || '').trim();
+            const rowDate = normDate(trxDate);
 
             let matchesCategory = false;
             if (targetCategory === 'all') matchesCategory = true;
@@ -758,11 +796,13 @@ const parseCurrentDetailRows = async (page, options = {}) => {
             else matchesCategory = normalOT.toUpperCase() === 'OT';
 
             const matchesEmployee = wantedEmployees.size === 0 || wantedEmployees.has(empKey);
+            const allowed = dateScopes[empKey];
+            const matchesDate = !allowed || (Array.isArray(allowed) && allowed.length === 0) || (Array.isArray(allowed) && allowed.includes(normDate(trxDate)));
 
             return {
                 rowIndex: idx,
                 taskCode: (cells[0]?.textContent || '').trim(),
-                trxDate: (cells[1]?.textContent || '').trim(),
+                trxDate,
                 empCode,
                 empName: (cells[3]?.textContent || '').trim(),
                 station: (cells[4]?.textContent || '').trim(),
@@ -772,10 +812,10 @@ const parseCurrentDetailRows = async (page, options = {}) => {
                 amount: (cells[14]?.textContent || '').trim(),
                 deleteId: deleteLink?.id || '',
                 hasDelete: Boolean(deleteLink),
-                isTarget: matchesCategory && matchesEmployee
+                isTarget: matchesCategory && matchesEmployee && matchesDate
             };
         });
-    }, normalizedCategory, Array.from(filterSet));
+    }, normalizedCategory, Array.from(filterSet), dateScope);
 };
 
 const getDetailRowsSignature = async (page) => {
@@ -885,6 +925,7 @@ const processCurrentDetailPage = async (page, docTarget, options = {}) => {
     let totalFound = 0;
     let totalDeleted = 0;
     let stopCurrentDoc = false;
+    let emptyPageSeen = false; // jadi true ketika halaman tanpa target ditemukan
     const results = [];
 
     while (true) {
@@ -894,6 +935,9 @@ const processCurrentDetailPage = async (page, docTarget, options = {}) => {
             await sleep(1000);
             const rows = await parseCurrentDetailRows(page, { category, employeeFilter });
             const targetRows = rows.filter((row) => row.isTarget);
+            if (targetRows.length === 0) {
+                emptyPageSeen = true;
+            }
             totalFound += targetRows.length;
 
             log(`Detail page ${pageNum}.${pass}: found ${targetRows.length} ${categoryLabel(category)} row(s)`);
@@ -986,6 +1030,11 @@ const processCurrentDetailPage = async (page, docTarget, options = {}) => {
             log(`Max detail pages reached (${maxPages}); stopping pagination for this DocID`);
             break;
         }
+
+        // PENTING: halaman tanpa target TIDAK boleh menghentikan paginasi —
+        // baris target bisa berada di halaman berikutnya (duplikat sering di
+        // halaman 2+). Akhir daftar dideteksi oleh goToNextDetailPage
+        // ("grid did not change"), bukan oleh halaman kosong target.
 
         const hasNext = await goToNextDetailPage(page);
         if (!hasNext) break;
@@ -1189,12 +1238,20 @@ const runTabbedPartitions = async (docTargets, options = {}) => {
                 for (const target of worker.partition) {
                     try {
                         const docLabel = target.label || target.internalId || target.docNumber;
+                        // Per-target employeeFilter: kalau target bawa employees sendiri, pakai itu
+                        // (hanya hapus record OT milik karyawan tertentu di DocID ini, bukan semua).
+                        const targetEmployeeFilter = Array.isArray(target.employees) && target.employees.length > 0
+                            ? normalizeEmployeeFilter(target.employees)
+                            : employeeFilter;
+                        if (targetEmployeeFilter.length > 0 && targetEmployeeFilter.length !== employeeFilter.length) {
+                            log(`${workerLabel}: ${docLabel} per-record filter = ${targetEmployeeFilter.map(e=>e.empCode).join(',')}`);
+                        }
                         log(`${workerLabel}: start ${docLabel}`);
                         const result = await processDocId(page, target, {
                             month,
                             year,
                             category,
-                            employeeFilter,
+                            employeeFilter: targetEmployeeFilter,
                             dryRun,
                             maxPages,
                             forceListSearch,
@@ -1324,11 +1381,14 @@ const runParallel = async (targets, options = {}) => {
             await login(page);
             for (const target of partitions[i]) {
                 try {
+                    const targetEmployeeFilter = Array.isArray(target.employees) && target.employees.length > 0
+                        ? normalizeEmployeeFilter(target.employees)
+                        : employeeFilter;
                     const result = await processDocId(page, target, {
                         month,
                         year,
                         category,
-                        employeeFilter,
+                        employeeFilter: targetEmployeeFilter,
                         dryRun,
                         maxPages,
                         forceListSearch,

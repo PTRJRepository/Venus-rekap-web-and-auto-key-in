@@ -32,6 +32,9 @@ const isRegularMillwareRow = (row = {}) => normalizeOTValue(row.OT) === 0;
 const isOvertimeMillwareRow = (row = {}) => normalizeOTValue(row.OT) === 1;
 const hasPositiveHours = (row = {}) => toNumber(row.Hours) > 0;
 
+// Toleransi selisih jam OT (Venus vs Millware) dalam jam
+const OT_HOURS_TOLERANCE = 0.05;
+
 /**
  * Query PR_TASKREGLN data for comparison
  * @param {string} startDate - Start date YYYY-MM-DD
@@ -258,23 +261,28 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
             }
 
             // --- OVERTIME HOURS CHECK (OT = 1) ---
-            // RULE: If Venus has OT hours > 0, Millware MUST have OT=1 record with matching hours
-            // If Venus has OT = 0, no OT record needed (unless there's a mismatch to detect)
+            // RULE (user 2026-09-11): "kalo beda jam gpp, yang penting datanya ada" —
+            // badge OT di UI = existence-based, SAMA dengan regular. Jam Millware sering
+            // beda dari Venus karena dipotong jam istirahat (MINUS_OVT); selama record
+            // OT=1 ADA, dianggap synced (hijau). Detail selisih jam tetap dilaporkan
+            // di otHoursMatch/otHoursDiff sebagai info, TIDAK membuat merah.
+            let skipOtSynced = true;
+            let otHoursMatch = venusOt <= 0 && otHours <= 0;
             if (venusOt > 0) {
-                // Venus expects OT hours -> Millware MUST have OT=1 record
                 if (hasOTRecord) {
-                    // Record exists. Following the same logic: "kalo yan beda jam gappa"
-                    // Existence of OT record is enough.
-                    otSynced = true;
+                    // Record exists → synced (existence-based, jam boleh beda)
+                    skipOtSynced = true;
+                    // Info-only: apakah jam Millware persis sama dengan Venus
+                    otHoursMatch = Math.abs(otHours - venusOt) <= OT_HOURS_TOLERANCE;
                 } else {
-                    // No OT=1 record in Millware but Venus has OT hours -> NOT SYNCED
-                    otSynced = false;
+                    // Venus has OT hours but no OT=1 record in Millware → NOT SYNCED
+                    skipOtSynced = false;
+                    otHoursMatch = false;
                 }
             } else {
                 // Venus OT = 0 (no overtime)
-                // If Millware has an OT record but Venus 0, we can also consider it synced
-                // because we only care about missing data from Millware.
-                otSynced = true;
+                skipOtSynced = true;
+                otHoursMatch = otHours <= OT_HOURS_TOLERANCE;
             }
 
             // --- MODE FILTERING ---
@@ -292,6 +300,8 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
             }
 
             // Final sync decision - both regular and OT must be synced (unless filtered by mode)
+            // otSynced = skipOtSynced (existence-only) untuk konsistensi logika skip automation lama
+            otSynced = skipOtSynced;
             isSynced = regularSynced && otSynced;
 
             // Log mismatches for debugging
@@ -369,6 +379,9 @@ const compareWithTaskReg = async (venusData, startDate, endDate, options = {}) =
                 venusHours: venusTotal,
                 venusNormal: venusRegular,
                 venusOT: venusOt,
+                // Perbandingan jam OT (Millware harus ikut Venus)
+                otHoursMatch,
+                otHoursDiff: Number((venusOt - otHours).toFixed(2)),
                 records: millwareRecords.length,
                 regularMatched: regularMatch, // Use the computed strict variable
                 otMatched: otMatch, // Use the computed strict variable

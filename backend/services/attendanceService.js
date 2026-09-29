@@ -2,6 +2,7 @@ const { executeQuery } = require('./gateway');
 // const { getPTRJMapping, matchPTRJEmployeeId } = require('./mappingService'); // Now unused
 // const { getChargeJobMapFromDB } = require('./employeeMillService'); // Now unused
 const { getAllEmployees: getMillEmployees, getHolidaysFromDB: fetchHolidaysFromMill, upsertEmployee } = require('./employeeMillService');
+const { applyCutover } = require('./_cutover_map'); // mid-month starter cut-off (POM00316-329)
 
 // const fs = require('fs'); // Unused
 // const path = require('path'); // Unused
@@ -648,6 +649,10 @@ const fetchAttendanceData = async (month, year, options = { showStaff: false }) 
 
     console.log(`Processed ${finalData.length} employees with full ETL data`);
 
+    // Mid-month starter cutover: buang attendance sebelum jam masuk pertama
+    // (POM00316–POM00329, start 2026-08-18) — baris Millware sebelum itu dihapus.
+    applyCutover(finalData);
+
     // Empty state detection with clear error message
     if (finalData.length === 0) {
         console.warn(`[AttendanceService] No employees found for ${month}/${year}`);
@@ -1011,6 +1016,7 @@ const fetchAttendanceDataOvertimeOnly = async (month, year, options = { showStaf
     });
 
     console.log(`[OVERTIME-ONLY] Processed ${finalData.length} employees`);
+    applyCutover(finalData); // mid-month starter cut-off (POM00316-329)
     return finalData;
 };
 

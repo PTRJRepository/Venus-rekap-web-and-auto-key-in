@@ -1,0 +1,6 @@
+{
+    "_comment": "Override cutover dates (first real TA date). Letisia Adita starts 2026-08-12 (Input_D 05:59-14:11 on 08-12; verified via HR_T_TAMachineInput_D + Summary, 2026-09-11) - the 2026-09-10 map used Summary only and wrongly cut her 08-12..08-15 days. Teguh Anugrah POM00315 starts 2026-08-03 (map never included him), Asdi POM00330 starts 2026-08-18 (also never in map). Verified 2026-09-11 via Summary+Input_D.",
+    "POM00329": "2026-08-12",
+    "POM00315": "2026-08-03",
+    "POM00330": "2026-08-18"
+}

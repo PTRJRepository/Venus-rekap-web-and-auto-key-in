@@ -7,7 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const { emit } = require('./ndjson-emitter');
 const { employeeAssignmentKey } = require('./multi-tab-assignment');
 
@@ -149,13 +149,6 @@ function calculateActualWindowCount(requestedWindows, maxWindows, workItemCount)
     return Math.max(1, Math.min(requested, max, available));
 }
 
-function cloneEmployeeForPartition(employee) {
-    return {
-        ...employee,
-        Attendance: {}
-    };
-}
-
 function sortEmployeeAttendance(employee) {
     if (!employee?.Attendance || typeof employee.Attendance !== 'object') return employee;
 
@@ -170,30 +163,33 @@ function sortEmployeeAttendance(employee) {
     };
 }
 
-function addWorkItemToPartition(partition, item) {
-    const partitionKey = item.key || `__employee_${item.employeeIndex}`;
-    let employee = partition.byKey.get(partitionKey);
+function employeePartitionWeight(employee, metadata = {}) {
+    const entries = attendanceEntries(employee);
+    if (entries.length === 0) return 1;
+    return entries.reduce(
+        (total, [, attendance]) => total + Math.max(1, estimateAttendanceWork(attendance, metadata)),
+        0
+    );
+}
 
-    if (!employee) {
-        employee = cloneEmployeeForPartition(item.employee);
-        partition.byKey.set(partitionKey, employee);
-        partition.employees.push(employee);
-    }
-
-    if (item.date) {
-        employee.Attendance[item.date] = item.attendance;
-        partition.attendanceCount += 1;
-    } else {
-        employee.Attendance = item.employee.Attendance || {};
-    }
-
-    partition.workUnits += Math.max(1, item.weight || 1);
+function addEmployeeToPartition(partition, employee, weight, attendanceCount) {
+    partition.employees.push(sortEmployeeAttendance(employee));
+    partition.workUnits += Math.max(1, weight || 1);
+    partition.attendanceCount += attendanceCount || 0;
 }
 
 function buildWindowRunPlan({ data, requestedWindows, maxWindows = DEFAULT_MAX_WINDOWS, tabsPerWindow = DEFAULT_TABS_PER_WINDOW }) {
     const employees = getEmployeeList(data);
-    const workItems = buildAttendanceWorkItems(employees, data?.metadata || {});
-    const actualWindows = calculateActualWindowCount(requestedWindows, maxWindows, workItems.length);
+    const metadata = data?.metadata || {};
+    const totalAttendanceRecords = employees.reduce(
+        (total, employee) => total + attendanceEntries(employee).length,
+        0
+    );
+    const actualWindows = calculateActualWindowCount(
+        requestedWindows,
+        maxWindows,
+        Math.max(totalAttendanceRecords, employees.length)
+    );
 
     const partitions = Array.from({ length: actualWindows }, () => ({
         employees: [],
@@ -202,20 +198,32 @@ function buildWindowRunPlan({ data, requestedWindows, maxWindows = DEFAULT_MAX_W
         attendanceCount: 0
     }));
 
-    const sortedItems = [...workItems].sort((a, b) => {
+    // Satu employee = satu window. Jangan pecah tanggal-tanggal milik
+    // employee yang sama ke window berbeda: dua window yang membuka dokumen
+    // Task Register milik employee yang sama akan berebut session/postback
+    // ASP.NET yang sama (tab "nyangkut", Requesting main frame too early).
+    const employeeWork = employees.map((employee, employeeIndex) => ({
+        employee,
+        employeeIndex,
+        key: employeeAssignmentKey(employee) || `__employee_${employeeIndex}`,
+        weight: employeePartitionWeight(employee, metadata),
+        attendanceCount: attendanceEntries(employee).length
+    }));
+
+    const sortedEmployees = [...employeeWork].sort((a, b) => {
         if ((b.weight || 0) !== (a.weight || 0)) return (b.weight || 0) - (a.weight || 0);
-        if (a.employeeIndex !== b.employeeIndex) return a.employeeIndex - b.employeeIndex;
-        return (a.date || '').localeCompare(b.date || '');
+        return a.employeeIndex - b.employeeIndex;
     });
 
-    sortedItems.forEach((item) => {
+    sortedEmployees.forEach((item) => {
         const target = partitions.reduce((best, partition, index) => {
             if (partition.workUnits < partitions[best].workUnits) return index;
             if (partition.workUnits === partitions[best].workUnits && partition.employees.length < partitions[best].employees.length) return index;
             return best;
         }, 0);
 
-        addWorkItemToPartition(partitions[target], item);
+        addEmployeeToPartition(partitions[target], item.employee, item.weight, item.attendanceCount);
+        partitions[target].byKey.set(item.key, true);
     });
 
     return {
@@ -224,7 +232,7 @@ function buildWindowRunPlan({ data, requestedWindows, maxWindows = DEFAULT_MAX_W
         tabsPerWindow,
         totalCapacity: actualWindows * tabsPerWindow,
         totalEmployees: employees.length,
-        totalAttendanceRecords: workItems.filter((item) => item.date).length,
+        totalAttendanceRecords,
         partitions: partitions.map((partition) => ({
             employees: partition.employees.map(sortEmployeeAttendance),
             workUnits: partition.workUnits,
@@ -382,7 +390,16 @@ async function runMultiWindow({ templateName, dataFilePath, requestedWindows, ma
 
     const killChildren = () => {
         running.forEach(({ child }) => {
-            if (!child.killed) child.kill('SIGTERM');
+            if (child.killed) return;
+            // Di Windows SIGTERM tidak mematikan tree proses (Chrome ikut hidup).
+            // taskkill /T /F mematikan runner SEKALIGUS browser yang di-spin-nya.
+            if (process.platform === 'win32') {
+                execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], (error) => {
+                    if (error) child.kill('SIGKILL');
+                });
+            } else {
+                child.kill('SIGTERM');
+            }
         });
     };
 
@@ -418,7 +435,14 @@ async function runMultiWindow({ templateName, dataFilePath, requestedWindows, ma
             }));
         }
 
-        const results = await Promise.all(running.map((item) => item.done));
+        const results = await Promise.race([
+            Promise.all(running.map((item) => item.done)),
+            // Global deadline: kalau satu window menggantung (tab-nya stuck dan
+            // tab timeout env tidak di-set), jangan biarkan runner hidup selamanya.
+            new Promise((resolve) => setTimeout(() => resolve(
+                running.map((item) => ({ windowIndex: item.windowIndex, code: 124 }))
+            ), parsePositiveInt(process.env.MULTI_WINDOW_TIMEOUT, 45 * 60 * 1000)))
+        ]);
         const failed = results.filter((result) => result.code !== 0);
 
         if (failed.length > 0) {

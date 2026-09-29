@@ -18,11 +18,13 @@
  *   7. Report results
  */
 
+require('./_process_guards'); // EPIPE + unhandledRejection/uncaughtException guards — runner tidak mati saat pipe parent putus
+
 const fs = require('fs');
 const path = require('path');
 const { emit } = require('./ndjson-emitter');
 const AutomationEngine = require('./engine');
-const { MillwareSession, MILLWARE_CONFIG } = require('./browser-session');
+const { MillwareSession, detectAuthMarkers, MILLWARE_CONFIG } = require('./browser-session');
 const {
     assignEmployeesToTabs,
     calculateActualTabCount,
@@ -40,12 +42,59 @@ const parsePositiveInt = (value, fallback) => {
 };
 
 const TAB_STAGGER_DELAY = parsePositiveInt(process.env.MULTI_TAB_STAGGER_DELAY, 250);
+// Hard deadline per tab. Tanpa ini, satu tab yang menggantung (dialog JS, postback
+// ASP.NET yang tidak selesai, lock session server) membuat Promise.all di
+// runTabsWithInterval menunggu selamanya — window tidak pernah selesai.
+const TAB_TIMEOUT_MS = parsePositiveInt(process.env.MULTI_TAB_TIMEOUT, 15 * 60 * 1000);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function isNavigationTransientError(error) {
     const message = error?.message || String(error || '');
     return /execution context was destroyed|cannot find context|navigation|frame was detached/i.test(message);
+}
+
+/**
+ * Detect if a page has lost its Millware session (redirected to login).
+ * Checks both URL and auth markers.
+ * Returns true if session is expired/lost.
+ */
+async function isSessionExpired(page) {
+    try {
+        if (!page || page.isClosed?.()) return true;
+        const url = page.url() || '';
+        // Fast path: URL contains login indicators
+        if (/login|SessionExpire|sessionexpire/i.test(url)) return true;
+        // If navigated to root, likely a redirect to login
+        const baseNorm = MILLWARE_CONFIG.baseUrl.replace(/\/$/, '').toLowerCase();
+        const urlNorm = url.replace(/\/$/, '').toLowerCase();
+        if (urlNorm === baseNorm || urlNorm === baseNorm + '/') return true;
+        return false;
+    } catch (_) {
+        return true; // If we can't check, assume expired
+    }
+}
+
+/**
+ * Attempt mid-chunk session recovery for a tab.
+ * Called when a tab encounters session expiry mid-execution.
+ * Clears cookies, logs back into Millware, navigates back to target page.
+ * Returns the (same) page, ready to continue.
+ */
+async function recoverTabSession(page, session, tabIndex, targetUrl) {
+    const label = `Tab ${tabIndex + 1}`;
+    console.warn(`⚠️  [${label}] Session expired mid-chunk — attempting recovery login...`);
+    emit('tab.session.recovering', { tab_index: tabIndex });
+    try {
+        await session.recoverPageSession(page, targetUrl);
+        console.log(`✅ [${label}] Session recovered — continuing from recovered page`);
+        emit('tab.session.recovered', { tab_index: tabIndex });
+        return page;
+    } catch (recErr) {
+        console.error(`❌ [${label}] Session recovery failed: ${recErr.message}`);
+        emit('tab.session.recovery_failed', { tab_index: tabIndex, error: recErr.message });
+        throw recErr;
+    }
 }
 
 function safePageUrl(page) {
@@ -62,6 +111,16 @@ function useIsolatedTabSessions() {
 
 function shouldBringTabToFrontOnTrigger() {
     return process.env.MULTI_TAB_BRING_TO_FRONT_ON_TRIGGER === 'true';
+}
+
+function shouldRotateForeground() {
+    if (process.env.MULTI_TAB_ROTATE_FOREGROUND === 'true') return true;
+    if (process.env.MULTI_TAB_ROTATE_FOREGROUND === 'false') return false;
+    // Default: nyala saat headed. Ini mengotomatiskan "klik tab manual"
+    // yang selama ini harus dilakukan user: tab background yang ke-throttle
+    // (postback ASP.NET perhitungan rate/jam tidak selesai) dapat jatah
+    // foreground bergiliran sehingga tidak stuck.
+    return process.env.HEADLESS !== 'true';
 }
 
 function shouldSkipRedundantTabNavigation() {
@@ -479,6 +538,12 @@ async function runTab(tabIndex, employees, page, data, split, session, templateN
     engine.disableBrowserRecycle = true;
     engine.recoveryManager.clearState();
 
+    // Heartbeat: state file per tab sudah jadi indikator "tab masih hidup"
+    // (terlihat dari logs/state_engine_tab_*.json). Tanpa startHeartbeat, file
+    // tidak pernah diupdate dan tidak ada cara mendeteksi tab mati dari luar.
+    engine.startHeartbeat();
+    engine.startBrowserKeepalive();
+
     const tabData = {
         ...data,
         metadata: { ...(data.metadata || {}) },
@@ -498,22 +563,101 @@ async function runTab(tabIndex, employees, page, data, split, session, templateN
 
     const tabStats = { done: 0, failed: 0, skipped: 0, total: employees.length };
 
+    let result = null;
     try {
-        await engine.executeSteps([split.loopStep], tabContext);
-        const addedRows = Number(tabContext.metadata?.addedRows || 0);
-        await submitTaskRegisterTab(page, tabIndex, addedRows);
-        if (tabContext.metadata?.deferEmployeeSyncVerification) {
-            await engine.executeSteps([{ action: 'verifyDeferredEmployeeSync', params: {} }], tabContext);
-        }
-        tabStats.done = employees.length;
-        console.log(`✅ [Tab ${tabIndex + 1}] ✅ Selesai (${employees.length} employee(s))`);
-        emit('tab.completed', { tab_index: tabIndex, status: 'completed', added_rows: addedRows, ...tabStats });
-        return { tabIndex, employees: employees.length, status: 'completed', addedRows };
-    } catch (err) {
-        tabStats.failed = employees.length;
-        console.error(`❌ [Tab ${tabIndex + 1}] ❌ Gagal: ${err.message}`);
-        emit('tab.completed', { tab_index: tabIndex, status: 'failed', error: err.message, ...tabStats });
-        return { tabIndex, employees: employees.length, status: 'failed', error: err.message };
+        // Hard deadline: race eksekusi tab terhadap timeout. Pemenang menentukan
+        // hasil tab; kalau timer menang, tab ditandai gagal (timeout) dan
+        // Promise.all tidak menggantung selamanya.
+        let timeoutHandle = null;
+        let tabSettled = false;
+        const tabPromise = (async () => {
+            // Helper to run one full tab execution pass
+            async function runPass() {
+                await engine.executeSteps([split.loopStep], tabContext);
+                const addedRows = Number(tabContext.metadata?.addedRows || 0);
+                await submitTaskRegisterTab(page, tabIndex, addedRows);
+                if (tabContext.metadata?.deferEmployeeSyncVerification) {
+                    await engine.executeSteps([{ action: 'verifyDeferredEmployeeSync', params: {} }], tabContext);
+                }
+                return addedRows;
+            }
+
+            try {
+                const addedRows = await runPass();
+                tabStats.done = employees.length;
+                console.log(`✅ [Tab ${tabIndex + 1}] ✅ Selesai (${employees.length} employee(s))`);
+                if (!tabSettled) {
+                    emit('tab.completed', { tab_index: tabIndex, status: 'completed', added_rows: addedRows, ...tabStats });
+                }
+                return { tabIndex, employees: employees.length, status: 'completed', addedRows };
+            } catch (err) {
+                // ── Mid-chunk session recovery ──────────────────────────────────────
+                // If the error looks like a session expiry (context destroyed, navigation
+                // to login page), attempt ONE automatic re-login and retry the whole tab.
+                // This handles ASP.NET 20-min session timeout mid-chunk without crashing.
+                const sessionLost = isNavigationTransientError(err) || await isSessionExpired(page).catch(() => false);
+                if (sessionLost) {
+                    try {
+                        const targetUrl = split.lastSetupNavigateUrl ||
+                            (MILLWARE_CONFIG.baseUrl.replace(/\/$/, '') + MILLWARE_CONFIG.taskRegisterPage);
+                        await recoverTabSession(page, session, tabIndex, targetUrl);
+                        // Reset engine page after recovery
+                        engine.page = page;
+                        // Reset addedRows counter so we don't double-count
+                        tabContext.metadata = { ...(data.metadata || {}), deferEmployeeSyncVerification: tabContext.metadata.deferEmployeeSyncVerification, addedRows: 0 };
+                        console.log(`🔄 [Tab ${tabIndex + 1}] Retrying after session recovery...`);
+                        emit('tab.session.retry', { tab_index: tabIndex });
+                        const addedRows2 = await runPass();
+                        tabStats.done = employees.length;
+                        console.log(`✅ [Tab ${tabIndex + 1}] ✅ Selesai setelah recovery (${employees.length} employee(s))`);
+                        if (!tabSettled) {
+                            emit('tab.completed', { tab_index: tabIndex, status: 'completed_after_recovery', added_rows: addedRows2, ...tabStats });
+                        }
+                        return { tabIndex, employees: employees.length, status: 'completed_after_recovery', addedRows: addedRows2 };
+                    } catch (recErr) {
+                        // Recovery itself failed — fall through to normal failure reporting
+                        console.error(`❌ [Tab ${tabIndex + 1}] Recovery+retry failed: ${recErr.message}`);
+                    }
+                }
+                // ── Normal failure (no session issue or recovery failed) ─────────────
+                tabStats.failed = employees.length;
+                console.error(`❌ [Tab ${tabIndex + 1}] ❌ Gagal: ${err.message}`);
+                if (!tabSettled) {
+                    emit('tab.completed', { tab_index: tabIndex, status: 'failed', error: err.message, ...tabStats });
+                }
+                return { tabIndex, employees: employees.length, status: 'failed', error: err.message };
+            } finally {
+                engine.stopHeartbeat();
+                engine.stopBrowserKeepalive();
+            }
+        })();
+
+        const timeoutResult = new Promise((resolve) => {
+            timeoutHandle = setTimeout(() => {
+                tabSettled = true;
+                const message = `Tab exceeded hard deadline ${TAB_TIMEOUT_MS / 1000}s (stuck or too slow)`;
+                console.error(`⏰ [Tab ${tabIndex + 1}] ⏰ ${message}`);
+                emit('tab.timeout', { tab_index: tabIndex, timeout_ms: TAB_TIMEOUT_MS, employee_count: employees.length });
+                resolve({ tabIndex, employees: employees.length, status: 'failed', error: message, timedOut: true });
+            }, TAB_TIMEOUT_MS);
+        });
+
+        result = await Promise.race([tabPromise, timeoutResult]);
+        clearTimeout(timeoutHandle);
+        tabSettled = true;
+        return result;
+    } finally {
+        // Setelah timeout: eksekusi tab dibiarkan error sendiri di background
+        // (navigation error akan menghentikan CDP call yang menggantung), lalu
+        // tab di-reset supaya tidak meninggalkan form setengah terisi.
+        try {
+            if (result?.timedOut && !page.isClosed?.()) {
+                const listUrl = split.lastSetupNavigateUrl ||
+                    (MILLWARE_CONFIG.baseUrl.replace(/\/$/, '') + MILLWARE_CONFIG.taskRegisterPage);
+                console.log(`🧹 [Tab ${tabIndex + 1}] Resetting page after timeout...`);
+                await page.goto(listUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+            }
+        } catch (_) { /* best effort */ }
     }
 }
 
@@ -560,6 +704,9 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
         throw new Error('Data tidak memiliki employee untuk diproses.');
     }
 
+    const rotateForeground = shouldRotateForeground();
+    const rotateIntervalMs = parsePositiveInt(process.env.MULTI_TAB_ROTATE_INTERVAL, 5000);
+
     emit('run.started', {
         template: templateName,
         data_file: dataFilePath,
@@ -569,7 +716,8 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
         input_row_count: countEmployeeInputRows(plan.employees),
         actual_tabs: plan.actualTabs,
         stagger_delay_ms: TAB_STAGGER_DELAY,
-        isolated_sessions: isolatedSessions
+        isolated_sessions: isolatedSessions,
+        rotate_foreground: rotateForeground
     });
 
     // ══════════════════════════════════════════════════════
@@ -608,7 +756,14 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
     // 2. SESSION MANAGEMENT
     // ══════════════════════════════════════════════════════
     const freshLogin = process.env.FRESH_LOGIN === 'true';
-    const sessionId = `millware-${templateName}-${dataFilePath.replace(/[^a-zA-Z0-9]/g, '_').slice(-20)}`;
+    // Stable sessionId per template + slice runner (bukan per chunk file) agar sesi
+    // 1 jam dipakai ulang antar chunk — chunk file selalu beda nama
+    // (_chunk_<runId>_<N>.json), kalau sessionId diturunkan dari nama file maka
+    // tiap chunk selalu login baru. slice_index disebar oleh _split_and_run.js dan
+    // dipertahankan _run_chunks.js, sehingga 3 runner paralel (R1/R2/R3) tetap
+    // punya sesi ASP.NET masing-masing (tidak rebutan satu cookie).
+    const sliceTag = data?.metadata?.slice_index ? `-r${data.metadata.slice_index}` : '';
+    const sessionId = `millware-${templateName}${sliceTag}`;
 
     console.log('\n' + '═'.repeat(70));
     console.log('  🚀 MULTI-TAB AUTOMATION RUNNER (SESSION + PARALLEL + STAGGERED)');
@@ -678,15 +833,40 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
         // ══════════════════════════════════════════════════════
         console.log(`▶️  [RUN] Trigger tab bertahap: Tab 1 lalu jeda ${TAB_STAGGER_DELAY}ms antar tab...\n`);
 
-        const tabResults = await runTabsWithInterval({
-            assignedTabs: plan.assignedTabs,
-            pages,
-            data,
-            split,
-            sessions,
-            templateName,
-            intervalMs: TAB_STAGGER_DELAY
-        });
+        // Foreground rotator: otomatisasi "klik tab manual" agar tab
+        // background tidak ke-throttle (postback ASP.NET perhitungan
+        // rate/jam menggantung). Rotasi dihentikan setelah semua tab selesai.
+        let rotateTimer = null;
+        if (rotateForeground && pages.length > 1) {
+            let rotateIndex = 0;
+            console.log(`🔄 [Foreground] Rotasi foreground tiap ${rotateIntervalMs}ms (${pages.length} tab, headed mode)`);
+            rotateTimer = setInterval(() => {
+                const page = pages[rotateIndex % pages.length];
+                const idx = rotateIndex % pages.length;
+                rotateIndex += 1;
+                page.bringToFront().catch(() => {});
+                emit('tab.rotated', { tab_index: idx });
+            }, rotateIntervalMs);
+        }
+
+        let tabResults;
+        try {
+            tabResults = await runTabsWithInterval({
+                assignedTabs: plan.assignedTabs,
+                pages,
+                data,
+                split,
+                sessions,
+                templateName,
+                intervalMs: TAB_STAGGER_DELAY
+            });
+        } finally {
+            if (rotateTimer) {
+                clearInterval(rotateTimer);
+                rotateTimer = null;
+                console.log('🔄 [Foreground] Rotasi dihentikan');
+            }
+        }
 
         // ══════════════════════════════════════════════════════
         // 5. SUBMIT ALL TABS
@@ -754,7 +934,13 @@ async function runMultiTab({ templateName, dataFilePath, requestedTabs, rowLimit
 
         return { success: true, tabs: plan.actualTabs, employees: plan.employees.length, results: tabResults };
     } finally {
-        await Promise.all(sessions.map((session) => session.close().catch(() => {})));
+        // User: jangan selalu ke-close — hormati AUTO_CLOSE. Default keep-open (headfull)
+        // agar sesi 1 jam bisa dipakai ulang antar chunk.
+        if (process.env.AUTO_CLOSE === 'true') {
+            await Promise.all(sessions.map((session) => session.close().catch(() => {})));
+        } else {
+            console.log('🖥️  [SESSION] Browser dibiarkan terbuka (AUTO_CLOSE!=true, headfull) — sesi dipakai ulang.');
+        }
     }
 }
 async function runFromCli() {
@@ -804,6 +990,7 @@ module.exports = {
     submitTaskRegisterTab,
     useIsolatedTabSessions,
     shouldBringTabToFrontOnTrigger,
+    shouldRotateForeground,
     shouldSkipRedundantTabNavigation,
     isSamePageUrl,
     activateTab

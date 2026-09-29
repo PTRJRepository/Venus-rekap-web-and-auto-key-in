@@ -11,7 +11,7 @@ const ATTENDANCE_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'multi-tab-runner.js');
 const ATTENDANCE_MULTI_WINDOW_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'multi-window-runner.js');
 const PAYROLL_RUNNER_SCRIPT = path.join(ENGINE_DIR, 'payroll-parallel-runner.js');
 const PAYROLL_DATA_FILE = path.join(DATA_DIR, 'current_payroll_data.json');
-const TABS_PER_ATTENDANCE_WINDOW = 8;
+const TABS_PER_ATTENDANCE_WINDOW = 4;
 const DEFAULT_MAX_ATTENDANCE_WINDOWS = 6;
 
 const ensureDataDir = () => {
@@ -108,8 +108,9 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
 
         if (emp.attendance) {
             Object.entries(emp.attendance).forEach(([dayNum, data]) => {
-                // Construct date string from day number
-                const date = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                const explicitDate = typeof data?.date === 'string' ? data.date.substring(0, 10) : '';
+                const keyedDate = /^\d{4}-\d{2}-\d{2}/.test(String(dayNum)) ? String(dayNum).substring(0, 10) : '';
+                const date = explicitDate || keyedDate || `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
 
                 // Filter by date range if provided
                 if (startDate && date < startDate) return;
@@ -183,11 +184,13 @@ const transformEmployeeData = (employees, month, year, startDate = null, endDate
 
 /**
  * Saves input data to a temporary JSON file for the automation engine
+ * @param {object} data - Input options including optional outputFileName
  */
 const saveAutomationData = async (data) => {
     ensureDataDir();
     // Use fixed filename instead of timestamped - overwrites previous data
-    const fileName = 'current_data.json';
+    // Pass data.outputFileName to override (e.g. 'current_data_ot.json' for OT runs)
+    const fileName = data.outputFileName || 'current_data.json';
     const filePath = path.join(DATA_DIR, fileName);
 
     let employees = data.employees || [];
@@ -210,6 +213,44 @@ const saveAutomationData = async (data) => {
     // Transform to engine format with filtering
     let transformedData = transformEmployeeData(employees, month, year, startDate, endDate);
 
+    // Drop employees with no valid Millware ID. They can never be keyed in
+    // (the form needs PTRJEmployeeID) and they all collapse to the same
+    // "N/A|date" identity key, which trips the runner preflight duplicate gate.
+    const preFilterCount = transformedData.length;
+    transformedData = transformedData.filter(emp => {
+        const pid = String(emp.PTRJEmployeeID || '').trim().toUpperCase();
+        if (!pid || pid === 'N/A' || pid === '-' || pid === 'NULL' || pid === 'UNDEFINED') {
+            console.log(`[Automation] 🚫 Skipping ${emp.EmployeeID} (${emp.EmployeeName}): no valid PTRJEmployeeID ("${emp.PTRJEmployeeID}") — cannot key into Millware.`);
+            return false;
+        }
+        return true;
+    });
+    if (transformedData.length !== preFilterCount) {
+        console.log(`[Automation] 🚫 Removed ${preFilterCount - transformedData.length} employee(s) without valid PTRJEmployeeID; ${transformedData.length} remain.`);
+    }
+
+    // Dedupe on PTRJEmployeeID. The runner's preflight identity key is
+    // `PTRJID|date`, so two Venus employees sharing one Millware code produce
+    // identical keys for the same dates and the whole window aborts. This is a
+    // mapping collision in employee_mill (needs an HR data fix) — keep the
+    // first employee, drop the rest, and log loudly so it gets fixed upstream.
+    const seenPtrj = new Map();
+    const deduped = [];
+    for (const emp of transformedData) {
+        const pid = String(emp.PTRJEmployeeID || '').trim().toUpperCase();
+        if (seenPtrj.has(pid)) {
+            const first = seenPtrj.get(pid);
+            console.log(`[Automation] 🚫 COLLISION: ${emp.EmployeeID} (${emp.EmployeeName}) shares PTRJEmployeeID ${emp.PTRJEmployeeID} with ${first.EmployeeID} (${first.EmployeeName}) — dropping ${emp.EmployeeID} from this batch. Fix employee_mill mapping!`);
+            continue;
+        }
+        seenPtrj.set(pid, emp);
+        deduped.push(emp);
+    }
+    if (deduped.length !== transformedData.length) {
+        console.log(`[Automation] 🚫 Removed ${transformedData.length - deduped.length} employee(s) with colliding PTRJEmployeeID; ${deduped.length} remain.`);
+    }
+    transformedData = deduped;
+
     // Calculate period
     const firstDay = startDate || `${year}-${String(month).padStart(2, '0')}-01`;
     const lastDay = new Date(year, month, 0).getDate();
@@ -218,7 +259,7 @@ const saveAutomationData = async (data) => {
     // --- INTEGRATE STATUS (MATCH/MISS) ---
     console.log(`[Automation] 🔄 Calculating sync status (MATCH/MISS) for ${transformedData.length} employees...`);
     try {
-        const comparison = await compareWithTaskReg(employees, firstDay, endDay, {
+        const comparison = await compareWithTaskReg(transformedData, firstDay, endDay, {
             onlyOvertime,
             syncRegularOnly,
             onlyRegular: syncRegularOnly
@@ -250,10 +291,17 @@ const saveAutomationData = async (data) => {
                     // If detailed info exists, use it to determine if specific parts should be skipped
                     if (att.millwareInfo) {
                         att.skipRegular = isRegularHoursMatched(att);
-                        att.skipOvertime = getMillwareDetail(att.millwareInfo, 'otMatched') === true;
+                        // OT hanya di-skip bila record OT ADA dan jamnya SAMA dengan Venus
+                        // (Millware harus ikut Venus: beda jam -> diinput ulang)
+                        const otExisted = getMillwareDetail(att.millwareInfo, 'otMatched') === true;
+                        const otHoursEqual = getMillwareDetail(att.millwareInfo, 'otHoursMatch') === true;
+                        att.skipOvertime = otExisted && otHoursEqual;
                         // DEBUG LOG for user assurance
                         if (att.skipRegular) {
                             console.log(`  [DataPrepare] ⏭️  ${date}: Regular hours MATCHED in DB (${att.millwareInfo.millwareNormal}h). Setting skipRegular=true.`);
+                        }
+                        if (!att.skipOvertime && otExisted) {
+                            console.log(`  [DataPrepare] ⏭️  ${date}: OT jam beda dengan Venus (MW ${att.millwareInfo.millwareOT}h vs V ${att.overtimeHours}h). skipOvertime=false - akan diinput ulang.`);
                         }
                     }
                 } else {
@@ -297,6 +345,10 @@ const saveAutomationData = async (data) => {
                 // --- STRICT FILTERING LOGIC ---
                 // We use multiple conditions to ensure ONLY truly missing data passes through
                 // CRITICAL: Only input data that DOESN'T exist at all in Millware
+                // 2026-09-11: user CANCELLED the OT delete ("ot delete itu gausah").
+                // Re-inputting mismatched rows without deleting would double their
+                // hours (source of the existing 1326 duplicate rows), so OT rows that
+                // already exist — even with wrong hours — are SKIPPED here.
 
                 if (syncRegularOnly) {
                     const statusUpper = String(att.status || '').trim().toUpperCase();
@@ -327,25 +379,33 @@ const saveAutomationData = async (data) => {
                 } else {
                     // It is a MISS. Now filter based on the target mode.
                     if (onlyOvertime) {
-                        // OT Mode: Only keep if OT is MISSING in Millware
-                        const venusOT = att.overtimeHours || 0;
+                        // 2026-09-11: user "skip ot" — seluruh fase OT dibatalkan.
+                        // Baris yang sudah ada (walau jam beda) TIDAK di-input ulang
+                        // tanpa delete → jam dobel (sumber 1326 baris duplikat).
+                        const venusOT = toNumber(att.overtimeHours);
                         const hasOTRecord = getMillwareDetail(att.millwareInfo, 'hasOTRecord') === true;
-
-                        if (venusOT === 0) {
-                            shouldKeep = false;
-                            reason = `Venus OT = 0 (tidak ada lembur)`;
-                        } else if (!hasOTRecord) {
+                        if (venusOT > 0 && !hasOTRecord) {
                             shouldKeep = true;
                             reason = `OT MISSING`;
                         } else {
                             shouldKeep = false;
-                            reason = `OT sudah ada record-nya`;
+                            reason = venusOT === 0
+                                ? `Venus OT = 0`
+                                : `OT sudah ada (jam beda dibiarkan — delete dibatalkan)`;
                         }
                     }
                     else {
                         // All Mismatches Mode: Rely on Comparison Service determination of MISS
-                        shouldKeep = true;
-                        reason = `Status dari server: MISS`;
+                        // Plus: OT record ada tapi jam beda -> tetap KEEP agar diinput ulang
+                        const venusOT = toNumber(att.overtimeHours);
+                        const otHoursMatch = getMillwareDetail(att.millwareInfo, 'otHoursMatch') === true;
+                        if (venusOT > 0 && otHoursMatch === false) {
+                            shouldKeep = true;
+                            reason = `OT jam beda (Venus ${venusOT}h, Millware ${toNumber(getMillwareDetail(att.millwareInfo, 'millwareOT'))}h) - input ulang`;
+                        } else {
+                            shouldKeep = true;
+                            reason = `Status dari server: MISS`;
+                        }
                     }
                 }
 

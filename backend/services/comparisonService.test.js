@@ -152,3 +152,76 @@ test('Sunday OFF stays MISS when Millware regular row has zero hours', async () 
     assert.equal(row.details.hasRegularRecord, false);
     assert.equal(row.details.regularMatched, false);
 });
+
+// --- OT HOURS MATCH (Millware harus ikut Venus) ---
+
+const regRow = () => ({
+    EmpCode: 'POM00214',
+    TrxDate: '2026-05-03',
+    TaskCode: 'GA9129',
+    Hours: 7,
+    Amount: 0,
+    OT: 0
+});
+
+const otRow = (hours) => ({
+    EmpCode: 'POM00214',
+    TrxDate: '2026-05-03',
+    TaskCode: 'OT',
+    Hours: hours,
+    Amount: hours * 10000,
+    OT: 1
+});
+
+test('OT hours match: Venus OT 3h, Millware OT 3h -> otHoursMatch true, diff 0', async () => {
+    const row = await compareOneDay('Hadir', [regRow(), otRow(3)], { regularHours: 7, overtimeHours: 3 });
+
+    assert.equal(row.details.hasOTRecord, true);
+    assert.equal(row.details.otHoursMatch, true);
+    assert.equal(row.details.otHoursDiff, 0);
+    assert.equal(row.syncStatus, 'synced');
+});
+
+test('OT hours mismatch: Venus OT 3h, Millware OT 2h -> otHoursMatch false, diff 1.0', async () => {
+    const row = await compareOneDay('Hadir', [regRow(), otRow(2)], { regularHours: 7, overtimeHours: 3 });
+
+    assert.equal(row.details.hasOTRecord, true);
+    assert.equal(row.details.otHoursMatch, false);
+    assert.equal(row.details.otHoursDiff, 1.0);
+    // Existence-based sync masih synced (skipOtSynced) - badge jam yang menunjukkan selisih
+    assert.equal(row.syncStatus, 'synced');
+});
+
+test('OT hours missing: Venus OT 3h, Millware no OT row -> otHoursMatch false, otHoursDiff 3.0', async () => {
+    const row = await compareOneDay('Hadir', [
+        { EmpCode: 'POM00214', TrxDate: '2026-05-03', Hours: 7, Amount: 0, OT: 0 }
+    ], { regularHours: 7, overtimeHours: 3 });
+
+    assert.equal(row.details.hasOTRecord, false);
+    assert.equal(row.details.otHoursMatch, false);
+    assert.equal(row.details.otHoursDiff, 3.0);
+    assert.equal(row.syncStatus, 'mismatch');
+});
+
+test('OT both zero: no OT anywhere -> otHoursMatch true, diff 0', async () => {
+    const row = await compareOneDay('Hadir', [
+        { EmpCode: 'POM00214', TrxDate: '2026-05-03', Hours: 7, Amount: 0, OT: 0 }
+    ], { regularHours: 7, overtimeHours: 0 });
+
+    assert.equal(row.details.otHoursMatch, true);
+    assert.equal(row.details.otHoursDiff, 0);
+});
+
+test('OT tolerance: Venus 3h vs Millware 3.02h -> otHoursMatch true (<= 0.05h)', async () => {
+    const row = await compareOneDay('Hadir', [regRow(), otRow(3.02)], { regularHours: 7, overtimeHours: 3 });
+
+    assert.equal(row.details.otHoursMatch, true);
+});
+
+test('OT mismatch flagged even when no regular row exists', async () => {
+    const row = await compareOneDay('Hadir', [otRow(1.5)], { regularHours: 7, overtimeHours: 3 });
+
+    assert.equal(row.details.hasOTRecord, true);
+    assert.equal(row.details.otHoursMatch, false);
+    assert.equal(row.details.otHoursDiff, 1.5);
+});

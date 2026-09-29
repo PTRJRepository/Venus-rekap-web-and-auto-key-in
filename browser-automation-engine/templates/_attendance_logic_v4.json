@@ -21,12 +21,41 @@
       }
     },
     {
+      "action": "setVariable",
+      "params": {
+        "variable": "metadata.employeeNotFound",
+        "value": false
+      }
+    },
+    {
+      "comment": "Reset flag failure at start of employee loop",
+      "action": "setVariable",
+      "params": {
+        "variable": "metadata.employeeInputFailed",
+        "value": false
+      }
+    },
+    {
       "action": "forEachProperty",
       "params": {
         "object": "employee.Attendance",
         "keyName": "date",
         "valueName": "attendance",
         "steps": [
+          {
+            "comment": "═══ SKIP ALL DATES if employee ID was not found in Millware on first attempt ═══",
+            "action": "if",
+            "params": {
+              "condition": "metadata.employeeNotFound === true",
+              "thenSteps": [
+                {
+                  "action": "log",
+                  "params": {
+                    "message": "  🚫 SKIP ${date}: employee ID not found in Millware — skipping entire employee"
+                  }
+                }
+              ],
+              "elseSteps": [
           {
             "action": "log",
             "params": {
@@ -182,6 +211,9 @@
                     ]
                   }
                 }
+              ]
+            }
+          }
               ]
             }
           }

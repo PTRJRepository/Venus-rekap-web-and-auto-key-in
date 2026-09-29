@@ -15,7 +15,12 @@ const fs = require('fs');
 const path = require('path');
 const { applyBrowserWindow, getChromeWindowArgs, getDefaultViewport } = require('./browser-window');
 
-const SESSION_MAX_AGE_MS = 240 * 60 * 1000; // 240 minutes
+const parsePositiveInt = (value, fallback) => {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const SESSION_MAX_AGE_MS = 60 * 60 * 1000; // 60 minutes (1 jam) — user: jangan login tiap saat
 
 const MILLWARE_CONFIG = {
     baseUrl: process.env.MILLWARE_BASE_URL || 'http://millwarep3.rebinmas.com:8003',
@@ -73,6 +78,8 @@ async function detectAuthMarkers(page) {
     return false;
 }
 
+const CHROME_HEAP_LIMIT_MB = parsePositiveInt(process.env.CHROME_MEMORY_LIMIT, 1024);
+
 const SHARED_LAUNCH_ARGS = [
     ...getChromeWindowArgs(), '--no-sandbox', '--disable-setuid-sandbox',
     '--disable-dev-shm-usage', '--disable-gpu', '--disable-software-rasterizer',
@@ -81,15 +88,16 @@ const SHARED_LAUNCH_ARGS = [
     '--disable-background-networking', '--disable-background-timer-throttling',
     '--disable-backgrounding-occluded-windows', '--disable-breakpad',
     '--disable-component-extensions-with-background-pages',
-    '--disable-features=TranslateUI,BlinkGenPropertyTrees,SitePerProcess,VizDisplayCompositor',
+    // Satu flag gabungan: entri --disable-features yang duplikat membuat hanya
+    // entri terakhir yang dipakai Chrome, jadi fitur di entri lain tidak mati.
+    '--disable-features=TranslateUI,BlinkGenPropertyTrees,SitePerProcess,VizDisplayCompositor,IsolateOrigins,AudioServiceOutOfProcess,MediaRecorder',
     '--disable-ipc-flooding-protection', '--disable-renderer-backgrounding',
-    '--disable-features=IsolateOrigins,site-per-process',
-    '--process-per-site', '--max_old_space_size=512', '--memory-pressure-off',
+    '--process-per-site', `--js-flags=--max-old-space-size=${CHROME_HEAP_LIMIT_MB}`,
     '--aggressive-cache-discard', '--disable-accelerated-video-decode',
     '--disable-sync', '--disable-default-apps', '--disable-popup-blocking',
     '--disable-prompt-on-repost', '--disable-hang-monitor',
     '--disable-client-side-phishing-detection', '--disable-component-update',
-    '--disable-domain-reliability', '--disable-features=AudioServiceOutOfProcess,MediaRecorder',
+    '--disable-domain-reliability',
     '--ignore-certificate-errors', '--ignore-ssl-errors', '--allow-running-insecure-content'
 ];
 
@@ -129,7 +137,10 @@ class MillwareSession {
             headless: this.headless,
             slowMo: this.slowMo,
             defaultViewport: getDefaultViewport(this.headless),
-            args: [...SHARED_LAUNCH_ARGS]
+            args: [...SHARED_LAUNCH_ARGS],
+            // Tingkatkan protocolTimeout (default 30s) supaya DOM block saat
+            // postback ASP.NET bersamaan antar tab tidak langsung timeout error.
+            protocolTimeout: parsePositiveInt(process.env.PUPPETEER_PROTOCOL_TIMEOUT, 90000)
         };
         if (this.userDataDir) {
             opts.userDataDir = this.userDataDir;
@@ -217,6 +228,21 @@ class MillwareSession {
         });
     }
 
+    _attachDialogGuard(page) {
+        if (!page || page.__dialogGuardAttached) return;
+        page.__dialogGuardAttached = true;
+
+        // Dialog JS yang tidak dibalas memblok seluruh eksekusi JS di page —
+        // semua CDP call berikutnya menggantung sampai protocolTimeout (tab "stuck").
+        // Auto-dismiss supaya tab tetap jalan; caller bisa memasang listener sendiri.
+        page.on('dialog', async (dialog) => {
+            console.log(`  🪟 [Session] Auto-dismiss ${dialog.type()} dialog: "${dialog.message().slice(0, 120)}"`);
+            try {
+                await dialog.dismiss();
+            } catch { /* already handled / navigated away */ }
+        });
+    }
+
     async _loginOnPage(page) {
         try {
             await page.goto(MILLWARE_CONFIG.loginUrl, { waitUntil: 'networkidle2', timeout: 30000 });
@@ -278,6 +304,7 @@ class MillwareSession {
         this.page = await this.browser.newPage();
         await applyBrowserWindow(this.page, { headless: this.headless });
         await this._injectVisibilityOverride(this.page);
+        this._attachDialogGuard(this.page);
 
         try {
             await this._loginOnPage(this.page);
@@ -445,6 +472,7 @@ class MillwareSession {
         const page = await this.browser.newPage();
         await applyBrowserWindow(page, { headless: this.headless });
         await this._injectVisibilityOverride(page);
+        this._attachDialogGuard(page);
 
         // cookie-file mode: restore cookies to new page
         if (!this.userDataDir && this.sessionReused) {

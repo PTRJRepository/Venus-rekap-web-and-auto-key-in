@@ -172,7 +172,7 @@
             "action": "checkEmployeeInputSuccess",
             "params": {
                 "validationErrorSelector": "#MainContent_ddlEmployee_RFV",
-                "timeout": 15000
+                "timeout": 5000
             }
         },
         {

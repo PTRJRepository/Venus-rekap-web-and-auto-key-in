@@ -432,11 +432,16 @@ const AttendanceMatrix = ({
             const needsRegular = comparisonRecord?.needsRegularRecord ?? (d.isSunday === true || d.isHoliday === true || Boolean(d.holidayName) || !['ALFA', 'N/A'].includes(statusUpper));
             const needsOT = venusOT > 0;
             const normalOk = comparisonLoaded && (!needsRegular || (comparisonRecord?.hasRegularRecord === true && (Number(comparisonRecord?.normal) || 0) > 0));
+            // RULE (user 2026-09-11 11:08): 3-state OT — jam MW = SPL Venus → HIJAU;
+            // record ada tapi jam beda (double/beda inputan) → KUNING;
+            // record tidak ada → MERAH. Jam normal tetap existence-based (datanya ada = hijau).
+            const otHoursSame = Math.abs(venusOT - (millwareOT || 0)) <= 0.05;
             const otOk = comparisonLoaded && (!needsOT || comparisonRecord?.hasOTRecord === true);
-            const allOk = normalOk && otOk;
+            const otYellow = comparisonLoaded && needsOT && comparisonRecord?.hasOTRecord === true && !otHoursSame;
+            const allOk = normalOk && otOk && !otYellow;
             const normalColor = !comparisonLoaded ? '#64748B' : (normalOk ? '#059669' : '#DC2626');
-            const otColor = !comparisonLoaded ? '#64748B' : (otOk ? '#7C3AED' : '#DC2626');
-            const rowBg = !comparisonLoaded ? '#F8FAFC' : (allOk ? '#F0FDF4' : '#FEF2F2');
+            const otColor = !comparisonLoaded ? '#64748B' : (otYellow ? '#F59E0B' : (otOk ? '#7C3AED' : '#DC2626'));
+            const rowBg = !comparisonLoaded ? '#F8FAFC' : (allOk ? '#F0FDF4' : (otYellow && normalOk ? '#FEFCE8' : '#FEF2F2'));
 
             return (
                 <ProTooltip
@@ -483,6 +488,14 @@ const AttendanceMatrix = ({
                                         isSuccess={otOk}
                                         highlight={needsOT && !otOk}
                                     />
+                                    {comparisonLoaded && needsOT && !otOk && (
+                                        <TooltipRow
+                                            label="Selisih OT"
+                                            value={`${formatHour(venusOT - millwareOT)}h`}
+                                            valueColor="#DC2626"
+                                            highlight
+                                        />
+                                    )}
                                     <TooltipRow
                                         label="MW OT=1 Rows"
                                         value={`${overtimeRecordCount}`}
@@ -523,6 +536,11 @@ const AttendanceMatrix = ({
                                         {formatHour(venusOT)}/{formatHour(millwareOT)}
                                     </Typography>
                                 </Box>
+                                {needsOT && !otOk && (
+                                    <Typography sx={{ fontSize: '0.48rem', fontWeight: 900, color: '#DC2626', textAlign: 'center', lineHeight: 1.1 }}>
+                                        Δ {formatHour(venusOT - millwareOT)}h
+                                    </Typography>
+                                )}
                             </>
                         )}
                     </Box>
@@ -552,6 +570,15 @@ const AttendanceMatrix = ({
                                 )}
                                 <TooltipRow label="Real Hours" value={`${regHours.toFixed(2)}h`} valueColor="#374151" />
                                 <TooltipRow label="Total" value={`${totalHours.toFixed(2)}h`} valueColor="#374151" />
+                                {comparisonLoaded && comparisonRecord && (
+                                    <TooltipRow
+                                        label="Millware OT"
+                                        value={`${formatHour(comparisonRecord.ot)}h`}
+                                        valueColor={!comparisonRecord.hasOTRecord ? '#DC2626' : (Math.abs(otHours - (Number(comparisonRecord.ot) || 0)) <= 0.05 ? '#059669' : '#FF991F')}
+                                        isWarning={comparisonRecord.hasOTRecord && Math.abs(otHours - (Number(comparisonRecord.ot) || 0)) > 0.05}
+                                        isSuccess={!!comparisonRecord.hasOTRecord}
+                                    />
+                                )}
                                 {isBelowStandard && (
                                     <Box sx={{ px: 1.5, py: 0.5, bgcolor: '#FFF7ED' }}>
                                         <Typography sx={{ fontSize: '0.68rem', color: '#EA580C', fontWeight: 600 }}>
@@ -574,6 +601,11 @@ const AttendanceMatrix = ({
                             <AccessTimeIcon sx={{ fontSize: 12 }} />
                             <Typography sx={{ fontSize: '0.65rem', fontWeight: 800 }}>{otHours.toFixed(2)}h</Typography>
                             {hasNotation && <Typography sx={{ fontSize: '0.5rem', color: '#7B1FA2', fontWeight: 600 }}>std: {stdOT.toFixed(2)}h</Typography>}
+                            {comparisonLoaded && comparisonRecord && (
+                                <Typography sx={{ fontSize: '0.48rem', fontWeight: 900, color: !comparisonRecord.hasOTRecord ? '#DC2626' : (Math.abs(otHours - (Number(comparisonRecord.ot) || 0)) <= 0.05 ? '#00875A' : '#FF991F'), lineHeight: 1.1 }}>
+                                    MW: {formatHour(comparisonRecord.ot)}h{comparisonRecord.ot !== otHours ? ` Δ${formatHour(otHours - comparisonRecord.ot)}h` : ''}
+                                </Typography>
+                            )}
                         </Box>
                     </ProTooltip>
                 );
@@ -606,6 +638,14 @@ const AttendanceMatrix = ({
                                     <TooltipRow label="SPL" value={`+${otHours.toFixed(2)}h`} valueColor="#7C3AED" />
                                     {stdOT > 0 && (
                                         <TooltipRow label="Std SPL" value={`${stdOT.toFixed(2)}h`} valueColor="#6D28D9" />
+                                    )}
+                                    {comparisonLoaded && comparisonRecord && (
+                                        <TooltipRow
+                                            label="Millware OT"
+                                            value={`${formatHour(comparisonRecord.ot)}h`}
+                                            valueColor={!comparisonRecord.hasOTRecord ? '#DC2626' : (Math.abs(otHours - (Number(comparisonRecord.ot) || 0)) <= 0.05 ? '#7C3AED' : '#FF991F')}
+                                            isWarning={comparisonRecord.hasOTRecord && Math.abs(otHours - (Number(comparisonRecord.ot) || 0)) > 0.05}
+                                        />
                                     )}
                                 </>
                             )}
@@ -729,14 +769,22 @@ const AttendanceMatrix = ({
         }
         if (compareMode === 'overtime') {
             const vOT = Number(venusOtHours) || 0;
-            const millwareHours = millwareRecord ? (millwareRecord.ot || 0) : 0;
+            const millwareOT = millwareRecord ? (Number(millwareRecord.ot) || 0) : 0;
+            const millwareHours = millwareRecord ? (Number(millwareRecord.ot) || 0) : 0;
             // For overtime mode: still show regular sync status as background info
-            if (vOT <= 0 && millwareHours <= 0) {
+            if (vOT <= 0 && millwareOT <= 0) {
                 // No OT in both systems - show regular sync status
                 if (!millwareRecord || !millwareRecord.hasRegularRecord || millwareNormalHours <= 0) return { status: 'not_synced', displayOverride: `${venusRegularHours}h`, displayColor: '#DE350B', borderWidth: 2, millwareHours: 0 };
                 return { status: 'synced', millwareHours, borderWidth: 1 };
             }
+            // RULE (user 2026-09-11 11:20): OT = 1 record per hari per karyawan.
+            // 3-state — jam MW = SPL Venus & 1 record → synced (hijau);
+            // record ada tapi jam beda ATAU DOUBLE (>1 record, harus dihapus) → mismatch (KUNING);
+            // record tidak ada → not_synced (MERAH).
+            const otRowCount = (millwareRecord.overtimeRecordCount || 0);
             if (!millwareRecord || !millwareRecord.hasOTRecord) return { status: 'not_synced', displayOverride: `${vOT}h`, displayColor: '#DE350B', borderWidth: 2, millwareHours: 0 };
+            if (otRowCount > 1) return { status: 'mismatch', displayOverride: `${vOT}h/${millwareOT}h×2`, displayColor: '#FF991F', borderWidth: 2, millwareHours, isDouble: true };
+            if (vOT > 0 && Math.abs(vOT - millwareOT) > 0.05) return { status: 'mismatch', displayOverride: `${vOT}h/${millwareOT}h`, displayColor: '#FF991F', borderWidth: 2, millwareHours };
             return { status: 'synced', millwareHours, borderWidth: 1 };
         }
         if (compareMode === 'all') {
@@ -745,13 +793,27 @@ const AttendanceMatrix = ({
             const millwareOT = millwareRecord ? (millwareRecord.ot || 0) : 0;
             const millwareHours = millwareNormal + millwareOT;
             const regularOk = !needsRegular || (millwareRecord?.hasRegularRecord === true && millwareNormal > 0);
-            const otOk = vOT <= 0 || millwareRecord?.hasOTRecord === true;
+            // 3-state OT (user 2026-09-11 11:20): double record ATAU jam beda = kuning
+            const otRowCount = (millwareRecord?.overtimeRecordCount || 0);
+            const otMissing = vOT > 0 && millwareRecord?.hasOTRecord !== true;
+            const otOff = (otMissing
+                || (otRowCount > 1)
+                || (vOT > 0 && millwareRecord?.hasOTRecord === true && Math.abs(vOT - millwareOT) > 0.05));
 
-            if (!millwareRecord || !regularOk || !otOk) {
+            if (!millwareRecord || !regularOk || otMissing) {
                 return {
                     status: 'not_synced',
                     displayOverride: `${venusRegularHours || 0}h|${vOT}h`,
                     displayColor: '#DE350B',
+                    borderWidth: 2,
+                    millwareHours
+                };
+            }
+            if (otOff) {
+                return {
+                    status: 'mismatch',
+                    displayOverride: `${venusRegularHours || 0}h|${vOT}/${formatHour(millwareOT)}h${otRowCount > 1 ? '×2' : ''}`,
+                    displayColor: '#FF991F',
                     borderWidth: 2,
                     millwareHours
                 };
@@ -833,6 +895,7 @@ const AttendanceMatrix = ({
                             let totalJamMatch = 0;
                             let missRegularCount = 0;
                             let missOTHours = 0;
+                            let otMismatchCount = 0;
 
                             if (emp.attendance) {
                                 Object.values(emp.attendance).forEach(d => {
@@ -850,12 +913,15 @@ const AttendanceMatrix = ({
                                                 missRegularCount++;
                                             }
 
-                                            // OT MISS: has OT in Venus but missing/mismatched in Millware
-                                            if (syncOT && (syncOT.status === 'not_synced' || syncOT.status === 'mismatch')) {
+                                            // OT MISS: record tidak ada di Millware (merah);
+                                            // mismatch (kuning) dihitung terpisah — datanya ada, jam beda
+                                            if (syncOT && syncOT.status === 'not_synced') {
                                                 const vOT = Number(d.overtimeHours) || 0;
                                                 if (vOT > 0) {
                                                     missOTHours += vOT;
                                                 }
+                                            } else if (syncOT && syncOT.status === 'mismatch') {
+                                                otMismatchCount++;
                                             }
                                         }
                                     }
@@ -927,7 +993,7 @@ const AttendanceMatrix = ({
                                                                 </Tooltip>
                                                             )}
                                                             {missOTHours > 0 && (
-                                                                <Tooltip title={`${missOTHours}h overtime MISS`} arrow>
+                                                                <Tooltip title={`${missOTHours}h overtime MISS (tidak ada record di Millware)`} arrow>
                                                                     <Chip
                                                                         icon={<AccessTimeIcon sx={{ fontSize: '9px !important', color: '#7C3AED !important' }} />}
                                                                         label={`${missOTHours}h`}
@@ -945,7 +1011,26 @@ const AttendanceMatrix = ({
                                                                     />
                                                                 </Tooltip>
                                                             )}
-                                                            {missRegularCount === 0 && missOTHours === 0 && (
+                                                            {otMismatchCount > 0 && (
+                                                                <Tooltip title={`${otMismatchCount} hari OT jam beda / double record (harus diperbaiki: hapus double)`} arrow>
+                                                                    <Chip
+                                                                        icon={<WarningIcon sx={{ fontSize: '9px !important', color: '#FF991F !important' }} />}
+                                                                        label={`Δ${otMismatchCount}`}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            height: 16,
+                                                                            fontSize: '0.55rem',
+                                                                            fontWeight: 900,
+                                                                            bgcolor: '#FEF3C7',
+                                                                            color: '#B45309',
+                                                                            border: '1px solid #FF991F',
+                                                                            '& .MuiChip-icon': { ml: 0.3, mr: -0.5 },
+                                                                            '& .MuiChip-label': { px: 0.5 }
+                                                                        }}
+                                                                    />
+                                                                </Tooltip>
+                                                            )}
+                                                            {missRegularCount === 0 && missOTHours === 0 && otMismatchCount === 0 && (
                                                                 <Tooltip title="Semua sinkron" arrow>
                                                                     <Chip
                                                                         icon={<CheckCircleIcon sx={{ fontSize: '10px !important', color: '#059669 !important' }} />}

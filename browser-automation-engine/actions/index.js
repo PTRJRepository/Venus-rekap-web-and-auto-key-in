@@ -1198,6 +1198,7 @@ const selectPairedHiddenSelect = async (page, inputSelector, index = 0, value) =
         const select = candidates.find((candidate) => candidate && candidate.options && candidate.options.length > 0);
         if (!select) return { success: false, reason: 'paired select not found' };
 
+        const isEmployee = (inputSelector && String(inputSelector).includes('ddlEmployee')) || index === 0;
         const options = Array.from(select.options || []);
         const matched = options.find((option) => normalize(option.value) === wanted)
             || options.find((option) => normalize(option.textContent) === wanted)
@@ -1205,7 +1206,7 @@ const selectPairedHiddenSelect = async (page, inputSelector, index = 0, value) =
             || options.find((option) => compact(option.textContent) === wantedCompact && wantedCompact)
             || options.find((option) => normalize(option.value).includes(wanted) && wanted.length > 2)
             || options.find((option) => normalize(option.textContent).includes(wanted) && wanted.length > 2)
-            || options.find((option) => wanted.includes(normalize(option.textContent)) && normalize(option.textContent).length > 2);
+            || (!isEmployee && options.find((option) => wanted.includes(normalize(option.textContent)) && normalize(option.textContent).length > 2));
 
         if (!matched || !matched.value) {
             return {
@@ -2036,6 +2037,7 @@ const actions = {
                 console.log(`  ℹ️ Paired hidden select skipped; selecting first visible autocomplete option.`);
             }
 
+            const isEmployeeField = (index === 0) || (typeof selector === 'string' && (selector.includes('ddlEmployee') || selector.includes('Employee')));
             const autocompleteResult = await setAutocompleteInputByDom(page, selector, index, value, {
                 dropdownWait: 800,
                 afterSelectWait: 700,
@@ -2044,13 +2046,37 @@ const actions = {
                 slowValue: params.slowValue,
                 fallbackValues: params.fallbackValues,
                 slowKeyDelay: params.slowKeyDelay,
-                allowFirstOption: params.allowFirstOption !== false
+                allowFirstOption: isEmployeeField ? false : (params.allowFirstOption !== false),
+                requireOption: isEmployeeField ? true : (params.requireOption === true)
             });
             if (!autocompleteResult.success) {
+                // INVARIANT: a lost autocomplete race is NOT proof the employee is absent —
+                // the typed text stays in the box and Millware's postback decides. Do not add
+                // a "skip employee" branch here without verifying against the real validator
+                // (#MainContent_ddlEmployee_RFV / ddlShift). See the note on this in the
+                // forceInput action, where such a branch silently dropped valid employees.
+                if (isEmployeeField) {
+                    console.log(`🚫 [Employee Skip] Autocomplete option tidak muncul untuk karyawan "${value}". Skip record absen/overtime.`);
+                    if (!context.metadata) context.metadata = {};
+                    context.metadata.employeeInputFailed = true;
+                    context.metadata.employeeNotFound = true;
+                    context.metadata.inputFailed = true;
+                    context.metadata.lastFailedInput = { selector, index, value, timestamp: Date.now() };
+                    return;
+                }
                 throw new Error(`DOM autocomplete input failed: ${autocompleteResult.reason}`);
             }
 
             if (autocompleteResult.optionClicked === false) {
+                if (isEmployeeField) {
+                    console.log(`🚫 [Employee Skip] Autocomplete option tidak terklik untuk karyawan "${value}". Skip record absen/overtime.`);
+                    if (!context.metadata) context.metadata = {};
+                    context.metadata.employeeInputFailed = true;
+                    context.metadata.employeeNotFound = true;
+                    context.metadata.inputFailed = true;
+                    context.metadata.lastFailedInput = { selector, index, value, timestamp: Date.now() };
+                    return;
+                }
                 console.log(`  ⚠️ Autocomplete option not clicked (${autocompleteResult.optionReason || 'unknown'}). Value set by DOM.`);
             } else {
                 console.log(`  ✅ Autocomplete selected via DOM (${autocompleteResult.method || 'dom'})`);
@@ -2203,7 +2229,7 @@ const actions = {
         await elements[index].click();
         await sleep(100);
 
-        // Clear any existing value with Ctrl+A then Delete
+        // SEKALI hapus: Ctrl+A lalu Delete (satu kali saja)
         await page.keyboard.down('Control');
         await page.keyboard.press('a');
         await page.keyboard.up('Control');
@@ -2211,23 +2237,16 @@ const actions = {
         await page.keyboard.press('Delete');
         await sleep(100);
 
-        console.log(`  ⌨️ Typing initial value: "${value}"`);
-        // Step 3: Type the value using keyboard
-        await page.keyboard.type(value, { delay: 50 });
+        console.log(`  ⌨️ Typing value once: "${value}"`);
+        // Ketik SEKALI, lalu tekan Tab satu kali untuk memicu
+        // perhitungan rate/jam Millware (tanpa backspace-hapus-tambah berulang).
+        await page.keyboard.type(value, { delay: 30 });
         await sleep(200);
 
-        // Step 4: Press Backspace to delete last character
-        console.log(`  ⌨️ Backspace to trigger change event`);
-        await page.keyboard.press('Backspace');
-        await sleep(150);
-
-        // Step 5: Get the last character and type it back
-        const lastChar = value.slice(-1);
-        console.log(`  ⌨️ Retype last char: "${lastChar}"`);
-        await page.keyboard.type(lastChar);
+        await page.keyboard.press('Tab');
         await sleep(300);
 
-        console.log(`  ✅ Trigger pattern applied: "${value}" → backspace → "${lastChar}"`);
+        console.log(`  ✅ Hours typed once + Tab trigger: "${value}"`);
 
         // Register DOM value pair for pre-Add verification
         context.__lastInputTarget = { selector, index };
@@ -2620,6 +2639,58 @@ const actions = {
     },
 
     /**
+     * selectTaskCode - Pilih Task Code dari dropdown ddlTaskCode berdasarkan kode (mis. GA9050).
+     * Form TaskRegisterDet Millware pakai dropdown tunggal, bukan cascade autocomplete.
+     * @param {string} params.selector - selector dropdown (default #MainContent_ddlTaskCode)
+     * @param {string} params.code - kode task (mis. "GA9050") dari ${taskCode}
+     */
+    selectTaskCode: async (page, params) => {
+        const selector = params.selector || '#MainContent_ddlTaskCode';
+        const code = String(params.code || params.value || '').trim().toUpperCase();
+        const timeout = params.timeout || 12000;
+        const start = Date.now();
+
+        if (!code) {
+            console.log(`⚠️ [selectTaskCode] Kode task kosong, skip`);
+            return { success: false, reason: 'empty-code' };
+        }
+
+        while (Date.now() - start < timeout) {
+            const result = await safeEvaluate(page, (sel, taskCode) => {
+                const select = document.querySelector(sel);
+                if (!select) return { exists: false, reason: 'select not found' };
+                if (select.disabled) return { exists: true, disabled: true };
+                const options = Array.from(select.options || []);
+                // cari option yang text/valuenya mengandung kode task (exact match kurung = prefer)
+                const exact = options.find(o => (o.text || '').toUpperCase().includes(`(${taskCode})`));
+                const partial = exact || options.find(o => (o.text || '').toUpperCase().includes(taskCode));
+                if (!partial) {
+                    return { exists: true, ready: true, options: options.slice(0, 10).map(o => o.text) };
+                }
+                select.value = partial.value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                return {
+                    exists: true,
+                    ready: true,
+                    selected: partial.text,
+                    selectedValue: partial.value,
+                    selectedTaskCode: taskCode
+                };
+            }, selector, code);
+
+            if (!result.exists) { await sleep(500); continue; }
+            if (result.disabled) { return { success: false, reason: 'disabled' }; }
+            if (result.selected) {
+                console.log(`✅ [selectTaskCode] ${selector} -> "${result.selected}" (${result.selectedValue}) [${result.selectedTaskCode}]`);
+                return { success: true, selected: result.selected, selectedValue: result.selectedValue };
+            }
+            console.log(`⚠️ [selectTaskCode] Option "${code}" tidak ditemukan di ${selector}. Options: ${(result.options || []).join(' | ')}`);
+            return { success: false, reason: 'option-not-found', options: result.options };
+        }
+        return { success: false, reason: 'timeout' };
+    },
+
+    /**
      * forEach - Loop through array data
      * params.items: path ke array dalam context (contoh: "data.data")
      * params.itemName: nama variable untuk setiap item (contoh: "employee")
@@ -2760,7 +2831,7 @@ const actions = {
                         } catch (navError) {
                             console.log(`  ⚠️ Failed to click New on List page: ${navError.message}. Force navigating...`);
                             await page.goto(recoveryListUrl, { waitUntil: 'domcontentloaded' });
-                            await page.waitForSelector('#MainContent_btnNew', { visible: true });
+                            await page.waitForSelector('#MainContent_btnNew', { visible: true, timeout: 15000 });
                             await page.click('#MainContent_btnNew');
                         }
                     } else {
@@ -2901,7 +2972,7 @@ const actions = {
                         } catch (navError) {
                             console.log(`  ⚠️ Failed to click New on List page: ${navError.message}. Force navigating...`);
                             await page.goto(recoveryListUrl, { waitUntil: 'domcontentloaded' });
-                            await page.waitForSelector('#MainContent_btnNew', { visible: true });
+                            await page.waitForSelector('#MainContent_btnNew', { visible: true, timeout: 15000 });
                             await page.click('#MainContent_btnNew');
                         }
                     } else {
@@ -3069,6 +3140,11 @@ const actions = {
     checkEmployeeInputSuccess: async (page, params, context, engine) => {
         const { successSelector = '#MainContent_ddlShift', timeout = 3000 } = params;
 
+        if (context.metadata?.employeeInputFailed === true || context.metadata?.employeeNotFound === true) {
+            console.log(`🚫 Employee already marked as not found/failed — skipping shift check immediately`);
+            return false;
+        }
+
         try {
             await page.waitForSelector(successSelector, { timeout });
             console.log(`✅ Employee input successful - ${successSelector} found`);
@@ -3085,9 +3161,11 @@ const actions = {
             return true;
         } catch (error) {
             console.log(`⚠️ Employee input likely failed - ${successSelector} not found within ${timeout}ms`);
-            console.log(`🔄 Will skip remaining form steps for this employee...`);
+            console.log(`🚫 Employee ID not found in Millware — skipping ALL remaining dates for this employee`);
             if (!context.metadata) context.metadata = {};
             context.metadata.employeeInputFailed = true;
+            // Mark employee as not-found so forEachProperty loop skips ALL remaining dates
+            context.metadata.employeeNotFound = true;
             return false;
         }
     },
@@ -3744,7 +3822,14 @@ const actions = {
             });
 
             if (!autocompleteResult.success) {
-                console.log(`  ⚠️ DOM autocomplete failed: ${autocompleteResult.reason}`);
+                const itemCount = autocompleteResult.itemCount;
+                const diag = itemCount === undefined
+                    ? ''
+                    : ` [dropdown items: ${itemCount}${itemCount === 0 ? ' — dropdown empty, likely a timing race' : ''}]`;
+                console.log(`  ⚠️ DOM autocomplete failed: ${autocompleteResult.reason}${diag}`);
+                if (Array.isArray(autocompleteResult.sample) && autocompleteResult.sample.length) {
+                    console.log(`  ↳ first options seen: ${autocompleteResult.sample.slice(0, 5).join(' | ')}`);
+                }
                 autocompleteSelectionFailed = true;
             } else if (autocompleteResult.optionClicked === false) {
                 console.log(`  ⚠️ DOM autocomplete set value only (${autocompleteResult.optionReason || 'no visible option'})`);
