@@ -18,6 +18,11 @@ const path = require('path');
 const { fork, execSync } = require('child_process');
 const os = require('os');
 
+// EPIPE + unhandledRejection/uncaughtException guards — kalau parent (backend)
+// exit/di-kill atau sebuah engine melempar error lambat, proses ini harus tetap
+// hidup supaya engine lain dan sisa chunk tetap jalan.
+require('./_process_guards');
+
 // ==================== DISTRIBUTED LOCKING ====================
 /**
  * Simple file-based distributed locking mechanism

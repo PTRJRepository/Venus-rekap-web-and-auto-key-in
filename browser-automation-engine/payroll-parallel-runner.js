@@ -1,3 +1,7 @@
+// EPIPE + unhandledRejection/uncaughtException guards — run payroll panjang dan
+// mem-fork banyak worker; error dari satu tab tidak boleh mematikan seluruh run.
+require('./_process_guards');
+
 const fs = require('fs');
 const path = require('path');
 const { spawn, execFile } = require('child_process');

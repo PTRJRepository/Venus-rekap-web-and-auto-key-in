@@ -11,6 +11,12 @@ const { spawn, execFile } = require('child_process');
 const { emit } = require('./ndjson-emitter');
 const { employeeAssignmentKey } = require('./multi-tab-assignment');
 
+// EPIPE + unhandledRejection/uncaughtException guards — runner tidak mati saat
+// pipe parent putus atau tab yang di-timeout melempar error di background.
+// WAJIB ada di sini: multi-window-runner punya proses anak per window, jadi
+// error dari window/worker mana pun tidak boleh mematikan seluruh run.
+require('./_process_guards');
+
 const DEFAULT_TEMPLATE_NAME = 'attendance-input-loop';
 const DEFAULT_DATA_FILE = path.join(__dirname, 'testing_data', 'current_data.json');
 const MULTI_TAB_RUNNER = path.join(__dirname, 'multi-tab-runner.js');

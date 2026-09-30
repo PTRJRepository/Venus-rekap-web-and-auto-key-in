@@ -1,3 +1,8 @@
+// EPIPE + unhandledRejection/uncaughtException guards — worker ini di-fork oleh
+// parallel-runner; kalau runner induk mati, pipe putus dan tanpa guard ini
+// worker ikut mati sebelum menyelesaikan employee yang sedang diproses.
+require('./_process_guards');
+
 const AutomationEngine = require('./engine');
 const fs = require('fs');
 

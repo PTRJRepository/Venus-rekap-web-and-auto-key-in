@@ -13,6 +13,11 @@
  *   node delete-ot-runner.js 34986 34987
  */
 
+// EPIPE + unhandledRejection/uncaughtException guards — operasi delete panjang
+// dan menulis ke stdout; kalau pipe putus pertengahan jalan, tanpa guard ini
+// proses mati padahal masih ada DocID yang belum diproses.
+require('./_process_guards');
+
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
